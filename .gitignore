@@ -1,0 +1,22 @@
+.idea
+*.iml
+*.tfstate*
+.terraform*
+
+# Compiler files
+cache
+out/*
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/**/dry-run/
+/broadcast_old
+
+# Dotenv file
+.env
+
+# NPM
+node_modules
+
+# Artifacts for deployment
+!out/Counter.sol

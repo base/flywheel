@@ -1,0 +1,12 @@
+# .codeflow.yml is required in order to configure Heimdall.
+secure:
+  required_reviews: 1
+  codeowners_enabled: true
+  requires_mfa: true
+  branches:
+    - main
+build:
+  engines:
+    - None
+deploy:
+  engine: None

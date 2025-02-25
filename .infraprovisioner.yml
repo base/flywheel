@@ -1,0 +1,9 @@
+version: 2
+terraform_runner:
+  workspaces:
+    terraform/**:
+      watchlist:
+        - out/**
+      build:
+        included_files:
+          - out/**

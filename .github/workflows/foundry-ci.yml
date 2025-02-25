@@ -1,0 +1,59 @@
+name: foundry-ci
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "lib/**"
+      - "script/**"
+      - "src/**"
+      - "test/**"
+      - ".github/workflows/foundry-ci.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "lib/**"
+      - "script/**"
+      - "src/**"
+      - "test/**"
+      - ".github/workflows/foundry-ci.yml"
+  workflow_dispatch: {}
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Tests
+    runs-on:
+      - medium  # Replace with xlarge if compiling w/ IR
+      - default-config
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Foundry
+        uses: infra/cb-action-setup-external-tool@master
+        with:
+          tool_name: "foundry"
+          version: "2f698e4"
+
+      - name: Forge build
+        run: |
+          forge --version
+          forge build --skip test --sizes
+        id: build
+
+      - name: Forge tests
+        run: forge test -vvv
+        id: test
+
+      - name: Forge snapshot
+        run: |
+          forge snapshot
+          cat .gas-snapshot >> $GITHUB_STEP_SUMMARY
+        id: snapshot
