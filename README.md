@@ -1,199 +1,356 @@
-# contract-template
+<img src="./images/fwIcon.png" width="100" height="100" alt="Flywheel Protocol Icon">
 
-A boilerplate for developing, deploying and managing smart contracts at Coinbase using Foundry, and Terraform.
+# Flywheel Protocol
 
-> [!TIP]
-> For more help, visit https://docs.cbhq.net/onchain/SCM/getting-started
+For entire context of the project, please see latest version of Whitepaper [here](https://www.notion.so/spindlxyz/Flywheel-White-Paper-External-Edition-11af736e3d4f8078aee8e3912009e058). We experimented with different variations of implementations (including cross-chain communication with LayerZero, multi-payment support per campaign, etc.) but ultimately want to keep the onchain protocol straightforward for v1 while allowing publishers, attribution providers & advertisers to keep the main features they expect in an ad network.
+
+The ultimate goal of protocol is to create a permissionless and transparent system for attribution and monetization of advertising in web3.
+
+## Audit
+
+Working with [Macro](https://0xmacro.com/) to audit the protocol roughly later in November.
 
 ## Getting Started
 
-Note: Terraform files can be organized as desired and do not have to follow specific naming formats, as long as they exist under the `terraform` directory. We recommend naming the directories (aka workspaces) in `terraform` based on their environment / network (e.g. `dev` / `prod`).
+#### Clone
 
-For security and audit purposes, you must provision your keys in a separate PR before you can use them. Do not provision keys and use them in the same PR.
-
-### Provision K2 Keys
-
-See [`./terraform/dev/keychain.tf`](https://github.cbhq.net/smart-contracts/contract-template/blob/master/terraform/dev/keychain.tf) for a full example. Keys must be provisioned before they can be used for transactions.
-
-1. Update `coinbase_keychain_allocation_config` resource and set `name` to the current project name (the GitHub org/repo)
-    - Generally, you do not need to change the pool ID already defined in the example `dev` and `prod`
-2. Create a new `coinbase_keychain_key` resource, giving it a unique name based on its purpose
-3. Create a PR -> Get +1s -> Merge
-
-### Deploying Contract
-
-See [`./terraform/dev/counter.tf`](https://github.cbhq.net/smart-contracts/contract-template/blob/master/terraform/dev/counter.tf) for a full example.
-
-1. Delete / modify example `Counter.sol` contract in [`./src`](https://github.cbhq.net/smart-contracts/contract-template/blob/master/src/Counter.sol) and develop your own contract using [`forge`](#Foundry) (see below)
-2. Compile contract using `forge build`, this should create the compiled contract artifacts in the `out` directory
-3. Delete / modify example `counter.tf` and deploy your own contract using the `evm-smart-contract` module
-    - Rename `counter.tf` and the module name to your contract's name
-    - Set `keychain_signer_id` to the desired allocated key (`coinbase_keychain_key`) which will be signing the deployment transaction
-    - Update the `artifact_path` parameter in the module to your contract's artifact file in the `out` directory
-    - Update the `constructor_args` parameter if necessary (this corresponds to inputs for your contract's `constructor` which is called on deployment)
-    - Update `.gitignore` if your contract's artifact file in the `out` directory is not being included in git
-4. Create a PR -> Get +1s -> Merge
-
-### Making Contract Calls
-
-See `coinbase_evm_transaction.set_number` in [`./terraform/dev/counter.tf`](https://github.cbhq.net/smart-contracts/contract-template/blob/master/terraform/dev/counter.tf) for a full example.
-
-1. Create a new `coinbase_evm_transaction` resource
-2. Set `kms.keychain_signer_id` to the desired allocated key (`coinbase_keychain_key`) which will be signing the contract call transaction
-3. Set the address of the contract as well as its ABI, function name and arguments
-    - If your contract was deployed using `evm-smart-contract`, you can get these from the module's attributes (e.g. `module.counter.contract_address`, `module.counter.contract_abi`)
-    - Tuples are supported for arguments, but ensure they are wrapped in parentheses (e.g. `(1,true)`)
-4. Create a PR -> Get +1s -> Merge
-
-
-## Common Development Patterns
-
-### Versioning
-
-Transactions cannot be reverted once they have landed onchain. That is, your deployed contracts' bytecode cannot be updated or deleted. To deploy a new version of your contract, we recommend storing your contract artifacts namespaced by timestamp and creating new resources, also namespaced by timestamp. This will allow you to preserve a record of historical transactions and hence, deployments.
-
-For example:
+We use Git submodules, so be sure to clone both this repo and the linked submodules:
 
 ```
-.
-└── terraform/
-    └── dev/
-        ├── build/
-        │   ├── 20240501/
-        │   │   └── Counter.json
-        │   └── 20240601/
-        │       └── Counter.json
-        └── counter.tf
+git clone --recurse-submodules -j8 https://github.com/spindl-xyz/spindl-protocol.git
 ```
 
-Then, referencing `Counter.json` like so:
+#### Installation
 
-```hcl
-# Old / existing
-module "counter_20240501" {
-  source             = "git::https://github.cbhq.net/smart-contracts/modules.git//modules/evm-smart-contract?ref=v0.1.3"
-  keychain_signer = coinbase_keychain_key.counter_deployer
-  artifact_path      = "./build/20240501/Counter.json"
-  constructor_args = {
-    # ...
-  }
+1. We use foundry. Please install it by following the instructions [here](https://book.getfoundry.sh/getting-started/installation)
+
+#### Testing
+
+- We have mostly migrated from hardhat to foundry, but some remnants may still exist
+- coverage is not 100% yet but we are working on it
+
+```shell
+forge build # to build the project
+
+forge test -vv # for all tests
+
+forge test --match-test test_PushRewards -vv # for a specific test
+
+forge test --match-test test_registerPublisherCustom -vvv # for a specific test. very verbose. great for debuging events
+
+forge test --match-contract FlywheelCampaignsTest -vv # for a specific contract
+
+forge test --gas-report --match-test test_benchmark_100  # to see gas usage for all contracts
+
+forge coverage --ir-minimum # basic coverage report
+
+### 1. Detailed Line by Line Coverage Report
+forge coverage --ir-minimum --report lcov # detailed line by line coverage report
+### 2. Get HTML report
+genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category
+```
+
+## Protocol Overview & Architecture
+
+The main participants in the protocol are:
+
+- `Attribution Providers`: these are the entities that will be providing attribution for the campaigns.
+- `Advertisers`: these are the entities that will be creating campaigns and sending funds to them.
+- `Publishers`: these are the entities that will be promoting the campaigns and earning funds from them.
+- `Users`: these are the people that got converted via Publisher's traffic as a result of the campaign
+
+There are 3 main contracts:
+
+### FlywheelCampaigns
+
+- this is the main contract that advertisers, publishers and attribution providers will interact with
+- Advertisers can create campaigns (which triggers the creation of a `CampaignBalance` contract)
+- selected Attribution Providers can write onchain & offchain attribution events & manage certain states of campaigns
+- Publishers can claim their rewards via `claimRewards`
+- all of the campaign states are managed here
+
+### CampaignBalance
+
+- this contract is responsible for holding the balance of native ETH or ERC20s for a given campaign
+- it is strictly linked to a campaign created by `FlywheelCampaigns` and controlled by it
+
+### PublisherRegistry
+
+- this contract is responsible for registering publishers and keeping track of their inventory and payout addresses
+- Attribution Providers use this contract to get the payout address for a given publisher
+- Advertisers can use this as a reference to allowlist publishers for their campaigns
+
+### Simplified Diagram
+
+![architecture](./images/architectureOverview.png)
+
+### Basic Flow of Protocol
+
+- Both `PublisherRegistry` and `FlywheelCampaigns` are upgradeable contracts that will be owned by Flywheel protocol multisigs.
+- the multisig owner has minimal permissions for the protocol such as:
+  - whitelist erc20 tokenAddresses that can be used for payments
+  - update protocol fee via `updateProtocolFee`
+  - update treasury address via `updateTreasuryAddress`
+  - create custom publisher refCodes via `registerPublisherCustom` (we don't want to make this permissionless as it can lead to abuse)
+  - upgrade the `PublisherRegistry` and `FlywheelCampaigns` contracts via `upgradeTo`
+- `CampaignBalance` is deployed by `FlywheelCampaigns` each time a campaign is created via `createCampaign` and fully controlled by it. it is responsible for holding the balance of native ETH or ERC20s for a given campaign. No events are emitted from `CampaignBalance` contract & are only accessible for execution by `FlywheelCampaigns`
+
+#### PublisherRegistry Section
+
+##### Registering Publishers
+
+1. Publishers can openly register via `registerPublisher` without any permissions checks
+
+- this will generate a unique `refCode` which is used for a few reasons:
+  - we decided to go with a refCode because we needed a url friendly short identifier for publishers.
+  - publishers can use this refCode in a URL to identify themselves when driving traffic to the desired advertiser's outcome
+  - Attribution Providers will use this refCode to attribute events to the correct publisher when they write events via `attributeOnchainEvents` & `attributeOffchainEvents`
+  - advertisers can use this refCode to allowlist publishers for their campaigns
+
+2. Additionally Flywheel protocol owner (multisig) can create custom refCodes for publishers via `registerPublisherCustom` if needed.
+
+- this is useful for publishers that want their company name as a refCode & we don't want to leave this as a permissionless process in case of abuse
+
+3. Publishers can update their payout addresses and metadata info at any point via `updatePublisherDefaultPayout` & `updateMetadataUrl` & `updatePublisherOverridePayouts`
+
+#### FlywheelCampaigns & CampaignBalance Section
+
+##### Registering Attribution Providers
+
+2. Before starting a campaign, Attribution Providers must register themselves via `registerAttributionProvider` (in `FlywheelCampaigns`)
+
+- they will be assigned a unique id which advertisers will use to specify which attribution provider to use in the ad campaign.
+- each attribution provider has an owner & signer addresses.
+
+  - we recommend owner address to be a multi-sig that shouldn't ideally change. this address cannot be updated. If lost, a new attribution provider can be registered with a new address.
+  - signer address should be a secure signing address that will be used to sign offchain events on the backend. if this is compromised or changed, owner of Attribution Provider record can update it via `updateAttributionProviderSigner`
+
+##### Creating Campaign
+
+3. Advertisers create a campaign via `createCampaign` (in `FlywheelCampaigns`) with the desired parameters conversion configurations. We will support popular ERC20s and native ETH for payments
+
+- this is also where Advertisers can specify the `attributionProviderId` for the campaign
+- if wanting to use native ETH, the `tokenAddress` should be set to `address(0)`
+- Campaign status is initially set to either `CREATED` or `CAMPAIGN_READY` depending on the `_setToCampaignReady` flag. Advertiser can set to `CAMPAIGN_READY` if they want to start receiving attribution events right away. If they want to wait until a specific time, they can set it to `CREATED` and then update the status to `CAMPAIGN_READY` at a later time.
+- campaign creation will trigger the creation of a `CampaignBalance` contract which is used to hold the balance of the campaign.
+- Advertiser can `deactivateConversionConfig` or `addConversionConfig` to modify an existing campaign that isn't COMPLETED yet.
+- Advertisers can also set an allowlist of publisher ref codes for the campaign via `_allowedPublisherRefCodes` during campaign creation
+  - this is useful if advertiser wants to only reward certain publishers for the campaign and deter others
+  - if allowlist is not set, any publisher can be rewarded for driving conversions
+  - if allowlist is set, we can only add more publishers to the allowlist via `addAllowedPublisherRefCode` but cannot remove them. This is to prevent abuse of the allowlist feature by advertisers.
+
+##### Anatomy of Campaign & Conversion Configs
+
+- references `struct Campaign` & `struct ConversionConfig` in `FlywheelCampaigns.sol`. this is what advertisers need to provider to setup for a campaign.
+
+```solidity
+
+struct CampaignCreationInputs {
+ address _tokenAddress, // erc20 token address or address(0) as the payment type
+  uint256 _attributionProviderId, // this will be id = 1 for most cases as Spindl Attribution Provider will be what most people use. we want to make this permissionless in case someone wants to use a different attribution provider.
+  bool _setToCampaignReady, // if true, campaign will be set to CAMPAIGN_READY & campaign will start as soon as Attribution Provider activates it
+  string memory _campaignMetadataUrl, // extra metadata. ie. creative assets, publisher ref code allow/deny lists, etc.
+  ConversionConfigInput[] memory _conversionConfigs, // conversion configs for the campaign
+  string[] memory _allowedPublisherRefCodes // allowlist of publisher ref codes for the campaign
 }
 
-# New
-module "counter_20240601" {
-  source             = "git::https://github.cbhq.net/smart-contracts/modules.git//modules/evm-smart-contract?ref=v0.1.3"
-  keychain_signer = coinbase_keychain_key.counter_deployer
-  artifact_path      = "./build/20240601/Counter.json"
-  constructor_args = {
-    # ...
-  }
+ struct ConversionConfigInput {
+  EventType eventType; // ONCHAIN or OFFCHAIN
+  string eventName; // readable name for the conversion event. ie. "Page View", "Swap", "Deposit", "Mint", etc.
+  string conversionMetadataUrl; // url to extra metadata necessary for tracking conversions
+  uint256 publisherBidValue; // if rewardType=PERCENTAGE, value is between 0 and 10000 = %100.00. Otherwise, it is the flat fee amount
+  uint256 userBidValue; // if rewardType=PERCENTAGE, value is between 0 and 10000 = %100.00. Otherwise, it is the flat fee amount
+  RewardType rewardType; // FLAT_FEE, PERCENTAGE
+  CadenceEventType cadenceType; // ONE_TIME or RECURRING
 }
 ```
 
-We DO NOT recommend trying to "delete" the deployment (e.g. removing the `module.counter_20240501`) or updating an existing deployment (e.g. changing `artifact_path` or `constructor_args` in `module.counter_20240501`). The latter will result in a noop onchain, but will remove any references to the onchain transaction in the Terraform state. The former will result in a new onchain transaction, but will remove any references to the previous onchain transaction in the Terraform state.
+##### Funding Campaign & Checking Campaign Balance
 
-See [`smart-contracts/clear-pools`](https://github.cbhq.net/smart-contracts/clear-pools/tree/master/terraform) for full examples.
+4. Advertisers fund the campaign by sending the specified ERC20 or ETH to the `campaignBalanceAddress` address provided in the `createCampaign` call. This is the created `CampaignBalance` contract address.
 
-_As of June 2024, we are working on a smart contract inventory database which should ease versioning and artifact management in the long-term._
+- Advertisers don't have execute a specific function to add funds to a campaign. They simply add funds (ERC20 or ETH) to the `CampaignBalance` contract of their created campaign.
+- Anyone can check the balance of any campaign at any point via several functions (in `FlywheelCampaigns`)
+  - `getCampaignTotalBalance`: returns the remaining balance of the campaign _excluding_ any claimed rewards. I.e. 10K USDC was funded - 1K claimed = 9K remaining balance
+  - `getCampaignTotalFunded`: returns the total amount funded to the campaign _including_ any claimed rewards. I.e. 10K USDC was funded
 
+##### Activating Campaign & Writing Attribution Events
 
-### Public Repos
+5. Once Attribution Provider is ready to attribute events for the campaign & only if campaign status is `CAMPAIGN_READY`, they can update the campaign status to `ACTIVE` via `updateCampaignStatus` (in `FlywheelCampaigns`)
 
-If you would like to build your contracts in the open while still relying on Smart Contract Manager we suggest compiling your contracts in the public repo and simply copying the compiled contract artifacts to your internal `smart-contracts/` repo. That is, keep the source in the public repo and use the `smart-contracts/` repo for deployment / management config as well as artifacts.
+6. Publishers can now start promoting the campaign.
 
-_Also, as mentioned above, our work on a smart contract inventory database should provide us with better first-class support for deploying and managing contracts in public repos in the long-term._
+7. Attribution Providers will write onchain & offchain attirbution events via `attributeOffchainEvents` & `attributeOnchainEvents` (in `FlywheelCampaigns`)
 
-### Deterministic Contract Address
+- if the protocol fee is > 0, treasury will receive a portion of the rewards
+- only the Attribution Provider defined during campaign creation can write attribution events for the campaign
 
-The `evm-smart-contract` module supports deploying a contract at a deterministic location using a [CREATE2 Deterministic Deployment Proxy](https://github.com/Arachnid/deterministic-deployment-proxy). Simply specify a `create2_salt` as part of the resource's attributes. Example available on the [module docs](https://github.cbhq.net/smart-contracts/modules/blob/3d1803ff01e6de6c39085900e01c291e94d0b3db/examples/evm-smart-contract-simple/main.tf#L17).
+##### Anatomy of Attribution Event
 
-The `contract_address` attribute for both the aforementioned module and the `coinbase_evm_transaction` resource supports CREATE2. The attribute will be populated with the contract's address if the underlying transaction deploys a contract.
+- references `event OnchainConversion & OffchainConversion` in `FlywheelCampaigns.sol`. This is what attribution providers need to write to the protocol to be tracked correctly.
 
-It is also possible to determine the contract address ahead of time using the `coinbase_evm_contract_address` data source. See [docs](https://github.cbhq.net/infra/terraform-provider-coinbase/blob/3dec812ba7190861dd3b0ac1fbbe94e22ac1fe19/docs/examples/data-sources/coinbase_evm_contract_address/data-source.tf) for examples.
+```solidity
+struct Conversion {
+  uint256 campaignId, // the campaign id that was created via `createCampaign`
+  string publisherRefCode, // the publisher refCode that drove the conversion
+  uint8 conversionConfigId, // the specific conversion config id that was used for the campaign
+  bytes16 eventId, // a unique id for the event. we used bytes16 since it works nicely with postgres uuid type
+  address payoutAddress, // the payout address that will receive the reward. this is the publisher's payoutAddress if recipientType is 1 (publisher) or the user's address if recipientType is 2 (user)
+  uint256 payoutAmount, // the amount of the reward
+  uint256 protocolFeeAmount, // the amount of the protocol fee. i.e. if original reward was 100 and protocol fee is 10%, then payoutAmount is 90 and protocolFeeAmount is 10
+  uint8 recipientType, // the type of the recipient. 1 = publisher, 2 = user
+  string clickId, // used to identify the campaign and other attributes of the click associated with the ad for ad tracking and campaign attribution
+  uint32 timestamp, // unix timestamp of when the conversion event occurred (i.e swap happened on nov5, 2024)
 
-
-## Terraform
-
-[Infra Provisioner (TFR)](https://github.cbhq.net/infra/provisioner) is used for managing the smart contracts.
- 
-See [`terraform`](https://github.cbhq.net/smart-contracts/contract-template/tree/master/terraform/dev) for examples on provisioning Keychain keys, and using them for contract deployment as well as management.
-
-Changes are _applied_ after they are merged to the main branch.
-
-**Need help? Find us at #proj-smart-contract-manager**
-
-
-### Retrying
-
-- Trigger a replan: close and open PR
-- Trigger a reapply: comment `reapply-all` on your PR
-
-
-## Foundry
-
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-### Documentation
-
-https://book.getfoundry.sh/
-
-### Usage
-
-#### Build
-
-```shell
-$ forge build
+  // **below fields are only for onchain events**
+  address userAddress, // the address of the user that converted
+  bytes32 txHash, //the txHash of the event
+  uint256 txChainId, //  the chainId of the tx
+  uint256 txEventLogIndex // the eventLogIndex of the tx
+};
 ```
 
-#### Test
+##### Claiming Rewards
 
-```shell
-$ forge test
+8. Publishers & Users can claim their rewards via `claimRewards` (in `FlywheelCampaigns`)
+
+- we distinguish between publishers & users as reciepientType 1 = publisher, 2 = user. we may add more types in the future. Publishers are the ones that drove traffic to the outcome. Users are the ones that converted (ie. an advertiser can create a campaign where they reward the publisher for driving conversions and giving a user a reward as well).
+
+- Optionally, advertiser or Attribution Provider can push payments to publishers via `pushRewards` (in `FlywheelCampaigns`)
+- If the protocol fee is > 0, treasury can claim protocol fee rewards via `claimProtocolFees`. they can pass a list of campaignIds because the rewards are tracked on a per-campaign basis.
+
+9. Once Advertiser is ready to close the campaign, they can update the campaign status to `PENDING_COMPLETION`
+
+10. Once all attribution events are written (in a few days typically), Attribution Provider can update the campaign status to `COMPLETED`
+
+- We created this 2 step process so that Advertiser doesn't try to close the campaign before attribution is finalized (takes a few days typically)
+
+11. Any remaining balance in the campaign can be withdrawn by Advertiser via `withdrawRemainingBalance`
+
+12. Any remaining protocol fees can be claimed by treasury via `claimProtocolFees`
+
+13. In addition, there are are chances where advertisers can accidentally deposit the wrong token to `CampaignBalance`. I.e. A USDC camapign was created but ETH or another ERC20 was deposited instead. In this case, advertiser can use the function `withdrawAccidentalTokens` to retrieve the wrong token at any time no matter the campaign state.
+
+##### Anatomy of Rewards Tracking in Campaign
+
+- references `Campaign` in `FlywheelCampaigns.sol`. this is what is tracked onchain for a given campaign. The way we think about rewards tracking is in a few terms:
+- the goal is to track all the different balance, attribution states for both campaign & recipient (publisher & user) and to ensure that Attribution Provider cannot overattribute rewards.
+
+```solidity
+struct Campaign {
+  // ... other fields
+
+  // amount cumulatively attributed by attribution provider during `attributeOnchainEvents` & `attributeOffchainEvents`
+  // if AP writes 100, then 200, then 300, then totalAmountAllocated = 600
+  // also if Advertiser withdraws remaining balance, totalAmountAllocated is increased by the amount withdrawn as well
+  uint256 totalAmountAllocated;
+  // amount cumulatively claimed by publishers, users, & treasury via `claimRewards` or `pushRewards`
+  // i.e. if recipient 0x123 claimed 50 & recipient 0x456 claimed 100, then totalAmountClaimed = 150 for that specific campaign
+  uint256 totalAmountClaimed;
+  // balance of protocol fees for the campaign that can be claimed by treasury via `claimProtocolFees`. when claimed, the balance is reset to 0
+  uint256 protocolFeesBalance;
+  // balance for each publisher & user that they can claim rewards for. when claimed, the balance is reset to 0
+  mapping(address recipient => uint256 balance) payoutsBalance;
+  // amount cumulatively claimed by each recipient. i.e. if user 0x123 claimed 50, then 100, then 50, then payoutsClaimed[0x123] = 200
+  mapping(address recipient => uint256 claimed) payoutsClaimed;
+}
 ```
 
-#### Format
+### Campaign States
+
+_Dictionary:_
+
+- `only A` = only Advertiser can change this
+- `only AP` = only Attribution Provider can change this
+- `A & AP` = both Advertiser & Attribution Provider can change this
+- `+AW` = Attribution Writing can happen in these states
+
+#### 0. `NONE`
+
+- solidity default state even if not defined
+
+#### 1. `CREATED`
+
+- requirements: `only A`, only from `NONE` state
+- campaign has been created by advertiser. this is also a good time to fund the campaign altough we don't require it
+
+#### 2. `CAMPAIGN_READY`
+
+- requirements: `only A`, only from `CREATED` state
+- Advertiser sets this to signify they are ready to pay for conversion events. This can also be set during campaign creation
+
+#### 3. `ACTIVE`
+
+- requirements:
+  - from `CAMPAIGN_READY` state: `only AP`
+  - from `PAUSED` state: `A & AP`
+- campaign is set to active by Attribution Provider once they want to start running attribution events
+- can be set back to this state if campaign is currently `PAUSED`
+- `+AW` attribution writing can happen in this state
+
+#### 4. `PAUSED`
+
+- requirements: `A & AP`, only from `ACTIVE` state
+- advertiser can pause the campaign if Campaign is `ACTIVE` to stop receiving new attribution events
+- Attribution Provider can also set this state in case there is something wrong with the campaign
+- `+AW` attribution writing can happen in this state
+
+#### 5. `PENDING_COMPLETION`
+
+- requirements: `only A`, only from `ACTIVE` or `PAUSED` state
+- advertiser sets it to this state once they are ready to complete the campaign.
+- `+AW` attribution writing can happen in this state
+
+#### 6. `COMPLETED`
+
+- requirement 1: `only AP`, only from `PENDING_COMPLETION` state
+  - Attribution providers check if all events are attributed & set the campaign to processed. Advertisers can now withdraw any remaining balance from the campaign in this state
+- requirement 2: `only A`, only from `COMPLETED` or `CAMPAIGN_READY` state
+  - if advertiser creates & funds a campaign, but `AP` never activates it for any reason, advertiser will not be able to withdraw the campaign funds & campaign cannot be run. Therefore, until `AP` activates the campaign, advertiser can set the campaign to `COMPLETED` state to withdraw the funds in case there is a mistake with the `AP`.
+
+## Deployment
+
+Using forge to deploy & Verify (using etherscan)
+
+- if you don't want to verify, remove the `--verify` flag
 
 ```shell
-$ forge fmt
+
+## Deploy UUPS FlywheelCampaigns
+forge script scripts/DeployFlywheelCampaigns.s.sol \
+   --rpc-url <your_rpc_url> \
+   --etherscan-api-key <your_etherscan_api_key> \
+   --broadcast \
+   --verify
+
+
+### Deploy UUPS PublisherRegistry
+forge script scripts/DeployFlywheelPublisherRegistry.s.sol \
+   --rpc-url <your_rpc_url> \
+   --etherscan-api-key <your_etherscan_api_key> \
+   --broadcast \
+   --verify
+
+
+### Deploy DummyERC20 (for testing only obviously)
+forge script scripts/DeployDummyERC20.s.sol \
+   --rpc-url <your_rpc_url> \
+   --etherscan-api-key <your_etherscan_api_key> \
+   --broadcast \
+   --verify
+
 ```
 
-#### Gas Snapshots
+## Gas Benchmarking
+
+- this focused on attribution writing for 100 offchain & onchain events
 
 ```shell
-$ forge snapshot
-```
+# estimate USD cost based on hardcoded gas prices
+forge test --match-test test_benchmark_100 --fork-url https://mainnet.base.org -vv
 
-#### Anvil
-
-```shell
-$ anvil
-```
-
-#### Local Deploy
-
-With anvil running in a separate terminal, run this command (the example keys are outputted when you start up anvil):
-
-```shell
-$ forge create src/MyContract.sol:MyContract --private-key <anvil-example-key>
-```
-
-#### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-#### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+# Pure Gas Reports
+forge test --match-test test_benchmark_100 --fork-url https://mainnet.optimism.io --gas-report # optimism
+forge test --match-test test_benchmark_100 --fork-url https://mainnet.base.org --gas-report # base
+forge test --match-test test_benchmark_100 --fork-url https://arb1.arbitrum.io/rpc --gas-report # arbitrum
 ```
