@@ -3,7 +3,7 @@ terraform {
     scm = {
       # https://github.cbhq.net/terraform/provider-smart-contract-manager/
       source  = "coinbase/smart-contract-manager"
-      version = "~> 0.0.12"
+      version = "~> 0.0.16"
     }
   }
 }
@@ -11,5 +11,5 @@ terraform {
 provider "scm" {
   keychain_url      = "rpc.keychain.us-east-1.development.cbhq.net:8360"
   evm_rpc_url       = "https://ethereum-holesky-node.cbhq.net"
-  hodor_service_url = "https://hodor.cbhq.net:8000"
+  asset_inventory_service_url = "https://asset-inventory-service.cbhq.net:8000"
 }
