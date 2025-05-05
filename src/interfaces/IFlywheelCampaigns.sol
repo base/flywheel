@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 interface IFlywheelCampaigns {
   /// @notice Thrown when attempting to use an unsupported token address
@@ -33,6 +33,8 @@ interface IFlywheelCampaigns {
   error PublisherRefCodeNotAllowed();
   /// @notice Thrown when publisher ref code allowlist is not set
   error PublisherAllowlistNotSet();
+  /// @notice Thrown when publisher ref code does not exist
+  error InvalidPublisherRefCode();
 
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(
@@ -127,6 +129,8 @@ interface IFlywheelCampaigns {
 
   /// @notice Emitted when protocol fee is updated
   event UpdateProtocolFee(uint16 indexed protocolFee);
+
+  event UpdatePublisherRegistryAddress(address indexed publisherRegistryAddress);
 
   /// @notice Possible states a campaign can be in
   enum CampaignStatus {

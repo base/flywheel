@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -200,6 +200,27 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpg
   /// @return The payout address for the specified chain
   function getPublisherOverridePayout(string memory _refCode, uint256 _chainId) external view returns (address) {
     return publishers[_refCode].overridePayouts[_chainId];
+  }
+
+  /// @notice Gets the default payout address for a publisher
+  /// @param _refCode Ref code of the publisher
+  /// @return The default payout address
+  function getPublisherDefaultPayoutAddress(string memory _refCode) external view returns (address) {
+    return publishers[_refCode].defaultPayout;
+  }
+
+  function getPublisherPayoutAddress(string memory _refCode, uint256 _chainId) external view returns (address) {
+    return
+      publishers[_refCode].overridePayouts[_chainId] != address(0)
+        ? publishers[_refCode].overridePayouts[_chainId]
+        : publishers[_refCode].defaultPayout;
+  }
+
+  /// @notice Checks if a publisher exists
+  /// @param _refCode Ref code of the publisher to check
+  /// @return True if the publisher exists
+  function publisherExists(string memory _refCode) external view returns (bool) {
+    return publishers[_refCode].owner != address(0);
   }
 
   /// @notice Authorization for upgrades

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { CampaignBalance } from "./CampaignBalance.sol";
 import { IFlywheelCampaigns } from "./interfaces/IFlywheelCampaigns.sol";
+import { FlywheelPublisherRegistry } from "./FlywheelPublisherRegistry.sol";
 
 /// @notice Main contract for the Flywheel Protocol advertising system
 /// @dev Manages campaign lifecycle, attribution, and reward distribution
@@ -14,6 +15,7 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
   uint256 public nextAttributionProviderId;
   address public treasuryAddress;
   uint16 public protocolFee;
+  address public publisherRegistryAddress;
 
   uint16 public constant PROTOCOL_FEE_PRECISION = 10_000; // = 100.00% in basis points
   uint16 public constant MAX_PROTOCOL_FEE = 1_000; // = 10.00% in basis points
@@ -39,11 +41,15 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     address _owner,
     address _treasuryAddress,
     address[] memory _allowedTokenAddresses,
-    AttributionProvider[] memory _attributionProviders
+    AttributionProvider[] memory _attributionProviders,
+    address _publisherRegistryAddress
   ) external initializer {
     if (_treasuryAddress == address(0) || _owner == address(0)) {
       revert InvalidAddress();
     }
+
+    // if address(0), then we will not use the publisher registry to validate publisher ref codes, nor reference payout addresses
+    publisherRegistryAddress = _publisherRegistryAddress;
 
     __Ownable_init(_owner);
     __UUPSUpgradeable_init();
@@ -91,6 +97,21 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       revert Unauthorized();
     }
     _;
+  }
+
+  function isPublisherRegistryDefined() internal view returns (bool) {
+    return publisherRegistryAddress != address(0);
+  }
+
+  function isInvalidPublisherRefCode(string memory _publisherRefCode) internal view returns (bool) {
+    if (!isPublisherRegistryDefined()) {
+      return false;
+    }
+    FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistryAddress);
+    if (!registry.publisherExists(_publisherRefCode)) {
+      return true;
+    }
+    return false;
   }
 
   /// @notice Updates the treasury address for protocol fee collection
@@ -167,6 +188,13 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
 
     if (attributionProviders[_attributionProviderId].ownerAddress == address(0)) {
       revert AttributionProviderDoesNotExist();
+    }
+
+    // check if publisher ref codes are valid
+    for (uint256 i = 0; i < _allowedPublisherRefCodes.length; i++) {
+      if (isInvalidPublisherRefCode(_allowedPublisherRefCodes[i])) {
+        revert InvalidPublisherRefCode();
+      }
     }
 
     nextCampaignId++;
@@ -429,12 +457,31 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       // 1. onlyValidCampaignAttribution confirms campaign is in valid state & attribution provider is valid
       // 2. _onlyExistingConversionConfig confirms conversion config exists
       // 3. _onlyAllowedPublisherRefCode confirms publisher ref code is allowed (if set)
+
+      // if publisher registry is defined, validate publisher ref code exists
+      if (isInvalidPublisherRefCode(_events[i].publisherRefCode)) {
+        revert InvalidPublisherRefCode();
+      }
+
+      FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistryAddress);
+
+      // Get payout address from registry
+      address payoutAddress;
+      uint8 userType = _events[i].recipientType;
+      if (userType == 1 && isPublisherRegistryDefined()) {
+        // publisher
+        payoutAddress = registry.getPublisherPayoutAddress(_events[i].publisherRefCode, block.chainid);
+      } else {
+        // user
+        payoutAddress = _events[i].payoutAddress;
+      }
+
       // Calculate protocol fee and update recipient balance
       uint256 protocolFeeAmount = calculateProtocolFeeAmount(_events[i].payoutAmount);
       uint256 amountAfterFee = _events[i].payoutAmount - protocolFeeAmount;
 
       // Update recipient balance
-      campaigns[_campaignId].payoutsBalance[_events[i].payoutAddress] += amountAfterFee;
+      campaigns[_campaignId].payoutsBalance[payoutAddress] += amountAfterFee;
 
       // Accumulate totals
       totalNewProtocolFees += protocolFeeAmount;
@@ -445,7 +492,7 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
         _events[i].publisherRefCode,
         _events[i].conversionConfigId,
         _events[i].eventId,
-        _events[i].payoutAddress,
+        payoutAddress,
         amountAfterFee,
         protocolFeeAmount,
         _events[i].recipientType,
@@ -480,16 +527,31 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     for (uint256 i = 0; i < _events.length; i++) {
       _onlyExistingConversionConfig(_campaignId, _events[i].conversionConfigId);
       _onlyAllowedPublisherRefCode(_campaignId, _events[i].publisherRefCode);
-      // Validation done up to this point
-      // 1. onlyValidCampaignAttribution confirms campaign is in valid state & attribution provider is valid
-      // 2. _onlyExistingConversionConfig confirms conversion config exists
-      // 3. _onlyAllowedPublisherRefCode confirms publisher ref code is allowed (if set)
+
+      // if publisher registry is defined, validate publisher ref code exists
+      if (isInvalidPublisherRefCode(_events[i].publisherRefCode)) {
+        revert InvalidPublisherRefCode();
+      }
+
+      uint8 userType = _events[i].recipientType;
+      address payoutAddress;
+
+      FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistryAddress);
+
+      if (userType == 1 && isPublisherRegistryDefined()) {
+        // publisher
+        payoutAddress = registry.getPublisherDefaultPayoutAddress(_events[i].publisherRefCode);
+      } else {
+        // user
+        payoutAddress = _events[i].payoutAddress;
+      }
+
       // Calculate protocol fee and update recipient balance
       uint256 protocolFeeAmount = calculateProtocolFeeAmount(_events[i].payoutAmount);
       uint256 amountAfterFee = _events[i].payoutAmount - protocolFeeAmount;
 
       // Update recipient balance
-      campaigns[_campaignId].payoutsBalance[_events[i].payoutAddress] += amountAfterFee;
+      campaigns[_campaignId].payoutsBalance[payoutAddress] += amountAfterFee;
 
       // Accumulate totals
       totalNewProtocolFees += protocolFeeAmount;
@@ -500,7 +562,7 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
         _events[i].publisherRefCode,
         _events[i].conversionConfigId,
         _events[i].eventId,
-        _events[i].payoutAddress,
+        payoutAddress,
         amountAfterFee,
         protocolFeeAmount,
         _events[i].recipientType,
@@ -540,6 +602,12 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
   ) external onlyAdvertiser(_campaignId) {
     if (!campaigns[_campaignId].isAllowlistSet) {
       revert PublisherAllowlistNotSet();
+    }
+
+    // check if publisher ref code exists in registry
+    FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistryAddress);
+    if (isPublisherRegistryDefined() && !registry.publisherExists(_publisherRefCode)) {
+      revert InvalidPublisherRefCode();
     }
 
     if (campaigns[_campaignId].allowedPublisherRefCodes[_publisherRefCode]) {
@@ -756,4 +824,22 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
   /// @dev Only the owner can upgrade the implementation
   /// @param newImplementation Address of the new implementation contract
   function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+  /// @notice Updates the publisher registry address
+  /// @param _publisherRegistryAddress New address of the publisher registry
+  function updatePublisherRegistryAddress(address _publisherRegistryAddress) external onlyOwner {
+    if (_publisherRegistryAddress == address(0)) {
+      revert InvalidAddress();
+    }
+    publisherRegistryAddress = _publisherRegistryAddress;
+    emit UpdatePublisherRegistryAddress(_publisherRegistryAddress);
+  }
+
+  /// @notice Gets the payout address for a publisher from the registry
+  /// @param _refCode Publisher ref code
+  /// @return payoutAddress The payout address for the publisher
+  function getPublisherPayoutAddress(string memory _refCode) public view returns (address) {
+    FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistryAddress);
+    return registry.getPublisherPayoutAddress(_refCode, block.chainid);
+  }
 }

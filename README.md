@@ -34,7 +34,7 @@ forge build # to build the project
 
 forge test -vv # for all tests
 
-forge test --match-test test_PushRewards -vv # for a specific test
+forge test --match-test testFuzz_cannotOverattribute_both_token_types -vv # for a specific test
 
 forge test --match-test test_registerPublisherCustom -vvv # for a specific test. very verbose. great for debuging events
 

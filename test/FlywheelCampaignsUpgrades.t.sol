@@ -1,4 +1,4 @@
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import { FlywheelCampaigns } from "../src/FlywheelCampaigns.sol";
@@ -8,11 +8,16 @@ import { DummyERC20 } from "../src/test/DummyERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { FlywheelCampaignsV2 } from "../src/test/DummyUpgrades.sol";
+import { FlywheelPublisherRegistry } from "../src/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistryV2 } from "../src/test/DummyUpgrades.sol";
 
 contract FlywheelCampaignsUpgradesTest is Test {
   FlywheelCampaigns implementation;
   FlywheelCampaigns fwCampaigns;
   DummyERC20 dummyToken;
+  FlywheelPublisherRegistry publisherRegistryImplementation;
+  FlywheelPublisherRegistry publisherRegistry;
+  FlywheelPublisherRegistryV2 publisherRegistryV2;
 
   address private owner = address(this);
   address private treasury = address(0x3);
@@ -40,13 +45,25 @@ contract FlywheelCampaignsUpgradesTest is Test {
     FlywheelCampaigns.AttributionProvider[] memory providers = new FlywheelCampaigns.AttributionProvider[](1);
     providers[0] = IFlywheelCampaigns.AttributionProvider({ ownerAddress: spdApOwner, signerAddress: spdApSigner });
 
+    // Deploy publisher registry implementation
+    publisherRegistryImplementation = new FlywheelPublisherRegistry();
+
+    // Deploy publisher registry proxy
+    bytes memory publisherRegistryInitData = abi.encodeCall(FlywheelPublisherRegistry.initialize, (owner));
+
+    ERC1967Proxy publisherRegistryProxy = new ERC1967Proxy(
+      address(publisherRegistryImplementation),
+      publisherRegistryInitData
+    );
+    publisherRegistry = FlywheelPublisherRegistry(address(publisherRegistryProxy));
+
     // Deploy implementation
     implementation = new FlywheelCampaigns();
 
     // Deploy proxy
     bytes memory initData = abi.encodeCall(
       FlywheelCampaigns.initialize,
-      (owner, treasury, allowedTokenAddresses, providers)
+      (owner, treasury, allowedTokenAddresses, providers, address(publisherRegistry))
     );
 
     ERC1967Proxy proxyContract = new ERC1967Proxy(address(implementation), initData);
@@ -77,18 +94,21 @@ contract FlywheelCampaignsUpgradesTest is Test {
       emptyPubAllowlist1
     );
 
-    // Deploy V2 implementation
+    // Deploy V2 implementations
     implementationV2 = new FlywheelCampaignsV2();
+    publisherRegistryV2 = new FlywheelPublisherRegistryV2();
 
     vm.stopPrank();
   }
 
   function test_basic_upgrade() public {
     address originalFwCampaigns = address(fwCampaigns);
+    address originalPublisherRegistry = address(publisherRegistry);
 
     // Store initial state to verify after upgrade
     address initialOwner = fwCampaigns.owner();
     address initialTreasury = fwCampaigns.treasuryAddress();
+    address initialPublisherRegistry = fwCampaigns.publisherRegistryAddress();
 
     // Get initial campaign info
     (
@@ -106,23 +126,34 @@ contract FlywheelCampaignsUpgradesTest is Test {
     ) = fwCampaigns.campaigns(campaignId1);
 
     vm.startPrank(owner);
-    // Perform upgrade
+    // Perform upgrades
     UUPSUpgradeable(address(fwCampaigns)).upgradeToAndCall(address(implementationV2), "");
+    UUPSUpgradeable(address(publisherRegistry)).upgradeToAndCall(address(publisherRegistryV2), "");
 
     // Cast to V2 to access new functionality
     FlywheelCampaignsV2 fwCampaignsV2 = FlywheelCampaignsV2(address(fwCampaigns));
+    FlywheelPublisherRegistryV2 publisherRegistryV2Instance = FlywheelPublisherRegistryV2(address(publisherRegistry));
 
     // Test new V2 functionality
     assertEq(fwCampaignsV2.totalCampaignsCreated(), 0, "Initial total campaigns should be 0");
+    assertEq(publisherRegistryV2Instance.totalPublishersCreated(), 0, "Initial total publishers should be 0");
 
     fwCampaignsV2.incrementTotalCampaigns();
+    publisherRegistryV2Instance.incrementTotalPublishers();
+
     assertEq(fwCampaignsV2.totalCampaignsCreated(), 1, "Should be able to increment campaigns");
+    assertEq(publisherRegistryV2Instance.totalPublishersCreated(), 1, "Should be able to increment publishers");
 
     vm.stopPrank();
 
     // Verify core state was preserved after upgrade
     assertEq(fwCampaigns.owner(), initialOwner, "Owner should be preserved after upgrade");
     assertEq(fwCampaigns.treasuryAddress(), initialTreasury, "Treasury should be preserved after upgrade");
+    assertEq(
+      fwCampaigns.publisherRegistryAddress(),
+      initialPublisherRegistry,
+      "Publisher registry should be preserved after upgrade"
+    );
 
     // Verify campaign state was preserved
     (
@@ -149,13 +180,21 @@ contract FlywheelCampaignsUpgradesTest is Test {
     assertEq(conversionEventCountAfter, conversionEventCount, "Conversion event count should be preserved");
     assertEq(campaignMetadataUrlAfter, campaignMetadataUrl1, "Campaign metadata URL should be preserved");
     assertEq(protocolFeesBalanceAfter, protocolFeesBalance, "Accumulated protocol fees should be preserved");
+
     // Test that only owner can use new functionality
     vm.startPrank(address(0x123));
     vm.expectRevert("Only owner can increment");
     fwCampaignsV2.incrementTotalCampaigns();
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(0x123)));
+    publisherRegistryV2Instance.incrementTotalPublishers();
     vm.stopPrank();
 
     assertEq(address(fwCampaigns), originalFwCampaigns, "Proxy address should not change");
+    assertEq(
+      address(publisherRegistry),
+      originalPublisherRegistry,
+      "Publisher registry proxy address should not change"
+    );
     assertEq(isAllowlistSetAfter, isAllowlistSet, "Allowlist should be preserved");
   }
 
@@ -165,6 +204,9 @@ contract FlywheelCampaignsUpgradesTest is Test {
     // Expect the custom error OwnableUnauthorizedAccount with the caller's address
     vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(0xbad)));
     fwCampaigns.upgradeToAndCall(address(implementationV2), "");
+
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", address(0xbad)));
+    publisherRegistry.upgradeToAndCall(address(publisherRegistryV2), "");
 
     vm.stopPrank();
   }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.29;
+
 import { FlywheelPublisherRegistry } from "../FlywheelPublisherRegistry.sol";
 import { FlywheelCampaigns } from "../FlywheelCampaigns.sol";
 
@@ -18,6 +21,12 @@ contract FlywheelCampaignsV2 is FlywheelCampaigns {
 
 // Create a mock V2 contract for testing upgrades
 contract FlywheelPublisherRegistryV2 is FlywheelPublisherRegistry {
+  uint256 public totalPublishersCreated;
+
+  function incrementTotalPublishers() external onlyOwner {
+    totalPublishersCreated++;
+  }
+
   function version() external pure returns (string memory) {
     return "V2";
   }

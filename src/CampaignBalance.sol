@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Unlicense
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 using SafeERC20 for IERC20;
 
 event NativePaymentReceived(address from, uint256 amount);
+
 event AccidentalTokenWithdrawn(address token, address to, uint256 amount);
 
 error OnlyAccidentalToken();
@@ -13,6 +15,7 @@ error OnlyParent();
 error OnlyAdvertiser();
 /// @notice Manages balance and payments for individual advertising campaigns
 /// @dev Handles both native crypto and ERC20 token payments
+
 contract CampaignBalance {
   /// @notice Address of the FlywheelCampaigns contract that created this instance
   address public immutable parentAddress;

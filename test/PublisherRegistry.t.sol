@@ -1,4 +1,4 @@
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
@@ -352,5 +352,112 @@ contract FlywheelPublisherRegistryTest is Test {
     // Verify metadata was updated by new owner
     (, string memory registeredMetadataUrl, ) = pubRegistry.publishers(refCode);
     assertEq(registeredMetadataUrl, newMetadataUrl, "New owner's update failed");
+  }
+
+  function test_getPublisherPayoutAddress_WithOverride() public {
+    (string memory refCode, ) = registerDefaultPublisher();
+
+    // Verify that when an override exists for a chain, it returns the override address
+    address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode, optimismChainId);
+    assertEq(payoutAddress, optimismPayout, "Should return override payout address when it exists");
+  }
+
+  function test_getPublisherPayoutAddress_WithoutOverride() public {
+    (string memory refCode, ) = registerDefaultPublisher();
+    uint256 nonExistentChainId = 999; // Chain ID with no override
+
+    // Verify that when no override exists, it returns the default payout address
+    address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode, nonExistentChainId);
+    assertEq(payoutAddress, defaultPayout, "Should return default payout address when no override exists");
+  }
+
+  function test_getPublisherPayoutAddress_WithZeroOverride() public {
+    (string memory refCode, ) = registerDefaultPublisher();
+    uint256 newChainId = 100;
+
+    // Set a zero address override
+    vm.startPrank(publisherOwner);
+    pubRegistry.updatePublisherOverridePayout(refCode, newChainId, address(0));
+    vm.stopPrank();
+
+    // Verify that when override is zero address, it returns the default payout address
+    address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode, newChainId);
+    assertEq(payoutAddress, defaultPayout, "Should return default payout address when override is zero address");
+  }
+
+  function test_getPublisherPayoutAddress_MultipleOverrides() public {
+    // Register a publisher with multiple chain overrides
+    string memory refCode;
+    {
+      FlywheelPublisherRegistry.OverridePublisherPayout[]
+        memory overridePayouts = new FlywheelPublisherRegistry.OverridePublisherPayout[](3);
+
+      // Override for Optimism (chainId: 10)
+      overridePayouts[0] = FlywheelPublisherRegistry.OverridePublisherPayout(10, address(0x111));
+      // Override for Arbitrum (chainId: 42161)
+      overridePayouts[1] = FlywheelPublisherRegistry.OverridePublisherPayout(42161, address(0x222));
+      // Override for Base (chainId: 8453)
+      overridePayouts[2] = FlywheelPublisherRegistry.OverridePublisherPayout(8453, address(0x333));
+
+      vm.startPrank(publisherOwner);
+      (refCode, ) = pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout, overridePayouts);
+      vm.stopPrank();
+    }
+
+    // Verify each chain-specific override
+    assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 10), address(0x111), "Optimism override mismatch");
+    assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 42161), address(0x222), "Arbitrum override mismatch");
+    assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 8453), address(0x333), "Base override mismatch");
+
+    // Verify default payout is used for chains without overrides
+    assertEq(
+      pubRegistry.getPublisherPayoutAddress(refCode, 1), // Ethereum mainnet
+      defaultPayout,
+      "Should use default for Ethereum mainnet"
+    );
+    assertEq(
+      pubRegistry.getPublisherPayoutAddress(refCode, 137), // Polygon
+      defaultPayout,
+      "Should use default for Polygon"
+    );
+  }
+
+  function test_getPublisherPayoutAddress_UpdateOverrides() public {
+    (string memory refCode, ) = registerDefaultPublisher();
+
+    // Initially verify default behavior
+    assertEq(
+      pubRegistry.getPublisherPayoutAddress(refCode, 42161), // Arbitrum
+      defaultPayout,
+      "Should start with default payout"
+    );
+
+    // Add override for Arbitrum
+    vm.startPrank(publisherOwner);
+    pubRegistry.updatePublisherOverridePayout(refCode, 42161, address(0x222));
+    vm.stopPrank();
+
+    // Verify override is now used
+    assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 42161), address(0x222), "Should use new override");
+
+    // Update the override
+    vm.startPrank(publisherOwner);
+    pubRegistry.updatePublisherOverridePayout(refCode, 42161, address(0x333));
+    vm.stopPrank();
+
+    // Verify updated override is used
+    assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 42161), address(0x333), "Should use updated override");
+
+    // Remove override by setting to zero address
+    vm.startPrank(publisherOwner);
+    pubRegistry.updatePublisherOverridePayout(refCode, 42161, address(0));
+    vm.stopPrank();
+
+    // Verify falls back to default
+    assertEq(
+      pubRegistry.getPublisherPayoutAddress(refCode, 42161),
+      defaultPayout,
+      "Should fall back to default after removing override"
+    );
   }
 }

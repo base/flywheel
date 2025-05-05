@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.28;
+pragma solidity 0.8.29;
 
 import { console } from "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
@@ -8,11 +8,14 @@ import { IFlywheelCampaigns } from "../src/interfaces/IFlywheelCampaigns.sol";
 import { DummyERC20 } from "../src/test/DummyERC20.sol";
 import { CampaignBalance } from "../src/CampaignBalance.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { FlywheelPublisherRegistry } from "../src/FlywheelPublisherRegistry.sol";
 
 contract GasBenchmarkTest is Test {
   FlywheelCampaigns implementation;
   FlywheelCampaigns fwCampaigns;
   DummyERC20 dummyToken;
+  FlywheelPublisherRegistry publisherRegistryImplementation;
+  FlywheelPublisherRegistry publisherRegistry;
 
   address private owner = address(this);
   address private treasury = address(0x3);
@@ -22,6 +25,16 @@ contract GasBenchmarkTest is Test {
   uint256 private spdApId = 1;
   uint256 private totalFunded = 1000000 * 10 ** 18;
   string[] private emptyPubAllowlist = new string[](0);
+
+  // Default publisher addresses and ref codes
+  address private publisher1Address = address(0x123);
+  address private publisher2Address = address(0x456);
+  address private publisher3Address = address(0x789);
+  string private publisher1RefCode = "TEST123";
+  string private publisher2RefCode = "TEST456";
+  string private publisher3RefCode = "TEST789";
+
+  address private publisherOwner = address(0x111);
 
   address private campaignBalanceAddress;
   uint256 private campaignId;
@@ -40,11 +53,48 @@ contract GasBenchmarkTest is Test {
     IFlywheelCampaigns.AttributionProvider[] memory providers = new IFlywheelCampaigns.AttributionProvider[](1);
     providers[0] = IFlywheelCampaigns.AttributionProvider({ ownerAddress: spdApOwner, signerAddress: spdApSigner });
 
+    // Deploy publisher registry implementation
+    publisherRegistryImplementation = new FlywheelPublisherRegistry();
+
+    // Deploy publisher registry proxy
+    bytes memory publisherRegistryInitData = abi.encodeCall(FlywheelPublisherRegistry.initialize, (owner));
+
+    ERC1967Proxy publisherRegistryProxy = new ERC1967Proxy(
+      address(publisherRegistryImplementation),
+      publisherRegistryInitData
+    );
+    publisherRegistry = FlywheelPublisherRegistry(address(publisherRegistryProxy));
+
+    // Register publishers
+    FlywheelPublisherRegistry.OverridePublisherPayout[]
+      memory overridePayouts = new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
+    publisherRegistry.registerPublisherCustom(
+      publisher1RefCode,
+      publisherOwner,
+      "https://example.com",
+      publisher1Address,
+      overridePayouts
+    );
+    publisherRegistry.registerPublisherCustom(
+      publisher2RefCode,
+      publisherOwner,
+      "https://example.com",
+      publisher2Address,
+      overridePayouts
+    );
+    publisherRegistry.registerPublisherCustom(
+      publisher3RefCode,
+      publisherOwner,
+      "https://example.com",
+      publisher3Address,
+      overridePayouts
+    );
+
     // Deploy implementation and proxy
     implementation = new FlywheelCampaigns();
     bytes memory initData = abi.encodeCall(
       FlywheelCampaigns.initialize,
-      (owner, treasury, allowedTokenAddresses, providers)
+      (owner, treasury, allowedTokenAddresses, providers, address(publisherRegistry))
     );
     ERC1967Proxy proxyContract = new ERC1967Proxy(address(implementation), initData);
     fwCampaigns = FlywheelCampaigns(address(proxyContract));
@@ -96,14 +146,14 @@ contract GasBenchmarkTest is Test {
     vm.startPrank(spdApSigner);
     FlywheelCampaigns.OffchainEvent[] memory events = new FlywheelCampaigns.OffchainEvent[](100);
 
-    for (uint i = 0; i < 100; i++) {
+    for (uint256 i = 0; i < 100; i++) {
       events[i] = IFlywheelCampaigns.OffchainEvent({
         conversionConfigId: 1,
         eventId: bytes16(0x1234567890abcdef1234567890abcdef),
-        payoutAddress: address(uint160(0x1000 + i)), // Unique addresses
+        payoutAddress: address(0), // Unique addresses
         payoutAmount: 1000 * 10 ** 18,
         recipientType: 1,
-        publisherRefCode: string(abi.encodePacked("PUB", uint8(i))),
+        publisherRefCode: publisher1RefCode,
         clickId: string(abi.encodePacked("CLICK", uint8(i))),
         timestamp: uint32(1734565000 + i)
       });
@@ -124,14 +174,14 @@ contract GasBenchmarkTest is Test {
 
     bytes32[100] memory txHashes = _generateRealisticTxHashes();
 
-    for (uint i = 0; i < 100; i++) {
+    for (uint256 i = 0; i < 100; i++) {
       events[i] = IFlywheelCampaigns.OnchainEvent({
         conversionConfigId: 2,
         eventId: bytes16(0x1234567890abcdef1234567890abcdef),
-        payoutAddress: address(uint160(0x1000 + i)), // Unique addresses
+        payoutAddress: address(0), // Unique addresses
         payoutAmount: 1000 * 10 ** 18,
         recipientType: 1,
-        publisherRefCode: string(abi.encodePacked("PUB", uint8(i))),
+        publisherRefCode: publisher1RefCode,
         clickId: string(abi.encodePacked("CLICK", uint8(i))),
         userAddress: address(0x999),
         timestamp: uint32(1734565000 + i),
@@ -158,7 +208,7 @@ contract GasBenchmarkTest is Test {
       bytes32(0xb27d4c15dd4a8cf59a544bfe45bb4c7447c54f0b0e1c6a7c864641e71b8a1567)
     ];
 
-    for (uint i = 0; i < 100; i++) {
+    for (uint256 i = 0; i < 100; i++) {
       // Use a prefix and modify last few bytes to create unique but realistic looking hashes
       bytes32 baseHash = prefixes[i % 5];
       bytes32 uniqueHash = bytes32(uint256(baseHash) ^ (i + 1));
