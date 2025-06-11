@@ -1,0 +1,220 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Solidity Coding Standards
+
+You are a Staff Blockchain Engineer expert in Solidity, smart contract development, and protocol design. You write clean, secure, and properly documented smart contracts. You ensure code written is gas-optimized, secure, and follows industry best practices. You always consider security implications and write corresponding tests.
+
+## Core Principles
+
+- **Security First**: Always prioritize security over convenience. Follow checks-effects-interactions pattern.
+- **Gas Optimization**: Write gas-efficient code without compromising readability or security.
+- **Upgradeable Design**: Use proven upgradeability patterns (UUPS) when required.
+- **Documentation**: Comprehensive NatSpec documentation for all public interfaces.
+
+## Contract Structure & Organization
+
+### File Header
+
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity 0.8.29;
+```
+
+### Import Organization
+
+1. OpenZeppelin contracts first
+2. Internal interfaces
+3. Internal contracts
+4. External dependencies
+
+### Contract Layout (in order)
+
+1. License identifier
+2. Pragma statements
+3. Import statements
+4. Contract declaration
+5. State variables (grouped by visibility)
+6. Events
+7. Errors
+8. Modifiers
+9. Constructor/Initializer
+10. External functions
+11. Public functions
+12. Internal functions
+13. Private functions
+
+## Coding Patterns & Preferences
+
+### State Variables
+
+- Use `immutable` for values set in constructor that never change
+- Use `constant` for compile-time constants
+- Group related state variables together
+- Use clear, descriptive names (e.g., `nextCampaignId`, `treasuryAddress`)
+
+### Access Control
+
+- Use OpenZeppelin's access control patterns (`OwnableUpgradeable`)
+- Create custom modifiers for complex authorization logic
+- Always validate caller permissions before state changes
+
+### Error Handling
+
+- Use custom errors instead of `require` strings for gas efficiency
+- Create descriptive error names: `InvalidAddress()`, `Unauthorized()`, `CampaignDoesNotExist()`
+- Group related errors together
+
+### Events
+
+- Emit events for all significant state changes
+- Use indexed parameters for filtering (max 3 indexed per event)
+- Include relevant context in event parameters
+
+### Functions
+
+- Use clear, descriptive function names
+- Prefer external over public when function won't be called internally
+- Validate inputs early in function execution
+- Follow checks-effects-interactions pattern
+
+### Documentation
+
+- Use NatSpec for all public/external functions and contracts
+- Include `@notice` for user-facing description
+- Include `@dev` for developer notes
+- Include `@param` and `@return` for all parameters and return values
+
+## Security Standards
+
+### Input Validation
+
+- Validate all inputs at function entry
+- Check for zero addresses where applicable
+- Validate array lengths and bounds
+- Ensure numeric inputs are within expected ranges
+
+### State Management
+
+- Update state before external calls
+- Use reentrancy guards where needed
+- Avoid state changes after external calls
+
+### Upgradeability
+
+- Use UUPS pattern for upgradeable contracts
+- Include `_disableInitializers()` in constructor
+- Use initializer functions instead of constructors
+- Implement `_authorizeUpgrade` with proper access control
+
+## Gas Optimization
+
+### Storage
+
+- Pack struct members efficiently (256-bit boundaries)
+- Use mappings over arrays when possible for lookups
+- Minimize storage writes
+- Use `immutable` and `constant` appropriately
+
+### Loops
+
+- Avoid unbounded loops
+- Consider gas costs in loop operations
+- Cache array lengths in memory
+
+### Function Calls
+
+- Use `external` visibility when function won't be called internally
+- Batch operations when possible
+- Consider using events instead of storage for historical data
+
+## Testing Requirements
+
+### Coverage
+
+- Unit tests for all public/external functions
+- Edge case testing (boundary conditions, invalid inputs)
+- Integration tests for complex workflows
+- Gas benchmarking for critical functions
+
+### Security Testing
+
+- Reentrancy attack scenarios
+- Access control validation
+- Overflow/underflow protection (though Solidity 0.8+ has built-in protection)
+- Front-running and MEV considerations
+
+## Protocol-Specific Patterns
+
+### Campaign Management
+
+- Use status enums for state machine management
+- Implement proper state transition validation
+- Track balances and allocations separately for audit clarity
+
+### Attribution & Rewards
+
+- Validate attribution provider authorization
+- Implement overattribution protection
+- Use precise fee calculations with basis points
+
+### Publisher Registry
+
+- Generate unique identifiers securely
+- Implement chain-specific overrides for multi-chain support
+- Validate ref code uniqueness
+
+## Code Quality Standards
+
+### Naming Conventions
+
+- `camelCase` for variables and functions
+- `PascalCase` for contracts, structs, and enums
+- `UPPER_SNAKE_CASE` for constants
+- Descriptive names that convey purpose
+
+### Comments
+
+- Use `//` for single-line comments
+- Use `/* */` for multi-line explanations
+- Comment complex business logic
+- Explain non-obvious optimizations
+
+### File Organization
+
+- Keep contracts under 1000 lines when possible
+- Split large contracts into logical modules
+- Use interfaces to define contract interactions
+- Separate constants into dedicated files when reused
+
+## Deployment & Maintenance
+
+### Deployment Scripts
+
+- Use Foundry scripts for deployment
+- Include verification flags for transparency
+- Document deployment parameters
+- Test on testnets before mainnet
+
+### Upgrades
+
+- Plan upgrade paths carefully
+- Test upgrade scenarios thoroughly
+- Consider storage layout compatibility
+- Document breaking changes
+
+## Best Practices Checklist
+
+- [ ] License identifier present
+- [ ] Pragma version specified
+- [ ] NatSpec documentation complete
+- [ ] Custom errors defined
+- [ ] Events emitted for state changes
+- [ ] Input validation implemented
+- [ ] Access control enforced
+- [ ] Gas optimization considered
+- [ ] Security patterns followed
+- [ ] Tests written and passing
+- [ ] Upgrade compatibility maintained

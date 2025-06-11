@@ -3,13 +3,26 @@ pragma solidity 0.8.29;
 import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 
-import { CampaignBalance, NativePaymentReceived, OnlyAccidentalToken, AccidentalTokenWithdrawn, OnlyParent, OnlyAdvertiser } from "../src/CampaignBalance.sol";
+import { CampaignBalance, NativePaymentReceived, OnlyAccidentalToken, AccidentalTokenWithdrawn, OnlyParent, OnlyAdvertiser, TransferFailed } from "../src/CampaignBalance.sol";
 import { DummyERC20 } from "../src/test/DummyERC20.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+
+// Helper contract that rejects ETH transfers to test TransferFailed cases
+contract RejectETH {
+  // This contract will revert on receive/fallback to simulate failed ETH transfers
+  receive() external payable {
+    revert("ETH rejected");
+  }
+
+  fallback() external payable {
+    revert("ETH rejected");
+  }
+}
 
 contract CampaignBalanceTest is Test {
   CampaignBalance campaignBalance;
   DummyERC20 dummyToken;
+  RejectETH rejectETH;
   uint256 campaignId = 1;
 
   address private owner = address(this);
@@ -23,6 +36,7 @@ contract CampaignBalanceTest is Test {
     initialHolders[0] = owner;
     initialHolders[1] = advertiser;
     dummyToken = new DummyERC20(initialHolders);
+    rejectETH = new RejectETH();
 
     vm.stopPrank();
   }
@@ -110,6 +124,62 @@ contract CampaignBalanceTest is Test {
     // Verify the balance increased
     assertEq(address(campaignBalance).balance, initialBalance + 1.25 ether, "Balance should increase");
 
+    vm.stopPrank();
+  }
+
+  // Test fallback function with calldata
+  function test_fallbackFunctionWithCalldata() public {
+    vm.startPrank(owner);
+    campaignBalance = new CampaignBalance(campaignId, address(0), advertiser);
+
+    // Fund the sender first
+    vm.deal(owner, 1 ether);
+
+    // Get initial balance
+    uint256 initialBalance = address(campaignBalance).balance;
+
+    vm.expectEmit(true, true, false, true);
+    emit NativePaymentReceived(owner, 1 ether);
+
+    // Send ETH with calldata to trigger fallback function
+    (bool success, ) = address(campaignBalance).call{ value: 1 ether }("0x1234");
+    require(success, "ETH transfer failed");
+
+    // Verify the balance increased
+    assertEq(address(campaignBalance).balance, initialBalance + 1 ether, "Balance should increase");
+
+    vm.stopPrank();
+  }
+
+  // Test sendPayment failure when ETH transfer fails
+  function test_sendPayment_TransferFailed() public {
+    vm.startPrank(owner);
+    campaignBalance = new CampaignBalance(campaignId, address(0), advertiser);
+
+    // Fund the campaign with ETH
+    vm.deal(address(campaignBalance), 1 ether);
+
+    // Try to send payment to a contract that rejects ETH
+    vm.expectRevert(TransferFailed.selector);
+    campaignBalance.sendPayment(0.5 ether, address(rejectETH));
+
+    vm.stopPrank();
+  }
+
+  // Test withdrawAccidentalTokens failure when ETH transfer fails
+  function test_withdrawAccidentalTokens_TransferFailed() public {
+    vm.startPrank(owner);
+    // Create campaign with ERC20 token so we can withdraw ETH as "accidental"
+    campaignBalance = new CampaignBalance(campaignId, address(dummyToken), advertiser);
+
+    // Fund with ETH (accidental since campaign uses ERC20)
+    vm.deal(address(campaignBalance), 1 ether);
+    vm.stopPrank();
+
+    // Try to withdraw as advertiser to a contract that rejects ETH
+    vm.startPrank(advertiser);
+    vm.expectRevert(TransferFailed.selector);
+    campaignBalance.withdrawAccidentalTokens(address(0), address(rejectETH));
     vm.stopPrank();
   }
 

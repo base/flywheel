@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { CampaignBalance } from "./CampaignBalance.sol";
 import { IFlywheelCampaigns } from "./interfaces/IFlywheelCampaigns.sol";
 import { FlywheelPublisherRegistry } from "./FlywheelPublisherRegistry.sol";
 
 /// @notice Main contract for the Flywheel Protocol advertising system
 /// @dev Manages campaign lifecycle, attribution, and reward distribution
-contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable, IFlywheelCampaigns {
+contract FlywheelCampaigns is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable, IFlywheelCampaigns {
   uint256 public nextCampaignId;
   uint256 public nextAttributionProviderId;
   address public treasuryAddress;
@@ -51,18 +51,23 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     // if address(0), then we will not use the publisher registry to validate publisher ref codes, nor reference payout addresses
     publisherRegistryAddress = _publisherRegistryAddress;
 
-    __Ownable_init(_owner);
+    __Ownable2Step_init();
     __UUPSUpgradeable_init();
+
+    // Transfer ownership to the provided owner address
+    _transferOwnership(_owner);
 
     treasuryAddress = _treasuryAddress;
 
     allowedTokenAddresses[address(0)] = true; // native crypto is always allowed
-    for (uint256 i = 0; i < _allowedTokenAddresses.length; i++) {
+    uint256 allowedTokenAddressesLength = _allowedTokenAddresses.length;
+    for (uint256 i; i < allowedTokenAddressesLength; i++) {
       allowedTokenAddresses[_allowedTokenAddresses[i]] = true;
       emit UpdateAllowedTokenAddress(_allowedTokenAddresses[i], true);
     }
 
-    for (uint256 i = 0; i < _attributionProviders.length; i++) {
+    uint256 attributionProvidersLength = _attributionProviders.length;
+    for (uint256 i; i < attributionProvidersLength; i++) {
       _registerAttributionProvider(_attributionProviders[i].ownerAddress, _attributionProviders[i].signerAddress);
     }
   }
@@ -191,7 +196,8 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     }
 
     // check if publisher ref codes are valid
-    for (uint256 i = 0; i < _allowedPublisherRefCodes.length; i++) {
+    uint256 allowedPublisherRefCodesLength = _allowedPublisherRefCodes.length;
+    for (uint256 i; i < allowedPublisherRefCodesLength; i++) {
       if (isInvalidPublisherRefCode(_allowedPublisherRefCodes[i])) {
         revert InvalidPublisherRefCode();
       }
@@ -259,10 +265,11 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     campaign.protocolFeesBalance = 0;
 
     // for publisher ref code allowlist
-    if (allowedPublisherRefCodes.length > 0) {
+    if (allowedPublisherRefCodes.length != 0) {
       campaigns[campaignId].isAllowlistSet = true;
     }
-    for (uint256 i = 0; i < allowedPublisherRefCodes.length; i++) {
+    uint256 allowedPublisherRefCodesLength = allowedPublisherRefCodes.length;
+    for (uint256 i; i < allowedPublisherRefCodesLength; i++) {
       campaign.allowedPublisherRefCodes[allowedPublisherRefCodes[i]] = true;
       emit AllowedPublisherRefCodeAdded(campaignId, allowedPublisherRefCodes[i]);
     }
@@ -411,13 +418,14 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
   /// @param _campaignIds Array of campaign IDs to claim from
   /// @param _to Address to send the rewards to
   function claimRewards(uint256[] calldata _campaignIds, address _to) external {
-    for (uint256 i = 0; i < _campaignIds.length; i++) {
+    uint256 campaignIdsLength = _campaignIds.length;
+    for (uint256 i; i < campaignIdsLength; i++) {
       uint256 campaignId = _campaignIds[i];
       // anyone can try to claim rewards technically. however only if the following conditions are met, can the reward be claimed:
       // 1. the campaign exists
       // 2. the recipient is the msg.sender & has a non-zero balance in the campaign
       uint256 recipientRewardAmount = _claimReward(campaignId, msg.sender, _to);
-      if (recipientRewardAmount > 0) {
+      if (recipientRewardAmount != 0) {
         emit ClaimedRewards(_campaignIds[i], msg.sender, recipientRewardAmount, _to);
       }
     }
@@ -434,7 +442,8 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       revert Unauthorized();
     }
 
-    for (uint256 i = 0; i < _recipientAddresses.length; i++) {
+    uint256 recipientAddressesLength = _recipientAddresses.length;
+    for (uint256 i; i < recipientAddressesLength; i++) {
       uint256 recipientRewardAmount = _claimReward(_campaignId, _recipientAddresses[i], _recipientAddresses[i]);
       emit PushedRewards(_campaignId, _recipientAddresses[i], recipientRewardAmount, _recipientAddresses[i]);
     }
@@ -447,10 +456,11 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     uint256 _campaignId,
     OffchainEvent[] calldata _events
   ) external onlyValidCampaignAttribution(_campaignId) {
-    uint256 totalNewAttributedAmount = 0;
-    uint256 totalNewProtocolFees = 0;
+    uint256 totalNewAttributedAmount;
+    uint256 totalNewProtocolFees;
 
-    for (uint256 i = 0; i < _events.length; i++) {
+    uint256 eventsLength = _events.length;
+    for (uint256 i; i < eventsLength; i++) {
       _onlyExistingConversionConfig(_campaignId, _events[i].conversionConfigId);
       _onlyAllowedPublisherRefCode(_campaignId, _events[i].publisherRefCode);
       // Validation done up to this point
@@ -481,11 +491,13 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       uint256 amountAfterFee = _events[i].payoutAmount - protocolFeeAmount;
 
       // Update recipient balance
-      campaigns[_campaignId].payoutsBalance[payoutAddress] += amountAfterFee;
+      campaigns[_campaignId].payoutsBalance[payoutAddress] =
+        campaigns[_campaignId].payoutsBalance[payoutAddress] +
+        amountAfterFee;
 
       // Accumulate totals
-      totalNewProtocolFees += protocolFeeAmount;
-      totalNewAttributedAmount += _events[i].payoutAmount;
+      totalNewProtocolFees = totalNewProtocolFees + protocolFeeAmount;
+      totalNewAttributedAmount = totalNewAttributedAmount + _events[i].payoutAmount;
 
       emit OffchainConversion(
         _campaignId,
@@ -510,8 +522,10 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     }
 
     // Update totals once
-    campaigns[_campaignId].totalAmountAllocated += totalNewAttributedAmount;
-    campaigns[_campaignId].protocolFeesBalance += totalNewProtocolFees;
+    campaigns[_campaignId].totalAmountAllocated =
+      campaigns[_campaignId].totalAmountAllocated +
+      totalNewAttributedAmount;
+    campaigns[_campaignId].protocolFeesBalance = campaigns[_campaignId].protocolFeesBalance + totalNewProtocolFees;
   }
 
   /// @notice Records onchain attribution events
@@ -521,10 +535,11 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     uint256 _campaignId,
     OnchainEvent[] calldata _events
   ) external onlyValidCampaignAttribution(_campaignId) {
-    uint256 totalNewAttributedAmount = 0;
-    uint256 totalNewProtocolFees = 0;
+    uint256 totalNewAttributedAmount;
+    uint256 totalNewProtocolFees;
 
-    for (uint256 i = 0; i < _events.length; i++) {
+    uint256 eventsLength = _events.length;
+    for (uint256 i; i < eventsLength; i++) {
       _onlyExistingConversionConfig(_campaignId, _events[i].conversionConfigId);
       _onlyAllowedPublisherRefCode(_campaignId, _events[i].publisherRefCode);
 
@@ -551,11 +566,13 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       uint256 amountAfterFee = _events[i].payoutAmount - protocolFeeAmount;
 
       // Update recipient balance
-      campaigns[_campaignId].payoutsBalance[payoutAddress] += amountAfterFee;
+      campaigns[_campaignId].payoutsBalance[payoutAddress] =
+        campaigns[_campaignId].payoutsBalance[payoutAddress] +
+        amountAfterFee;
 
       // Accumulate totals
-      totalNewProtocolFees += protocolFeeAmount;
-      totalNewAttributedAmount += _events[i].payoutAmount;
+      totalNewProtocolFees = totalNewProtocolFees + protocolFeeAmount;
+      totalNewAttributedAmount = totalNewAttributedAmount + _events[i].payoutAmount;
 
       emit OnchainConversion(
         _campaignId,
@@ -584,8 +601,10 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     }
 
     // Update totals once
-    campaigns[_campaignId].totalAmountAllocated += totalNewAttributedAmount;
-    campaigns[_campaignId].protocolFeesBalance += totalNewProtocolFees;
+    campaigns[_campaignId].totalAmountAllocated =
+      campaigns[_campaignId].totalAmountAllocated +
+      totalNewAttributedAmount;
+    campaigns[_campaignId].protocolFeesBalance = campaigns[_campaignId].protocolFeesBalance + totalNewProtocolFees;
   }
 
   function calculateProtocolFeeAmount(uint256 _amount) public view returns (uint256) {
@@ -658,8 +677,8 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     }
 
     // update the campaign's attributed & total claimed state
-    campaigns[_campaignId].totalAmountAllocated += remainingBalance;
-    campaigns[_campaignId].totalAmountClaimed += remainingBalance;
+    campaigns[_campaignId].totalAmountAllocated = campaigns[_campaignId].totalAmountAllocated + remainingBalance;
+    campaigns[_campaignId].totalAmountClaimed = campaigns[_campaignId].totalAmountClaimed + remainingBalance;
 
     // transfer remaining balance to advertiser
     CampaignBalance(payable(campaigns[_campaignId].campaignBalanceAddress)).sendPayment(remainingBalance, _to);
@@ -674,14 +693,15 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       revert Unauthorized();
     }
 
-    for (uint256 i = 0; i < _campaignIds.length; i++) {
+    uint256 campaignIdsLength = _campaignIds.length;
+    for (uint256 i; i < campaignIdsLength; i++) {
       uint256 campaignId = _campaignIds[i];
       uint256 feesToClaim = campaigns[campaignId].protocolFeesBalance;
 
-      if (feesToClaim > 0) {
+      if (feesToClaim != 0) {
         // Reset accumulated fees to 0 before transfer
         campaigns[campaignId].protocolFeesBalance = 0;
-        campaigns[campaignId].totalAmountClaimed += feesToClaim;
+        campaigns[campaignId].totalAmountClaimed = campaigns[campaignId].totalAmountClaimed + feesToClaim;
 
         // Transfer fees from campaign balance contract
         CampaignBalance(payable(campaigns[campaignId].campaignBalanceAddress)).sendPayment(
@@ -729,9 +749,11 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
       return 0;
     }
 
-    campaigns[_campaignId].payoutsClaimed[_recipient] += recipientRewardAmount;
+    campaigns[_campaignId].payoutsClaimed[_recipient] =
+      campaigns[_campaignId].payoutsClaimed[_recipient] +
+      recipientRewardAmount;
     campaigns[_campaignId].payoutsBalance[_recipient] = 0;
-    campaigns[_campaignId].totalAmountClaimed += recipientRewardAmount;
+    campaigns[_campaignId].totalAmountClaimed = campaigns[_campaignId].totalAmountClaimed + recipientRewardAmount;
 
     CampaignBalance payout = CampaignBalance(payable(campaigns[_campaignId].campaignBalanceAddress));
     payout.sendPayment(recipientRewardAmount, _to);
@@ -769,7 +791,8 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
     uint8 conversionConfigId = 1;
 
     uint8[] memory conversionConfigIds = new uint8[](conversionConfigs.length);
-    for (uint256 i = 0; i < conversionConfigs.length; i++) {
+    uint256 conversionConfigsLength = conversionConfigs.length;
+    for (uint256 i; i < conversionConfigsLength; i++) {
       _createConversionConfig(campaignId, conversionConfigId, conversionConfigs[i]);
       campaigns[campaignId].conversionConfigCount++;
       conversionConfigIds[i] = conversionConfigId;
@@ -841,5 +864,11 @@ contract FlywheelCampaigns is Initializable, OwnableUpgradeable, UUPSUpgradeable
   function getPublisherPayoutAddress(string memory _refCode) public view returns (address) {
     FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistryAddress);
     return registry.getPublisherPayoutAddress(_refCode, block.chainid);
+  }
+
+  /// @notice Disabled to prevent accidental ownership renunciation
+  /// @dev Overrides OpenZeppelin's renounceOwnership to prevent accidental calls
+  function renounceOwnership() public pure override {
+    revert OwnershipRenunciationDisabled();
   }
 }

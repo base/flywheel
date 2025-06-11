@@ -20,3 +20,8 @@ node_modules
 
 # Artifacts for deployment
 !out/Counter.sol
+
+
+/coverage-report/**
+/coverage/**
+lcov.info

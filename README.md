@@ -184,6 +184,7 @@ struct CampaignCreationInputs {
 
 - if the protocol fee is > 0, treasury will receive a portion of the rewards
 - only the Attribution Provider defined during campaign creation can write attribution events for the campaign
+- if `publisherRegistryAddress` was defined during creation of `FlywheelCampaigns` contract, then we also validate that `publisherRefCode` exists
 
 ##### Anatomy of Attribution Event
 

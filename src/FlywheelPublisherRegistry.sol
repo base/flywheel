@@ -3,13 +3,16 @@ pragma solidity 0.8.29;
 
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @notice Thrown when caller doesn't have required permissions
 error Unauthorized();
 
 /// @notice Thrown when ref code is already taken
 error RefCodeAlreadyTaken();
+
+/// @notice Thrown when trying to renounce ownership (disabled for security)
+error OwnershipRenunciationDisabled();
 
 /// @notice Emitted when a new publisher is registered
 event PublisherRegistered(
@@ -33,7 +36,7 @@ event UpdatedPublisherOwner(string refCode, address newOwner);
 
 /// @notice Registry for publishers in the Flywheel Protocol
 /// @dev Manages publisher registration and payout address management
-contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, Ownable2StepUpgradeable {
   /// @notice Counter for generating unique publisher ref codes
   uint256 public nextPublisherNonce = 1;
   uint256 private constant REF_CODE_LENGTH = 8;
@@ -63,7 +66,9 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpg
   /// @notice Initializes the contract (replaces constructor)
   /// @param _owner Address that will own the contract
   function initialize(address _owner) external initializer {
-    __Ownable_init(_owner);
+    __Ownable2Step_init();
+    // Transfer ownership to the provided owner address
+    _transferOwnership(_owner);
     __UUPSUpgradeable_init();
   }
 
@@ -91,7 +96,8 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpg
     publishers[refCode].metadataUrl = _metadataUrl;
     publishers[refCode].defaultPayout = _defaultPayout;
 
-    for (uint256 i = 0; i < _overridePayouts.length; i++) {
+    uint256 overridePayoutsLength = _overridePayouts.length;
+    for (uint256 i; i < overridePayoutsLength; i++) {
       publishers[refCode].overridePayouts[uint256(_overridePayouts[i].chainId)] = _overridePayouts[i].payoutAddress;
 
       emit UpdatePublisherChainPayoutAddress(refCode, _overridePayouts[i].chainId, _overridePayouts[i].payoutAddress);
@@ -125,7 +131,8 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpg
     publishers[_refCode].metadataUrl = _metadataUrl;
     publishers[_refCode].defaultPayout = _defaultPayout;
 
-    for (uint256 i = 0; i < _overridePayouts.length; i++) {
+    uint256 overridePayoutsLength = _overridePayouts.length;
+    for (uint256 i; i < overridePayoutsLength; i++) {
       publishers[_refCode].overridePayouts[uint256(_overridePayouts[i].chainId)] = _overridePayouts[i].payoutAddress;
     }
     emit PublisherRegistered(_publisherOwner, _defaultPayout, _refCode, _metadataUrl, true);
@@ -185,7 +192,7 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpg
 
     // Use all 32 bytes of the hash to generate the ref code
     uint256 hashNum = uint256(hash);
-    for (uint256 i = 0; i < REF_CODE_LENGTH; i++) {
+    for (uint256 i; i < REF_CODE_LENGTH; i++) {
       // Use division instead of byte indexing to better distribute values
       str[i] = alphabet[hashNum % 36];
       hashNum = hashNum / 36;
@@ -226,6 +233,12 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, OwnableUpg
   /// @notice Authorization for upgrades
   /// @param newImplementation Address of new implementation
   function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+  /// @notice Disabled to prevent accidental ownership renunciation
+  /// @dev Overrides OpenZeppelin's renounceOwnership to prevent accidental calls
+  function renounceOwnership() public pure override {
+    revert OwnershipRenunciationDisabled();
+  }
 
   function _generateUniqueRefCode() internal returns (string memory) {
     string memory refCode;

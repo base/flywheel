@@ -2,7 +2,7 @@ pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
-import { FlywheelPublisherRegistry, Unauthorized, RefCodeAlreadyTaken } from "../src/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry, Unauthorized, RefCodeAlreadyTaken, OwnershipRenunciationDisabled } from "../src/FlywheelPublisherRegistry.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { PublisherRegistered, UpdatePublisherChainPayoutAddress, UpdatePublisherDefaultPayoutAddress, UpdateMetadataUrl } from "../src/FlywheelPublisherRegistry.sol";
 
@@ -458,6 +458,185 @@ contract FlywheelPublisherRegistryTest is Test {
       pubRegistry.getPublisherPayoutAddress(refCode, 42161),
       defaultPayout,
       "Should fall back to default after removing override"
+    );
+  }
+
+  // Tests for missing coverage lines
+
+  /// @notice Test renounceOwnership function should revert
+  function test_renounceOwnership_shouldRevert() public {
+    vm.prank(owner);
+    vm.expectRevert(OwnershipRenunciationDisabled.selector);
+    pubRegistry.renounceOwnership();
+  }
+
+  /// @notice Test return statement in _generateUniqueRefCode with no collision
+  function test_generateUniqueRefCode_firstTrySuccess() public {
+    // This tests the return statement on line 250 when no collision occurs
+    // Register a publisher, which calls _generateUniqueRefCode internally
+    vm.startPrank(publisherOwner);
+    (string memory refCode, uint256 publisherNonce) = pubRegistry.registerPublisher(
+      publisherMetadataUrl,
+      defaultPayout,
+      new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
+    );
+    vm.stopPrank();
+
+    // Verify the ref code was generated correctly
+    assertEq(refCode, pubRegistry.getRefCode(publisherNonce), "Ref code should match generated nonce");
+
+    // Verify publisher was registered with the generated ref code
+    (address registeredOwner, , ) = pubRegistry.publishers(refCode);
+    assertEq(registeredOwner, publisherOwner, "Publisher should be registered with generated ref code");
+  }
+
+  // Ownable2Step transfer ownership tests
+
+  /// @notice Test complete ownership transfer flow
+  function test_ownable2Step_transferOwnership_complete() public {
+    address newOwner = address(0x123);
+
+    // Step 1: Current owner transfers ownership
+    vm.prank(owner);
+    pubRegistry.transferOwnership(newOwner);
+
+    // Verify pending owner is set but owner hasn't changed yet
+    assertEq(pubRegistry.pendingOwner(), newOwner, "Pending owner should be set");
+    assertEq(pubRegistry.owner(), owner, "Original owner should still be owner");
+
+    // Step 2: New owner accepts ownership
+    vm.prank(newOwner);
+    pubRegistry.acceptOwnership();
+
+    // Verify ownership has been transferred
+    assertEq(pubRegistry.owner(), newOwner, "New owner should be owner");
+    assertEq(pubRegistry.pendingOwner(), address(0), "Pending owner should be cleared");
+  }
+
+  /// @notice Test only pending owner can accept ownership
+  function test_ownable2Step_acceptOwnership_onlyPendingOwner() public {
+    address newOwner = address(0x123);
+    address unauthorized = address(0x456);
+
+    // Transfer ownership
+    vm.prank(owner);
+    pubRegistry.transferOwnership(newOwner);
+
+    // Try to accept from unauthorized address
+    vm.prank(unauthorized);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
+    pubRegistry.acceptOwnership();
+
+    // Verify ownership hasn't changed
+    assertEq(pubRegistry.owner(), owner, "Owner should not have changed");
+    assertEq(pubRegistry.pendingOwner(), newOwner, "Pending owner should still be set");
+  }
+
+  /// @notice Test transfer ownership to zero address (renunciation via 2-step)
+  function test_ownable2Step_transferOwnership_zeroAddress() public {
+    vm.prank(owner);
+    // OpenZeppelin 5.x allows transferring to zero address (effectively renouncing ownership)
+    // This sets pendingOwner to zero address, and acceptOwnership would complete the renunciation
+    pubRegistry.transferOwnership(address(0));
+
+    // Verify pending owner is set to zero address
+    assertEq(pubRegistry.pendingOwner(), address(0), "Pending owner should be zero address");
+    assertEq(pubRegistry.owner(), owner, "Original owner should still be owner until accepted");
+
+    // Accept ownership (renunciation)
+    vm.prank(address(0));
+    pubRegistry.acceptOwnership();
+
+    // Verify ownership has been renounced
+    assertEq(pubRegistry.owner(), address(0), "Owner should be zero address after renunciation");
+    assertEq(pubRegistry.pendingOwner(), address(0), "Pending owner should be cleared");
+  }
+
+  /// @notice Test overwriting pending owner before acceptance
+  function test_ownable2Step_transferOwnership_overwrite() public {
+    address firstNewOwner = address(0x123);
+    address secondNewOwner = address(0x456);
+
+    // Transfer to first new owner
+    vm.prank(owner);
+    pubRegistry.transferOwnership(firstNewOwner);
+
+    assertEq(pubRegistry.pendingOwner(), firstNewOwner, "First pending owner should be set");
+
+    // Transfer to second new owner (overwrites first)
+    vm.prank(owner);
+    pubRegistry.transferOwnership(secondNewOwner);
+
+    assertEq(pubRegistry.pendingOwner(), secondNewOwner, "Second pending owner should overwrite first");
+
+    // First owner cannot accept anymore
+    vm.prank(firstNewOwner);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", firstNewOwner));
+    pubRegistry.acceptOwnership();
+
+    // Second owner can accept
+    vm.prank(secondNewOwner);
+    pubRegistry.acceptOwnership();
+
+    assertEq(pubRegistry.owner(), secondNewOwner, "Second owner should become owner");
+  }
+
+  /// @notice Test that only current owner can transfer ownership
+  function test_ownable2Step_transferOwnership_onlyOwner() public {
+    address unauthorized = address(0x123);
+    address newOwner = address(0x456);
+
+    vm.prank(unauthorized);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
+    pubRegistry.transferOwnership(newOwner);
+  }
+
+  /// @notice Test new owner can perform owner functions after acceptance
+  function test_ownable2Step_newOwnerCanPerformOwnerFunctions() public {
+    address newOwner = address(0x123);
+
+    // Transfer and accept ownership
+    vm.prank(owner);
+    pubRegistry.transferOwnership(newOwner);
+
+    vm.prank(newOwner);
+    pubRegistry.acceptOwnership();
+
+    // New owner should be able to register custom publishers
+    vm.prank(newOwner);
+    pubRegistry.registerPublisherCustom(
+      "newowner123",
+      address(0x789),
+      "https://newowner.com",
+      address(0x101),
+      new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
+    );
+
+    // Verify custom publisher was registered
+    (address registeredOwner, , ) = pubRegistry.publishers("newowner123");
+    assertEq(registeredOwner, address(0x789), "Custom publisher should be registered by new owner");
+  }
+
+  /// @notice Test old owner cannot perform owner functions after transfer
+  function test_ownable2Step_oldOwnerCannotPerformOwnerFunctions() public {
+    address newOwner = address(0x123);
+
+    // Transfer and accept ownership
+    vm.prank(owner);
+    pubRegistry.transferOwnership(newOwner);
+
+    vm.prank(newOwner);
+    pubRegistry.acceptOwnership();
+
+    // Old owner should not be able to register custom publishers
+    vm.prank(owner);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", owner));
+    pubRegistry.registerPublisherCustom(
+      "oldowner123",
+      address(0x789),
+      "https://oldowner.com",
+      address(0x101),
+      new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
     );
   }
 }

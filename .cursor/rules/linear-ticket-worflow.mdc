@@ -1,0 +1,65 @@
+---
+description: Describes the workflow to perform when asked to fix or implement a linear ticket. Use this when you are linked a linear ticket and asked to implement, before reading the ticket information from linear
+globs: 
+alwaysApply: false
+---
+# Linear Ticket Kickoff Workflow
+
+1. **Branch Management**
+    - Check the current branch and whether the user has unstaged changes using the git commands
+        - If there are unstaged changes, stash them
+        - If the branch is master, check out a branch using their first name from `git config user.email` along with the linear ticket code (e.g. zac/TBAF-1234)
+   - If not on `master`, prompt me to confirm whether to switch branches.
+
+2. **Issue Context**
+   - Read and summarize the contents of the Linear issue, including the title, description, and any relevant attachments or comments.
+   - Search for relevant context and examples in the repo of how something similar might have been implemented to inform implementation plan
+   - Look for any testing requirements, acceptance criteria, or edge cases mentioned in the ticket that should be covered by tests
+
+3. **Implementation Plan**
+   - If the code change is **simple** (e.g., a small bugfix, minor refactor, or clear one-file change):
+     1. Make the suggested code changes.
+     2. **Consider testing needs:**
+        - Check if existing tests need to be updated to reflect the changes
+        - Determine if new tests are needed (especially for bug fixes to prevent regression)
+        - If tests are needed, add or update them following the project's testing guidelines
+     3. Confirm with the user that these changes look good and ask if you can proceed with committing. If yes, proceed, if no, iterate with the user until they are satisfied.
+     4. Add/Stage the files (including any test files).
+     5. Make a commit with a clear, concise 1-line message following conventional commit syntax.
+     6. Read the create-pr rule and create a PR following the instructions in that rule
+   - If the code change is **complex** (e.g., involves multiple files, architectural changes, or ambiguous requirements):
+     1. Summarize the plan and proposed approach.
+     2. **Include testing strategy in the plan:**
+        - Identify what new functionality needs test coverage
+        - Determine if existing tests need updates or if new test files are required
+        - Consider integration tests for cross-component changes
+        - Plan for edge cases and error scenarios
+     3. Ask for my confirmation or feedback before proceeding.
+     4. Once aligned, proceed with the code changes, add/stage files (including tests), commit, and create a PR
+
+4. **General Rules**
+   - Always clarify with me if there is any ambiguity in the ticket or requirements.
+   - Prefer to automate the workflow as much as possible, but never make large or risky changes without my explicit confirmation.
+   - **Testing considerations:**
+     - Bug fixes should generally include regression tests to prevent the issue from reoccurring
+     - New features should have appropriate test coverage for core functionality
+     - When in doubt about testing requirements, ask the user for guidance
+     - Follow the project's existing testing patterns and conventions
+     - Use the unit-testing rule for specific testing guidelines when writing tests
+
+---
+
+**Example Workflow:**
+
+- User: "Let's start on SF-2436"
+- Assistant:
+  1. Checks the current branch and if there are staged changes
+  2. Checks out a new branch called zac/SF-2436
+  3. Reads and summarizes the Linear issue.
+  4. Proposes a plan (if complex) or makes the change (if simple).
+  5. Considers and implements any necessary test updates/additions.
+  6. Adds, commits, and opens a PR.
+
+---
+
+**Note:** This rule is intended to streamline the process of starting and working on Linear tickets, ensuring clarity, alignment, efficient delivery, and appropriate test coverage.

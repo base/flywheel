@@ -35,6 +35,8 @@ interface IFlywheelCampaigns {
   error PublisherAllowlistNotSet();
   /// @notice Thrown when publisher ref code does not exist
   error InvalidPublisherRefCode();
+  /// @notice Thrown when trying to renounce ownership (disabled for security)
+  error OwnershipRenunciationDisabled();
 
   /// @notice Emitted when a new campaign is created
   event CampaignCreated(

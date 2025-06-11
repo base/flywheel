@@ -13,6 +13,7 @@ event AccidentalTokenWithdrawn(address token, address to, uint256 amount);
 error OnlyAccidentalToken();
 error OnlyParent();
 error OnlyAdvertiser();
+error TransferFailed();
 /// @notice Manages balance and payments for individual advertising campaigns
 /// @dev Handles both native crypto and ERC20 token payments
 
@@ -69,7 +70,9 @@ contract CampaignBalance {
   function sendPayment(uint256 _amount, address _to) external onlyParent {
     if (tokenAddress == address(0)) {
       (bool success, ) = _to.call{ value: _amount }("");
-      require(success, "TRANSFER_FAILED");
+      if (!success) {
+        revert TransferFailed();
+      }
     } else {
       IERC20(tokenAddress).safeTransfer(_to, _amount);
     }
@@ -99,14 +102,16 @@ contract CampaignBalance {
 
     if (_token == address(0)) {
       uint256 amount = address(this).balance;
-      if (amount > 0) {
+      if (amount != 0) {
         (bool success, ) = _to.call{ value: amount }("");
-        require(success, "TRANSFER_FAILED");
+        if (!success) {
+          revert TransferFailed();
+        }
         emit AccidentalTokenWithdrawn(_token, _to, amount);
       }
     } else {
       uint256 amount = IERC20(_token).balanceOf(address(this));
-      if (amount > 0) {
+      if (amount != 0) {
         IERC20(_token).safeTransfer(_to, amount);
         emit AccidentalTokenWithdrawn(_token, _to, amount);
       }

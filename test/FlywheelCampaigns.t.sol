@@ -4513,4 +4513,229 @@ contract FlywheelCampaignsTest is Test {
     );
     vm.stopPrank();
   }
+
+  // Tests for missing coverage lines
+
+  /// @notice Test InvalidStatusTransition when non-advertiser tries to set COMPLETED status
+  function test_updateCampaignStatus_invalidStatusTransition_nonAdvertiserCompleted() public {
+    // Create campaign in CREATED state
+    vm.startPrank(advertiser);
+    (uint256 newCampaignId, , ) = fwCampaigns.createCampaign(
+      address(dummyToken),
+      spdApId,
+      false, // don't set to CAMPAIGN_READY during creation
+      campaignMetadataUrl1,
+      dummyConversionEvents1,
+      emptyPubAllowlist1
+    );
+    vm.stopPrank();
+
+    // Verify campaign is in CREATED state
+    (IFlywheelCampaigns.CampaignStatus status, , , , , , , , , , ) = fwCampaigns.campaigns(newCampaignId);
+    assertEq(uint8(status), uint8(IFlywheelCampaigns.CampaignStatus.CREATED));
+
+    // Attribution provider tries to set to COMPLETED from CREATED (should fail)
+    vm.prank(spdApSigner);
+    vm.expectRevert(IFlywheelCampaigns.InvalidStatusTransition.selector);
+    fwCampaigns.updateCampaignStatus(newCampaignId, IFlywheelCampaigns.CampaignStatus.COMPLETED);
+
+    // Also test from CAMPAIGN_READY state
+    vm.prank(advertiser);
+    fwCampaigns.updateCampaignStatus(newCampaignId, IFlywheelCampaigns.CampaignStatus.CAMPAIGN_READY);
+
+    // Attribution provider tries to set to COMPLETED from CAMPAIGN_READY (should fail)
+    vm.prank(spdApSigner);
+    vm.expectRevert(IFlywheelCampaigns.InvalidStatusTransition.selector);
+    fwCampaigns.updateCampaignStatus(newCampaignId, IFlywheelCampaigns.CampaignStatus.COMPLETED);
+  }
+
+  /// @notice Test early return in addAllowedPublisherRefCode when publisher ref code is already allowed
+  function test_addAllowedPublisherRefCode_alreadyAllowed() public {
+    // Create campaign with allowlist
+    string[] memory allowedRefCodes = new string[](1);
+    allowedRefCodes[0] = publisher1RefCode;
+
+    vm.startPrank(advertiser);
+    (uint256 campaignId, , ) = fwCampaigns.createCampaign(
+      address(dummyToken),
+      spdApId,
+      true,
+      campaignMetadataUrl1,
+      dummyConversionEvents1,
+      allowedRefCodes
+    );
+
+    // Verify publisher ref code is already allowed
+    assertTrue(
+      fwCampaigns.isPublisherRefCodeAllowed(campaignId, publisher1RefCode),
+      "Publisher ref code should be allowed"
+    );
+
+    // Try to add the same publisher ref code again (should trigger early return)
+    // This should not revert and should not emit an event
+    vm.recordLogs();
+    fwCampaigns.addAllowedPublisherRefCode(campaignId, publisher1RefCode);
+
+    // Check that no AllowedPublisherRefCodeAdded event was emitted
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+    bool foundEvent = false;
+    for (uint256 i = 0; i < logs.length; i++) {
+      if (logs[i].topics[0] == keccak256("AllowedPublisherRefCodeAdded(uint256,string)")) {
+        foundEvent = true;
+        break;
+      }
+    }
+    assertFalse(foundEvent, "No AllowedPublisherRefCodeAdded event should be emitted for duplicate ref code");
+
+    // Verify publisher ref code is still allowed
+    assertTrue(
+      fwCampaigns.isPublisherRefCodeAllowed(campaignId, publisher1RefCode),
+      "Publisher ref code should still be allowed"
+    );
+    vm.stopPrank();
+  }
+
+  /// @notice Test MaxConversionConfigsReached error when trying to create too many conversion configs
+  function test_createCampaign_maxConversionConfigsReached() public {
+    // Create array with more than 255 conversion configs (uint8.max = 255)
+    IFlywheelCampaigns.ConversionConfigInput[] memory tooManyConfigs = new IFlywheelCampaigns.ConversionConfigInput[](
+      256
+    );
+
+    // Fill the array with valid conversion configs
+    for (uint256 i = 0; i < 256; i++) {
+      tooManyConfigs[i] = IFlywheelCampaigns.ConversionConfigInput({
+        eventType: IFlywheelCampaigns.EventType.OFFCHAIN,
+        eventName: string.concat("TestEvent", vm.toString(i)),
+        conversionMetadataUrl: "https://example.com",
+        publisherBidValue: 1000,
+        userBidValue: 0,
+        rewardType: IFlywheelCampaigns.RewardType.FLAT_FEE,
+        cadenceType: IFlywheelCampaigns.CadenceEventType.ONE_TIME
+      });
+    }
+
+    vm.startPrank(advertiser);
+    vm.expectRevert(IFlywheelCampaigns.MaxConversionConfigsReached.selector);
+    fwCampaigns.createCampaign(
+      address(dummyToken),
+      spdApId,
+      true,
+      campaignMetadataUrl1,
+      tooManyConfigs,
+      emptyPubAllowlist1
+    );
+    vm.stopPrank();
+  }
+
+  /// @notice Test getPublisherPayoutAddress function
+  function test_getPublisherPayoutAddress() public {
+    // Test getting payout address for existing publisher
+    address payoutAddress = fwCampaigns.getPublisherPayoutAddress(publisher1RefCode);
+    assertEq(payoutAddress, publisher1Address, "Should return correct payout address");
+
+    // Test getting payout address for another publisher
+    address payoutAddress2 = fwCampaigns.getPublisherPayoutAddress(publisher2RefCode);
+    assertEq(payoutAddress2, publisher2Address, "Should return correct payout address for second publisher");
+
+    // Test getting payout address for auto-generated publisher
+    address payoutAddress3 = fwCampaigns.getPublisherPayoutAddress(autoGeneratedRefCode1);
+    assertEq(
+      payoutAddress3,
+      autoGeneratedAddress1,
+      "Should return correct payout address for auto-generated publisher"
+    );
+  }
+
+  /// @notice Test renounceOwnership function is disabled
+  function test_renounceOwnership_disabled() public {
+    vm.prank(owner);
+    vm.expectRevert(abi.encodeWithSelector(IFlywheelCampaigns.OwnershipRenunciationDisabled.selector));
+    fwCampaigns.renounceOwnership();
+  }
+
+  /// @notice Test Ownable2Step transfer ownership functionality
+  function test_ownable2Step_transferOwnership() public {
+    address newOwner = address(0x999999);
+
+    // Current owner should be the original owner
+    assertEq(fwCampaigns.owner(), owner, "Current owner should be the original owner");
+
+    // Step 1: Current owner transfers ownership to new owner
+    vm.prank(owner);
+    fwCampaigns.transferOwnership(newOwner);
+
+    // At this point, pending owner should be set but owner hasn't changed yet
+    assertEq(fwCampaigns.owner(), owner, "Owner should still be original owner");
+    assertEq(fwCampaigns.pendingOwner(), newOwner, "Pending owner should be set to new owner");
+
+    // New owner can't perform owner functions yet
+    vm.prank(newOwner);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", newOwner));
+    fwCampaigns.updateProtocolFee(500);
+
+    // Step 2: New owner accepts ownership
+    vm.prank(newOwner);
+    fwCampaigns.acceptOwnership();
+
+    // Now ownership should be transferred
+    assertEq(fwCampaigns.owner(), newOwner, "Owner should now be the new owner");
+    assertEq(fwCampaigns.pendingOwner(), address(0), "Pending owner should be reset to zero address");
+
+    // New owner should be able to perform owner functions
+    vm.prank(newOwner);
+    fwCampaigns.updateProtocolFee(500);
+    assertEq(fwCampaigns.protocolFee(), 500, "Protocol fee should be updated by new owner");
+
+    // Original owner should no longer be able to perform owner functions
+    vm.prank(owner);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", owner));
+    fwCampaigns.updateProtocolFee(600);
+  }
+
+  /// @notice Test unauthorized transfer ownership
+  function test_ownable2Step_transferOwnership_unauthorized() public {
+    address unauthorizedUser = address(0x888888);
+    address newOwner = address(0x999999);
+
+    // Unauthorized user cannot transfer ownership
+    vm.prank(unauthorizedUser);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorizedUser));
+    fwCampaigns.transferOwnership(newOwner);
+
+    // Owner should remain unchanged
+    assertEq(fwCampaigns.owner(), owner, "Owner should remain unchanged");
+    assertEq(fwCampaigns.pendingOwner(), address(0), "Pending owner should remain zero address");
+  }
+
+  /// @notice Test accepting ownership by wrong address
+  function test_ownable2Step_acceptOwnership_unauthorized() public {
+    address newOwner = address(0x999999);
+    address wrongAddress = address(0x888888);
+
+    // Start ownership transfer
+    vm.prank(owner);
+    fwCampaigns.transferOwnership(newOwner);
+
+    // Wrong address tries to accept ownership
+    vm.prank(wrongAddress);
+    vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", wrongAddress));
+    fwCampaigns.acceptOwnership();
+
+    // Ownership should not have changed
+    assertEq(fwCampaigns.owner(), owner, "Owner should still be original owner");
+    assertEq(fwCampaigns.pendingOwner(), newOwner, "Pending owner should still be set");
+  }
+
+  /// @notice Test transfer ownership to zero address
+  function test_ownable2Step_transferOwnership_zeroAddress() public {
+    vm.prank(owner);
+    // OpenZeppelin 5.x allows transferring to zero address (effectively renouncing ownership)
+    // This sets pendingOwner to zero address, and acceptOwnership would complete the renunciation
+    fwCampaigns.transferOwnership(address(0));
+
+    // Verify pending owner is set to zero address
+    assertEq(fwCampaigns.pendingOwner(), address(0), "Pending owner should be zero address");
+    assertEq(fwCampaigns.owner(), owner, "Original owner should still be owner until acceptOwnership is called");
+  }
 }

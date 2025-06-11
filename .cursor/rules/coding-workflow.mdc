@@ -1,0 +1,22 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Coding workflow preferences
+- Focus on the areas of code relevant to the task
+- Do not touch code that is unrelated to the task
+- Avoid making major changes to the patterns and architecture of how a feature works, after it has shown to work well, unless explicitly instructed
+- Always think about what other methods and areas of code might be affected by code changes 
+- Keep code simple and readable
+- Write thorough tests for all functionalities you wrote
+- Follow Solidity coding standards as defined in `solidity-coding-standards`
+
+Follow this sequential workflow:
+1. Write or update existing Solidity contracts following security best practices
+2. Write the incremental unit-tests using Foundry to cover contract logic you wrote
+3. Test that unit-tests pass with `forge test`
+4. Verify it passes all existing tests by running `forge test` command
+   - If updating relevant to a specific test you can use `forge test --match-test TEST_NAME_HERE`
+5. Ensure your unit-tests have good code coverage for the code you have written with `forge coverage`
+6. Consider gas optimization and run gas reports with `forge test --gas-report` for critical functions
