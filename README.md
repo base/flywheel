@@ -2,13 +2,15 @@
 
 # Flywheel Protocol
 
-For entire context of the project, please see latest version of Whitepaper [here](https://www.notion.so/spindlxyz/Flywheel-White-Paper-External-Edition-11af736e3d4f8078aee8e3912009e058). We experimented with different variations of implementations (including cross-chain communication with LayerZero, multi-payment support per campaign, etc.) but ultimately want to keep the onchain protocol straightforward for v1 while allowing publishers, attribution providers & advertisers to keep the main features they expect in an ad network.
+For entire context of the project, please see latest version of Whitepaper [here](https://www.notion.so/spindlxyz/Flywheel-White-Paper-v0-3-192f736e3d4f804f995cfb54ae78a8ef). We experimented with different variations of implementations (including cross-chain communication with LayerZero, multi-payment support per campaign, etc.) but ultimately want to keep the onchain protocol straightforward for v1 while allowing publishers, attribution providers & advertisers to keep the main features they expect in an ad network.
 
 The ultimate goal of protocol is to create a permissionless and transparent system for attribution and monetization of advertising in web3.
 
+Initially the plan is to deploy on Base L2 in the near future. If the industry trends changes and there will be a need to deploy on other L2s in the midterm, we will highly consider it.
+
 ## Audit
 
-Working with [Macro](https://0xmacro.com/) to audit the protocol roughly later in November.
+We worked with [Macro](https://0xmacro.com/) to audit the protocol roughly in November. Since then, we added 2-3 minor features and fixed gas optimization and low risk nits.
 
 ## Getting Started
 
@@ -26,8 +28,8 @@ git clone --recurse-submodules -j8 https://github.com/spindl-xyz/spindl-protocol
 
 #### Testing
 
-- We have mostly migrated from hardhat to foundry, but some remnants may still exist
-- coverage is not 100% yet but we are working on it
+- We test and build using foundry
+- coverage is close to 100%
 
 ```shell
 forge build # to build the project
@@ -66,8 +68,9 @@ There are 3 main contracts:
 - this is the main contract that advertisers, publishers and attribution providers will interact with
 - Advertisers can create campaigns (which triggers the creation of a `CampaignBalance` contract)
 - selected Attribution Providers can write onchain & offchain attribution events & manage certain states of campaigns
-- Publishers can claim their rewards via `claimRewards`
+- Publishers as well as Referents (person that clicked on an ad and got a 1 USDC reward for converting) can claim their rewards via `claimRewards`
 - all of the campaign states are managed here
+- when this constract is initialized, it can optionally accept PublisherRegistry address. for our Base L2 launch, this will be the case. This is done to verify that publisher ref codes that are provided during attritbuion are valid
 
 ### CampaignBalance
 
@@ -77,6 +80,7 @@ There are 3 main contracts:
 ### PublisherRegistry
 
 - this contract is responsible for registering publishers and keeping track of their inventory and payout addresses
+- a signer address is available during instantiating of contract so that we can have our backend execute `registerPublisherCustom` method
 - Attribution Providers use this contract to get the payout address for a given publisher
 - Advertisers can use this as a reference to allowlist publishers for their campaigns
 
@@ -87,6 +91,7 @@ There are 3 main contracts:
 ### Basic Flow of Protocol
 
 - Both `PublisherRegistry` and `FlywheelCampaigns` are upgradeable contracts that will be owned by Flywheel protocol multisigs.
+- For Base L2 deployment, we will provide Publisher Registry address so our `FlywheelCampaigns` can validate publisher ref codes. If we deploy FlywheelCampaigns to other L2s, we will likely not provider this address as we want `PublisherRegistry` to have one source of truth
 - the multisig owner has minimal permissions for the protocol such as:
   - whitelist erc20 tokenAddresses that can be used for payments
   - update protocol fee via `updateProtocolFee`
@@ -102,14 +107,19 @@ There are 3 main contracts:
 1. Publishers can openly register via `registerPublisher` without any permissions checks
 
 - this will generate a unique `refCode` which is used for a few reasons:
+
   - we decided to go with a refCode because we needed a url friendly short identifier for publishers.
   - publishers can use this refCode in a URL to identify themselves when driving traffic to the desired advertiser's outcome
   - Attribution Providers will use this refCode to attribute events to the correct publisher when they write events via `attributeOnchainEvents` & `attributeOffchainEvents`
   - advertisers can use this refCode to allowlist publishers for their campaigns
 
-2. Additionally Flywheel protocol owner (multisig) can create custom refCodes for publishers via `registerPublisherCustom` if needed.
+- **RefCode Generation**: refCodes are 8-character strings generated using keccak256 hash of an incrementing `nextPublisherNonce` counter (starting at 1), then encoded to base36 (0-9, a-z). The system automatically finds the next unique refCode by incrementing the nonce until an unused refCode is found.
 
+2. Additionally Flywheel protocol owner (multisig) and assigned signer address can create custom refCodes for publishers via `registerPublisherCustom` if needed.
+
+- this allows specifying a custom refCode (e.g., "spindl", "company") instead of using the auto-generated one
 - this is useful for publishers that want their company name as a refCode & we don't want to leave this as a permissionless process in case of abuse
+- function validates that the custom refCode isn't already taken before registration
 
 3. Publishers can update their payout addresses and metadata info at any point via `updatePublisherDefaultPayout` & `updateMetadataUrl` & `updatePublisherOverridePayouts`
 
@@ -120,6 +130,7 @@ There are 3 main contracts:
 2. Before starting a campaign, Attribution Providers must register themselves via `registerAttributionProvider` (in `FlywheelCampaigns`)
 
 - they will be assigned a unique id which advertisers will use to specify which attribution provider to use in the ad campaign.
+- initially only Spindl will be the verified attribution provider. Anyone will be able to register but Advertisers will only work with trusted Attribution Providers. Once we do a soft launch that is successful, we will consider recommending other Attribution Providers that will attribute correctly
 - each attribution provider has an owner & signer addresses.
 
   - we recommend owner address to be a multi-sig that shouldn't ideally change. this address cannot be updated. If lost, a new attribution provider can be registered with a new address.
