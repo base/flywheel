@@ -126,7 +126,7 @@ contract FlywheelTest is Test {
 
         // Check internal Flywheel balance
         uint256 publisherInternalBalance = flywheel.balances(address(token), publisher1);
-        uint256 protocolFeeInternalBalance = flywheel.balances(address(token), protocolFeeRecipient);
+        uint256 protocolFeeInternalBalance = flywheel.collectibleFees(address(token));
         assertEq(publisherInternalBalance, 100e18, "Publisher should have 100 tokens in Flywheel");
         assertEq(protocolFeeInternalBalance, 5 * 10 ** 18, "Protocol should have 5 tokens in Flywheel (5% of 100)");
 
@@ -134,7 +134,7 @@ contract FlywheelTest is Test {
         vm.stopPrank();
         vm.startPrank(publisher1);
         uint256 balanceBefore = token.balanceOf(publisher1);
-        flywheel.distribute(address(token), publisher1);
+        flywheel.distributePayouts(address(token), publisher1);
         uint256 balanceAfter = token.balanceOf(publisher1);
         assertEq(balanceAfter - balanceBefore, 100 * 10 ** 18, "Publisher should receive 100 tokens after distribute");
         vm.stopPrank();
@@ -194,7 +194,7 @@ contract FlywheelTest is Test {
 
         // Check internal Flywheel balance
         uint256 publisherInternalBalance = flywheel.balances(address(token), publisher2);
-        uint256 protocolFeeInternalBalance = flywheel.balances(address(token), protocolFeeRecipient);
+        uint256 protocolFeeInternalBalance = flywheel.collectibleFees(address(token));
         assertEq(publisherInternalBalance, 200 * 10 ** 18, "Publisher should have 200 tokens in Flywheel");
         assertEq(protocolFeeInternalBalance, 10 * 10 ** 18, "Protocol should have 10 tokens in Flywheel (5% of 200)");
 
@@ -202,7 +202,7 @@ contract FlywheelTest is Test {
         vm.stopPrank();
         vm.startPrank(publisher2);
         uint256 balanceBefore = token.balanceOf(publisher2);
-        flywheel.distribute(address(token), publisher2);
+        flywheel.distributePayouts(address(token), publisher2);
         uint256 balanceAfter = token.balanceOf(publisher2);
         assertEq(balanceAfter - balanceBefore, 200 * 10 ** 18, "Publisher should receive 200 tokens after distribute");
         vm.stopPrank();
@@ -254,7 +254,7 @@ contract FlywheelTest is Test {
         // Distribute tokens to publisher
         vm.startPrank(publisher1);
         uint256 balanceBefore = token.balanceOf(publisher1);
-        flywheel.distribute(address(token), publisher1);
+        flywheel.distributePayouts(address(token), publisher1);
         uint256 balanceAfter = token.balanceOf(publisher1);
 
         assertEq(balanceAfter - balanceBefore, 50 * 10 ** 18, "Publisher should receive 50 tokens");
@@ -274,7 +274,7 @@ contract FlywheelTest is Test {
         // Withdraw remaining tokens
         vm.startPrank(advertiser);
         uint256 advertiserBalanceBefore = token.balanceOf(advertiser);
-        flywheel.withdraw(campaign, address(token));
+        flywheel.withdrawRemainder(campaign, address(token));
         uint256 advertiserBalanceAfter = token.balanceOf(advertiser);
 
         // Should receive remaining tokens minus attributed amount and protocol fee
@@ -284,6 +284,67 @@ contract FlywheelTest is Test {
             expectedRemaining,
             "Advertiser should receive remaining tokens"
         );
+        vm.stopPrank();
+    }
+
+    function test_collectFees() public {
+        vm.startPrank(advertiser);
+
+        // Create campaign
+        bytes memory initData = "";
+        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+
+        // Open campaign
+        flywheel.openCampaign(campaign);
+        vm.stopPrank();
+
+        vm.startPrank(attributor);
+        flywheel.openCampaign(campaign);
+
+        // Fund campaign by transferring tokens directly to the TokenStore
+        token.transfer(campaign, INITIAL_BALANCE);
+
+        // Create attribution data to generate fees
+        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](1);
+
+        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+            eventId: bytes16(0x1234567890abcdef1234567890abcdef),
+            clickId: "click_fees",
+            conversionConfigId: 1,
+            publisherRefCode: "PUB_FEES",
+            timestamp: uint32(block.timestamp),
+            recipientType: 1
+        });
+
+        Flywheel.Payout memory payout = Flywheel.Payout({
+            recipient: publisher1,
+            amount: 100 * 10 ** 18 // 100 tokens
+        });
+
+        attributions[0] = ConversionAttestation.Attribution({payout: payout, conversion: conversion, logBytes: ""});
+
+        bytes memory attributionData = abi.encode(attributions);
+
+        // Attribute conversion to generate protocol fees
+        flywheel.attribute(campaign, address(token), attributionData);
+
+        // Check that fees are available
+        uint256 availableFees = flywheel.collectibleFees(address(token));
+        assertEq(availableFees, 5 * 10 ** 18, "Should have 5 tokens in collectible fees (5% of 100)");
+
+        vm.stopPrank();
+
+        // Collect fees as protocol fee recipient
+        vm.startPrank(protocolFeeRecipient);
+        uint256 balanceBefore = token.balanceOf(protocolFeeRecipient);
+        flywheel.collectFees(address(token));
+        uint256 balanceAfter = token.balanceOf(protocolFeeRecipient);
+
+        assertEq(balanceAfter - balanceBefore, 5 * 10 ** 18, "Protocol fee recipient should receive 5 tokens");
+
+        // Check that fees are cleared
+        uint256 remainingFees = flywheel.collectibleFees(address(token));
+        assertEq(remainingFees, 0, "Fees should be cleared after collection");
         vm.stopPrank();
     }
 }

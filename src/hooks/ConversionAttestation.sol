@@ -135,9 +135,7 @@ contract ConversionAttestation is AttributionHook, Ownable2Step {
     {
         Attribution[] memory attributions = abi.decode(attributionData, (Attribution[]));
 
-        // Initialize payouts array with correct length
         payouts = new Flywheel.Payout[](attributions.length);
-
         for (uint256 i = 0; i < attributions.length; i++) {
             payouts[i] = attributions[i].payout;
             bytes memory logBytes = attributions[i].logBytes;

@@ -70,6 +70,9 @@ contract Flywheel {
     /// @notice Mapping from token address to recipient address to balance amount
     mapping(address token => mapping(address recipient => uint256 balance)) public balances;
 
+    /// @notice Collectible protocol fees
+    mapping(address token => uint256 amount) public collectibleFees;
+
     /// @notice Emitted when a new campaign is created
     ///
     /// @param campaign Address of the created campaign
@@ -94,14 +97,27 @@ contract Flywheel {
     /// @param recipient Address receiving the payout
     /// @param token Address of the payout token
     /// @param amount Amount of tokens attributed
-    event PayoutAttributed(address indexed campaign, address token, address recipient, uint256 amount);
+    event PayoutAllocated(address indexed campaign, address token, address recipient, uint256 amount);
+
+    /// @notice Emitted when a fee is attributed to a recipient
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the payout token
+    /// @param amount Amount of tokens attributed
+    event FeeAllocated(address indexed campaign, address token, uint256 amount);
 
     /// @notice Emitted when accumulated balance is distributed to a recipient
     ///
     /// @param recipient Address receiving the distribution
     /// @param token Address of the distributed token
     /// @param amount Amount of tokens distributed
-    event PayoutDistributed(address indexed token, address recipient, uint256 amount);
+    event PayoutsDistributed(address token, address recipient, uint256 amount);
+
+    /// @notice Emitted when accumulated fees are collected
+    ///
+    /// @param token Address of the collected token
+    /// @param amount Amount of tokens collected
+    event FeesCollected(address token, uint256 amount);
 
     /// @notice Emitted when advertiser withdraws remaining tokens from a finalized campaign
     ///
@@ -269,13 +285,13 @@ contract Flywheel {
             uint256 amount = payouts[i].amount;
             balances[payoutToken][recipient] += amount;
             totalPayouts += amount;
-            emit PayoutAttributed(campaign, payoutToken, recipient, amount);
+            emit PayoutAllocated(campaign, payoutToken, recipient, amount);
         }
 
         // Add protocol fee to balances
         uint256 protocolFee = (totalPayouts * protocolFeeBps) / MAX_FEE_BPS;
-        balances[payoutToken][protocolFeeRecipient] += protocolFee;
-        emit PayoutAttributed(campaign, payoutToken, protocolFeeRecipient, protocolFee);
+        collectibleFees[payoutToken] += protocolFee;
+        emit FeeAllocated(campaign, payoutToken, protocolFee);
 
         // Transfer tokens to recipient, attributor, and protocol
         TokenStore(campaign).sendTokens(payoutToken, address(this), totalPayouts + protocolFee);
@@ -287,11 +303,24 @@ contract Flywheel {
     /// @param recipient Address of the recipient
     ///
     /// @dev Transfers the full balance for the token-recipient pair and resets it to zero
-    function distribute(address token, address recipient) external {
+    function distributePayouts(address token, address recipient) external {
         uint256 balance = balances[token][recipient];
         delete balances[token][recipient];
         SafeERC20.safeTransfer(IERC20(token), recipient, balance);
-        emit PayoutDistributed(token, recipient, balance);
+        emit PayoutsDistributed(token, recipient, balance);
+    }
+
+    /// @notice Collects fees from a campaign
+    ///
+    /// @param token Address of the token to collect fees from
+    ///
+    /// @dev Only protocol fee recipient can collect fees
+    function collectFees(address token) external {
+        if (msg.sender != protocolFeeRecipient) revert Unauthorized();
+        uint256 amount = collectibleFees[token];
+        delete collectibleFees[token];
+        SafeERC20.safeTransfer(IERC20(token), protocolFeeRecipient, amount);
+        emit FeesCollected(token, amount);
     }
 
     /// @notice Allows advertiser to withdraw remaining tokens from a finalized campaign
@@ -300,7 +329,7 @@ contract Flywheel {
     /// @param token Address of the token to withdraw
     ///
     /// @dev Only advertiser can withdraw from FINALIZED campaigns
-    function withdraw(address campaign, address token) external {
+    function withdrawRemainder(address campaign, address token) external {
         // Check sender is advertiser
         if (!_isAdvertiser(campaign)) revert Unauthorized();
 
