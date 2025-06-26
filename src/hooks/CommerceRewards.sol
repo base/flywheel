@@ -7,7 +7,13 @@ import {Flywheel} from "../Flywheel.sol";
 import {AttributionHook} from "./AttributionHook.sol";
 import {MetadataMixin} from "./MetadataMixin.sol";
 
+/// @title CommerceRewards
+///
+/// @notice Attribution hook for processing commerce payment rewards
+///
+/// @dev Handles attribution based on payment information from AuthCaptureEscrow
 contract CommerceRewards is AttributionHook, MetadataMixin {
+    /// @notice Maximum basis points (100%)
     uint16 public constant MAX_BPS = 10_000;
 
     /// @notice Address of the AuthCaptureEscrow contract
@@ -16,10 +22,19 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
     /// @notice Address of the operator who must process payments for this rewards system
     address public immutable operator;
 
+    /// @notice Reward basis points for calculating payouts
     uint16 public immutable rewardBps;
 
+    /// @notice Mapping from campaign address to payment info hash to reward status
     mapping(address campaign => mapping(bytes32 paymentInfoHash => bool rewarded)) public rewardedPayments;
 
+    /// @notice Constructor for CommerceRewards
+    ///
+    /// @param protocol_ Address of the protocol contract
+    /// @param owner_ Address of the contract owner
+    /// @param authCaptureEscrow_ Address of the AuthCaptureEscrow contract
+    /// @param operator_ Address of the authorized operator
+    /// @param rewardBps_ Reward basis points for calculating payouts
     constructor(address protocol_, address owner_, address authCaptureEscrow_, address operator_, uint16 rewardBps_)
         AttributionHook(protocol_)
         MetadataMixin(owner_)
@@ -29,6 +44,25 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
         rewardBps = rewardBps_;
     }
 
+    /// @notice Returns the URI for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    ///
+    /// @return uri The URI for the campaign
+    function campaignURI(address campaign) public view override returns (string memory uri) {
+        return _campaignURI(campaign);
+    }
+
+    /// @notice Processes attribution for commerce payments
+    ///
+    /// @param campaign Address of the campaign
+    /// @param attributor Address of the attribution provider (unused in this implementation)
+    /// @param payoutToken Address of the token to be distributed
+    /// @param attributionData Encoded payment information from AuthCaptureEscrow
+    ///
+    /// @return payouts Array of payouts to be distributed
+    ///
+    /// @dev Decodes payment information and calculates rewards based on payment amounts
     function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         override
