@@ -132,7 +132,7 @@ contract GasBenchmarkTest is Test {
         flywheel = new Flywheel(500, address(uint160(123)));
 
         // Deploy hook
-        hook = new ConversionAttestation(address(flywheel), address(this));
+        hook = new ConversionAttestation(address(flywheel), address(this), attributor);
 
         // Create campaign
         initData = ""; // Empty init data for this test

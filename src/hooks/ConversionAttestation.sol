@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-
-import {AttributionHook} from "./AttributionHook.sol";
 import {Flywheel} from "../Flywheel.sol";
+import {AttributionHook} from "./AttributionHook.sol";
+import {MetadataMixin} from "./MetadataMixin.sol";
 
 /// @title ConversionAttestation
 ///
 /// @notice Attribution hook for processing conversion attestations
 ///
 /// @dev Handles both onchain and offchain conversion events
-contract ConversionAttestation is AttributionHook, Ownable2Step {
+contract ConversionAttestation is AttributionHook, MetadataMixin {
     /// @notice Attribution structure containing payout and conversion data
     ///
     /// @param payout The payout to be distributed
@@ -54,19 +52,8 @@ contract ConversionAttestation is AttributionHook, Ownable2Step {
         uint256 txEventLogIndex;
     }
 
-    /// @notice Base URI for campaign metadata
-    string public baseURI;
-
-    /// @notice Emitted when the base URI is updated
-    ///
-    /// @param baseURI The new base URI
-    event BaseURIUpdated(string baseURI);
-
-    /// @notice Emitted when a campaign is updated
-    //.
-    /// @param campaign Address of the campaign
-    /// @param uri The URI for the campaign
-    event CampaignUpdated(address indexed campaign, string uri);
+    /// @notice Address of the entity trusted to attest conversions
+    address public immutable attester;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -81,33 +68,15 @@ contract ConversionAttestation is AttributionHook, Ownable2Step {
     /// @param log The onchain log data
     event OnchainConversion(address indexed campaign, Conversion conversion, Log log);
 
-    /// @notice Thrown when attribution data is invalid
-    ///
-    error InvalidAttributionData();
-
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param protocol_ Address of the protocol contract
     /// @param owner_ Address of the contract owner
-    constructor(address protocol_, address owner_) AttributionHook(protocol_) Ownable(owner_) {}
-
-    /// @notice Sets the base URI for campaign metadata
-    ///
-    /// @param baseURI_ The new base URI
-    ///
-    /// @dev Only callable by the owner
-    function setBaseURI(string memory baseURI_) external onlyOwner {
-        baseURI = baseURI_;
-        emit BaseURIUpdated(baseURI_);
-    }
-
-    /// @notice Broadcasts a campaign update event
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @dev Only callable by the owner
-    function broadcastCampaignUpdate(address campaign) external onlyOwner {
-        emit CampaignUpdated(campaign, campaignURI(campaign));
+    constructor(address protocol_, address owner_, address attester_)
+        AttributionHook(protocol_)
+        MetadataMixin(owner_)
+    {
+        attester = attester_;
     }
 
     /// @notice Returns the URI for a campaign
@@ -116,7 +85,7 @@ contract ConversionAttestation is AttributionHook, Ownable2Step {
     ///
     /// @return uri The URI for the campaign
     function campaignURI(address campaign) public view override returns (string memory uri) {
-        return string.concat(baseURI, Strings.toHexString(campaign));
+        return _campaignURI(campaign);
     }
 
     /// @notice Processes attribution for a campaign
@@ -128,13 +97,15 @@ contract ConversionAttestation is AttributionHook, Ownable2Step {
     /// @return payouts Array of payouts to be distributed
     ///
     /// @dev Decodes attribution data and emits appropriate conversion events
-    function _attribute(address campaign, address payoutToken, bytes calldata attributionData)
+    function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         override
         returns (Flywheel.Payout[] memory payouts)
     {
-        Attribution[] memory attributions = abi.decode(attributionData, (Attribution[]));
+        // Check sender is attributor
+        if (attributor != attester) revert Flywheel.Unauthorized();
 
+        Attribution[] memory attributions = abi.decode(attributionData, (Attribution[]));
         payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
             payouts[i] = attributions[i].payout;

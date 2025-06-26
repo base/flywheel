@@ -32,7 +32,7 @@ contract FlywheelTest is Test {
         flywheel = new Flywheel(PROTOCOL_FEE_BPS, protocolFeeRecipient);
 
         // Deploy hook
-        hook = new ConversionAttestation(address(flywheel), address(this));
+        hook = new ConversionAttestation(address(flywheel), address(this), attributor);
     }
 
     function test_createCampaign() public {

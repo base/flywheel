@@ -273,10 +273,11 @@ contract Flywheel {
         if (campaigns[campaign].status != CampaignStatus.OPEN) revert InvalidCampaignStatus();
 
         // Check sender is attributor
-        if (!_isAttributor(campaign)) revert Unauthorized();
+        address attributor = campaigns[campaign].attributor;
+        if (msg.sender != attributor) revert Unauthorized();
 
         Payout[] memory payouts =
-            AttributionHook(campaigns[campaign].hook).attribute(campaign, payoutToken, attributionData);
+            AttributionHook(campaigns[campaign].hook).attribute(campaign, attributor, payoutToken, attributionData);
 
         // Add payouts to balances
         uint256 totalPayouts = 0;

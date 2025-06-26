@@ -45,12 +45,12 @@ contract AttributionHook {
     /// @return payouts Array of payouts to be distributed
     ///
     /// @dev Only callable by the protocol contract
-    function attribute(address campaign, address payoutToken, bytes calldata attributionData)
+    function attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         external
         onlyProtocol
         returns (Flywheel.Payout[] memory payouts)
     {
-        return _attribute(campaign, payoutToken, attributionData);
+        return _attribute(campaign, attributor, payoutToken, attributionData);
     }
 
     /// @notice Returns the URI for a campaign
@@ -75,7 +75,7 @@ contract AttributionHook {
     /// @return payouts Array of payouts to be distributed
     ///
     /// @dev Override this function in derived contracts
-    function _attribute(address campaign, address payoutToken, bytes calldata attributionData)
+    function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         virtual
         returns (Flywheel.Payout[] memory payouts)
