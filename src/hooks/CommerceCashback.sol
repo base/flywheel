@@ -7,26 +7,33 @@ import {Flywheel} from "../Flywheel.sol";
 import {AttributionHook} from "./AttributionHook.sol";
 import {MetadataMixin} from "./MetadataMixin.sol";
 
-/// @title CommerceRewards
+/// @title CommerceCashback
 ///
-/// @notice Attribution hook for processing commerce payment rewards
+/// @notice Attribution hook for processing commerce payment cashback
 ///
 /// @dev Handles attribution based on payment information from AuthCaptureEscrow
-contract CommerceRewards is AttributionHook, MetadataMixin {
+contract CommerceCashback is AttributionHook, MetadataMixin {
     /// @notice Maximum basis points (100%)
     uint16 public constant MAX_BPS = 10_000;
 
     /// @notice Address of the AuthCaptureEscrow contract
     AuthCaptureEscrow public immutable authCaptureEscrow;
 
-    /// @notice Address of the operator who must process payments for this rewards system
+    /// @notice Address of the operator who must process payments for this cashback system
     address public immutable operator;
 
-    /// @notice Reward basis points for calculating payouts
-    uint16 public immutable rewardBps;
+    /// @notice Cashback basis points for calculating payouts
+    uint16 public immutable cashbackBps;
 
     /// @notice Mapping from campaign address to payment info hash to reward status
     mapping(address campaign => mapping(bytes32 paymentInfoHash => bool rewarded)) public rewardedPayments;
+
+    /// @notice Emitted when a payment is rewarded
+    ///
+    /// @param campaign Address of the campaign
+    /// @param paymentInfoHash Hash of the payment info
+    /// @param amount Amount of cashback awarded
+    event CashbackAwarded(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
 
     /// @notice Constructor for CommerceRewards
     ///
@@ -34,14 +41,14 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
     /// @param owner_ Address of the contract owner
     /// @param authCaptureEscrow_ Address of the AuthCaptureEscrow contract
     /// @param operator_ Address of the authorized operator
-    /// @param rewardBps_ Reward basis points for calculating payouts
-    constructor(address protocol_, address owner_, address authCaptureEscrow_, address operator_, uint16 rewardBps_)
+    /// @param cashbackBps_ Cashback basis points for calculating payouts
+    constructor(address protocol_, address owner_, address authCaptureEscrow_, address operator_, uint16 cashbackBps_)
         AttributionHook(protocol_)
         MetadataMixin(owner_)
     {
         authCaptureEscrow = AuthCaptureEscrow(authCaptureEscrow_);
         operator = operator_;
-        rewardBps = rewardBps_;
+        cashbackBps = cashbackBps_;
     }
 
     /// @notice Returns the URI for a campaign
@@ -70,7 +77,7 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
     {
         AuthCaptureEscrow.PaymentInfo[] memory payments = abi.decode(attributionData, (AuthCaptureEscrow.PaymentInfo[]));
         address payer = payments[0].payer;
-        uint256 rewardTotal = 0;
+        uint256 cashbackTotal = 0;
         for (uint256 i = 0; i < payments.length; i++) {
             AuthCaptureEscrow.PaymentInfo memory payment = payments[i];
 
@@ -90,10 +97,14 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
 
             // Calculate payout
             (, uint120 capturableAmount, uint120 refundableAmount) = authCaptureEscrow.paymentState(paymentInfoHash);
-            rewardTotal += (capturableAmount + refundableAmount) * rewardBps / MAX_BPS;
+            uint256 cashbackAmount = (capturableAmount + refundableAmount) * cashbackBps / MAX_BPS;
+            cashbackTotal += cashbackAmount;
+
+            // Emit cashback awarded event
+            emit CashbackAwarded(campaign, paymentInfoHash, cashbackAmount);
         }
         payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: payer, amount: rewardTotal});
+        payouts[0] = Flywheel.Payout({recipient: payer, amount: cashbackTotal});
         return (payouts, 0);
     }
 }
