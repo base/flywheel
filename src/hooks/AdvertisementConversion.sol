@@ -50,6 +50,8 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
         uint256 index;
     }
 
+    uint16 public constant MAX_BPS = 10_000;
+
     /// @notice Emitted when an offchain attribution event occurs
     ///
     /// @param campaign Address of the campaign
@@ -62,6 +64,11 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     /// @param conversion The conversion data
     /// @param log The onchain log data
     event OnchainConversion(address indexed campaign, Conversion conversion, Log log);
+
+    /// @notice Emitted when an invalid fee BPS is provided
+    ///
+    /// @param feeBps The invalid fee BPS
+    error InvalidFeeBps(uint16 feeBps);
 
     /// @notice Constructor for ConversionAttestation
     ///
@@ -93,11 +100,14 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
         returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {
         (Attribution[] memory attributions, uint16 feeBps) = abi.decode(attributionData, (Attribution[], uint16));
+        if (feeBps > MAX_BPS) revert InvalidFeeBps(feeBps);
+
+        // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
         payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
             // Deduct attribution fee from payout amount
             Flywheel.Payout memory payout = attributions[i].payout;
-            uint256 attributionFee = payout.amount * feeBps / 10_000;
+            uint256 attributionFee = payout.amount * feeBps / MAX_BPS;
             attributorFee += attributionFee;
             payouts[i] = Flywheel.Payout({recipient: payout.recipient, amount: payout.amount - attributionFee});
 
