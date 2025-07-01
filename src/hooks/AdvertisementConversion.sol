@@ -5,12 +5,12 @@ import {Flywheel} from "../Flywheel.sol";
 import {AttributionHook} from "./AttributionHook.sol";
 import {MetadataMixin} from "./MetadataMixin.sol";
 
-/// @title ConversionAttestation
+/// @title AdvertisementConversion
 ///
-/// @notice Attribution hook for processing conversion attestations
+/// @notice Attribution hook for processing advertisement conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
-contract ConversionAttestation is AttributionHook, MetadataMixin {
+contract AdvertisementConversion is AttributionHook, MetadataMixin {
     /// @notice Attribution structure containing payout and conversion data
     ///
     /// @param payout The payout to be distributed
@@ -41,19 +41,14 @@ contract ConversionAttestation is AttributionHook, MetadataMixin {
 
     /// @notice Structure for recording onchain attribution events
     ///
-    /// @param userAddress Address of the user who performed the conversion
-    /// @param txHash Transaction hash where the conversion occurred
-    /// @param txChainId Chain ID where the transaction occurred
-    /// @param txEventLogIndex Index of the event log in the transaction
+    /// @param chainId Chain ID where the transaction occurred
+    /// @param transactionHash Transaction hash where the conversion occurred
+    /// @param index Index of the event log in the transaction
     struct Log {
-        address userAddress;
-        bytes32 txHash;
-        uint256 txChainId;
-        uint256 txEventLogIndex;
+        uint256 chainId;
+        bytes32 transactionHash;
+        uint256 index;
     }
-
-    /// @notice Address of the entity trusted to attest conversions
-    address public immutable attester;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -72,12 +67,7 @@ contract ConversionAttestation is AttributionHook, MetadataMixin {
     ///
     /// @param protocol_ Address of the protocol contract
     /// @param owner_ Address of the contract owner
-    constructor(address protocol_, address owner_, address attester_)
-        AttributionHook(protocol_)
-        MetadataMixin(owner_)
-    {
-        attester = attester_;
-    }
+    constructor(address protocol_, address owner_) AttributionHook(protocol_) MetadataMixin(owner_) {}
 
     /// @notice Returns the URI for a campaign
     ///
@@ -100,25 +90,26 @@ contract ConversionAttestation is AttributionHook, MetadataMixin {
     function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         override
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {
-        // Check sender is attributor
-        if (attributor != attester) revert Flywheel.Unauthorized();
-
-        Attribution[] memory attributions = abi.decode(attributionData, (Attribution[]));
+        (Attribution[] memory attributions, uint16 feeBps) = abi.decode(attributionData, (Attribution[], uint16));
         payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
-            payouts[i] = attributions[i].payout;
-            bytes memory logBytes = attributions[i].logBytes;
-            Conversion memory conversion = attributions[i].conversion;
+            // Deduct attribution fee from payout amount
+            Flywheel.Payout memory payout = attributions[i].payout;
+            uint256 attributionFee = payout.amount * feeBps / 10_000;
+            attributorFee += attributionFee;
+            payouts[i] = Flywheel.Payout({recipient: payout.recipient, amount: payout.amount - attributionFee});
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
+            bytes memory logBytes = attributions[i].logBytes;
+            Conversion memory conversion = attributions[i].conversion;
             if (logBytes.length > 0) {
                 emit OnchainConversion(campaign, conversion, abi.decode(logBytes, (Log)));
             } else {
                 emit OffchainConversion(campaign, conversion);
             }
         }
-        return payouts;
+        return (payouts, attributorFee);
     }
 }

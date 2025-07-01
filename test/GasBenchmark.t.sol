@@ -10,7 +10,7 @@ import {CampaignBalance} from "../src/CampaignBalance.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {ConversionAttestation} from "../src/hooks/ConversionAttestation.sol";
+import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 
 contract GasBenchmarkTest is Test {
     FlywheelCampaigns implementation;
@@ -19,7 +19,7 @@ contract GasBenchmarkTest is Test {
     FlywheelPublisherRegistry publisherRegistryImplementation;
     FlywheelPublisherRegistry publisherRegistry;
     Flywheel flywheel;
-    ConversionAttestation hook;
+    AdvertisementConversion hook;
     address campaign;
 
     address private owner = address(this);
@@ -129,10 +129,10 @@ contract GasBenchmarkTest is Test {
         // NEW //
 
         // Deploy Flywheel
-        flywheel = new Flywheel(500, address(uint160(123)));
+        flywheel = new Flywheel();
 
         // Deploy hook
-        hook = new ConversionAttestation(address(flywheel), address(this), attributor);
+        hook = new AdvertisementConversion(address(flywheel), address(this));
 
         // Create campaign
         initData = ""; // Empty init data for this test
@@ -171,9 +171,9 @@ contract GasBenchmarkTest is Test {
     }
 
     function test_benchmark_100_offchain_events_NEW() public {
-        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](100);
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](100);
 
-        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click",
             conversionConfigId: 1,
@@ -188,7 +188,7 @@ contract GasBenchmarkTest is Test {
         });
 
         for (uint256 i = 0; i < 100; i++) {
-            attributions[i] = ConversionAttestation.Attribution({
+            attributions[i] = AdvertisementConversion.Attribution({
                 payout: payout,
                 conversion: conversion,
                 logBytes: "" // Empty for offchain
@@ -235,9 +235,9 @@ contract GasBenchmarkTest is Test {
     }
 
     function test_benchmark_100_onchain_events_NEW() public {
-        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](100);
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](100);
 
-        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click",
             conversionConfigId: 1,
@@ -252,16 +252,12 @@ contract GasBenchmarkTest is Test {
         });
 
         bytes32[100] memory txHashes = _generateRealisticTxHashes();
-        ConversionAttestation.Log memory log = ConversionAttestation.Log({
-            userAddress: address(0x999),
-            txHash: txHashes[0],
-            txChainId: 1,
-            txEventLogIndex: 0
-        });
+        AdvertisementConversion.Log memory log =
+            AdvertisementConversion.Log({chainId: 1, transactionHash: txHashes[0], index: 0});
 
         for (uint256 i = 0; i < 100; i++) {
             attributions[i] =
-                ConversionAttestation.Attribution({payout: payout, conversion: conversion, logBytes: abi.encode(log)});
+                AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: abi.encode(log)});
         }
 
         uint256 gasBefore = gasleft();

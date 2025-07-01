@@ -48,7 +48,7 @@ contract AttributionHook {
     function attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         external
         onlyProtocol
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {
         return _attribute(campaign, attributor, payoutToken, attributionData);
     }
@@ -78,6 +78,6 @@ contract AttributionHook {
     function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         virtual
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {}
 }

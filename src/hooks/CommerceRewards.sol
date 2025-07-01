@@ -66,7 +66,7 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
     function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         override
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Payout[] memory payouts, uint256 attributionFee)
     {
         AuthCaptureEscrow.PaymentInfo[] memory payments = abi.decode(attributionData, (AuthCaptureEscrow.PaymentInfo[]));
         address payer = payments[0].payer;
@@ -94,6 +94,6 @@ contract CommerceRewards is AttributionHook, MetadataMixin {
         }
         payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({recipient: payer, amount: rewardTotal});
-        return payouts;
+        return (payouts, 0);
     }
 }

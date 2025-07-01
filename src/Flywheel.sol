@@ -17,7 +17,6 @@ contract Flywheel {
     enum CampaignStatus {
         NONE, // Campaign does not exist
         CREATED, // Initial state when campaign is first created
-        READY, // Advertiser signals that campaign is ready for attributor to open
         OPEN, // Campaign is live and can accept attribution
         PAUSED, // Campaign is temporarily paused
         CLOSED, // Campaign is no longer live but can still accept lagging attribution
@@ -28,13 +27,13 @@ contract Flywheel {
     /// @notice Campaign information structure
     ///
     /// @param status Current status of the campaign
-    /// @param advertiser Address of the campaign advertiser
+    /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
     /// @param hook Address of the attribution hook contract
     /// @param attributionDeadline Timestamp after which no more attribution can occur (set on close)
     struct CampaignInfo {
         CampaignStatus status;
-        address advertiser;
+        address sponsor;
         address attributor;
         address hook;
         uint48 attributionDeadline; // set on close
@@ -49,17 +48,8 @@ contract Flywheel {
         uint256 amount;
     }
 
-    /// @notice Maximum fee basis points (100%)
-    uint16 public constant MAX_FEE_BPS = 10_000; // 100%
-
     /// @notice Buffer time after campaign close before finalization is allowed
     uint256 public constant FINALIZATION_BUFFER = 7 days;
-
-    /// @notice Protocol fee in basis points
-    uint16 public immutable protocolFeeBps;
-
-    /// @notice Address that receives protocol fees
-    address public immutable protocolFeeRecipient;
 
     /// @notice Implementation address for TokenStore contracts
     address public immutable tokenStoreImpl;
@@ -70,16 +60,16 @@ contract Flywheel {
     /// @notice Mapping from token address to recipient address to balance amount
     mapping(address token => mapping(address recipient => uint256 balance)) public balances;
 
-    /// @notice Collectible protocol fees
-    mapping(address token => uint256 amount) public collectibleFees;
+    /// @notice Collectible attributor fees
+    mapping(address token => mapping(address attributor => uint256 amount)) public fees;
 
     /// @notice Emitted when a new campaign is created
     ///
     /// @param campaign Address of the created campaign
-    /// @param advertiser Address of the campaign advertiser
+    /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
     /// @param hook Address of the attribution hook contract
-    event CampaignCreated(address indexed campaign, address advertiser, address attributor, address hook);
+    event CampaignCreated(address indexed campaign, address sponsor, address attributor, address hook);
 
     /// @notice Emitted when a campaign status is updated
     ///
@@ -103,8 +93,9 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
+    /// @param attributor Address of the attributor
     /// @param amount Amount of tokens attributed
-    event FeeAllocated(address indexed campaign, address token, uint256 amount);
+    event FeeAllocated(address indexed campaign, address token, address attributor, uint256 amount);
 
     /// @notice Emitted when accumulated balance is distributed to a recipient
     ///
@@ -117,20 +108,14 @@ contract Flywheel {
     ///
     /// @param token Address of the collected token
     /// @param amount Amount of tokens collected
-    event FeesCollected(address token, uint256 amount);
+    event FeesCollected(address token, address attributor, uint256 amount);
 
-    /// @notice Emitted when advertiser withdraws remaining tokens from a finalized campaign
+    /// @notice Emitted when sponsor withdraws remaining tokens from a finalized campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the withdrawn token
     /// @param amount Amount of tokens withdrawn
     event RemainderWithdrawn(address indexed campaign, address token, uint256 amount);
-
-    /// @notice Thrown when protocol fee is set to maximum or higher
-    error ZeroProtocolFee();
-
-    /// @notice Thrown when protocol fee recipient address is zero
-    error ZeroProtocolFeeRecipient();
 
     /// @notice Thrown when caller doesn't have required permissions
     error Unauthorized();
@@ -140,16 +125,8 @@ contract Flywheel {
 
     /// @notice Constructor for the Flywheel contract
     ///
-    /// @param protocolFeeBps_ Protocol fee in basis points (must be less than MAX_FEE_BPS)
-    /// @param protocolFeeRecipient_ Address that will receive protocol fees
-    ///
     /// @dev Deploys a new TokenStore implementation for cloning
-    constructor(uint16 protocolFeeBps_, address protocolFeeRecipient_) {
-        if (protocolFeeBps_ >= MAX_FEE_BPS) revert ZeroProtocolFee();
-        if (protocolFeeRecipient_ == address(0)) revert ZeroProtocolFeeRecipient();
-
-        protocolFeeBps = protocolFeeBps_;
-        protocolFeeRecipient = protocolFeeRecipient_;
+    constructor() {
         tokenStoreImpl = address(new TokenStore());
     }
 
@@ -169,7 +146,7 @@ contract Flywheel {
         campaign = Clones.clone(tokenStoreImpl);
         campaigns[campaign] = CampaignInfo({
             status: CampaignStatus.CREATED,
-            advertiser: msg.sender,
+            sponsor: msg.sender,
             attributor: attributor,
             hook: hook,
             attributionDeadline: 0
@@ -182,28 +159,21 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign to open
     ///
-    /// @dev Only advertiser can move from CREATED to READY, only attributor can move from READY to OPEN
+    /// @dev Only attributor can move from CREATED to OPEN
     function openCampaign(address campaign) external {
-        CampaignStatus oldStatus = campaigns[campaign].status;
-        CampaignStatus newStatus;
-        if (_isAdvertiser(campaign) && oldStatus == CampaignStatus.CREATED) {
-            newStatus = CampaignStatus.READY;
-        } else if (_isAttributor(campaign) && oldStatus == CampaignStatus.READY) {
-            newStatus = CampaignStatus.OPEN;
-        } else {
-            revert InvalidCampaignStatus();
-        }
-        campaigns[campaign].status = newStatus;
-        emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
+        if (!_isAttributor(campaign)) revert Unauthorized();
+        if (campaigns[campaign].status != CampaignStatus.CREATED) revert InvalidCampaignStatus();
+        campaigns[campaign].status = CampaignStatus.OPEN;
+        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.CREATED, CampaignStatus.OPEN);
     }
 
     /// @notice Pauses an open campaign
     ///
     /// @param campaign Address of the campaign to pause
     ///
-    /// @dev Only advertiser or attributor can pause an OPEN campaign
+    /// @dev Only sponsor or attributor can pause an OPEN campaign
     function pauseCampaign(address campaign) external {
-        if (!(_isAdvertiser(campaign) || _isAttributor(campaign))) revert Unauthorized();
+        if (!(_isSponsor(campaign) || _isAttributor(campaign))) revert Unauthorized();
         if (campaigns[campaign].status != CampaignStatus.OPEN) revert InvalidCampaignStatus();
         campaigns[campaign].status = CampaignStatus.PAUSED;
         emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.OPEN, CampaignStatus.PAUSED);
@@ -213,9 +183,9 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign to unpause
     ///
-    /// @dev Only advertiser or attributor can unpause a PAUSED campaign
+    /// @dev Only sponsor or attributor can unpause a PAUSED campaign
     function unpauseCampaign(address campaign) external {
-        if (!(_isAdvertiser(campaign) || _isAttributor(campaign))) revert Unauthorized();
+        if (!(_isSponsor(campaign) || _isAttributor(campaign))) revert Unauthorized();
         if (campaigns[campaign].status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
         campaigns[campaign].status = CampaignStatus.OPEN;
         emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.PAUSED, CampaignStatus.OPEN);
@@ -225,13 +195,11 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign to close
     ///
-    /// @dev Only advertiser can close a READY, OPEN, or PAUSED campaign
+    /// @dev Only sponsor can close a OPEN or PAUSED campaign
     function closeCampaign(address campaign) external {
-        if (!_isAdvertiser(campaign)) revert Unauthorized();
+        if (!_isSponsor(campaign)) revert Unauthorized();
         CampaignStatus status = campaigns[campaign].status;
-        if (status != CampaignStatus.READY && status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED) {
-            revert InvalidCampaignStatus();
-        }
+        if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
         campaigns[campaign].status = CampaignStatus.CLOSED;
         campaigns[campaign].attributionDeadline = uint48(block.timestamp + FINALIZATION_BUFFER);
         emit CampaignStatusUpdated(campaign, msg.sender, status, CampaignStatus.CLOSED);
@@ -241,13 +209,13 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign to finalize
     ///
-    /// @dev Advertiser can finalize CREATED, READY, or CLOSED campaigns after deadline. Attributor can finalize any non-FINALIZED campaign.
+    /// @dev Sponsor can finalize CREATED or CLOSED campaigns after deadline. Attributor can finalize any non-FINALIZED campaign.
     function finalizeCampaign(address campaign) external {
         CampaignStatus oldStatus = campaigns[campaign].status;
-        if (_isAdvertiser(campaign)) {
+        if (_isSponsor(campaign)) {
             bool attributionDeadlinePassed = block.timestamp > campaigns[campaign].attributionDeadline;
             if (
-                oldStatus != CampaignStatus.CREATED && oldStatus != CampaignStatus.READY
+                oldStatus != CampaignStatus.CREATED
                     && !(oldStatus == CampaignStatus.CLOSED && attributionDeadlinePassed)
             ) {
                 revert InvalidCampaignStatus();
@@ -276,7 +244,7 @@ contract Flywheel {
         address attributor = campaigns[campaign].attributor;
         if (msg.sender != attributor) revert Unauthorized();
 
-        Payout[] memory payouts =
+        (Payout[] memory payouts, uint256 attributionFee) =
             AttributionHook(campaigns[campaign].hook).attribute(campaign, attributor, payoutToken, attributionData);
 
         // Add payouts to balances
@@ -289,13 +257,12 @@ contract Flywheel {
             emit PayoutAllocated(campaign, payoutToken, recipient, amount);
         }
 
-        // Add protocol fee to balances
-        uint256 protocolFee = (totalPayouts * protocolFeeBps) / MAX_FEE_BPS;
-        collectibleFees[payoutToken] += protocolFee;
-        emit FeeAllocated(campaign, payoutToken, protocolFee);
+        // Add attributor fee to balances
+        fees[payoutToken][attributor] += attributionFee;
+        emit FeeAllocated(campaign, payoutToken, attributor, attributionFee);
 
-        // Transfer tokens to recipient, attributor, and protocol
-        TokenStore(campaign).sendTokens(payoutToken, address(this), totalPayouts + protocolFee);
+        // Transfer tokens to flywheel to reserve for payouts and fees
+        TokenStore(campaign).sendTokens(payoutToken, address(this), totalPayouts + attributionFee);
     }
 
     /// @notice Distributes accumulated balance to a recipient
@@ -314,30 +281,31 @@ contract Flywheel {
     /// @notice Collects fees from a campaign
     ///
     /// @param token Address of the token to collect fees from
+    /// @param recipient Address of the recipient to collect fees to
     ///
-    /// @dev Only protocol fee recipient can collect fees
-    function collectFees(address token) external {
-        if (msg.sender != protocolFeeRecipient) revert Unauthorized();
-        uint256 amount = collectibleFees[token];
-        delete collectibleFees[token];
-        SafeERC20.safeTransfer(IERC20(token), protocolFeeRecipient, amount);
-        emit FeesCollected(token, amount);
+    /// @dev Only attributor can collect fees
+    function collectFees(address token, address recipient) external {
+        address attributor = msg.sender;
+        uint256 amount = fees[token][attributor];
+        delete fees[token][attributor];
+        SafeERC20.safeTransfer(IERC20(token), recipient, amount);
+        emit FeesCollected(token, attributor, amount);
     }
 
-    /// @notice Allows advertiser to withdraw remaining tokens from a finalized campaign
+    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
     ///
-    /// @dev Only advertiser can withdraw from FINALIZED campaigns
+    /// @dev Only sponsor can withdraw from FINALIZED campaigns
     function withdrawRemainder(address campaign, address token) external {
-        // Check sender is advertiser
-        if (!_isAdvertiser(campaign)) revert Unauthorized();
+        // Check sender is sponsor
+        if (!_isSponsor(campaign)) revert Unauthorized();
 
         // Check campaign is finalized
         if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
-        // Sweep remaining tokens from campaign to advertiser
+        // Sweep remaining tokens from campaign to sponsor
         uint256 balance = IERC20(token).balanceOf(campaign);
         TokenStore(campaign).sendTokens(token, msg.sender, balance);
         emit RemainderWithdrawn(campaign, token, balance);
@@ -352,13 +320,13 @@ contract Flywheel {
         return AttributionHook(campaigns[campaign].hook).campaignURI(campaign);
     }
 
-    /// @notice Checks if the caller is the advertiser of a campaign
+    /// @notice Checks if the caller is the sponsor of a campaign
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return True if caller is the advertiser, false otherwise
-    function _isAdvertiser(address campaign) internal view returns (bool) {
-        return msg.sender == campaigns[campaign].advertiser;
+    /// @return True if caller is the sponsor, false otherwise
+    function _isSponsor(address campaign) internal view returns (bool) {
+        return msg.sender == campaigns[campaign].sponsor;
     }
 
     /// @notice Checks if the caller is the attributor of a campaign

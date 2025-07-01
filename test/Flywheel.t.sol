@@ -3,12 +3,12 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {ConversionAttestation} from "../src/hooks/ConversionAttestation.sol";
+import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../src/test/DummyERC20.sol";
 
 contract FlywheelTest is Test {
     Flywheel public flywheel;
-    ConversionAttestation public hook;
+    AdvertisementConversion public hook;
     DummyERC20 public token;
 
     address public advertiser = address(0x1);
@@ -29,10 +29,10 @@ contract FlywheelTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Deploy Flywheel
-        flywheel = new Flywheel(PROTOCOL_FEE_BPS, protocolFeeRecipient);
+        flywheel = new Flywheel();
 
         // Deploy hook
-        hook = new ConversionAttestation(address(flywheel), address(this), attributor);
+        hook = new AdvertisementConversion(address(flywheel), address(this));
     }
 
     function test_createCampaign() public {
@@ -61,15 +61,12 @@ contract FlywheelTest is Test {
         bytes memory initData = "";
         address campaign = flywheel.createCampaign(attributor, address(hook), initData);
 
-        // Advertiser opens campaign (CREATED -> READY)
-        flywheel.openCampaign(campaign);
-
         (Flywheel.CampaignStatus status1,,,,) = flywheel.campaigns(campaign);
-        assertEq(uint8(status1), uint8(Flywheel.CampaignStatus.READY));
+        assertEq(uint8(status1), uint8(Flywheel.CampaignStatus.CREATED));
 
         vm.stopPrank();
 
-        // Attributor opens campaign (READY -> OPEN)
+        // Attributor opens campaign (CREATED -> OPEN)
         vm.startPrank(attributor);
         flywheel.openCampaign(campaign);
 
@@ -80,26 +77,20 @@ contract FlywheelTest is Test {
     }
 
     function test_offchainAttribution() public {
-        vm.startPrank(advertiser);
-
         // Create campaign
         bytes memory initData = "";
+        vm.prank(advertiser);
         address campaign = flywheel.createCampaign(attributor, address(hook), initData);
 
-        // Open campaign
-        flywheel.openCampaign(campaign);
-        vm.stopPrank();
-
         vm.startPrank(attributor);
-        flywheel.openCampaign(campaign);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create offchain attribution data
-        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](1);
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
 
-        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_123",
             conversionConfigId: 1,
@@ -113,7 +104,7 @@ contract FlywheelTest is Test {
             amount: 100e18 // 100 tokens
         });
 
-        attributions[0] = ConversionAttestation.Attribution({
+        attributions[0] = AdvertisementConversion.Attribution({
             payout: payout,
             conversion: conversion,
             logBytes: "" // Empty for offchain
@@ -126,7 +117,7 @@ contract FlywheelTest is Test {
 
         // Check internal Flywheel balance
         uint256 publisherInternalBalance = flywheel.balances(address(token), publisher1);
-        uint256 protocolFeeInternalBalance = flywheel.collectibleFees(address(token));
+        uint256 protocolFeeInternalBalance = flywheel.fees(address(token), attributor);
         assertEq(publisherInternalBalance, 100e18, "Publisher should have 100 tokens in Flywheel");
         assertEq(protocolFeeInternalBalance, 5 * 10 ** 18, "Protocol should have 5 tokens in Flywheel (5% of 100)");
 
@@ -158,9 +149,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create onchain attribution data
-        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](1);
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
 
-        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
             eventId: bytes16(0xabcdef1234567890abcdef1234567890),
             clickId: "click_456",
             conversionConfigId: 2,
@@ -169,19 +160,15 @@ contract FlywheelTest is Test {
             recipientType: 1
         });
 
-        ConversionAttestation.Log memory log = ConversionAttestation.Log({
-            userAddress: user,
-            txHash: keccak256("test_transaction"),
-            txChainId: 1,
-            txEventLogIndex: 0
-        });
+        AdvertisementConversion.Log memory log =
+            AdvertisementConversion.Log({chainId: 1, transactionHash: keccak256("test_transaction"), index: 0});
 
         Flywheel.Payout memory payout = Flywheel.Payout({
             recipient: publisher2,
             amount: 200 * 10 ** 18 // 200 tokens
         });
 
-        attributions[0] = ConversionAttestation.Attribution({
+        attributions[0] = AdvertisementConversion.Attribution({
             payout: payout,
             conversion: conversion,
             logBytes: abi.encode(log) // Encoded log for onchain
@@ -194,7 +181,7 @@ contract FlywheelTest is Test {
 
         // Check internal Flywheel balance
         uint256 publisherInternalBalance = flywheel.balances(address(token), publisher2);
-        uint256 protocolFeeInternalBalance = flywheel.collectibleFees(address(token));
+        uint256 protocolFeeInternalBalance = flywheel.fees(address(token), attributor);
         assertEq(publisherInternalBalance, 200 * 10 ** 18, "Publisher should have 200 tokens in Flywheel");
         assertEq(protocolFeeInternalBalance, 10 * 10 ** 18, "Protocol should have 10 tokens in Flywheel (5% of 200)");
 
@@ -226,9 +213,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create attribution data
-        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](1);
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
 
-        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_789",
             conversionConfigId: 1,
@@ -242,7 +229,7 @@ contract FlywheelTest is Test {
             amount: 50 * 10 ** 18 // 50 tokens
         });
 
-        attributions[0] = ConversionAttestation.Attribution({payout: payout, conversion: conversion, logBytes: ""});
+        attributions[0] = AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: ""});
 
         bytes memory attributionData = abi.encode(attributions);
 
@@ -305,9 +292,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create attribution data to generate fees
-        ConversionAttestation.Attribution[] memory attributions = new ConversionAttestation.Attribution[](1);
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
 
-        ConversionAttestation.Conversion memory conversion = ConversionAttestation.Conversion({
+        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_fees",
             conversionConfigId: 1,
@@ -321,7 +308,7 @@ contract FlywheelTest is Test {
             amount: 100 * 10 ** 18 // 100 tokens
         });
 
-        attributions[0] = ConversionAttestation.Attribution({payout: payout, conversion: conversion, logBytes: ""});
+        attributions[0] = AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: ""});
 
         bytes memory attributionData = abi.encode(attributions);
 
@@ -329,21 +316,21 @@ contract FlywheelTest is Test {
         flywheel.attribute(campaign, address(token), attributionData);
 
         // Check that fees are available
-        uint256 availableFees = flywheel.collectibleFees(address(token));
+        uint256 availableFees = flywheel.fees(address(token), attributor);
         assertEq(availableFees, 5 * 10 ** 18, "Should have 5 tokens in collectible fees (5% of 100)");
 
         vm.stopPrank();
 
-        // Collect fees as protocol fee recipient
-        vm.startPrank(protocolFeeRecipient);
-        uint256 balanceBefore = token.balanceOf(protocolFeeRecipient);
-        flywheel.collectFees(address(token));
-        uint256 balanceAfter = token.balanceOf(protocolFeeRecipient);
+        // Collect fees as attributor
+        vm.startPrank(attributor);
+        uint256 balanceBefore = token.balanceOf(attributor);
+        flywheel.collectFees(address(token), attributor);
+        uint256 balanceAfter = token.balanceOf(attributor);
 
         assertEq(balanceAfter - balanceBefore, 5 * 10 ** 18, "Protocol fee recipient should receive 5 tokens");
 
         // Check that fees are cleared
-        uint256 remainingFees = flywheel.collectibleFees(address(token));
+        uint256 remainingFees = flywheel.fees(address(token), attributor);
         assertEq(remainingFees, 0, "Fees should be cleared after collection");
         vm.stopPrank();
     }
