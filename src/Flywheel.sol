@@ -152,7 +152,7 @@ contract Flywheel {
             attributionDeadline: 0
         });
         emit CampaignCreated(campaign, msg.sender, attributor, hook);
-        AttributionHook(hook).createCampaign(campaign, msg.snder initData);
+        AttributionHook(hook).createCampaign(campaign, msg.sender, initData);
     }
 
     /// @notice Opens a campaign for attribution
@@ -337,4 +337,8 @@ contract Flywheel {
     function _isAttributor(address campaign) internal view returns (bool) {
         return msg.sender == campaigns[campaign].attributor;
     }
+}
+
+    return msg.sender == campaigns[campaign].attributor;
+  }
 }
