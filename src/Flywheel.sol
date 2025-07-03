@@ -152,7 +152,7 @@ contract Flywheel {
             attributionDeadline: 0
         });
         emit CampaignCreated(campaign, msg.sender, attributor, hook);
-        AttributionHook(hook).createCampaign(campaign, initData);
+        AttributionHook(hook).createCampaign(campaign, msg.snder initData);
     }
 
     /// @notice Opens a campaign for attribution
