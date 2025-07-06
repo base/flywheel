@@ -8,7 +8,7 @@ import { DummyERC20 } from "../../src/archive/test/DummyERC20.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { FlywheelCampaignsV2 } from "../../src/archive/test/DummyUpgrades.sol";
-import { FlywheelPublisherRegistry } from "../../src/archive/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry } from "../../src/FlywheelPublisherRegistry.sol";
 import { FlywheelPublisherRegistryV2 } from "../../src/archive/test/DummyUpgrades.sol";
 
 contract FlywheelCampaignsUpgradesTest is Test {

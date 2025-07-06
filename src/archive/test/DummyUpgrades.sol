@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.29;
 
-import { FlywheelPublisherRegistry } from "../FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry } from "../../FlywheelPublisherRegistry.sol";
 import { FlywheelCampaigns } from "../FlywheelCampaigns.sol";
 
 // First, let's create a contract for the new implementation

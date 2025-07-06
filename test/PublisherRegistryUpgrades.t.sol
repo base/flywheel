@@ -1,7 +1,7 @@
 pragma solidity 0.8.29;
 
 import "forge-std/Test.sol";
-import { FlywheelPublisherRegistry } from "../../src/archive/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry } from "../../src/FlywheelPublisherRegistry.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { FlywheelPublisherRegistryV2 } from "../../src/archive/test/DummyUpgrades.sol";
 

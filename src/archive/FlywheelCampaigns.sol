@@ -6,7 +6,7 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { CampaignBalance } from "./CampaignBalance.sol";
 import { IFlywheelCampaigns } from "./interfaces/IFlywheelCampaigns.sol";
-import { FlywheelPublisherRegistry } from "./FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry } from "../FlywheelPublisherRegistry.sol";
 
 /// @notice Main contract for the Flywheel Protocol advertising system
 /// @dev Manages campaign lifecycle, attribution, and reward distribution

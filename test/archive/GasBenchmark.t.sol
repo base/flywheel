@@ -8,7 +8,7 @@ import { IFlywheelCampaigns } from "../../src/archive/interfaces/IFlywheelCampai
 import { DummyERC20 } from "../../src/archive/test/DummyERC20.sol";
 import { CampaignBalance } from "../../src/archive/CampaignBalance.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { FlywheelPublisherRegistry } from "../../src/archive/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry } from "../../src/FlywheelPublisherRegistry.sol";
 import { Flywheel } from "../../src/Flywheel.sol";
 import { AdvertisementConversion } from "../../src/hooks/AdvertisementConversion.sol";
 
