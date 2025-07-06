@@ -52,6 +52,12 @@ forge coverage --ir-minimum --report lcov # detailed line by line coverage repor
 genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category
 ```
 
+## Prettier Formatting
+
+We have .prettierrc file that defines very basic coding format for the repo in solidity
+
+Please make sure to use prettier plugin in cursor/vscode and `.vscode/seetings.json` should be handle the formatting from there
+
 ## Protocol Overview & Architecture
 
 The main participants in the protocol are:
