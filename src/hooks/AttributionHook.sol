@@ -66,7 +66,7 @@ contract AttributionHook {
   /// @param initData Initialization data for the campaign
   ///
   /// @dev Override this function in derived contracts
-  function _createCampaign(address campaign, bytes calldata initData) internal virtual {}
+  function _createCampaign(address campaign, address sponsor, bytes calldata initData) internal virtual {}
 
   /// @notice Internal function to process attribution
   ///
@@ -74,7 +74,6 @@ contract AttributionHook {
   /// @param payoutToken Address of the token to be distributed
   /// @param attributionData Encoded attribution data
   /// @return payouts Array of payouts to be distributed
-  /// @param msg.sender is the sponsor
   ///
   /// @dev Override this function in derived contracts
   function _attribute(
