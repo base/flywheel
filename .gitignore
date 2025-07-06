@@ -20,14 +20,17 @@ out
 node_modules
 
 # Artifacts for deployment
-!out/Counter.sol
-!out/FlywheelCampaigns.sol
-!out/FlywheelPublisherRegistry.sol
-!out/CampaignBalance.sol
-!out/build-info/
-!out/build-info/1bd655e5e5e3281b4dff91c8616519ba.json
-
+out/
 
 /coverage-report/**
 /coverage/**
 lcov.info
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

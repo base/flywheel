@@ -2,9 +2,9 @@ pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
-import { FlywheelPublisherRegistry, Unauthorized, RefCodeAlreadyTaken, OwnershipRenunciationDisabled, InvalidAddress } from "../src/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry, Unauthorized, RefCodeAlreadyTaken, OwnershipRenunciationDisabled, InvalidAddress } from "../../src/archive/FlywheelPublisherRegistry.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { PublisherRegistered, UpdatePublisherChainPayoutAddress, UpdatePublisherDefaultPayoutAddress, UpdateMetadataUrl, UpdateSignerAddress } from "../src/FlywheelPublisherRegistry.sol";
+import { PublisherRegistered, UpdatePublisherChainPayoutAddress, UpdatePublisherDefaultPayoutAddress, UpdateMetadataUrl, UpdateSignerAddress } from "../../src/archive/FlywheelPublisherRegistry.sol";
 
 contract FlywheelPublisherRegistryTest is Test {
   FlywheelPublisherRegistry public implementation;

@@ -3,8 +3,8 @@ pragma solidity 0.8.29;
 import "forge-std/console.sol";
 import { Test } from "forge-std/Test.sol";
 
-import { CampaignBalance, NativePaymentReceived, OnlyAccidentalToken, AccidentalTokenWithdrawn, OnlyParent, OnlyAdvertiser, TransferFailed } from "../src/CampaignBalance.sol";
-import { DummyERC20 } from "../src/test/DummyERC20.sol";
+import { CampaignBalance, NativePaymentReceived, OnlyAccidentalToken, AccidentalTokenWithdrawn, OnlyParent, OnlyAdvertiser, TransferFailed } from "../../src/archive/CampaignBalance.sol";
+import { DummyERC20 } from "../../src/archive/test/DummyERC20.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 // Helper contract that rejects ETH transfers to test TransferFailed cases

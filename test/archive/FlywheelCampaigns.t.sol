@@ -2,14 +2,14 @@ pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import "forge-std/console2.sol";
-import { FlywheelCampaigns } from "../src/FlywheelCampaigns.sol";
-import { IFlywheelCampaigns } from "../src/interfaces/IFlywheelCampaigns.sol";
+import { FlywheelCampaigns } from "../../src/archive/FlywheelCampaigns.sol";
+import { IFlywheelCampaigns } from "../../src/archive/interfaces/IFlywheelCampaigns.sol";
 import { Test, Vm } from "forge-std/Test.sol";
-import { DummyERC20 } from "../src/test/DummyERC20.sol";
-import { CampaignBalance } from "../src/CampaignBalance.sol";
+import { DummyERC20 } from "../../src/archive/test/DummyERC20.sol";
+import { CampaignBalance } from "../../src/archive/CampaignBalance.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { FlywheelPublisherRegistry } from "../src/FlywheelPublisherRegistry.sol";
+import { FlywheelPublisherRegistry } from "../../src/archive/FlywheelPublisherRegistry.sol";
 
 contract FlywheelCampaignsTest is Test {
   FlywheelCampaigns implementation;
