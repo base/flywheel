@@ -1,22 +1,25 @@
 ---
 description: Describes the workflow to perform when asked to fix or implement a linear ticket. Use this when you are linked a linear ticket and asked to implement, before reading the ticket information from linear
-globs: 
 alwaysApply: false
 ---
+
 # Linear Ticket Kickoff Workflow
 
 1. **Branch Management**
-    - Check the current branch and whether the user has unstaged changes using the git commands
-        - If there are unstaged changes, stash them
-        - If the branch is master, check out a branch using their first name from `git config user.email` along with the linear ticket code (e.g. zac/TBAF-1234)
-   - If not on `master`, prompt me to confirm whether to switch branches.
+
+   - Check the current branch and whether the user has unstaged changes using the git commands
+     - If there are unstaged changes, stash them
+     - If the branch is master, check out a branch using their first name from `git config user.email` along with the linear ticket code (e.g. zac/TBAF-1234)
+   - If not on `main`, prompt me to confirm whether to switch branches.
 
 2. **Issue Context**
+
    - Read and summarize the contents of the Linear issue, including the title, description, and any relevant attachments or comments.
    - Search for relevant context and examples in the repo of how something similar might have been implemented to inform implementation plan
    - Look for any testing requirements, acceptance criteria, or edge cases mentioned in the ticket that should be covered by tests
 
 3. **Implementation Plan**
+
    - If the code change is **simple** (e.g., a small bugfix, minor refactor, or clear one-file change):
      1. Make the suggested code changes.
      2. **Consider testing needs:**

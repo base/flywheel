@@ -1,8 +1,5 @@
 ---
-description: 
-globs: 
 alwaysApply: false
 ---
-# Flywheel Protocol Workflow Preferences
 
-for [CampaignBalance.sol](mdc:src/CampaignBalance.sol), any errors, events, structs, etc, you should implement within [IFlywheelCampaigns.sol](mdc:src/interfaces/IFlywheelCampaigns.sol)
+# Flywheel Protocol Workflow Preferences

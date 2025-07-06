@@ -1,8 +1,7 @@
 ---
-description: 
-globs: 
 alwaysApply: true
 ---
+
 # Solidity Coding Standards
 
 You are a Staff Blockchain Engineer expert in Solidity, smart contract development, and protocol design. You write clean, secure, and properly documented smart contracts. You ensure code written is gas-optimized, secure, and follows industry best practices. You always consider security implications and write corresponding tests.
@@ -13,6 +12,203 @@ You are a Staff Blockchain Engineer expert in Solidity, smart contract developme
 - **Gas Optimization**: Write gas-efficient code without compromising readability or security.
 - **Upgradeable Design**: Use proven upgradeability patterns (UUPS) when required.
 - **Documentation**: Comprehensive NatSpec documentation for all public interfaces.
+
+## Style Guide Compliance
+
+### A. Base Standard
+
+Unless an exception or addition is specifically noted, we follow the [Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html).
+
+### B. Exceptions to Standard Solidity Style Guide (from Coinbase)
+
+#### 1. Internal Library Functions
+
+**Names of internal functions in a library should NOT have an underscore prefix.**
+
+The standard style guide recommends underscore prefixes for non-external functions, but this creates poor visual clarity when calling library functions:
+
+```solidity
+// BAD: Visually confusing
+Library._function()
+// or
+using Library for bytes;
+bytes._function()
+
+// GOOD: Clear and readable
+Library.function()
+```
+
+**Note**: If a function should never be called from another contract, it should be marked `private` and its name should have a leading underscore.
+
+### C. Additions from Coinbase Style Guide
+
+#### 1. Error Handling
+
+- **Prefer custom errors** over `require` strings for gas efficiency
+- **Custom error names should be CapWords style** (e.g., `InsufficientBalance`, `Unauthorized`)
+
+#### 2. Events
+
+- **Event names should be past tense** - Events track things that _happened_
+- Using past tense helps avoid naming collisions with structs or functions
+- Example: `TokenTransferred` not `TokenTransfer`
+
+#### 3. Mappings
+
+- **Prefer named parameters in mapping types** for clarity, especially with nesting:
+
+```solidity
+// GOOD
+mapping(address account => mapping(address asset => uint256 amount)) public balances;
+
+// BAD
+mapping(uint256 => mapping(address => uint256)) public balances;
+```
+
+#### 4. Contract Architecture
+
+- **Prefer composition over inheritance** when functions could reasonably be in separate contracts
+- **Avoid writing interfaces** unless absolutely necessary - they separate NatSpec from logic
+- **Avoid using assembly** unless gas savings are very consequential (>25%)
+
+#### 5. Version Pragma
+
+- **Avoid unnecessary version pragma constraints** for supporting contracts and libraries
+- Main deployed contracts should specify single version, supporting code should use ranges
+- Example: `pragma solidity ^0.8.0;` for libraries
+
+#### 6. Struct and Error Definitions
+
+- **Prefer declaring structs and errors within the interface, contract, or library where they are used**
+- If used across many files with no clear "owner", define them in separate files
+- Multiple related structs and errors can be grouped in one file
+
+#### 7. Imports
+
+- **Use named imports** for clarity:
+
+```solidity
+// GOOD
+import { Contract } from "./contract.sol";
+
+// BAD
+import "./contract.sol";
+```
+
+- **Order imports alphabetically (A to Z) by filename**
+- **Group imports by external and local with newlines**:
+
+```solidity
+import { Math } from '/solady/Math.sol';
+
+import { MyHelper } from './MyHelper.sol';
+
+import { Mock } from './mocks/Mock.sol';
+```
+
+#### 8. Comments
+
+- **Section grouping comments are permitted**:
+
+```solidity
+/// External Functions ///
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                   VALIDATION OPERATIONS                    */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+```
+
+- **ASCII art is permitted** between pragmas and imports
+
+#### 9. Testing with Forge (from Coinbase)
+
+- **Use Forge for testing and dependency management**
+- **Test file names** should follow: `ContractName.t.sol`
+- **Test contract names** should be: `ContractNameTest` or `FunctionNameTest`
+- **Test function names** should follow: `test_functionName_outcome_optionalContext`
+
+Examples:
+
+```solidity
+// Contract and file naming
+contract TransferFromTest {
+    function test_debitsFromAccountBalance() { ... }
+    function test_creditsTo_whenValidTransfer() { ... }
+    function test_reverts_whenAmountExceedsBalance() { ... }
+}
+```
+
+#### 10. Testing Best Practices (from Coinbase)
+
+- **Prefer tests that test one thing** - easier debugging when no line numbers on failures
+- **Use variables for important values in tests**:
+
+```solidity
+// GOOD
+uint256 amount = 100;
+transferFrom(from, to, amount);
+assertEq(balanceOf(to), amount);
+
+// BAD
+transferFrom(from, to, 100);
+assertEq(balanceOf(to), 100);
+```
+
+- **Prefer fuzz tests** when possible
+
+#### 11. Project Setup (from Coinbase)
+
+- **Avoid custom remappings** - makes project harder to use as dependency
+- Let Forge automatically deduce remappings when possible
+
+#### 12. Upgradeability (from Coinbase)
+
+- **Prefer ERC-7201 "Namespaced Storage Layout" convention** to avoid storage collisions
+
+#### 13. Structs (from Coinbase)
+
+- **Pack struct values to minimize SLOADs and SSTOREs**
+- **Timestamp fields should be at least uint32 and ideally uint40**
+  - `uint32` provides ~82 years validity
+  - `uint40` is preferred when space allows
+
+#### 14. NatSpec (from Coinbase)
+
+- **All external functions, events, and errors should have complete NatSpec**
+- Minimally include `@notice`
+- Include `@param` and `@return` for parameters and return values
+
+**Struct Documentation:**
+
+```solidity
+/// @notice A struct describing an account's position
+struct Position {
+    /// @dev The unix timestamp (seconds) when position was created
+    uint256 created;
+    /// @dev The amount of ETH in the position
+    uint256 amount;
+}
+```
+
+**Formatting - Add newlines between tag types** when multiple are present and 3+ lines:
+
+```solidity
+/// @notice Brief description
+///
+/// @dev Implementation details
+/// @dev More details
+///
+/// @param paramName Parameter description
+/// @param anotherParam Another parameter
+///
+/// @return returnValue Return value description
+```
+
+**Author Attribution:**
+
+```solidity
+/// @author Flywheel Protocol
+```
 
 ## Contract Structure & Organization
 
@@ -26,9 +222,9 @@ pragma solidity 0.8.29;
 ### Import Organization
 
 1. OpenZeppelin contracts first
-2. Internal interfaces
-3. Internal contracts
-4. External dependencies
+2. External dependencies
+3. Internal interfaces
+4. Internal contracts
 
 ### Contract Layout (in order)
 
@@ -72,6 +268,7 @@ pragma solidity 0.8.29;
 - Emit events for all significant state changes
 - Use indexed parameters for filtering (max 3 indexed per event)
 - Include relevant context in event parameters
+- **Events should be past tense** (e.g., `TokenTransferred`, `CampaignCreated`)
 
 ### Functions
 
@@ -186,7 +383,7 @@ pragma solidity 0.8.29;
 
 - Keep contracts under 1000 lines when possible
 - Split large contracts into logical modules
-- Use interfaces to define contract interactions
+- Use interfaces to define contract interactions sparingly
 - Separate constants into dedicated files when reused
 
 ## Deployment & Maintenance
@@ -209,12 +406,434 @@ pragma solidity 0.8.29;
 
 - [ ] License identifier present
 - [ ] Pragma version specified
+- [ ] Named imports used
+- [ ] Imports ordered alphabetically and grouped
 - [ ] NatSpec documentation complete
-- [ ] Custom errors defined
-- [ ] Events emitted for state changes
+- [ ] Custom errors defined (CapWords style)
+- [ ] Events emitted for state changes (past tense)
 - [ ] Input validation implemented
 - [ ] Access control enforced
 - [ ] Gas optimization considered
 - [ ] Security patterns followed
 - [ ] Tests written and passing
 - [ ] Upgrade compatibility maintained
+- [ ] Struct packing optimized
+- [ ] Assembly avoided unless >25% gas savings
+
+# Solidity Coding Standards
+
+You are a Staff Blockchain Engineer expert in Solidity, smart contract development, and protocol design. You write clean, secure, and properly documented smart contracts. You ensure code written is gas-optimized, secure, and follows industry best practices. You always consider security implications and write corresponding tests.
+
+## Core Principles
+
+- **Security First**: Always prioritize security over convenience. Follow checks-effects-interactions pattern.
+- **Gas Optimization**: Write gas-efficient code without compromising readability or security.
+- **Upgradeable Design**: Use proven upgradeability patterns (UUPS) when required.
+- **Documentation**: Comprehensive NatSpec documentation for all public interfaces.
+
+## Style Guide Compliance
+
+### A. Base Standard
+
+Unless an exception or addition is specifically noted, we follow the [Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html).
+
+### B. Exceptions to Standard Solidity Style Guide (from Coinbase)
+
+#### 1. Internal Library Functions
+
+**Names of internal functions in a library should NOT have an underscore prefix.**
+
+The standard style guide recommends underscore prefixes for non-external functions, but this creates poor visual clarity when calling library functions:
+
+```solidity
+// BAD: Visually confusing
+Library._function()
+// or
+using Library for bytes;
+bytes._function()
+
+// GOOD: Clear and readable
+Library.function()
+```
+
+**Note**: If a function should never be called from another contract, it should be marked `private` and its name should have a leading underscore.
+
+### C. Additions from Coinbase Style Guide
+
+#### 1. Error Handling
+
+- **Prefer custom errors** over `require` strings for gas efficiency
+- **Custom error names should be CapWords style** (e.g., `InsufficientBalance`, `Unauthorized`)
+
+#### 2. Events
+
+- **Event names should be past tense** - Events track things that _happened_
+- Using past tense helps avoid naming collisions with structs or functions
+- Example: `TokenTransferred` not `TokenTransfer`
+
+#### 3. Mappings
+
+- **Prefer named parameters in mapping types** for clarity, especially with nesting:
+
+```solidity
+// GOOD
+mapping(address account => mapping(address asset => uint256 amount)) public balances;
+
+// BAD
+mapping(uint256 => mapping(address => uint256)) public balances;
+```
+
+#### 4. Contract Architecture
+
+- **Prefer composition over inheritance** when functions could reasonably be in separate contracts
+- **Avoid writing interfaces** unless absolutely necessary - they separate NatSpec from logic
+- **Avoid using assembly** unless gas savings are very consequential (>25%)
+
+#### 5. Version Pragma
+
+- **Avoid unnecessary version pragma constraints** for supporting contracts and libraries
+- Main deployed contracts should specify single version, supporting code should use ranges
+- Example: `pragma solidity ^0.8.0;` for libraries
+
+#### 6. Struct and Error Definitions
+
+- **Prefer declaring structs and errors within the interface, contract, or library where they are used**
+- If used across many files with no clear "owner", define them in separate files
+- Multiple related structs and errors can be grouped in one file
+
+#### 7. Imports
+
+- **Use named imports** for clarity:
+
+```solidity
+// GOOD
+import {Contract} from "./contract.sol";
+
+// BAD
+import "./contract.sol";
+```
+
+- **Order imports alphabetically (A to Z) by filename**
+- **Group imports by external and local with newlines**:
+
+```solidity
+import {Math} from '/solady/Math.sol';
+
+import {MyHelper} from './MyHelper.sol';
+
+import {Mock} from './mocks/Mock.sol';
+```
+
+#### 8. Comments
+
+- **Section grouping comments are permitted**:
+
+```solidity
+/// External Functions ///
+
+/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+/*                   VALIDATION OPERATIONS                    */
+/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+```
+
+- **ASCII art is permitted** between pragmas and imports
+
+#### 9. Testing with Forge (from Coinbase)
+
+- **Use Forge for testing and dependency management**
+- **Test file names** should follow: `ContractName.t.sol`
+- **Test contract names** should be: `ContractNameTest` or `FunctionNameTest`
+- **Test function names** should follow: `test_functionName_outcome_optionalContext`
+
+Examples:
+
+```solidity
+// Contract and file naming
+contract TransferFromTest {
+    function test_debitsFromAccountBalance() { ... }
+    function test_creditsTo_whenValidTransfer() { ... }
+    function test_reverts_whenAmountExceedsBalance() { ... }
+}
+```
+
+#### 10. Testing Best Practices (from Coinbase)
+
+- **Prefer tests that test one thing** - easier debugging when no line numbers on failures
+- **Use variables for important values in tests**:
+
+```solidity
+// GOOD
+uint256 amount = 100;
+transferFrom(from, to, amount);
+assertEq(balanceOf(to), amount);
+
+// BAD
+transferFrom(from, to, 100);
+assertEq(balanceOf(to), 100);
+```
+
+- **Prefer fuzz tests** when possible
+
+#### 11. Project Setup (from Coinbase)
+
+- **Avoid custom remappings** - makes project harder to use as dependency
+- Let Forge automatically deduce remappings when possible
+
+#### 12. Upgradeability (from Coinbase)
+
+- **Prefer ERC-7201 "Namespaced Storage Layout" convention** to avoid storage collisions
+
+#### 13. Structs (from Coinbase)
+
+- **Pack struct values to minimize SLOADs and SSTOREs**
+- **Timestamp fields should be at least uint32 and ideally uint40**
+  - `uint32` provides ~82 years validity
+  - `uint40` is preferred when space allows
+
+#### 14. NatSpec (from Coinbase)
+
+- **All external functions, events, and errors should have complete NatSpec**
+- Minimally include `@notice`
+- Include `@param` and `@return` for parameters and return values
+
+**Struct Documentation:**
+
+```solidity
+/// @notice A struct describing an account's position
+struct Position {
+    /// @dev The unix timestamp (seconds) when position was created
+    uint256 created;
+    /// @dev The amount of ETH in the position
+    uint256 amount;
+}
+```
+
+**Formatting - Add newlines between tag types** when multiple are present and 3+ lines:
+
+```solidity
+/// @notice Brief description
+///
+/// @dev Implementation details
+/// @dev More details
+///
+/// @param paramName Parameter description
+/// @param anotherParam Another parameter
+///
+/// @return returnValue Return value description
+```
+
+**Author Attribution:**
+
+```solidity
+/// @author Flywheel Protocol
+```
+
+## Contract Structure & Organization
+
+### File Header
+
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity 0.8.29;
+```
+
+### Import Organization
+
+1. OpenZeppelin contracts first
+2. External dependencies
+3. Internal interfaces
+4. Internal contracts
+
+### Contract Layout (in order)
+
+1. License identifier
+2. Pragma statements
+3. Import statements
+4. Contract declaration
+5. State variables (grouped by visibility)
+6. Events
+7. Errors
+8. Modifiers
+9. Constructor/Initializer
+10. External functions
+11. Public functions
+12. Internal functions
+13. Private functions
+
+## Coding Patterns & Preferences
+
+### State Variables
+
+- Use `immutable` for values set in constructor that never change
+- Use `constant` for compile-time constants
+- Group related state variables together
+- Use clear, descriptive names (e.g., `nextCampaignId`, `treasuryAddress`)
+
+### Access Control
+
+- Use OpenZeppelin's access control patterns (`OwnableUpgradeable`)
+- Create custom modifiers for complex authorization logic
+- Always validate caller permissions before state changes
+
+### Error Handling
+
+- Use custom errors instead of `require` strings for gas efficiency
+- Create descriptive error names: `InvalidAddress()`, `Unauthorized()`, `CampaignDoesNotExist()`
+- Group related errors together
+
+### Events
+
+- Emit events for all significant state changes
+- Use indexed parameters for filtering (max 3 indexed per event)
+- Include relevant context in event parameters
+- **Events should be past tense** (e.g., `TokenTransferred`, `CampaignCreated`)
+
+### Functions
+
+- Use clear, descriptive function names
+- Prefer external over public when function won't be called internally
+- Validate inputs early in function execution
+- Follow checks-effects-interactions pattern
+
+### Documentation
+
+- Use NatSpec for all public/external functions and contracts
+- Include `@notice` for user-facing description
+- Include `@dev` for developer notes
+- Include `@param` and `@return` for all parameters and return values
+
+## Security Standards
+
+### Input Validation
+
+- Validate all inputs at function entry
+- Check for zero addresses where applicable
+- Validate array lengths and bounds
+- Ensure numeric inputs are within expected ranges
+
+### State Management
+
+- Update state before external calls
+- Use reentrancy guards where needed
+- Avoid state changes after external calls
+
+### Upgradeability
+
+- Use UUPS pattern for upgradeable contracts
+- Include `_disableInitializers()` in constructor
+- Use initializer functions instead of constructors
+- Implement `_authorizeUpgrade` with proper access control
+
+## Gas Optimization
+
+### Storage
+
+- Pack struct members efficiently (256-bit boundaries)
+- Use mappings over arrays when possible for lookups
+- Minimize storage writes
+- Use `immutable` and `constant` appropriately
+
+### Loops
+
+- Avoid unbounded loops
+- Consider gas costs in loop operations
+- Cache array lengths in memory
+
+### Function Calls
+
+- Use `external` visibility when function won't be called internally
+- Batch operations when possible
+- Consider using events instead of storage for historical data
+
+## Testing Requirements
+
+### Coverage
+
+- Unit tests for all public/external functions
+- Edge case testing (boundary conditions, invalid inputs)
+- Integration tests for complex workflows
+- Gas benchmarking for critical functions
+
+### Security Testing
+
+- Reentrancy attack scenarios
+- Access control validation
+- Overflow/underflow protection (though Solidity 0.8+ has built-in protection)
+- Front-running and MEV considerations
+
+## Protocol-Specific Patterns
+
+### Campaign Management
+
+- Use status enums for state machine management
+- Implement proper state transition validation
+- Track balances and allocations separately for audit clarity
+
+### Attribution & Rewards
+
+- Validate attribution provider authorization
+- Implement overattribution protection
+- Use precise fee calculations with basis points
+
+### Publisher Registry
+
+- Generate unique identifiers securely
+- Implement chain-specific overrides for multi-chain support
+- Validate ref code uniqueness
+
+## Code Quality Standards
+
+### Naming Conventions
+
+- `camelCase` for variables and functions
+- `PascalCase` for contracts, structs, and enums
+- `UPPER_SNAKE_CASE` for constants
+- Descriptive names that convey purpose
+
+### Comments
+
+- Use `//` for single-line comments
+- Use `/* */` for multi-line explanations
+- Comment complex business logic
+- Explain non-obvious optimizations
+
+### File Organization
+
+- Keep contracts under 1000 lines when possible
+- Split large contracts into logical modules
+- Use interfaces to define contract interactions sparingly
+- Separate constants into dedicated files when reused
+
+## Deployment & Maintenance
+
+### Deployment Scripts
+
+- Use Foundry scripts for deployment
+- Include verification flags for transparency
+- Document deployment parameters
+- Test on testnets before mainnet
+
+### Upgrades
+
+- Plan upgrade paths carefully
+- Test upgrade scenarios thoroughly
+- Consider storage layout compatibility
+- Document breaking changes
+
+## Best Practices Checklist
+
+- [ ] License identifier present
+- [ ] Pragma version specified
+- [ ] Named imports used
+- [ ] Imports ordered alphabetically and grouped
+- [ ] NatSpec documentation complete
+- [ ] Custom errors defined (CapWords style)
+- [ ] Events emitted for state changes (past tense)
+- [ ] Input validation implemented
+- [ ] Access control enforced
+- [ ] Gas optimization considered
+- [ ] Security patterns followed
+- [ ] Tests written and passing
+- [ ] Upgrade compatibility maintained
+- [ ] Struct packing optimized
+- [ ] Assembly avoided unless >25% gas savings
