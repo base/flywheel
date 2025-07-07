@@ -13,12 +13,6 @@ contract MetadataMixin is Ownable2Step {
     /// @param baseURI The new base URI
     event BaseURIUpdated(string baseURI);
 
-    /// @notice Emitted when a campaign is updated
-    //.
-    /// @param campaign Address of the campaign
-    /// @param uri The URI for the campaign
-    event CampaignUpdated(address indexed campaign, string uri);
-
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param owner_ Address of the contract owner
@@ -30,18 +24,9 @@ contract MetadataMixin is Ownable2Step {
     ///
     /// @dev Only callable by the owner
 
-    function setBaseURI(string memory baseURI_) external onlyOwner {
+    function _setBaseURI(string memory baseURI_) internal onlyOwner {
         baseURI = baseURI_;
         emit BaseURIUpdated(baseURI_);
-    }
-
-    /// @notice Broadcasts a campaign update event
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @dev Only callable by the owner
-    function broadcastCampaignUpdate(address campaign) external onlyOwner {
-        emit CampaignUpdated(campaign, _campaignURI(campaign));
     }
 
     /// @notice Returns the URI for a campaign

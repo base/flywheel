@@ -122,4 +122,26 @@ contract AdvertisementConversion is CampaignHooks, MetadataMixin {
         }
         return (payouts, attributorFee);
     }
+
+    /// @notice Enforces sender is the owner for metadata updates
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Only callable by the owner
+    function _updateCampaign(address sender, address campaign, bytes calldata data) internal view override {
+        if (sender != owner()) revert Unauthorized();
+    }
+
+    /// @notice Updates the baseURI for all campaign metadata
+    ///
+    /// @param sender Address of the sender
+    /// @param data The data for the campaigns
+    ///
+    /// @dev Only callable by the owner
+    function _updateAllCampaigns(address sender, bytes calldata data) internal override {
+        if (sender != owner()) revert Unauthorized();
+        _setBaseURI(string(data));
+    }
 }

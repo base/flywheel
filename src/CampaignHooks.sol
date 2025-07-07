@@ -54,6 +54,16 @@ abstract contract CampaignHooks {
         return _attribute(campaign, attributor, payoutToken, attributionData);
     }
 
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Only callable by the protocol contract
+    function updateCampaign(address sender, address campaign, bytes calldata data) external onlyProtocol {
+        _updateCampaign(sender, campaign, data);
+    }
+
     /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
@@ -83,6 +93,16 @@ abstract contract CampaignHooks {
         virtual
         returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {
+        revert Unimplemented();
+    }
+
+    /// @notice Internal function to update the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Override this function in derived contracts
+    function _updateCampaign(address sender, address campaign, bytes calldata data) internal virtual {
         revert Unimplemented();
     }
 }

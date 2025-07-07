@@ -29,7 +29,7 @@ contract Flywheel {
     /// @param status Current status of the campaign
     /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
-    /// @param hooks Address of the campaign hooks contract
+    /// @param hooks Address of the attribution hooks contract
     /// @param attributionDeadline Timestamp after which no more attribution can occur (set on close)
     struct CampaignInfo {
         CampaignStatus status;
@@ -116,6 +116,17 @@ contract Flywheel {
     /// @param token Address of the withdrawn token
     /// @param amount Amount of tokens withdrawn
     event RemainderWithdrawn(address indexed campaign, address token, uint256 amount);
+
+    /// @notice Emitted when a campaign is updated
+    ///
+    /// @param campaign Address of the campaign
+    /// @param uri The URI for the campaign
+    event CampaignUpdated(address indexed campaign, string uri);
+
+    /// @notice Emitted when all campaigns are updated
+    ///
+    /// @param hooks Address of the attribution hooks contract
+    event AllCampaignsUpdated(address indexed hooks);
 
     /// @notice Thrown when caller doesn't have required permissions
     error Unauthorized();
@@ -314,12 +325,34 @@ contract Flywheel {
         emit RemainderWithdrawn(campaign, token, balance);
     }
 
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Only callable by the sponsor of a FINALIZED campaign
+    function updateCampaign(address campaign, bytes calldata data) external {
+        if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        CampaignHooks(campaigns[campaign].hooks).updateCampaign(msg.sender, campaign, data);
+        emit CampaignUpdated(campaign, campaignURI(campaign));
+    }
+
+    /// @notice Updates the metadata for all campaigns
+    ///
+    /// @param data The data for the campaigns
+    ///
+    /// @dev Only callable by the protocol contract
+    function updateAllCampaigns(address hooks, bytes calldata data) external {
+        CampaignHooks(hooks).updateAllCampaigns(msg.sender, data);
+        emit AllCampaignsUpdated(hooks);
+    }
+
     /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
     ///
     /// @return uri The URI for the campaign
-    function campaignURI(address campaign) external view returns (string memory uri) {
+    function campaignURI(address campaign) public view returns (string memory uri) {
         return CampaignHooks(campaigns[campaign].hooks).campaignURI(campaign);
     }
 
