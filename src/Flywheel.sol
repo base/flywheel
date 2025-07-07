@@ -331,6 +331,7 @@ contract Flywheel {
     /// @param data The data for the campaign
     ///
     /// @dev Only callable by the sponsor of a FINALIZED campaign
+    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
     function updateCampaignMetadata(address campaign, bytes calldata data) external {
         if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         CampaignHooks(campaigns[campaign].hooks).updateCampaignMetadata(msg.sender, campaign, data);
@@ -342,6 +343,7 @@ contract Flywheel {
     /// @param data The data for the campaigns
     ///
     /// @dev Only callable by the protocol contract
+    /// @dev Indexers should update their metadata cache for all campaigns using this hook by fetching the campaignURI
     function updateMetadataForAllCampaigns(address hooks, bytes calldata data) external {
         CampaignHooks(hooks).updateMetadataForAllCampaigns(msg.sender, data);
         emit AllCampaignMetadataUpdated(hooks);
