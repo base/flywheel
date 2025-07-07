@@ -121,12 +121,12 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param uri The URI for the campaign
-    event CampaignUpdated(address indexed campaign, string uri);
+    event CampaignMetadataUpdated(address indexed campaign, string uri);
 
     /// @notice Emitted when all campaigns are updated
     ///
     /// @param hooks Address of the attribution hooks contract
-    event AllCampaignsUpdated(address indexed hooks);
+    event AllCampaignMetadataUpdated(address indexed hooks);
 
     /// @notice Thrown when caller doesn't have required permissions
     error Unauthorized();
@@ -331,10 +331,10 @@ contract Flywheel {
     /// @param data The data for the campaign
     ///
     /// @dev Only callable by the sponsor of a FINALIZED campaign
-    function updateCampaign(address campaign, bytes calldata data) external {
+    function updateCampaignMetadata(address campaign, bytes calldata data) external {
         if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        CampaignHooks(campaigns[campaign].hooks).updateCampaign(msg.sender, campaign, data);
-        emit CampaignUpdated(campaign, campaignURI(campaign));
+        CampaignHooks(campaigns[campaign].hooks).updateCampaignMetadata(msg.sender, campaign, data);
+        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
     }
 
     /// @notice Updates the metadata for all campaigns
@@ -342,9 +342,9 @@ contract Flywheel {
     /// @param data The data for the campaigns
     ///
     /// @dev Only callable by the protocol contract
-    function updateAllCampaigns(address hooks, bytes calldata data) external {
-        CampaignHooks(hooks).updateAllCampaigns(msg.sender, data);
-        emit AllCampaignsUpdated(hooks);
+    function updateMetadataForAllCampaigns(address hooks, bytes calldata data) external {
+        CampaignHooks(hooks).updateMetadataForAllCampaigns(msg.sender, data);
+        emit AllCampaignMetadataUpdated(hooks);
     }
 
     /// @notice Returns the URI for a campaign

@@ -60,8 +60,8 @@ abstract contract CampaignHooks {
     /// @param data The data for the campaign
     ///
     /// @dev Only callable by the protocol contract
-    function updateCampaign(address sender, address campaign, bytes calldata data) external onlyProtocol {
-        _updateCampaign(sender, campaign, data);
+    function updateCampaignMetadata(address sender, address campaign, bytes calldata data) external onlyProtocol {
+        _updateCampaignMetadata(sender, campaign, data);
     }
 
     /// @notice Returns the URI for a campaign
@@ -102,7 +102,7 @@ abstract contract CampaignHooks {
     /// @param data The data for the campaign
     ///
     /// @dev Override this function in derived contracts
-    function _updateCampaign(address sender, address campaign, bytes calldata data) internal virtual {
+    function _updateCampaignMetadata(address sender, address campaign, bytes calldata data) internal virtual {
         revert Unimplemented();
     }
 }
