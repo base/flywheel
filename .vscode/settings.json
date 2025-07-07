@@ -5,6 +5,7 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "solidity.compileUsingRemoteVersion": "v0.8.29+commit.ab55807c",
+  "solidity.formatter": "forge",
   "[solidity]": {
     "editor.defaultFormatter": "JuanBlanco.solidity"
   }
