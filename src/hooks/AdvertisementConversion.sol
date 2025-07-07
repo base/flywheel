@@ -4,6 +4,13 @@ pragma solidity 0.8.29;
 import { Flywheel } from "../Flywheel.sol";
 import { AttributionHook } from "./AttributionHook.sol";
 import { MetadataMixin } from "./MetadataMixin.sol";
+import { FlywheelPublisherRegistry } from "../FlywheelPublisherRegistry.sol";
+
+error AllowlistPublisherAlreadyExists(address campaign, string refCode);
+error ConversionConfigNotActive();
+error MaxConversionConfigsReached();
+error ConversionConfigDoesNotExist();
+error Unauthorized();
 
 /// @title AdvertisementConversion
 ///
@@ -50,6 +57,13 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     uint256 index;
   }
 
+  /// @notice Status of a conversion config
+  enum ConversionConfigStatus {
+    NONE,
+    ACTIVE,
+    DEACTIVATED
+  }
+
   uint16 public constant MAX_BPS = 10_000;
 
   /// @notice Emitted when an offchain attribution event occurs
@@ -70,11 +84,61 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
   /// @param feeBps The invalid fee BPS
   error InvalidFeeBps(uint16 feeBps);
 
+  /// @notice Emitted when an invalid conversion config ID is provided
+  ///
+  /// @param id The invalid conversion config ID
+  error InvalidConversionConfigId(uint8 id);
+
+  // --- Conversion Config Storage ---
+  struct ConversionConfig {
+    uint8 id;
+    string eventName;
+    uint256 publisherBidValue;
+    uint256 userBidValue;
+    uint8 rewardType;
+    uint8 cadenceType;
+    ConversionConfigStatus status;
+  }
+  mapping(address => mapping(uint8 => ConversionConfig)) public campaignConfigs;
+  mapping(address => mapping(string => bool)) public campaignAllowlist;
+  mapping(address => uint8) public campaignConversionConfigCount;
+
+  event ConversionConfigAdded(
+    address indexed campaign,
+    uint8 id,
+    string eventName,
+    uint256 publisherBidValue,
+    uint256 userBidValue,
+    uint8 rewardType,
+    uint8 cadenceType
+  );
+  event ConversionConfigDeactivated(address indexed campaign, uint8 id);
+  event AllowlistPublisherAdded(address indexed campaign, string refCode);
+
+  address public immutable publisherRegistry;
+  mapping(address => address) public campaignAdvertiser;
+
   /// @notice Constructor for ConversionAttestation
   ///
   /// @param protocol_ Address of the protocol contract
   /// @param owner_ Address of the contract owner
-  constructor(address protocol_, address owner_) AttributionHook(protocol_) MetadataMixin(owner_) {}
+  /// @param publisherRegistry_ Address of the publisher registry
+  constructor(
+    address protocol_,
+    address owner_,
+    address publisherRegistry_
+  ) AttributionHook(protocol_) MetadataMixin(owner_) {
+    publisherRegistry = publisherRegistry_;
+  }
+
+  /// @notice Ensures caller is the advertiser for the campaign
+  /// @param campaign Address of the campaign to validate
+  modifier onlyAdvertiser(address campaign) {
+    if (campaignAdvertiser[campaign] != msg.sender) {
+      revert Unauthorized();
+    }
+    _;
+  }
 
   /// @notice Returns the URI for a campaign
   ///
@@ -83,6 +147,46 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
   /// @return uri The URI for the campaign
   function campaignURI(address campaign) public view override returns (string memory uri) {
     return _campaignURI(campaign);
+  }
+
+  /// @notice Adds a new conversion config to an existing campaign
+  /// @param campaign Address of the campaign
+  /// @param config Configuration for the new conversion
+  function addConversionConfig(address campaign, ConversionConfig memory config) external onlyAdvertiser(campaign) {
+    if (campaignConversionConfigCount[campaign] + 1 > type(uint8).max) {
+      // we don't want to overflow or store more than 255 conversion configs per campaign
+      revert MaxConversionConfigsReached();
+    }
+
+    uint8 conversionConfigId = campaignConversionConfigCount[campaign] + 1;
+    config.id = conversionConfigId;
+    config.status = ConversionConfigStatus.ACTIVE;
+
+    campaignConfigs[campaign][conversionConfigId] = config;
+    campaignConversionConfigCount[campaign]++;
+
+    emit ConversionConfigAdded(
+      campaign,
+      conversionConfigId,
+      config.eventName,
+      config.publisherBidValue,
+      config.userBidValue,
+      config.rewardType,
+      config.cadenceType
+    );
+  }
+
+  /// @notice Deactivates an existing conversion config
+  /// @param campaign Address of the campaign
+  /// @param conversionConfigId ID of the conversion config to deactivate
+  function deactivateConversionConfig(address campaign, uint8 conversionConfigId) external onlyAdvertiser(campaign) {
+    if (campaignConfigs[campaign][conversionConfigId].status != ConversionConfigStatus.ACTIVE) {
+      revert ConversionConfigNotActive();
+    }
+
+    campaignConfigs[campaign][conversionConfigId].status = ConversionConfigStatus.DEACTIVATED;
+
+    emit ConversionConfigDeactivated(campaign, conversionConfigId);
   }
 
   /// @notice Processes attribution for a campaign
@@ -106,6 +210,15 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
     payouts = new Flywheel.Payout[](attributions.length);
     for (uint256 i = 0; i < attributions.length; i++) {
+      uint8 configId = attributions[i].conversion.conversionConfigId;
+      ConversionConfig storage config = campaignConfigs[campaign][configId];
+      if (config.id == 0) {
+        revert InvalidConversionConfigId(configId);
+      }
+      if (config.status != ConversionConfigStatus.ACTIVE) {
+        revert ConversionConfigNotActive();
+      }
+
       // Deduct attribution fee from payout amount
       Flywheel.Payout memory payout = attributions[i].payout;
       uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
@@ -122,5 +235,49 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
       }
     }
     return (payouts, attributorFee);
+  }
+
+  function _createCampaign(address campaign, address sponsor, bytes calldata initData) internal override {
+    (address advertiser, ConversionConfig[] memory configs, string[] memory allowlist) = abi.decode(
+      initData,
+      (address, ConversionConfig[], string[])
+    );
+    campaignAdvertiser[campaign] = advertiser;
+    uint8 maxConfigId = 0;
+    for (uint256 i = 0; i < configs.length; i++) {
+      configs[i].status = ConversionConfigStatus.ACTIVE;
+      campaignConfigs[campaign][configs[i].id] = configs[i];
+      if (configs[i].id > maxConfigId) {
+        maxConfigId = configs[i].id;
+      }
+      emit ConversionConfigAdded(
+        campaign,
+        configs[i].id,
+        configs[i].eventName,
+        configs[i].publisherBidValue,
+        configs[i].userBidValue,
+        configs[i].rewardType,
+        configs[i].cadenceType
+      );
+    }
+    campaignConversionConfigCount[campaign] = maxConfigId;
+    for (uint256 i = 0; i < allowlist.length; i++) {
+      if (publisherRegistry != address(0)) {
+        require(
+          FlywheelPublisherRegistry(publisherRegistry).publisherExists(allowlist[i]),
+          "Publisher ref code does not exist"
+        );
+      }
+      campaignAllowlist[campaign][allowlist[i]] = true;
+      emit AllowlistPublisherAdded(campaign, allowlist[i]);
+    }
+  }
+
+  function addAllowlistPublisher(address campaign, string memory refCode) external onlyOwner {
+    if (campaignAllowlist[campaign][refCode] == true) revert AllowlistPublisherAlreadyExists(campaign, refCode);
+
+    campaignAllowlist[campaign][refCode] = true;
+
+    emit AllowlistPublisherAdded(campaign, refCode);
   }
 }

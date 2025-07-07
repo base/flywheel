@@ -30,11 +30,12 @@ contract AttributionHook {
   /// @notice Creates a campaign in the hook
   ///
   /// @param campaign Address of the campaign
+  /// @param sponsor Address of the sponsor: useful for additional validation in the derived hooks
   /// @param initData Initialization data for the campaign
   ///
   /// @dev Only callable by the protocol contract
-  function createCampaign(address campaign, bytes calldata initData) external onlyProtocol {
-    _createCampaign(campaign, initData);
+  function createCampaign(address campaign, address sponsor, bytes calldata initData) external onlyProtocol {
+    _createCampaign(campaign, sponsor, initData);
   }
 
   /// @notice Processes attribution for a campaign
@@ -66,7 +67,7 @@ contract AttributionHook {
   /// @param initData Initialization data for the campaign
   ///
   /// @dev Override this function in derived contracts
-  function _createCampaign(address campaign, bytes calldata initData) internal virtual {}
+  function _createCampaign(address campaign, address sponsor, bytes calldata initData) internal virtual {}
 
   /// @notice Internal function to process attribution
   ///
