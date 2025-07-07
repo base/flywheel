@@ -11,6 +11,8 @@ error ConversionConfigNotActive();
 error MaxConversionConfigsReached();
 error ConversionConfigDoesNotExist();
 error Unauthorized();
+error InvalidPublisherRefCode();
+error InvalidAddress();
 
 /// @title AdvertisementConversion
 ///
@@ -128,6 +130,9 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     address owner_,
     address publisherRegistry_
   ) AttributionHook(protocol_) MetadataMixin(owner_) {
+    if (publisherRegistry_ == address(0)) {
+      revert InvalidAddress();
+    }
     publisherRegistry = publisherRegistry_;
   }
 
@@ -138,6 +143,14 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
       revert Unauthorized();
     }
     _;
+  }
+
+  /// @notice Checks if a publisher ref code is invalid
+  /// @param publisherRefCode Publisher ref code to validate
+  /// @return Whether the publisher ref code is invalid
+  function isInvalidPublisherRefCode(string memory publisherRefCode) internal view returns (bool) {
+    FlywheelPublisherRegistry registry = FlywheelPublisherRegistry(publisherRegistry);
+    return !registry.publisherExists(publisherRefCode);
   }
 
   /// @notice Returns the URI for a campaign
@@ -219,6 +232,11 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
         revert ConversionConfigNotActive();
       }
 
+      // Validate publisher ref code exists in registry
+      if (isInvalidPublisherRefCode(attributions[i].conversion.publisherRefCode)) {
+        revert InvalidPublisherRefCode();
+      }
+
       // Deduct attribution fee from payout amount
       Flywheel.Payout memory payout = attributions[i].payout;
       uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
@@ -262,11 +280,9 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     }
     campaignConversionConfigCount[campaign] = maxConfigId;
     for (uint256 i = 0; i < allowlist.length; i++) {
-      if (publisherRegistry != address(0)) {
-        require(
-          FlywheelPublisherRegistry(publisherRegistry).publisherExists(allowlist[i]),
-          "Publisher ref code does not exist"
-        );
+      // Validate publisher ref code exists in registry
+      if (isInvalidPublisherRefCode(allowlist[i])) {
+        revert InvalidPublisherRefCode();
       }
       campaignAllowlist[campaign][allowlist[i]] = true;
       emit AllowlistPublisherAdded(campaign, allowlist[i]);
@@ -275,6 +291,11 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
 
   function addAllowlistPublisher(address campaign, string memory refCode) external onlyOwner {
     if (campaignAllowlist[campaign][refCode] == true) revert AllowlistPublisherAlreadyExists(campaign, refCode);
+
+    // Validate publisher ref code exists in registry
+    if (isInvalidPublisherRefCode(refCode)) {
+      revert InvalidPublisherRefCode();
+    }
 
     campaignAllowlist[campaign][refCode] = true;
 
