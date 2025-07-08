@@ -13,6 +13,7 @@ error ConversionConfigDoesNotExist();
 error Unauthorized();
 error InvalidPublisherRefCode();
 error InvalidAddress();
+error InvalidConversionConfigCount();
 
 /// @title AdvertisementConversion
 ///
@@ -91,30 +92,12 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
   /// @param id The invalid conversion config ID
   error InvalidConversionConfigId(uint8 id);
 
-  // --- Conversion Config Storage ---
-  struct ConversionConfig {
-    uint8 id;
-    string eventName;
-    uint256 publisherBidValue;
-    uint256 userBidValue;
-    uint8 rewardType;
-    uint8 cadenceType;
-    ConversionConfigStatus status;
-  }
-  mapping(address => mapping(uint8 => ConversionConfig)) public campaignConfigs;
+  mapping(address => mapping(uint32 => ConversionConfigStatus status)) public campaignConfigs;
   mapping(address => mapping(string => bool)) public campaignAllowlist;
-  mapping(address => uint8) public campaignConversionConfigCount;
+  mapping(address => uint32) public campaignConversionConfigCount;
 
-  event ConversionConfigAdded(
-    address indexed campaign,
-    uint8 id,
-    string eventName,
-    uint256 publisherBidValue,
-    uint256 userBidValue,
-    uint8 rewardType,
-    uint8 cadenceType
-  );
-  event ConversionConfigDeactivated(address indexed campaign, uint8 id);
+  event ConversionConfigAdded(address indexed campaign, uint32 id);
+  event ConversionConfigDeactivated(address indexed campaign, uint32 id);
   event AllowlistPublisherAdded(address indexed campaign, string refCode);
 
   address public immutable publisherRegistry;
@@ -164,40 +147,29 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
 
   /// @notice Adds a new conversion config to an existing campaign
   /// @param campaign Address of the campaign
-  /// @param config Configuration for the new conversion
-  function addConversionConfig(address campaign, ConversionConfig memory config) external onlyAdvertiser(campaign) {
-    if (campaignConversionConfigCount[campaign] + 1 > type(uint8).max) {
+  function addConversionConfig(address campaign) external onlyAdvertiser(campaign) {
+    if (campaignConversionConfigCount[campaign] + 1 > type(uint32).max) {
       // we don't want to overflow or store more than 255 conversion configs per campaign
       revert MaxConversionConfigsReached();
     }
 
-    uint8 conversionConfigId = campaignConversionConfigCount[campaign] + 1;
-    config.id = conversionConfigId;
-    config.status = ConversionConfigStatus.ACTIVE;
-
-    campaignConfigs[campaign][conversionConfigId] = config;
     campaignConversionConfigCount[campaign]++;
+    uint32 conversionConfigId = campaignConversionConfigCount[campaign];
 
-    emit ConversionConfigAdded(
-      campaign,
-      conversionConfigId,
-      config.eventName,
-      config.publisherBidValue,
-      config.userBidValue,
-      config.rewardType,
-      config.cadenceType
-    );
+    campaignConfigs[campaign][conversionConfigId] = ConversionConfigStatus.ACTIVE;
+
+    emit ConversionConfigAdded(campaign, conversionConfigId);
   }
 
   /// @notice Deactivates an existing conversion config
   /// @param campaign Address of the campaign
   /// @param conversionConfigId ID of the conversion config to deactivate
-  function deactivateConversionConfig(address campaign, uint8 conversionConfigId) external onlyAdvertiser(campaign) {
-    if (campaignConfigs[campaign][conversionConfigId].status != ConversionConfigStatus.ACTIVE) {
+  function deactivateConversionConfig(address campaign, uint32 conversionConfigId) external onlyAdvertiser(campaign) {
+    if (campaignConfigs[campaign][conversionConfigId] != ConversionConfigStatus.ACTIVE) {
       revert ConversionConfigNotActive();
     }
 
-    campaignConfigs[campaign][conversionConfigId].status = ConversionConfigStatus.DEACTIVATED;
+    campaignConfigs[campaign][conversionConfigId] = ConversionConfigStatus.DEACTIVATED;
 
     emit ConversionConfigDeactivated(campaign, conversionConfigId);
   }
@@ -224,11 +196,10 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     payouts = new Flywheel.Payout[](attributions.length);
     for (uint256 i = 0; i < attributions.length; i++) {
       uint8 configId = attributions[i].conversion.conversionConfigId;
-      ConversionConfig storage config = campaignConfigs[campaign][configId];
-      if (config.id == 0) {
+      if (campaignConfigs[campaign][configId] == ConversionConfigStatus.NONE) {
         revert InvalidConversionConfigId(configId);
       }
-      if (config.status != ConversionConfigStatus.ACTIVE) {
+      if (campaignConfigs[campaign][configId] != ConversionConfigStatus.ACTIVE) {
         revert ConversionConfigNotActive();
       }
 
@@ -256,29 +227,21 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
   }
 
   function _createCampaign(address campaign, address sponsor, bytes calldata initData) internal override {
-    (address advertiser, ConversionConfig[] memory configs, string[] memory allowlist) = abi.decode(
+    (address advertiser, uint32 configCount, string[] memory allowlist) = abi.decode(
       initData,
-      (address, ConversionConfig[], string[])
+      (address, uint32, string[])
     );
     campaignAdvertiser[campaign] = advertiser;
-    uint8 maxConfigId = 0;
-    for (uint256 i = 0; i < configs.length; i++) {
-      configs[i].status = ConversionConfigStatus.ACTIVE;
-      campaignConfigs[campaign][configs[i].id] = configs[i];
-      if (configs[i].id > maxConfigId) {
-        maxConfigId = configs[i].id;
-      }
-      emit ConversionConfigAdded(
-        campaign,
-        configs[i].id,
-        configs[i].eventName,
-        configs[i].publisherBidValue,
-        configs[i].userBidValue,
-        configs[i].rewardType,
-        configs[i].cadenceType
-      );
+
+    if (configCount == 0) {
+      revert InvalidConversionConfigCount();
     }
-    campaignConversionConfigCount[campaign] = maxConfigId;
+
+    for (uint32 configId = 1; configId <= configCount; configId++) {
+      campaignConfigs[campaign][configId] = ConversionConfigStatus.ACTIVE;
+      emit ConversionConfigAdded(campaign, configId);
+    }
+    campaignConversionConfigCount[campaign] = configCount;
     for (uint256 i = 0; i < allowlist.length; i++) {
       // Validate publisher ref code exists in registry
       if (isInvalidPublisherRefCode(allowlist[i])) {
