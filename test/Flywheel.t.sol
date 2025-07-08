@@ -32,7 +32,7 @@ contract FlywheelTest is Test {
         flywheel = new Flywheel();
 
         // Deploy hook
-        hook = new AdvertisementConversion(address(flywheel), address(this));
+        hook = new AdvertisementConversion(address(flywheel), 7 days, address(this));
     }
 
     function test_createCampaign() public {

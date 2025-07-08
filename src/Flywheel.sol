@@ -48,9 +48,6 @@ contract Flywheel {
         uint256 amount;
     }
 
-    /// @notice Buffer time after campaign close before finalization is allowed
-    uint256 public constant FINALIZATION_BUFFER = 7 days;
-
     /// @notice Implementation address for TokenStore contracts
     address public immutable tokenStoreImpl;
 
@@ -201,7 +198,8 @@ contract Flywheel {
         CampaignStatus status = campaigns[campaign].status;
         if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
         campaigns[campaign].status = CampaignStatus.CLOSED;
-        campaigns[campaign].attributionDeadline = uint48(block.timestamp + FINALIZATION_BUFFER);
+        campaigns[campaign].attributionDeadline =
+            uint48(block.timestamp + AttributionHook(campaigns[campaign].hook).finalizationBufferDefault());
         emit CampaignStatusUpdated(campaign, msg.sender, status, CampaignStatus.CLOSED);
     }
 

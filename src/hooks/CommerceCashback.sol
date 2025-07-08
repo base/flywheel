@@ -42,10 +42,14 @@ contract CommerceCashback is AttributionHook, MetadataMixin {
     /// @param authCaptureEscrow_ Address of the AuthCaptureEscrow contract
     /// @param operator_ Address of the authorized operator
     /// @param cashbackBps_ Cashback basis points for calculating payouts
-    constructor(address protocol_, address owner_, address authCaptureEscrow_, address operator_, uint16 cashbackBps_)
-        AttributionHook(protocol_)
-        MetadataMixin(owner_)
-    {
+    constructor(
+        address protocol_,
+        uint256 finalizationBufferDefault_,
+        address owner_,
+        address authCaptureEscrow_,
+        address operator_,
+        uint16 cashbackBps_
+    ) AttributionHook(protocol_, finalizationBufferDefault_) MetadataMixin(owner_) {
         authCaptureEscrow = AuthCaptureEscrow(authCaptureEscrow_);
         operator = operator_;
         cashbackBps = cashbackBps_;
