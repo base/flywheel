@@ -24,18 +24,19 @@ contract Flywheel {
 
     }
 
-  /// @notice Processes attribution for a campaign
-  ///
-  /// @param campaign Address of the campaign
-  /// @param payoutToken Address of the token to be distributed
-  /// @param attributionData Encoded attribution data for the hook
-  ///
-  /// @dev Only attributor can call on OPEN, PAUSED, or CLOSED campaigns. Calculates protocol fees and updates balances.
-  function attribute(address campaign, address payoutToken, bytes calldata attributionData) external {
-    // Check campaign allows attribution (OPEN, PAUSED, or CLOSED)
-    CampaignStatus status = campaigns[campaign].status;
-    if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED && status != CampaignStatus.CLOSED) {
-      revert InvalidCampaignStatus();
+    /// @notice Campaign information structure
+    ///
+    /// @param status Current status of the campaign
+    /// @param sponsor Address of the campaign sponsor
+    /// @param attributor Address of the attribution provider
+    /// @param hook Address of the attribution hook contract
+    /// @param attributionDeadline Timestamp after which no more attribution can occur (set on close)
+    struct CampaignInfo {
+        CampaignStatus status;
+        address sponsor;
+        address attributor;
+        address hook;
+        uint48 attributionDeadline; // set on close
     }
 
     /// @notice Payout structure for attribution rewards
@@ -234,10 +235,13 @@ contract Flywheel {
     /// @param payoutToken Address of the token to be distributed
     /// @param attributionData Encoded attribution data for the hook
     ///
-    /// @dev Only attributor can call on OPEN campaigns. Calculates protocol fees and updates balances.
+    /// @dev Only attributor can call on OPEN, PAUSED, or CLOSED campaigns. Calculates protocol fees and updates balances.
     function attribute(address campaign, address payoutToken, bytes calldata attributionData) external {
-        // Check campaign is open
-        if (campaigns[campaign].status != CampaignStatus.OPEN) revert InvalidCampaignStatus();
+        // Check campaign allows attribution (OPEN, PAUSED, or CLOSED)
+        CampaignStatus status = campaigns[campaign].status;
+        if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED && status != CampaignStatus.CLOSED) {
+            revert InvalidCampaignStatus();
+        }
 
         // Check sender is attributor
         address attributor = campaigns[campaign].attributor;
