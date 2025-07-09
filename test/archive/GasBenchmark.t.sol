@@ -10,6 +10,8 @@ import {CampaignBalance} from "../../src/archive/CampaignBalance.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {FlywheelPublisherRegistry} from "../../src/FlywheelPublisherRegistry.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
+import {CampaignHook} from "../../src/hooks/CampaignHook.sol";
+import {StandardCampaignHook} from "../../src/hooks/StandardCampaignHook.sol";
 import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
 
 contract GasBenchmarkTest is Test {
@@ -19,6 +21,7 @@ contract GasBenchmarkTest is Test {
     FlywheelPublisherRegistry publisherRegistryImplementation;
     FlywheelPublisherRegistry publisherRegistry;
     Flywheel flywheel;
+    StandardCampaignHook campaignHook;
     AdvertisementConversion hook;
     address campaign;
 
@@ -134,18 +137,21 @@ contract GasBenchmarkTest is Test {
         // Deploy Flywheel
         flywheel = new Flywheel();
 
-        // Deploy hook
-        hook = new AdvertisementConversion(address(flywheel), 7 days, address(this));
+        // Deploy campaign hook
+        campaignHook = new StandardCampaignHook(address(flywheel), 7 days);
+
+        // Deploy attribution hook
+        hook = new AdvertisementConversion(address(flywheel), address(this));
 
         // Create campaign
         initData = ""; // Empty init data for this test
         vm.prank(advertiser);
-        campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
         dummyToken.transfer(campaign, totalFunded);
 
         // Only attributor can open the campaign, and only once
         vm.prank(attributor);
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.OPEN);
     }
 
     function test_benchmark_100_offchain_events() public {

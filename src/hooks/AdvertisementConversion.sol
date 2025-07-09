@@ -74,10 +74,7 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     ///
     /// @param protocol_ Address of the protocol contract
     /// @param owner_ Address of the contract owner
-    constructor(address protocol_, uint256 finalizationBufferDefault_, address owner_)
-        AttributionHook(protocol_, finalizationBufferDefault_)
-        MetadataMixin(owner_)
-    {}
+    constructor(address protocol_, address owner_) AttributionHook(protocol_) MetadataMixin(owner_) {}
 
     /// @notice Returns the URI for a campaign
     ///

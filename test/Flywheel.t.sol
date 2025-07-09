@@ -3,11 +3,14 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
+import {CampaignHook} from "../src/hooks/CampaignHook.sol";
+import {StandardCampaignHook} from "../src/hooks/StandardCampaignHook.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../src/archive/test/DummyERC20.sol";
 
 contract FlywheelTest is Test {
     Flywheel public flywheel;
+    StandardCampaignHook public campaignHook;
     AdvertisementConversion public hook;
     DummyERC20 public token;
 
@@ -22,17 +25,20 @@ contract FlywheelTest is Test {
     uint256 public constant INITIAL_BALANCE = 1000e18; // 1000 tokens
 
     function setUp() public {
+        // Deploy Flywheel
+        flywheel = new Flywheel();
+
+        // Deploy campaign hook
+        campaignHook = new StandardCampaignHook(address(flywheel), 7 days);
+
+        // Deploy attribution hook
+        hook = new AdvertisementConversion(address(flywheel), address(this));
+
         // Deploy token
         address[] memory initialHolders = new address[](2);
         initialHolders[0] = advertiser;
         initialHolders[1] = attributor;
         token = new DummyERC20(initialHolders);
-
-        // Deploy Flywheel
-        flywheel = new Flywheel();
-
-        // Deploy hook
-        hook = new AdvertisementConversion(address(flywheel), 7 days, address(this));
     }
 
     function test_createCampaign() public {
@@ -40,16 +46,24 @@ contract FlywheelTest is Test {
 
         // Create campaign
         bytes memory initData = ""; // Empty init data for this test
-        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        address campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
 
         // Verify campaign was created
-        (Flywheel.CampaignStatus status, address campaignAdvertiser, address campaignAttributor, address campaignHook,)
-        = flywheel.campaigns(campaign);
+        (
+            address campaignAdvertiser,
+            address campaignAttributor,
+            address campaignAttributionHook,
+            address campaignStatusHook
+        ) = flywheel.campaigns(campaign);
 
-        assertEq(uint8(status), uint8(Flywheel.CampaignStatus.CREATED));
         assertEq(campaignAdvertiser, advertiser);
         assertEq(campaignAttributor, attributor);
-        assertEq(campaignHook, address(hook));
+        assertEq(campaignAttributionHook, address(hook));
+        assertEq(campaignStatusHook, address(campaignHook));
+
+        // Verify campaign status is CREATED
+        CampaignHook.CampaignStatus status = campaignHook.getStatus(campaign);
+        assertEq(uint8(status), uint8(CampaignHook.CampaignStatus.CREATED));
 
         vm.stopPrank();
     }
@@ -59,19 +73,19 @@ contract FlywheelTest is Test {
 
         // Create campaign
         bytes memory initData = "";
-        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        address campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
 
-        (Flywheel.CampaignStatus status1,,,,) = flywheel.campaigns(campaign);
-        assertEq(uint8(status1), uint8(Flywheel.CampaignStatus.CREATED));
+        CampaignHook.CampaignStatus status1 = campaignHook.getStatus(campaign);
+        assertEq(uint8(status1), uint8(CampaignHook.CampaignStatus.CREATED));
 
         vm.stopPrank();
 
         // Attributor opens campaign (CREATED -> OPEN)
         vm.startPrank(attributor);
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.OPEN);
 
-        (Flywheel.CampaignStatus status2,,,,) = flywheel.campaigns(campaign);
-        assertEq(uint8(status2), uint8(Flywheel.CampaignStatus.OPEN));
+        CampaignHook.CampaignStatus status2 = campaignHook.getStatus(campaign);
+        assertEq(uint8(status2), uint8(CampaignHook.CampaignStatus.OPEN));
 
         vm.stopPrank();
     }
@@ -80,12 +94,12 @@ contract FlywheelTest is Test {
         // Create campaign
         bytes memory initData = "";
         vm.prank(advertiser);
-        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        address campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
 
         vm.startPrank(attributor);
 
         // Open campaign (attributor only)
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
@@ -138,11 +152,11 @@ contract FlywheelTest is Test {
         vm.prank(advertiser);
         // Create campaign
         bytes memory initData = "";
-        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        address campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
 
         vm.startPrank(attributor);
         // Open campaign (attributor only)
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
@@ -198,11 +212,11 @@ contract FlywheelTest is Test {
         vm.prank(advertiser);
         // Create campaign
         bytes memory initData = "";
-        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        address campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
 
         vm.startPrank(attributor);
         // Open campaign (attributor only)
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
@@ -244,13 +258,13 @@ contract FlywheelTest is Test {
 
         // Close campaign first
         vm.startPrank(advertiser);
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.CLOSED);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.CLOSED);
 
         // Wait for finalization deadline to pass
         vm.warp(block.timestamp + 8 days); // 7 days + 1 day buffer
 
         // Finalize campaign
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.FINALIZED);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.FINALIZED);
         vm.stopPrank();
 
         // Withdraw remaining tokens
@@ -273,11 +287,11 @@ contract FlywheelTest is Test {
         vm.prank(advertiser);
         // Create campaign
         bytes memory initData = "";
-        address campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        address campaign = flywheel.createCampaign(attributor, address(hook), address(campaignHook), initData);
 
         vm.startPrank(attributor);
         // Open campaign (attributor only)
-        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
+        flywheel.updateCampaignStatus(campaign, CampaignHook.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);

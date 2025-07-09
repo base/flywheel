@@ -5,8 +5,6 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {Flywheel} from "../Flywheel.sol";
 
-error InvalidFinalizationBuffer();
-
 /// @title AttributionHook
 ///
 /// @notice Base contract for attribution hooks that process campaign attributions
@@ -15,23 +13,12 @@ error InvalidFinalizationBuffer();
 contract AttributionHook {
     /// @notice Address of the protocol contract
     address public immutable protocol;
-    uint256 public constant FINALIZATION_BUFFER_MIN = 0 days;
-    uint256 public constant FINALIZATION_BUFFER_MAX = 30 days;
-    uint256 public finalizationBufferDefault;
 
     /// @notice Constructor for AttributionHook
     ///
     /// @param protocol_ Address of the protocol contract
-    constructor(address protocol_, uint256 finalizationBufferDefault_) {
+    constructor(address protocol_) {
         protocol = protocol_;
-
-        if (
-            finalizationBufferDefault_ < FINALIZATION_BUFFER_MIN || finalizationBufferDefault_ > FINALIZATION_BUFFER_MAX
-        ) {
-            revert InvalidFinalizationBuffer();
-        }
-
-        finalizationBufferDefault = finalizationBufferDefault_;
     }
 
     /// @notice Modifier to restrict function access to protocol only

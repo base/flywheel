@@ -6,6 +6,7 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 import {TokenStore} from "./TokenStore.sol";
 import {AttributionHook} from "./hooks/AttributionHook.sol";
+import {CampaignHook} from "./hooks/CampaignHook.sol";
 
 /// @title Flywheel
 ///
@@ -13,30 +14,17 @@ import {AttributionHook} from "./hooks/AttributionHook.sol";
 ///
 /// @dev Handles campaign lifecycle, attribution, and token distribution
 contract Flywheel {
-    /// @notice Possible states a campaign can be in
-    enum CampaignStatus {
-        NONE, // Campaign does not exist
-        CREATED, // Initial state when campaign is first created
-        OPEN, // Campaign is live and can accept attribution
-        PAUSED, // Campaign is temporarily paused
-        CLOSED, // Campaign is no longer live but can still accept lagging attribution
-        FINALIZED // Campaign attribution is complete
-
-    }
-
     /// @notice Campaign information structure
     ///
-    /// @param status Current status of the campaign
     /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
     /// @param hook Address of the attribution hook contract
-    /// @param attributionDeadline Timestamp after which no more attribution can occur (set on close)
+    /// @param campaignHook Address of the campaign status hook contract
     struct CampaignInfo {
-        CampaignStatus status;
         address sponsor;
         address attributor;
         address hook;
-        uint48 attributionDeadline; // set on close
+        address campaignHook;
     }
 
     /// @notice Payout structure for attribution rewards
@@ -66,16 +54,9 @@ contract Flywheel {
     /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
     /// @param hook Address of the attribution hook contract
-    event CampaignCreated(address indexed campaign, address sponsor, address attributor, address hook);
-
-    /// @notice Emitted when a campaign status is updated
-    ///
-    /// @param campaign Address of the campaign
-    /// @param sender Address that triggered the status change
-    /// @param oldStatus Previous status of the campaign
-    /// @param newStatus New status of the campaign
-    event CampaignStatusUpdated(
-        address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
+    /// @param campaignHook Address of the campaign status hook contract
+    event CampaignCreated(
+        address indexed campaign, address sponsor, address attributor, address hook, address campaignHook
     );
 
     /// @notice Emitted when a payout is attributed to a recipient
@@ -131,24 +112,23 @@ contract Flywheel {
     ///
     /// @param attributor Address of the attribution provider
     /// @param hook Address of the attribution hook contract
-    /// @param initData Initialization data for the hook
+    /// @param campaignHook Address of the campaign status hook contract
+    /// @param initData Initialization data for the hooks
     ///
     /// @return campaign Address of the newly created campaign
     ///
     /// @dev Clones a new TokenStore contract for the campaign
-    function createCampaign(address attributor, address hook, bytes calldata initData)
+    function createCampaign(address attributor, address hook, address campaignHook, bytes calldata initData)
         external
         returns (address campaign)
     {
         campaign = Clones.clone(tokenStoreImpl);
-        campaigns[campaign] = CampaignInfo({
-            status: CampaignStatus.CREATED,
-            sponsor: msg.sender,
-            attributor: attributor,
-            hook: hook,
-            attributionDeadline: 0
-        });
-        emit CampaignCreated(campaign, msg.sender, attributor, hook);
+        campaigns[campaign] =
+            CampaignInfo({sponsor: msg.sender, attributor: attributor, hook: hook, campaignHook: campaignHook});
+        emit CampaignCreated(campaign, msg.sender, attributor, hook, campaignHook);
+
+        // Initialize both hooks
+        CampaignHook(campaignHook).createCampaign(campaign, "");
         AttributionHook(hook).createCampaign(campaign, initData);
     }
 
@@ -157,69 +137,12 @@ contract Flywheel {
     /// @param campaign Address of the campaign to update
     /// @param newStatus New status to set for the campaign
     ///
-    /// @dev Status transitions are strictly controlled based on current status and caller role
-    function updateCampaignStatus(address campaign, CampaignStatus newStatus) external {
-        bool isSponsor = _isSponsor(campaign);
-        bool isAttributor = _isAttributor(campaign);
-
-        if (!isSponsor && !isAttributor) revert Unauthorized();
-
-        CampaignStatus currentStatus = campaigns[campaign].status;
-
-        // Prevent invalid transitions
-        if (currentStatus == CampaignStatus.NONE || newStatus == CampaignStatus.NONE || currentStatus == newStatus) {
-            revert InvalidCampaignStatus();
-        }
-
-        // Validate specific transitions based on roles and current status
-        if (newStatus == CampaignStatus.CREATED) {
-            // Cannot transition back to CREATED
-            revert InvalidCampaignStatus();
-        } else if (newStatus == CampaignStatus.OPEN) {
-            if (currentStatus == CampaignStatus.CREATED) {
-                // Only attributor can open a created campaign
-                if (!isAttributor) revert Unauthorized();
-            } else if (currentStatus == CampaignStatus.PAUSED) {
-                // Both sponsor and attributor can unpause
-                // No additional checks needed
-            } else {
-                revert InvalidCampaignStatus();
-            }
-        } else if (newStatus == CampaignStatus.PAUSED) {
-            // Both sponsor and attributor can pause, only from OPEN
-            if (currentStatus != CampaignStatus.OPEN) revert InvalidCampaignStatus();
-        } else if (newStatus == CampaignStatus.CLOSED) {
-            // Only sponsor can close, from OPEN or PAUSED
-            if (!isSponsor) revert Unauthorized();
-            if (currentStatus != CampaignStatus.OPEN && currentStatus != CampaignStatus.PAUSED) {
-                revert InvalidCampaignStatus();
-            }
-            // Set attribution deadline when closing
-            campaigns[campaign].attributionDeadline =
-                uint48(block.timestamp + AttributionHook(campaigns[campaign].hook).finalizationBufferDefault());
-        } else if (newStatus == CampaignStatus.FINALIZED) {
-            if (isSponsor) {
-                // Sponsor can finalize CREATED or CLOSED campaigns (after deadline)
-                if (currentStatus == CampaignStatus.CREATED) {
-                    // Allow sponsor to finalize created campaigns
-                } else if (currentStatus == CampaignStatus.CLOSED) {
-                    // Check if attribution deadline has passed
-                    if (block.timestamp <= campaigns[campaign].attributionDeadline) {
-                        revert InvalidCampaignStatus();
-                    }
-                } else {
-                    revert InvalidCampaignStatus();
-                }
-            } else if (isAttributor) {
-                // Attributor can finalize any campaign except already finalized
-                if (currentStatus == CampaignStatus.FINALIZED) {
-                    revert InvalidCampaignStatus();
-                }
-            }
-        }
-
-        campaigns[campaign].status = newStatus;
-        emit CampaignStatusUpdated(campaign, msg.sender, currentStatus, newStatus);
+    /// @dev Status transitions are delegated to the campaign hook
+    function updateCampaignStatus(address campaign, CampaignHook.CampaignStatus newStatus) external {
+        CampaignInfo storage campaignInfo = campaigns[campaign];
+        CampaignHook(campaignInfo.campaignHook).updateStatus(
+            campaign, newStatus, msg.sender, campaignInfo.sponsor, campaignInfo.attributor
+        );
     }
 
     /// @notice Processes attribution for a campaign
@@ -228,20 +151,21 @@ contract Flywheel {
     /// @param payoutToken Address of the token to be distributed
     /// @param attributionData Encoded attribution data for the hook
     ///
-    /// @dev Only attributor can call on OPEN, PAUSED, or CLOSED campaigns. Calculates protocol fees and updates balances.
+    /// @dev Only attributor can call on campaigns that allow attribution. Calculates protocol fees and updates balances.
     function attribute(address campaign, address payoutToken, bytes calldata attributionData) external {
-        // Check campaign allows attribution (OPEN, PAUSED, or CLOSED)
-        CampaignStatus status = campaigns[campaign].status;
-        if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED && status != CampaignStatus.CLOSED) {
+        CampaignInfo storage campaignInfo = campaigns[campaign];
+
+        // Check campaign allows attribution via campaign hook
+        if (!CampaignHook(campaignInfo.campaignHook).canAttribute(campaign)) {
             revert InvalidCampaignStatus();
         }
 
         // Check sender is attributor
-        address attributor = campaigns[campaign].attributor;
-        if (msg.sender != attributor) revert Unauthorized();
+        if (msg.sender != campaignInfo.attributor) revert Unauthorized();
 
-        (Payout[] memory payouts, uint256 attributionFee) =
-            AttributionHook(campaigns[campaign].hook).attribute(campaign, attributor, payoutToken, attributionData);
+        (Payout[] memory payouts, uint256 attributionFee) = AttributionHook(campaignInfo.hook).attribute(
+            campaign, campaignInfo.attributor, payoutToken, attributionData
+        );
 
         // Add payouts to balances
         uint256 totalPayouts = 0;
@@ -254,8 +178,8 @@ contract Flywheel {
         }
 
         // Add attributor fee to balances
-        fees[payoutToken][attributor] += attributionFee;
-        emit FeeAllocated(campaign, payoutToken, attributor, attributionFee);
+        fees[payoutToken][campaignInfo.attributor] += attributionFee;
+        emit FeeAllocated(campaign, payoutToken, campaignInfo.attributor, attributionFee);
 
         // Transfer tokens to flywheel to reserve for payouts and fees
         TokenStore(campaign).sendTokens(payoutToken, address(this), totalPayouts + attributionFee);
@@ -295,11 +219,14 @@ contract Flywheel {
     ///
     /// @dev Only sponsor can withdraw from FINALIZED campaigns
     function withdrawRemainder(address campaign, address token) external {
+        CampaignInfo storage campaignInfo = campaigns[campaign];
+
         // Check sender is sponsor
-        if (!_isSponsor(campaign)) revert Unauthorized();
+        if (msg.sender != campaignInfo.sponsor) revert Unauthorized();
 
         // Check campaign is finalized
-        if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        CampaignHook.CampaignStatus status = CampaignHook(campaignInfo.campaignHook).getStatus(campaign);
+        if (status != CampaignHook.CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
         // Sweep remaining tokens from campaign to sponsor
         uint256 balance = IERC20(token).balanceOf(campaign);
@@ -314,23 +241,5 @@ contract Flywheel {
     /// @return uri The URI for the campaign
     function campaignURI(address campaign) external view returns (string memory uri) {
         return AttributionHook(campaigns[campaign].hook).campaignURI(campaign);
-    }
-
-    /// @notice Checks if the caller is the sponsor of a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return True if caller is the sponsor, false otherwise
-    function _isSponsor(address campaign) internal view returns (bool) {
-        return msg.sender == campaigns[campaign].sponsor;
-    }
-
-    /// @notice Checks if the caller is the attributor of a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return True if caller is the attributor, false otherwise
-    function _isAttributor(address campaign) internal view returns (bool) {
-        return msg.sender == campaigns[campaign].attributor;
     }
 }
