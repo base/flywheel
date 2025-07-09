@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Flywheel} from "./Flywheel.sol";
 
-import {Flywheel} from "../Flywheel.sol";
-
-/// @title AttributionHook
+/// @title CampaignHooks
 ///
-/// @notice Base contract for attribution hooks that process campaign attributions
+/// @notice Abstract contract for campaign hooks that process campaign attributions
 ///
-/// @dev This contract provides the interface and base functionality for attribution hooks
-contract AttributionHook {
+/// @dev This contract provides the interface and base functionality for campaign hooks
+abstract contract CampaignHooks {
     /// @notice Address of the protocol contract
     address public immutable protocol;
 
-    /// @notice Constructor for AttributionHook
+    /// @notice Thrown when a function is not implemented
+    error Unimplemented();
+
+    /// @notice Constructor for CampaignHooks
     ///
     /// @param protocol_ Address of the protocol contract
     constructor(address protocol_) {
@@ -57,7 +58,9 @@ contract AttributionHook {
     ///
     /// @param campaign Address of the campaign
     /// @return uri The URI for the campaign
-    function campaignURI(address campaign) external view virtual returns (string memory uri) {}
+    function campaignURI(address campaign) external view virtual returns (string memory uri) {
+        revert Unimplemented();
+    }
 
     /// @notice Internal function to create a campaign
     ///
@@ -79,5 +82,7 @@ contract AttributionHook {
         internal
         virtual
         returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
-    {}
+    {
+        revert Unimplemented();
+    }
 }

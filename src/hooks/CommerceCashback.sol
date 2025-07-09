@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../Flywheel.sol";
-import {AttributionHook} from "./AttributionHook.sol";
+import {CampaignHooks} from "../CampaignHooks.sol";
 import {MetadataMixin} from "./MetadataMixin.sol";
 
 /// @title CommerceCashback
@@ -12,7 +12,7 @@ import {MetadataMixin} from "./MetadataMixin.sol";
 /// @notice Attribution hook for processing commerce payment cashback
 ///
 /// @dev Handles attribution based on payment information from AuthCaptureEscrow
-contract CommerceCashback is AttributionHook, MetadataMixin {
+contract CommerceCashback is CampaignHooks, MetadataMixin {
     /// @notice Maximum basis points (100%)
     uint16 public constant MAX_BPS = 10_000;
 
@@ -43,7 +43,7 @@ contract CommerceCashback is AttributionHook, MetadataMixin {
     /// @param operator_ Address of the authorized operator
     /// @param cashbackBps_ Cashback basis points for calculating payouts
     constructor(address protocol_, address owner_, address authCaptureEscrow_, address operator_, uint16 cashbackBps_)
-        AttributionHook(protocol_)
+        CampaignHooks(protocol_)
         MetadataMixin(owner_)
     {
         authCaptureEscrow = AuthCaptureEscrow(authCaptureEscrow_);

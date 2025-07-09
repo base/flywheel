@@ -2,7 +2,7 @@
 pragma solidity 0.8.29;
 
 import {Flywheel} from "../Flywheel.sol";
-import {AttributionHook} from "./AttributionHook.sol";
+import {CampaignHooks} from "../CampaignHooks.sol";
 import {MetadataMixin} from "./MetadataMixin.sol";
 
 /// @title AdvertisementConversion
@@ -10,7 +10,7 @@ import {MetadataMixin} from "./MetadataMixin.sol";
 /// @notice Attribution hook for processing advertisement conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
-contract AdvertisementConversion is AttributionHook, MetadataMixin {
+contract AdvertisementConversion is CampaignHooks, MetadataMixin {
     /// @notice Attribution structure containing payout and conversion data
     ///
     /// @param payout The payout to be distributed
@@ -74,7 +74,7 @@ contract AdvertisementConversion is AttributionHook, MetadataMixin {
     ///
     /// @param protocol_ Address of the protocol contract
     /// @param owner_ Address of the contract owner
-    constructor(address protocol_, address owner_) AttributionHook(protocol_) MetadataMixin(owner_) {}
+    constructor(address protocol_, address owner_) CampaignHooks(protocol_) MetadataMixin(owner_) {}
 
     /// @notice Returns the URI for a campaign
     ///
