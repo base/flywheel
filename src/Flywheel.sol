@@ -152,79 +152,74 @@ contract Flywheel {
         AttributionHook(hook).createCampaign(campaign, initData);
     }
 
-    /// @notice Opens a campaign for attribution
+    /// @notice Updates the status of a campaign
     ///
-    /// @param campaign Address of the campaign to open
+    /// @param campaign Address of the campaign to update
+    /// @param newStatus New status to set for the campaign
     ///
-    /// @dev Only attributor can move from CREATED to OPEN
-    function openCampaign(address campaign) external {
-        if (!_isAttributor(campaign)) revert Unauthorized();
-        if (campaigns[campaign].status != CampaignStatus.CREATED) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.OPEN;
-        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.CREATED, CampaignStatus.OPEN);
-    }
+    /// @dev Status transitions are strictly controlled based on current status and caller role
+    function updateCampaignStatus(address campaign, CampaignStatus newStatus) external {
+        bool isSponsor = _isSponsor(campaign);
+        bool isAttributor = _isAttributor(campaign);
 
-    /// @notice Pauses an open campaign
-    ///
-    /// @param campaign Address of the campaign to pause
-    ///
-    /// @dev Only sponsor or attributor can pause an OPEN campaign
-    function pauseCampaign(address campaign) external {
-        if (!(_isSponsor(campaign) || _isAttributor(campaign))) revert Unauthorized();
-        if (campaigns[campaign].status != CampaignStatus.OPEN) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.PAUSED;
-        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.OPEN, CampaignStatus.PAUSED);
-    }
+        if (!isSponsor && !isAttributor) revert Unauthorized();
 
-    /// @notice Unpauses a paused campaign
-    ///
-    /// @param campaign Address of the campaign to unpause
-    ///
-    /// @dev Only sponsor or attributor can unpause a PAUSED campaign
-    function unpauseCampaign(address campaign) external {
-        if (!(_isSponsor(campaign) || _isAttributor(campaign))) revert Unauthorized();
-        if (campaigns[campaign].status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.OPEN;
-        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.PAUSED, CampaignStatus.OPEN);
-    }
+        CampaignStatus currentStatus = campaigns[campaign].status;
 
-    /// @notice Closes a campaign and sets attribution deadline
-    ///
-    /// @param campaign Address of the campaign to close
-    ///
-    /// @dev Only sponsor can close a OPEN or PAUSED campaign
-    function closeCampaign(address campaign) external {
-        if (!_isSponsor(campaign)) revert Unauthorized();
-        CampaignStatus status = campaigns[campaign].status;
-        if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.CLOSED;
-        campaigns[campaign].attributionDeadline =
-            uint48(block.timestamp + AttributionHook(campaigns[campaign].hook).finalizationBufferDefault());
-        emit CampaignStatusUpdated(campaign, msg.sender, status, CampaignStatus.CLOSED);
-    }
+        // Prevent invalid transitions
+        if (currentStatus == CampaignStatus.NONE || newStatus == CampaignStatus.NONE || currentStatus == newStatus) {
+            revert InvalidCampaignStatus();
+        }
 
-    /// @notice Finalizes a campaign
-    ///
-    /// @param campaign Address of the campaign to finalize
-    ///
-    /// @dev Sponsor can finalize CREATED or CLOSED campaigns after deadline. Attributor can finalize any non-FINALIZED campaign.
-    function finalizeCampaign(address campaign) external {
-        CampaignStatus oldStatus = campaigns[campaign].status;
-        if (_isSponsor(campaign)) {
-            bool attributionDeadlinePassed = block.timestamp > campaigns[campaign].attributionDeadline;
-            if (
-                oldStatus != CampaignStatus.CREATED
-                    && !(oldStatus == CampaignStatus.CLOSED && attributionDeadlinePassed)
-            ) {
+        // Validate specific transitions based on roles and current status
+        if (newStatus == CampaignStatus.CREATED) {
+            // Cannot transition back to CREATED
+            revert InvalidCampaignStatus();
+        } else if (newStatus == CampaignStatus.OPEN) {
+            if (currentStatus == CampaignStatus.CREATED) {
+                // Only attributor can open a created campaign
+                if (!isAttributor) revert Unauthorized();
+            } else if (currentStatus == CampaignStatus.PAUSED) {
+                // Both sponsor and attributor can unpause
+                // No additional checks needed
+            } else {
                 revert InvalidCampaignStatus();
             }
-        } else if (_isAttributor(campaign)) {
-            if (oldStatus == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        } else {
-            revert Unauthorized();
+        } else if (newStatus == CampaignStatus.PAUSED) {
+            // Both sponsor and attributor can pause, only from OPEN
+            if (currentStatus != CampaignStatus.OPEN) revert InvalidCampaignStatus();
+        } else if (newStatus == CampaignStatus.CLOSED) {
+            // Only sponsor can close, from OPEN or PAUSED
+            if (!isSponsor) revert Unauthorized();
+            if (currentStatus != CampaignStatus.OPEN && currentStatus != CampaignStatus.PAUSED) {
+                revert InvalidCampaignStatus();
+            }
+            // Set attribution deadline when closing
+            campaigns[campaign].attributionDeadline =
+                uint48(block.timestamp + AttributionHook(campaigns[campaign].hook).finalizationBufferDefault());
+        } else if (newStatus == CampaignStatus.FINALIZED) {
+            if (isSponsor) {
+                // Sponsor can finalize CREATED or CLOSED campaigns (after deadline)
+                if (currentStatus == CampaignStatus.CREATED) {
+                    // Allow sponsor to finalize created campaigns
+                } else if (currentStatus == CampaignStatus.CLOSED) {
+                    // Check if attribution deadline has passed
+                    if (block.timestamp <= campaigns[campaign].attributionDeadline) {
+                        revert InvalidCampaignStatus();
+                    }
+                } else {
+                    revert InvalidCampaignStatus();
+                }
+            } else if (isAttributor) {
+                // Attributor can finalize any campaign except already finalized
+                if (currentStatus == CampaignStatus.FINALIZED) {
+                    revert InvalidCampaignStatus();
+                }
+            }
         }
-        campaigns[campaign].status = CampaignStatus.FINALIZED;
-        emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, CampaignStatus.FINALIZED);
+
+        campaigns[campaign].status = newStatus;
+        emit CampaignStatusUpdated(campaign, msg.sender, currentStatus, newStatus);
     }
 
     /// @notice Processes attribution for a campaign

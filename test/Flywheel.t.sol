@@ -68,7 +68,7 @@ contract FlywheelTest is Test {
 
         // Attributor opens campaign (CREATED -> OPEN)
         vm.startPrank(attributor);
-        flywheel.openCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
 
         (Flywheel.CampaignStatus status2,,,,) = flywheel.campaigns(campaign);
         assertEq(uint8(status2), uint8(Flywheel.CampaignStatus.OPEN));
@@ -85,7 +85,7 @@ contract FlywheelTest is Test {
         vm.startPrank(attributor);
 
         // Open campaign (attributor only)
-        flywheel.openCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
@@ -142,7 +142,7 @@ contract FlywheelTest is Test {
 
         vm.startPrank(attributor);
         // Open campaign (attributor only)
-        flywheel.openCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
@@ -202,7 +202,7 @@ contract FlywheelTest is Test {
 
         vm.startPrank(attributor);
         // Open campaign (attributor only)
-        flywheel.openCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);
@@ -244,13 +244,13 @@ contract FlywheelTest is Test {
 
         // Close campaign first
         vm.startPrank(advertiser);
-        flywheel.closeCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.CLOSED);
 
         // Wait for finalization deadline to pass
         vm.warp(block.timestamp + 8 days); // 7 days + 1 day buffer
 
         // Finalize campaign
-        flywheel.finalizeCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.FINALIZED);
         vm.stopPrank();
 
         // Withdraw remaining tokens
@@ -277,7 +277,7 @@ contract FlywheelTest is Test {
 
         vm.startPrank(attributor);
         // Open campaign (attributor only)
-        flywheel.openCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
 
         // Fund campaign by transferring tokens directly to the TokenStore
         token.transfer(campaign, INITIAL_BALANCE);

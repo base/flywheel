@@ -145,7 +145,7 @@ contract GasBenchmarkTest is Test {
 
         // Only attributor can open the campaign, and only once
         vm.prank(attributor);
-        flywheel.openCampaign(campaign);
+        flywheel.updateCampaignStatus(campaign, Flywheel.CampaignStatus.OPEN);
     }
 
     function test_benchmark_100_offchain_events() public {
