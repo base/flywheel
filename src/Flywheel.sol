@@ -5,7 +5,7 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {TokenStore} from "./TokenStore.sol";
-import {AttributionHook} from "./hooks/AttributionHook.sol";
+import {CampaignHooks} from "./CampaignHooks.sol";
 
 /// @title Flywheel
 ///
@@ -29,13 +29,13 @@ contract Flywheel {
     /// @param status Current status of the campaign
     /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
-    /// @param hook Address of the attribution hook contract
+    /// @param hooks Address of the campaign hooks contract
     /// @param attributionDeadline Timestamp after which no more attribution can occur (set on close)
     struct CampaignInfo {
         CampaignStatus status;
         address sponsor;
         address attributor;
-        address hook;
+        address hooks;
         uint48 attributionDeadline; // set on close
     }
 
@@ -68,8 +68,8 @@ contract Flywheel {
     /// @param campaign Address of the created campaign
     /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
-    /// @param hook Address of the attribution hook contract
-    event CampaignCreated(address indexed campaign, address sponsor, address attributor, address hook);
+    /// @param hooks Address of the campaign hooks contract
+    event CampaignCreated(address indexed campaign, address sponsor, address attributor, address hooks);
 
     /// @notice Emitted when a campaign status is updated
     ///
@@ -133,13 +133,13 @@ contract Flywheel {
     /// @notice Creates a new campaign
     ///
     /// @param attributor Address of the attribution provider
-    /// @param hook Address of the attribution hook contract
-    /// @param initData Initialization data for the hook
+    /// @param hooks Address of the campaign hooks contract
+    /// @param initData Initialization data for the hooks
     ///
     /// @return campaign Address of the newly created campaign
     ///
     /// @dev Clones a new TokenStore contract for the campaign
-    function createCampaign(address attributor, address hook, bytes calldata initData)
+    function createCampaign(address attributor, address hooks, bytes calldata initData)
         external
         returns (address campaign)
     {
@@ -148,11 +148,11 @@ contract Flywheel {
             status: CampaignStatus.CREATED,
             sponsor: msg.sender,
             attributor: attributor,
-            hook: hook,
+            hooks: hooks,
             attributionDeadline: 0
         });
-        emit CampaignCreated(campaign, msg.sender, attributor, hook);
-        AttributionHook(hook).createCampaign(campaign, initData);
+        emit CampaignCreated(campaign, msg.sender, attributor, hooks);
+        CampaignHooks(hooks).createCampaign(campaign, initData);
     }
 
     /// @notice Opens a campaign for attribution
@@ -233,7 +233,7 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param payoutToken Address of the token to be distributed
-    /// @param attributionData Encoded attribution data for the hook
+    /// @param attributionData Encoded attribution data for the hooks
     ///
     /// @dev Only attributor can call on OPEN, PAUSED, or CLOSED campaigns. Calculates protocol fees and updates balances.
     function attribute(address campaign, address payoutToken, bytes calldata attributionData) external {
@@ -248,7 +248,7 @@ contract Flywheel {
         if (msg.sender != attributor) revert Unauthorized();
 
         (Payout[] memory payouts, uint256 attributionFee) =
-            AttributionHook(campaigns[campaign].hook).attribute(campaign, attributor, payoutToken, attributionData);
+            CampaignHooks(campaigns[campaign].hooks).attribute(campaign, attributor, payoutToken, attributionData);
 
         // Add payouts to balances
         uint256 totalPayouts = 0;
@@ -320,7 +320,7 @@ contract Flywheel {
     ///
     /// @return uri The URI for the campaign
     function campaignURI(address campaign) external view returns (string memory uri) {
-        return AttributionHook(campaigns[campaign].hook).campaignURI(campaign);
+        return CampaignHooks(campaigns[campaign].hooks).campaignURI(campaign);
     }
 
     /// @notice Checks if the caller is the sponsor of a campaign
