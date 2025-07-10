@@ -36,7 +36,6 @@ contract Flywheel {
         address sponsor;
         address attributor;
         address hooks;
-        uint48 attributionDeadline; // set on close
     }
 
     /// @notice Payout structure for attribution rewards
@@ -150,89 +149,27 @@ contract Flywheel {
         returns (address campaign)
     {
         campaign = Clones.clone(tokenStoreImpl);
-        campaigns[campaign] = CampaignInfo({
-            status: CampaignStatus.CREATED,
-            sponsor: msg.sender,
-            attributor: attributor,
-            hooks: hooks,
-            attributionDeadline: 0
-        });
+        campaigns[campaign] =
+            CampaignInfo({status: CampaignStatus.CREATED, sponsor: msg.sender, attributor: attributor, hooks: hooks});
         emit CampaignCreated(campaign, msg.sender, attributor, hooks);
         CampaignHooks(hooks).createCampaign(campaign, initData);
     }
 
-    /// @notice Opens a campaign for attribution
+    /// @notice Updates the status of a campaign
     ///
-    /// @param campaign Address of the campaign to open
-    ///
-    /// @dev Only attributor can move from CREATED to OPEN
-    function openCampaign(address campaign) external {
-        if (!_isAttributor(campaign)) revert Unauthorized();
-        if (campaigns[campaign].status != CampaignStatus.CREATED) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.OPEN;
-        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.CREATED, CampaignStatus.OPEN);
-    }
-
-    /// @notice Pauses an open campaign
-    ///
-    /// @param campaign Address of the campaign to pause
-    ///
-    /// @dev Only sponsor or attributor can pause an OPEN campaign
-    function pauseCampaign(address campaign) external {
-        if (!(_isSponsor(campaign) || _isAttributor(campaign))) revert Unauthorized();
-        if (campaigns[campaign].status != CampaignStatus.OPEN) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.PAUSED;
-        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.OPEN, CampaignStatus.PAUSED);
-    }
-
-    /// @notice Unpauses a paused campaign
-    ///
-    /// @param campaign Address of the campaign to unpause
-    ///
-    /// @dev Only sponsor or attributor can unpause a PAUSED campaign
-    function unpauseCampaign(address campaign) external {
-        if (!(_isSponsor(campaign) || _isAttributor(campaign))) revert Unauthorized();
-        if (campaigns[campaign].status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.OPEN;
-        emit CampaignStatusUpdated(campaign, msg.sender, CampaignStatus.PAUSED, CampaignStatus.OPEN);
-    }
-
-    /// @notice Closes a campaign and sets attribution deadline
-    ///
-    /// @param campaign Address of the campaign to close
-    ///
-    /// @dev Only sponsor can close a OPEN or PAUSED campaign
-    function closeCampaign(address campaign) external {
-        if (!_isSponsor(campaign)) revert Unauthorized();
-        CampaignStatus status = campaigns[campaign].status;
-        if (status != CampaignStatus.OPEN && status != CampaignStatus.PAUSED) revert InvalidCampaignStatus();
-        campaigns[campaign].status = CampaignStatus.CLOSED;
-        campaigns[campaign].attributionDeadline = uint48(block.timestamp + FINALIZATION_BUFFER);
-        emit CampaignStatusUpdated(campaign, msg.sender, status, CampaignStatus.CLOSED);
-    }
-
-    /// @notice Finalizes a campaign
-    ///
-    /// @param campaign Address of the campaign to finalize
-    ///
-    /// @dev Sponsor can finalize CREATED or CLOSED campaigns after deadline. Attributor can finalize any non-FINALIZED campaign.
-    function finalizeCampaign(address campaign) external {
+    /// @param campaign Address of the campaign
+    /// @param newStatus New status of the campaign
+    function updateStatus(address campaign, CampaignStatus newStatus) external {
         CampaignStatus oldStatus = campaigns[campaign].status;
-        if (_isSponsor(campaign)) {
-            bool attributionDeadlinePassed = block.timestamp > campaigns[campaign].attributionDeadline;
-            if (
-                oldStatus != CampaignStatus.CREATED
-                    && !(oldStatus == CampaignStatus.CLOSED && attributionDeadlinePassed)
-            ) {
-                revert InvalidCampaignStatus();
-            }
-        } else if (_isAttributor(campaign)) {
-            if (oldStatus == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        } else {
-            revert Unauthorized();
-        }
-        campaigns[campaign].status = CampaignStatus.FINALIZED;
-        emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, CampaignStatus.FINALIZED);
+        if (newStatus == oldStatus) revert InvalidCampaignStatus();
+        if (newStatus == CampaignStatus.NONE) revert InvalidCampaignStatus();
+        if (newStatus == CampaignStatus.CREATED) revert InvalidCampaignStatus();
+        if (oldStatus == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        if (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+
+        CampaignHooks(campaigns[campaign].hooks).updateCampaignStatus(msg.sender, campaign, oldStatus, newStatus);
+        campaigns[campaign].status = newStatus;
+        emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
     }
 
     /// @notice Updates the metadata for a campaign
@@ -322,7 +259,7 @@ contract Flywheel {
     /// @dev Only sponsor can withdraw from FINALIZED campaigns
     function withdrawRemainder(address campaign, address token) external {
         // Check sender is sponsor
-        if (!_isSponsor(campaign)) revert Unauthorized();
+        if (msg.sender != campaignSponsor(campaign)) revert Unauthorized();
 
         // Check campaign is finalized
         if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
@@ -342,30 +279,21 @@ contract Flywheel {
         return CampaignHooks(campaigns[campaign].hooks).campaignURI(campaign);
     }
 
+    /// @notice Returns the sponsor of a campaign
+    ///
+    /// @param campaign Address of the campaign
+    ///
+    /// @return Sponsor of the campaign
+    function campaignSponsor(address campaign) public view returns (address) {
+        return campaigns[campaign].sponsor;
+    }
+
     /// @notice Returns the attributor of a campaign
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return attributor The attributor of the campaign
+    /// @return Attributor of the campaign
     function campaignAttributor(address campaign) public view returns (address) {
         return campaigns[campaign].attributor;
-    }
-
-    /// @notice Checks if the caller is the sponsor of a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return True if caller is the sponsor, false otherwise
-    function _isSponsor(address campaign) internal view returns (bool) {
-        return msg.sender == campaigns[campaign].sponsor;
-    }
-
-    /// @notice Checks if the caller is the attributor of a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return True if caller is the attributor, false otherwise
-    function _isAttributor(address campaign) internal view returns (bool) {
-        return msg.sender == campaigns[campaign].attributor;
     }
 }

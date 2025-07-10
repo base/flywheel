@@ -17,6 +17,7 @@ abstract contract CampaignHooks {
 
     /// @notice Constructor for CampaignHooks
     ///
+
     /// @param flywheel_ Address of the flywheel contract
     constructor(address flywheel_) {
         flywheel = Flywheel(flywheel_);
@@ -43,6 +44,22 @@ abstract contract CampaignHooks {
     ///
     /// @dev Only callable by the flywheel contract
     function updateMetadata(address sender, address campaign, bytes calldata data) external virtual onlyFlywheel {
+        revert Unimplemented();
+    }
+
+    /// @notice Updates the campaign status
+    ///
+    /// @param campaign Address of the campaign
+    /// @param oldStatus Old status of the campaign
+    /// @param newStatus New status of the campaign
+    ///
+    /// @dev Only callable by the flywheel contract
+    function updateCampaignStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus
+    ) external virtual onlyFlywheel {
         revert Unimplemented();
     }
 
