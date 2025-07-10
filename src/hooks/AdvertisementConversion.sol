@@ -98,9 +98,9 @@ contract AdvertisementConversion is CampaignHooks {
     constructor(address protocol_) CampaignHooks(protocol_) {}
 
     /// @inheritdoc CampaignHooks
-    function createCampaign(address campaign, bytes calldata initData) external override onlyFlywheel {
+    function createCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
         (address provider, address advertiser, uint48 finalizationDelay, string memory uri) =
-            abi.decode(initData, (address, address, uint48, string));
+            abi.decode(hookData, (address, address, uint48, string));
         state[campaign] = CampaignState({
             provider: provider,
             advertiser: advertiser,
@@ -111,7 +111,7 @@ contract AdvertisementConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function updateMetadata(address sender, address campaign, bytes calldata data) external override onlyFlywheel {
+    function updateMetadata(address sender, address campaign, bytes calldata hookData) external override onlyFlywheel {
         if (sender != state[campaign].provider) revert Unauthorized();
     }
 
@@ -120,7 +120,8 @@ contract AdvertisementConversion is CampaignHooks {
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
     ) external override onlyFlywheel {
         // Provider always allowed, early return
         if (sender == state[campaign].provider) return;
@@ -140,13 +141,13 @@ contract AdvertisementConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function attribute(address sender, address campaign, address payoutToken, bytes calldata attributionData)
+    function attribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 providerFee)
     {
-        (Attribution[] memory attributions, uint16 feeBps) = abi.decode(attributionData, (Attribution[], uint16));
+        (Attribution[] memory attributions, uint16 feeBps) = abi.decode(hookData, (Attribution[], uint16));
         if (feeBps > MAX_BPS) revert InvalidFeeBps(feeBps);
 
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
@@ -172,7 +173,12 @@ contract AdvertisementConversion is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
-    function withdrawFunds(address sender, address campaign, address token) external view override onlyFlywheel {
+    function withdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        view
+        override
+        onlyFlywheel
+    {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
     }

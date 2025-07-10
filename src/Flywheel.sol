@@ -42,20 +42,26 @@ contract Flywheel {
     /// @notice Implementation address for TokenStore contracts
     address public immutable tokenStoreImpl;
 
-    /// @notice Mapping from campaign address to campaign information
-    mapping(address campaign => CampaignInfo) internal _campaigns;
-
-    /// @notice Mapping from token address to recipient address to balance amount
-    mapping(address token => mapping(address recipient => uint256 balance)) public balances;
+    /// @notice Mapping from token address to recipient address to payout amount
+    mapping(address token => mapping(address recipient => uint256 amount)) public payouts;
 
     /// @notice Collectible fees
     mapping(address token => mapping(address recipient => uint256 amount)) public fees;
+
+    /// @notice Mapping from campaign address to campaign information
+    mapping(address campaign => CampaignInfo) internal _campaigns;
 
     /// @notice Emitted when a new campaign is created
     ///
     /// @param campaign Address of the created campaign
     /// @param hooks Address of the campaign hooks contract
     event CampaignCreated(address indexed campaign, address hooks);
+
+    /// @notice Emitted when a campaign is updated
+    ///
+    /// @param campaign Address of the campaign
+    /// @param uri The URI for the campaign
+    event CampaignMetadataUpdated(address indexed campaign, string uri);
 
     /// @notice Emitted when a campaign status is updated
     ///
@@ -67,17 +73,11 @@ contract Flywheel {
         address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
     );
 
-    /// @notice Emitted when a campaign is updated
+    /// @notice Emitted when a payout is attributed to a recipient
     ///
     /// @param campaign Address of the campaign
-    /// @param uri The URI for the campaign
-    event CampaignMetadataUpdated(address indexed campaign, string uri);
-
-    /// @notice Emitted when a payout is attributed to a recipient
-
-    /// @param campaign Address of the campaign
-    /// @param recipient Address receiving the payout
     /// @param token Address of the payout token
+    /// @param recipient Address receiving the payout
     /// @param amount Amount of tokens attributed
     event PayoutAllocated(address indexed campaign, address token, address recipient, uint256 amount);
 
@@ -89,7 +89,7 @@ contract Flywheel {
     /// @param amount Amount of tokens attributed
     event FeeAllocated(address indexed campaign, address token, address recipient, uint256 amount);
 
-    /// @notice Emitted when sponsor withdraws remaining tokens from a finalized campaign
+    /// @notice Emitted when someone withdraws funding from a campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the withdrawn token
@@ -106,20 +106,18 @@ contract Flywheel {
     /// @notice Emitted when accumulated fees are collected
     ///
     /// @param token Address of the collected token
+    /// @param recipient Address of the recipient
     /// @param amount Amount of tokens collected
-    event FeesCollected(address token, address provider, uint256 amount);
+    event FeesCollected(address token, address recipient, uint256 amount);
+
+    /// @notice Thrown when campaign does not exist
+    error CampaignDoesNotExist();
 
     /// @notice Thrown when address is zero
     error ZeroAddress();
 
-    /// @notice Thrown when caller doesn't have required permissions
-    error Unauthorized();
-
     /// @notice Thrown when campaign is in invalid status for operation
     error InvalidCampaignStatus();
-
-    /// @notice Thrown when campaign does not exist
-    error CampaignDoesNotExist();
 
     /// @notice Modifier to check if a campaign exists
     ///
@@ -139,31 +137,30 @@ contract Flywheel {
     /// @notice Creates a new campaign
     ///
     /// @param hooks Address of the campaign hooks contract
-    /// @param initData Initialization data for the hooks
+    /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the newly created campaign
     ///
     /// @dev Clones a new TokenStore contract for the campaign
-    function createCampaign(address hooks, bytes calldata initData) external returns (address campaign) {
+    function createCampaign(address hooks, bytes calldata hookData) external returns (address campaign) {
         // Check non-zero provider and hooks
         if (hooks == address(0)) revert ZeroAddress();
 
         campaign = Clones.clone(tokenStoreImpl);
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.CREATED, hooks: hooks});
         emit CampaignCreated(campaign, hooks);
-        CampaignHooks(hooks).createCampaign(campaign, initData);
+        CampaignHooks(hooks).createCampaign(campaign, hookData);
     }
 
     /// @notice Updates the metadata for a campaign
     ///
     /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
+    /// @param hookData Data for the campaign hook
     ///
-    /// @dev Only callable by the sponsor of a FINALIZED campaign
     /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata data) external campaignExists(campaign) {
-        if (_campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        CampaignHooks(_campaigns[campaign].hooks).updateMetadata(msg.sender, campaign, data);
+    function updateMetadata(address campaign, bytes calldata hookData) external campaignExists(campaign) {
+        if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        CampaignHooks(_campaigns[campaign].hooks).updateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
     }
 
@@ -171,7 +168,11 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param newStatus New status of the campaign
-    function updateStatus(address campaign, CampaignStatus newStatus) external campaignExists(campaign) {
+    /// @param hookData Data for the campaign hook
+    function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
+        external
+        campaignExists(campaign)
+    {
         CampaignStatus oldStatus = _campaigns[campaign].status;
 
         // Check new and old status are different
@@ -187,7 +188,7 @@ contract Flywheel {
         if (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
         // Apply hook for access control and storage updates
-        CampaignHooks(_campaigns[campaign].hooks).updateStatus(msg.sender, campaign, oldStatus, newStatus);
+        CampaignHooks(_campaigns[campaign].hooks).updateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
 
         // Update status
         _campaigns[campaign].status = newStatus;
@@ -198,10 +199,8 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param payoutToken Address of the token to be distributed
-    /// @param attributionData Encoded attribution data for the hooks
-    ///
-    /// @dev Only provider can call on OPEN, PAUSED, or CLOSED campaigns. Calculates protocol fees and updates balances.
-    function attribute(address campaign, address payoutToken, bytes calldata attributionData)
+    /// @param hookData Data for the campaign hook
+    function attribute(address campaign, address payoutToken, bytes calldata hookData)
         external
         campaignExists(campaign)
     {
@@ -209,24 +208,24 @@ contract Flywheel {
         CampaignStatus status = _campaigns[campaign].status;
         if (status == CampaignStatus.CREATED || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
-        (Payout[] memory payouts, uint256 attributionFee) =
-            CampaignHooks(_campaigns[campaign].hooks).attribute(msg.sender, campaign, payoutToken, attributionData);
+        (Payout[] memory newPayouts, uint256 attributionFee) =
+            CampaignHooks(_campaigns[campaign].hooks).attribute(msg.sender, campaign, payoutToken, hookData);
 
-        // Add payouts to balances
+        // Add new payouts
         uint256 totalPayouts = 0;
-        for (uint256 i = 0; i < payouts.length; i++) {
-            address recipient = payouts[i].recipient;
-            uint256 amount = payouts[i].amount;
-            balances[payoutToken][recipient] += amount;
+        for (uint256 i = 0; i < newPayouts.length; i++) {
+            address recipient = newPayouts[i].recipient;
+            uint256 amount = newPayouts[i].amount;
+            payouts[payoutToken][recipient] += amount;
             totalPayouts += amount;
             emit PayoutAllocated(campaign, payoutToken, recipient, amount);
         }
 
-        // Add provider fee to balances
+        // Add attribution fee
         fees[payoutToken][msg.sender] += attributionFee;
         emit FeeAllocated(campaign, payoutToken, msg.sender, attributionFee);
 
-        // Transfer tokens to flywheel to reserve for payouts and fees
+        // Transfer tokens to Flywheel to reserve for payouts and fees
         TokenStore(campaign).sendTokens(payoutToken, address(this), totalPayouts + attributionFee);
     }
 
@@ -234,8 +233,12 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
-    function withdrawFunds(address campaign, address token) external campaignExists(campaign) {
-        CampaignHooks(_campaigns[campaign].hooks).withdrawFunds(msg.sender, campaign, token);
+    /// @param hookData Data for the campaign hook
+    function withdrawFunds(address campaign, address token, bytes calldata hookData)
+        external
+        campaignExists(campaign)
+    {
+        CampaignHooks(_campaigns[campaign].hooks).withdrawFunds(msg.sender, campaign, token, hookData);
 
         // Sweep remaining tokens from campaign to sender
         uint256 balance = IERC20(token).balanceOf(campaign);
@@ -250,8 +253,8 @@ contract Flywheel {
     ///
     /// @dev Transfers the full balance for the token-recipient pair and resets it to zero
     function distributePayouts(address token, address recipient) external {
-        uint256 balance = balances[token][recipient];
-        delete balances[token][recipient];
+        uint256 balance = payouts[token][recipient];
+        delete payouts[token][recipient];
         SafeERC20.safeTransfer(IERC20(token), recipient, balance);
         emit PayoutsDistributed(token, recipient, balance);
     }
@@ -280,8 +283,8 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return Status of the campaign
-    function campaignStatus(address campaign) public view campaignExists(campaign) returns (CampaignStatus) {
+    /// @return status of the campaign
+    function campaignStatus(address campaign) public view campaignExists(campaign) returns (CampaignStatus status) {
         return _campaigns[campaign].status;
     }
 
@@ -289,8 +292,8 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return Hooks of the campaign
-    function campaignHooks(address campaign) public view campaignExists(campaign) returns (address) {
+    /// @return hooks of the campaign
+    function campaignHooks(address campaign) public view campaignExists(campaign) returns (address hooks) {
         return _campaigns[campaign].hooks;
     }
 }
