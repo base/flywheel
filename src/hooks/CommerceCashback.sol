@@ -48,23 +48,15 @@ contract CommerceCashback is CampaignHooks {
         cashbackBps = cashbackBps_;
     }
 
-    /// @notice Processes attribution for commerce payments
-    ///
-    /// @param campaign Address of the campaign
-    /// @param attributor Address of the attribution provider (unused in this implementation)
-    /// @param payoutToken Address of the token to be distributed
-    /// @param attributionData Encoded payment information from AuthCaptureEscrow
-    ///
-    /// @return payouts Array of payouts to be distributed
-    ///
+    /// @inheritdoc CampaignHooks
     /// @dev Decodes payment information and calculates rewards based on payment amounts
-    function attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
+    function attribute(address campaign, address attributor, address payoutToken, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 attributionFee)
     {
-        AuthCaptureEscrow.PaymentInfo[] memory payments = abi.decode(attributionData, (AuthCaptureEscrow.PaymentInfo[]));
+        AuthCaptureEscrow.PaymentInfo[] memory payments = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo[]));
         address payer = payments[0].payer;
         uint256 cashbackTotal = 0;
         for (uint256 i = 0; i < payments.length; i++) {

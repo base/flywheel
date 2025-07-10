@@ -6,14 +6,18 @@ import {Flywheel} from "./Flywheel.sol";
 /// @title CampaignHooks
 ///
 /// @notice Abstract contract for campaign hooks that process campaign attributions
-///
-/// @dev This contract provides the interface and base functionality for campaign hooks
 abstract contract CampaignHooks {
     /// @notice Address of the flywheel contract
     Flywheel public immutable flywheel;
 
     /// @notice Thrown when a function is not implemented
     error Unimplemented();
+
+    /// @notice Modifier to restrict function access to flywheel only
+    modifier onlyFlywheel() {
+        require(msg.sender == address(flywheel));
+        _;
+    }
 
     /// @notice Constructor for CampaignHooks
     ///
@@ -22,27 +26,22 @@ abstract contract CampaignHooks {
         flywheel = Flywheel(flywheel_);
     }
 
-    /// @notice Modifier to restrict function access to flywheel only
-    modifier onlyFlywheel() {
-        require(msg.sender == address(flywheel));
-        _;
-    }
-
     /// @notice Creates a campaign in the hook
     ///
     /// @param campaign Address of the campaign
-    /// @param initData Initialization data for the campaign
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function createCampaign(address campaign, bytes calldata initData) external virtual onlyFlywheel {}
+    function createCampaign(address campaign, bytes calldata hookData) external virtual onlyFlywheel {}
 
     /// @notice Updates the metadata for a campaign
     ///
+    /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function updateMetadata(address sender, address campaign, bytes calldata data) external virtual onlyFlywheel {
+    function updateMetadata(address sender, address campaign, bytes calldata hookData) external virtual onlyFlywheel {
         revert Unimplemented();
     }
 
@@ -51,13 +50,15 @@ abstract contract CampaignHooks {
     /// @param campaign Address of the campaign
     /// @param oldStatus Old status of the campaign
     /// @param newStatus New status of the campaign
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
     function updateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
     ) external virtual onlyFlywheel {
         revert Unimplemented();
     }
@@ -66,11 +67,11 @@ abstract contract CampaignHooks {
     ///
     /// @param campaign Address of the campaign
     /// @param payoutToken Address of the token to be distributed
-    /// @param attributionData Encoded attribution data
+    /// @param hookData Data for the campaign hook
     /// @return payouts Array of payouts to be distributed
     ///
     /// @dev Only callable by the flywheel contract
-    function attribute(address sender, address campaign, address payoutToken, bytes calldata attributionData)
+    function attribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
@@ -81,11 +82,17 @@ abstract contract CampaignHooks {
 
     /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
     ///
+    /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function withdrawFunds(address sender, address campaign, address token) external virtual onlyFlywheel {
+    function withdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+    {
         revert Unimplemented();
     }
 

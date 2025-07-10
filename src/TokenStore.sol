@@ -5,9 +5,9 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 /// @title TokenStore
 ///
-/// @notice Holds funds for attributions on a single campaign
+/// @notice Holds funds for a single campaign
 ///
-/// @dev Deployed on demand by protocol via CREATE clones
+/// @dev Deployed on demand by protocol via clones
 contract TokenStore {
     /// @notice Address that created this token store
     address public immutable owner;
