@@ -29,7 +29,7 @@ contract Flywheel {
     /// @param status Current status of the campaign
     /// @param sponsor Address of the campaign sponsor
     /// @param attributor Address of the attribution provider
-    /// @param hooks Address of the attribution hooks contract
+    /// @param hooks Address of the campaign hooks contract
     /// @param attributionDeadline Timestamp after which no more attribution can occur (set on close)
     struct CampaignInfo {
         CampaignStatus status;
@@ -122,11 +122,6 @@ contract Flywheel {
     /// @param token Address of the withdrawn token
     /// @param amount Amount of tokens withdrawn
     event RemainderWithdrawn(address indexed campaign, address token, uint256 amount);
-
-    /// @notice Emitted when all campaigns are updated
-    ///
-    /// @param hooks Address of the attribution hooks contract
-    event AllCampaignMetadataUpdated(address indexed hooks);
 
     /// @notice Thrown when caller doesn't have required permissions
     error Unauthorized();
