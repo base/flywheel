@@ -51,11 +51,13 @@ contract AdvertisementConversion is CampaignHooks {
 
     /// @notice Structure for recording finalization information
     ///
-    /// @param delay Delay before finalization can occur
-    /// @param timestamp Timestamp when finalization can occur
-    struct Finalization {
-        uint48 delay;
-        uint48 deadline;
+    /// @param advertiser Address of the advertiser
+    /// @param finalizationDelay Delay before finalization can occur
+    /// @param attributionDeadline Timestamp when finalization can occur
+    struct CampaignState {
+        address advertiser;
+        uint48 finalizationDelay;
+        uint48 attributionDeadline;
     }
 
     /// @notice Maximum basis points
@@ -65,7 +67,7 @@ contract AdvertisementConversion is CampaignHooks {
     mapping(address campaign => string uri) public override campaignURI;
 
     /// @notice Mapping of campaign addresses to finalization information
-    mapping(address campaign => Finalization) public finalizations;
+    mapping(address campaign => CampaignState) public state;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -95,9 +97,11 @@ contract AdvertisementConversion is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     function createCampaign(address campaign, bytes calldata initData) external override onlyFlywheel {
-        (string memory uri, uint48 delay) = abi.decode(initData, (string, uint48));
+        (string memory uri, address advertiser, uint48 finalizationDelay) =
+            abi.decode(initData, (string, address, uint48));
         campaignURI[campaign] = uri;
-        finalizations[campaign] = Finalization({delay: delay, deadline: 0});
+        state[campaign] =
+            CampaignState({advertiser: advertiser, finalizationDelay: finalizationDelay, attributionDeadline: 0});
     }
 
     /// @inheritdoc CampaignHooks
@@ -112,19 +116,19 @@ contract AdvertisementConversion is CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus
     ) external override onlyFlywheel {
-        // Attributor always allowed, early return
-        if (sender == flywheel.campaignAttributor(campaign)) return;
+        // Provider always allowed, early return
+        if (sender == flywheel.campaignProvider(campaign)) return;
 
-        // Otherwise only sponsor allowed to update status
-        if (sender != flywheel.campaignSponsor(campaign)) revert Unauthorized();
+        // Otherwise only advertiser allowed to update status
+        if (sender != state[campaign].advertiser) revert Unauthorized();
 
-        // Sponsor always allowed to close and start finalization delay
+        // Advertiser always allowed to close and start finalization delay
         if (newStatus == Flywheel.CampaignStatus.CLOSED) {
-            finalizations[campaign].deadline = uint48(block.timestamp) + finalizations[campaign].delay;
+            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].finalizationDelay;
             return;
         }
 
-        // Sponsor only allowed to finalize, but only if delay has passed
+        // Advertiser only allowed to finalize, but only if delay has passed
         if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
         if (finalizations[campaign].deadline > block.timestamp) revert Unauthorized();
     }
@@ -145,7 +149,7 @@ contract AdvertisementConversion is CampaignHooks {
             // Deduct attribution fee from payout amount
             Flywheel.Payout memory payout = attributions[i].payout;
             uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
-            attributorFee += attributionFee;
+            providerFee += attributionFee;
             payouts[i] = Flywheel.Payout({recipient: payout.recipient, amount: payout.amount - attributionFee});
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
@@ -157,6 +161,13 @@ contract AdvertisementConversion is CampaignHooks {
                 emit OffchainConversion(campaign, conversion);
             }
         }
-        return (payouts, attributorFee);
+        return (payouts, providerFee);
+    }
+
+    /// @inheritdoc CampaignHooks
+    /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
+    function withdrawFunds(address sender, address campaign, address token) external view override onlyFlywheel {
+        if (sender != state[campaign].advertiser) revert Unauthorized();
+        if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
     }
 }
