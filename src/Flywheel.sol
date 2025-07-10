@@ -137,16 +137,19 @@ contract Flywheel {
     /// @notice Creates a new campaign
     ///
     /// @param hooks Address of the campaign hooks contract
+    /// @param nonce Nonce used to create the campaign
     /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the newly created campaign
     ///
     /// @dev Clones a new TokenStore contract for the campaign
-    function createCampaign(address hooks, bytes calldata hookData) external returns (address campaign) {
-        // Check non-zero provider and hooks
+    /// @dev Call `campaignAddress` to know the address of the campaign without deploying it
+    function createCampaign(address hooks, uint256 nonce, bytes calldata hookData)
+        external
+        returns (address campaign)
+    {
         if (hooks == address(0)) revert ZeroAddress();
-
-        campaign = Clones.clone(tokenStoreImpl);
+        campaign = Clones.cloneDeterministic(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.CREATED, hooks: hooks});
         emit CampaignCreated(campaign, hooks);
         CampaignHooks(hooks).createCampaign(campaign, hookData);
@@ -268,6 +271,16 @@ contract Flywheel {
         delete fees[token][msg.sender];
         SafeERC20.safeTransfer(IERC20(token), recipient, amount);
         emit FeesCollected(token, msg.sender, amount);
+    }
+
+    /// @notice Returns the address of a campaign given its creation parameters
+    ///
+    /// @param nonce Nonce used to create the campaign
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return campaign Address of the campaign
+    function campaignAddress(uint256 nonce, bytes calldata hookData) external view returns (address campaign) {
+        return Clones.predictDeterministicAddress(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
     }
 
     /// @notice Returns the URI for a campaign
