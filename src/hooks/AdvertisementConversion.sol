@@ -55,7 +55,7 @@ contract AdvertisementConversion is CampaignHooks {
     /// @param timestamp Timestamp when finalization can occur
     struct Finalization {
         uint48 delay;
-        uint48 timestamp;
+        uint48 deadline;
     }
 
     /// @notice Maximum basis points
@@ -97,7 +97,7 @@ contract AdvertisementConversion is CampaignHooks {
     function createCampaign(address campaign, bytes calldata initData) external override onlyFlywheel {
         (string memory uri, uint48 delay) = abi.decode(initData, (string, uint48));
         campaignURI[campaign] = uri;
-        finalizations[campaign] = Finalization({delay: delay, timestamp: 0});
+        finalizations[campaign] = Finalization({delay: delay, deadline: 0});
     }
 
     /// @inheritdoc CampaignHooks
@@ -106,7 +106,7 @@ contract AdvertisementConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function updateCampaignStatus(
+    function updateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
@@ -120,13 +120,13 @@ contract AdvertisementConversion is CampaignHooks {
 
         // Sponsor always allowed to close and start finalization delay
         if (newStatus == Flywheel.CampaignStatus.CLOSED) {
-            finalizations[campaign].timestamp = uint48(block.timestamp) + finalizations[campaign].delay;
+            finalizations[campaign].deadline = uint48(block.timestamp) + finalizations[campaign].delay;
             return;
         }
 
         // Sponsor only allowed to finalize, but only if delay has passed
         if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
-        if (finalizations[campaign].timestamp > block.timestamp) revert Unauthorized();
+        if (finalizations[campaign].deadline > block.timestamp) revert Unauthorized();
     }
 
     /// @inheritdoc CampaignHooks

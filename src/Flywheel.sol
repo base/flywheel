@@ -187,7 +187,7 @@ contract Flywheel {
         if (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
         // Apply hook for access control and storage updates
-        CampaignHooks(campaigns[campaign].hooks).updateCampaignStatus(msg.sender, campaign, oldStatus, newStatus);
+        CampaignHooks(campaigns[campaign].hooks).updateStatus(msg.sender, campaign, oldStatus, newStatus);
 
         // Update status
         campaigns[campaign].status = newStatus;
@@ -288,15 +288,6 @@ contract Flywheel {
         return CampaignHooks(campaigns[campaign].hooks).campaignURI(campaign);
     }
 
-    /// @notice Returns the sponsor of a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return Sponsor of the campaign
-    function campaignSponsor(address campaign) public view returns (address) {
-        return campaigns[campaign].sponsor;
-    }
-
     /// @notice Returns the attributor of a campaign
     ///
     /// @param campaign Address of the campaign
@@ -304,5 +295,14 @@ contract Flywheel {
     /// @return Attributor of the campaign
     function campaignAttributor(address campaign) public view returns (address) {
         return campaigns[campaign].attributor;
+    }
+
+    /// @notice Returns the sponsor of a campaign
+    ///
+    /// @param campaign Address of the campaign
+    ///
+    /// @return Sponsor of the campaign
+    function campaignSponsor(address campaign) public view returns (address) {
+        return campaigns[campaign].sponsor;
     }
 }

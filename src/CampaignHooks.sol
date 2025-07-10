@@ -54,7 +54,7 @@ abstract contract CampaignHooks {
     /// @param newStatus New status of the campaign
     ///
     /// @dev Only callable by the flywheel contract
-    function updateCampaignStatus(
+    function updateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,

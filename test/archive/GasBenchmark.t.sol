@@ -9,7 +9,7 @@ import {DummyERC20} from "../../src/archive/test/DummyERC20.sol";
 import {CampaignBalance} from "../../src/archive/CampaignBalance.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {FlywheelPublisherRegistry} from "../../src/FlywheelPublisherRegistry.sol";
-// import {Flywheel} from "../../src/Flywheel.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
 import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
 
 contract GasBenchmarkTest is Test {
@@ -18,7 +18,7 @@ contract GasBenchmarkTest is Test {
     DummyERC20 dummyToken;
     FlywheelPublisherRegistry publisherRegistryImplementation;
     FlywheelPublisherRegistry publisherRegistry;
-    // Flywheel flywheel;
+    Flywheel flywheel;
     AdvertisementConversion hook;
     address campaign;
 
