@@ -79,6 +79,16 @@ abstract contract CampaignHooks {
         revert Unimplemented();
     }
 
+    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to withdraw
+    ///
+    /// @dev Only callable by the flywheel contract
+    function withdrawFunds(address sender, address campaign, address token) external onlyFlywheel {
+        revert Unimplemented();
+    }
+
     /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
