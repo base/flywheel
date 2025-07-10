@@ -46,9 +46,6 @@ contract Flywheel {
         uint256 amount;
     }
 
-    /// @notice Buffer time after campaign close before finalization is allowed
-    uint256 public constant FINALIZATION_BUFFER = 7 days;
-
     /// @notice Implementation address for TokenStore contracts
     address public immutable tokenStoreImpl;
 
