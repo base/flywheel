@@ -49,9 +49,23 @@ contract AdvertisementConversion is CampaignHooks {
         uint256 index;
     }
 
+    /// @notice Structure for recording finalization information
+    ///
+    /// @param delay Delay before finalization can occur
+    /// @param timestamp Timestamp when finalization can occur
+    struct Finalization {
+        uint48 delay;
+        uint48 deadline;
+    }
+
+    /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
+    /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
+
+    /// @notice Mapping of campaign addresses to finalization information
+    mapping(address campaign => Finalization) public finalizations;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -81,12 +95,38 @@ contract AdvertisementConversion is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     function createCampaign(address campaign, bytes calldata initData) external override onlyFlywheel {
-        campaignURI[campaign] = string(initData);
+        (string memory uri, uint48 delay) = abi.decode(initData, (string, uint48));
+        campaignURI[campaign] = uri;
+        finalizations[campaign] = Finalization({delay: delay, deadline: 0});
     }
 
     /// @inheritdoc CampaignHooks
     function updateMetadata(address sender, address campaign, bytes calldata data) external override onlyFlywheel {
         if (sender != flywheel.campaignAttributor(campaign)) revert Unauthorized();
+    }
+
+    /// @inheritdoc CampaignHooks
+    function updateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus
+    ) external override onlyFlywheel {
+        // Attributor always allowed, early return
+        if (sender == flywheel.campaignAttributor(campaign)) return;
+
+        // Otherwise only sponsor allowed to update status
+        if (sender != flywheel.campaignSponsor(campaign)) revert Unauthorized();
+
+        // Sponsor always allowed to close and start finalization delay
+        if (newStatus == Flywheel.CampaignStatus.CLOSED) {
+            finalizations[campaign].deadline = uint48(block.timestamp) + finalizations[campaign].delay;
+            return;
+        }
+
+        // Sponsor only allowed to finalize, but only if delay has passed
+        if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+        if (finalizations[campaign].deadline > block.timestamp) revert Unauthorized();
     }
 
     /// @inheritdoc CampaignHooks

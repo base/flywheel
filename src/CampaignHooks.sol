@@ -46,6 +46,22 @@ abstract contract CampaignHooks {
         revert Unimplemented();
     }
 
+    /// @notice Updates the campaign status
+    ///
+    /// @param campaign Address of the campaign
+    /// @param oldStatus Old status of the campaign
+    /// @param newStatus New status of the campaign
+    ///
+    /// @dev Only callable by the flywheel contract
+    function updateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus
+    ) external virtual onlyFlywheel {
+        revert Unimplemented();
+    }
+
     /// @notice Processes attribution for a campaign
     ///
     /// @param campaign Address of the campaign
