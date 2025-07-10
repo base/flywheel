@@ -342,7 +342,7 @@ contract Flywheel {
         return CampaignHooks(campaigns[campaign].hooks).campaignURI(campaign);
     }
 
-    /// @notice Returns the provider of a campaign
+    /// @notice Returns the attributor of a campaign
     ///
     /// @param campaign Address of the campaign
     ///

@@ -66,7 +66,7 @@ contract AdvertisementConversion is CampaignHooks {
     /// @param log The onchain log data
     event OnchainConversion(address indexed campaign, Conversion conversion, Log log);
 
-    /// @notice Thrown when an unauthorized address calls a function
+    /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
 
     /// @notice Emitted when an invalid fee BPS is provided
@@ -86,7 +86,7 @@ contract AdvertisementConversion is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     function _updateMetadata(address sender, address campaign, bytes calldata data) internal view override {
-        if (sender != protocol.campaignAttributor(campaign)) revert Unauthorized();
+        if (sender != flywheel.campaignAttributor(campaign)) revert Unauthorized();
     }
 
     /// @inheritdoc CampaignHooks
