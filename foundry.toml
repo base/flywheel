@@ -1,13 +1,9 @@
 [profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
-solc = "0.8.29"
-
-# Disabled as it can be non-deterministic, affecting the resulting contract address.
-bytecode_hash = "none"
-
-# Enable via-ir to fix stack too deep errors
+evm_version = "prague"
+solc_version = "0.8.29"
+sort_imports = true
 via_ir = true
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+[profile.deploy]
+optimizer = true
+optimizer_runs = 100000
