@@ -70,12 +70,22 @@ abstract contract CampaignHooks {
     /// @return payouts Array of payouts to be distributed
     ///
     /// @dev Only callable by the flywheel contract
-    function attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
+    function attribute(address sender, address campaign, address payoutToken, bytes calldata attributionData)
         external
         virtual
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {
+        revert Unimplemented();
+    }
+
+    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to withdraw
+    ///
+    /// @dev Only callable by the flywheel contract
+    function withdrawFunds(address sender, address campaign, address token) external virtual onlyFlywheel {
         revert Unimplemented();
     }
 
