@@ -111,19 +111,19 @@ contract AdvertisementConversion is CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus
     ) external override onlyFlywheel {
-        // attributor always allowed
+        // Attributor always allowed, early return
         if (sender == flywheel.campaignAttributor(campaign)) return;
 
-        // otherwise only sponsor allowed to update status
+        // Otherwise only sponsor allowed to update status
         if (sender != flywheel.campaignSponsor(campaign)) revert Unauthorized();
 
-        // sponsor always allowed to close and start finalization delay
+        // Sponsor always allowed to close and start finalization delay
         if (newStatus == Flywheel.CampaignStatus.CLOSED) {
             finalizations[campaign].timestamp = uint48(block.timestamp) + finalizations[campaign].delay;
             return;
         }
 
-        // sponsor only allowed to finalize, but only if delay has passed
+        // Sponsor only allowed to finalize, but only if delay has passed
         if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
         if (finalizations[campaign].timestamp > block.timestamp) revert Unauthorized();
     }

@@ -15,7 +15,6 @@ import {CampaignHooks} from "./CampaignHooks.sol";
 contract Flywheel {
     /// @notice Possible states a campaign can be in
     enum CampaignStatus {
-        NONE, // Campaign does not exist
         CREATED, // Initial state when campaign is first created
         OPEN, // Campaign is live and can accept attribution
         PAUSED, // Campaign is temporarily paused
@@ -161,13 +160,23 @@ contract Flywheel {
     /// @param newStatus New status of the campaign
     function updateStatus(address campaign, CampaignStatus newStatus) external {
         CampaignStatus oldStatus = campaigns[campaign].status;
+
+        // Check new and old status are different
         if (newStatus == oldStatus) revert InvalidCampaignStatus();
-        if (newStatus == CampaignStatus.NONE) revert InvalidCampaignStatus();
+
+        // Cannot go back to created status
         if (newStatus == CampaignStatus.CREATED) revert InvalidCampaignStatus();
+
+        // Finalized status cannot change
         if (oldStatus == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+
+        // Closed can only move to finalized
         if (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
+        // Apply hook for access control and storage updates
         CampaignHooks(campaigns[campaign].hooks).updateCampaignStatus(msg.sender, campaign, oldStatus, newStatus);
+
+        // Update status
         campaigns[campaign].status = newStatus;
         emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
     }
