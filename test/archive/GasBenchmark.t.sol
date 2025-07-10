@@ -129,23 +129,23 @@ contract GasBenchmarkTest is Test {
         vm.prank(spdApSigner);
         fwCampaigns.updateCampaignStatus(campaignId, IFlywheelCampaigns.CampaignStatus.ACTIVE);
 
-        // NEW //
+        // // NEW //
 
-        // Deploy Flywheel
-        flywheel = new Flywheel();
+        // // Deploy Flywheel
+        // flywheel = new Flywheel();
 
-        // Deploy hook
-        hook = new AdvertisementConversion(address(flywheel), address(this));
+        // // Deploy hook
+        // hook = new AdvertisementConversion(address(flywheel), address(this));
 
-        // Create campaign
-        initData = ""; // Empty init data for this test
-        vm.prank(advertiser);
-        campaign = flywheel.createCampaign(attributor, address(hook), initData);
-        dummyToken.transfer(campaign, totalFunded);
+        // // Create campaign
+        // initData = ""; // Empty init data for this test
+        // vm.prank(advertiser);
+        // campaign = flywheel.createCampaign(attributor, address(hook), initData);
+        // dummyToken.transfer(campaign, totalFunded);
 
-        // Only attributor can open the campaign, and only once
-        vm.prank(attributor);
-        flywheel.openCampaign(campaign);
+        // // Only attributor can open the campaign, and only once
+        // vm.prank(attributor);
+        // flywheel.openCampaign(campaign);
     }
 
     function test_benchmark_100_offchain_events() public {
@@ -173,37 +173,37 @@ contract GasBenchmarkTest is Test {
         vm.stopPrank();
     }
 
-    function test_benchmark_100_offchain_events_NEW() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](100);
+    // function test_benchmark_100_offchain_events_NEW() public {
+    //     AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](100);
 
-        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
-            eventId: bytes16(0x1234567890abcdef1234567890abcdef),
-            clickId: "click",
-            conversionConfigId: 1,
-            publisherRefCode: publisher1RefCode,
-            timestamp: uint32(block.timestamp),
-            recipientType: 1
-        });
+    //     AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
+    //         eventId: bytes16(0x1234567890abcdef1234567890abcdef),
+    //         clickId: "click",
+    //         conversionConfigId: 1,
+    //         publisherRefCode: publisher1RefCode,
+    //         timestamp: uint32(block.timestamp),
+    //         recipientType: 1
+    //     });
 
-        Flywheel.Payout memory payout = Flywheel.Payout({
-            recipient: address(0),
-            amount: 1000e18 // 100 tokens
-        });
+    //     Flywheel.Payout memory payout = Flywheel.Payout({
+    //         recipient: address(0),
+    //         amount: 1000e18 // 100 tokens
+    //     });
 
-        for (uint256 i = 0; i < 100; i++) {
-            attributions[i] = AdvertisementConversion.Attribution({
-                payout: payout,
-                conversion: conversion,
-                logBytes: "" // Empty for offchain
-            });
-        }
+    //     for (uint256 i = 0; i < 100; i++) {
+    //         attributions[i] = AdvertisementConversion.Attribution({
+    //             payout: payout,
+    //             conversion: conversion,
+    //             logBytes: "" // Empty for offchain
+    //         });
+    //     }
 
-        uint256 gasBefore = gasleft();
-        vm.prank(attributor);
-        flywheel.attribute(campaign, address(dummyToken), abi.encode(attributions));
-        uint256 gasUsed = gasBefore - gasleft();
-        _reportCosts("100 Offchain Events NEW", gasUsed);
-    }
+    //     uint256 gasBefore = gasleft();
+    //     vm.prank(attributor);
+    //     flywheel.attribute(campaign, address(dummyToken), abi.encode(attributions));
+    //     uint256 gasUsed = gasBefore - gasleft();
+    //     _reportCosts("100 Offchain Events NEW", gasUsed);
+    // }
 
     function test_benchmark_100_onchain_events() public {
         uint256 gasBefore = gasleft();
@@ -237,38 +237,38 @@ contract GasBenchmarkTest is Test {
         vm.stopPrank();
     }
 
-    function test_benchmark_100_onchain_events_NEW() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](100);
+    // function test_benchmark_100_onchain_events_NEW() public {
+    //     AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](100);
 
-        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
-            eventId: bytes16(0x1234567890abcdef1234567890abcdef),
-            clickId: "click",
-            conversionConfigId: 1,
-            publisherRefCode: publisher1RefCode,
-            timestamp: uint32(block.timestamp),
-            recipientType: 1
-        });
+    //     AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
+    //         eventId: bytes16(0x1234567890abcdef1234567890abcdef),
+    //         clickId: "click",
+    //         conversionConfigId: 1,
+    //         publisherRefCode: publisher1RefCode,
+    //         timestamp: uint32(block.timestamp),
+    //         recipientType: 1
+    //     });
 
-        Flywheel.Payout memory payout = Flywheel.Payout({
-            recipient: address(0),
-            amount: 1000e18 // 100 tokens
-        });
+    //     Flywheel.Payout memory payout = Flywheel.Payout({
+    //         recipient: address(0),
+    //         amount: 1000e18 // 100 tokens
+    //     });
 
-        bytes32[100] memory txHashes = _generateRealisticTxHashes();
-        AdvertisementConversion.Log memory log =
-            AdvertisementConversion.Log({chainId: 1, transactionHash: txHashes[0], index: 0});
+    //     bytes32[100] memory txHashes = _generateRealisticTxHashes();
+    //     AdvertisementConversion.Log memory log =
+    //         AdvertisementConversion.Log({chainId: 1, transactionHash: txHashes[0], index: 0});
 
-        for (uint256 i = 0; i < 100; i++) {
-            attributions[i] =
-                AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: abi.encode(log)});
-        }
+    //     for (uint256 i = 0; i < 100; i++) {
+    //         attributions[i] =
+    //             AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: abi.encode(log)});
+    //     }
 
-        uint256 gasBefore = gasleft();
-        vm.prank(attributor);
-        flywheel.attribute(campaign, address(dummyToken), abi.encode(attributions));
-        uint256 gasUsed = gasBefore - gasleft();
-        _reportCosts("100 Onchain Events NEW", gasUsed);
-    }
+    //     uint256 gasBefore = gasleft();
+    //     vm.prank(attributor);
+    //     flywheel.attribute(campaign, address(dummyToken), abi.encode(attributions));
+    //     uint256 gasUsed = gasBefore - gasleft();
+    //     _reportCosts("100 Onchain Events NEW", gasUsed);
+    // }
 
     function _generateRealisticTxHashes() internal pure returns (bytes32[100] memory hashes) {
         // Some example realistic base transaction prefixes
