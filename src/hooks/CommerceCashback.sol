@@ -5,14 +5,13 @@ import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
-import {MetadataMixin} from "./MetadataMixin.sol";
 
 /// @title CommerceCashback
 ///
 /// @notice Attribution hook for processing commerce payment cashback
 ///
 /// @dev Handles attribution based on payment information from AuthCaptureEscrow
-contract CommerceCashback is CampaignHooks, MetadataMixin {
+contract CommerceCashback is CampaignHooks {
     /// @notice Maximum basis points (100%)
     uint16 public constant MAX_BPS = 10_000;
 
@@ -38,26 +37,15 @@ contract CommerceCashback is CampaignHooks, MetadataMixin {
     /// @notice Constructor for CommerceRewards
     ///
     /// @param protocol_ Address of the protocol contract
-    /// @param owner_ Address of the contract owner
     /// @param authCaptureEscrow_ Address of the AuthCaptureEscrow contract
     /// @param operator_ Address of the authorized operator
     /// @param cashbackBps_ Cashback basis points for calculating payouts
-    constructor(address protocol_, address owner_, address authCaptureEscrow_, address operator_, uint16 cashbackBps_)
+    constructor(address protocol_, address authCaptureEscrow_, address operator_, uint16 cashbackBps_)
         CampaignHooks(protocol_)
-        MetadataMixin(owner_)
     {
         authCaptureEscrow = AuthCaptureEscrow(authCaptureEscrow_);
         operator = operator_;
         cashbackBps = cashbackBps_;
-    }
-
-    /// @notice Returns the URI for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return uri The URI for the campaign
-    function campaignURI(address campaign) public view override returns (string memory uri) {
-        return _campaignURI(campaign);
     }
 
     /// @notice Processes attribution for commerce payments

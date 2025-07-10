@@ -3,14 +3,13 @@ pragma solidity 0.8.29;
 
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
-import {MetadataMixin} from "./MetadataMixin.sol";
 
 /// @title AdvertisementConversion
 ///
 /// @notice Attribution hook for processing advertisement conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
-contract AdvertisementConversion is CampaignHooks, MetadataMixin {
+contract AdvertisementConversion is CampaignHooks {
     /// @notice Attribution structure containing payout and conversion data
     ///
     /// @param payout The payout to be distributed
@@ -52,6 +51,8 @@ contract AdvertisementConversion is CampaignHooks, MetadataMixin {
 
     uint16 public constant MAX_BPS = 10_000;
 
+    mapping(address campaign => string uri) public override campaignURI;
+
     /// @notice Emitted when an offchain attribution event occurs
     ///
     /// @param campaign Address of the campaign
@@ -65,6 +66,9 @@ contract AdvertisementConversion is CampaignHooks, MetadataMixin {
     /// @param log The onchain log data
     event OnchainConversion(address indexed campaign, Conversion conversion, Log log);
 
+    /// @notice Thrown when an unauthorized address calls a function
+    error Unauthorized();
+
     /// @notice Emitted when an invalid fee BPS is provided
     ///
     /// @param feeBps The invalid fee BPS
@@ -73,27 +77,19 @@ contract AdvertisementConversion is CampaignHooks, MetadataMixin {
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param protocol_ Address of the protocol contract
-    /// @param owner_ Address of the contract owner
-    constructor(address protocol_, address owner_) CampaignHooks(protocol_) MetadataMixin(owner_) {}
+    constructor(address protocol_) CampaignHooks(protocol_) {}
 
-    /// @notice Returns the URI for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    ///
-    /// @return uri The URI for the campaign
-    function campaignURI(address campaign) public view override returns (string memory uri) {
-        return _campaignURI(campaign);
+    /// @inheritdoc CampaignHooks
+    function _createCampaign(address campaign, bytes calldata initData) internal override {
+        campaignURI[campaign] = string(initData);
     }
 
-    /// @notice Processes attribution for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param payoutToken Address of the token to be distributed (unused in this implementation)
-    /// @param attributionData Encoded attribution data containing Attribution array
-    ///
-    /// @return payouts Array of payouts to be distributed
-    ///
-    /// @dev Decodes attribution data and emits appropriate conversion events
+    /// @inheritdoc CampaignHooks
+    function _updateMetadata(address sender, address campaign, bytes calldata data) internal view override {
+        if (sender != protocol.campaignAttributor(campaign)) revert Unauthorized();
+    }
+
+    /// @inheritdoc CampaignHooks
     function _attribute(address campaign, address attributor, address payoutToken, bytes calldata attributionData)
         internal
         override
@@ -121,27 +117,5 @@ contract AdvertisementConversion is CampaignHooks, MetadataMixin {
             }
         }
         return (payouts, attributorFee);
-    }
-
-    /// @notice Enforces sender is the owner for metadata updates
-    ///
-    /// @param sender Address of the sender
-    /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
-    ///
-    /// @dev Only callable by the owner
-    function _updateCampaignMetadata(address sender, address campaign, bytes calldata data) internal view override {
-        if (sender != owner()) revert Unauthorized();
-    }
-
-    /// @notice Updates the baseURI for all campaign metadata
-    ///
-    /// @param sender Address of the sender
-    /// @param data The data for the campaigns
-    ///
-    /// @dev Only callable by the owner
-    function _updateMetadataForAllCampaigns(address sender, bytes calldata data) internal override {
-        if (sender != owner()) revert Unauthorized();
-        _setBaseURI(string(data));
     }
 }

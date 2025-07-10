@@ -81,6 +81,12 @@ contract Flywheel {
         address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
     );
 
+    /// @notice Emitted when a campaign is updated
+    ///
+    /// @param campaign Address of the campaign
+    /// @param uri The URI for the campaign
+    event CampaignMetadataUpdated(address indexed campaign, string uri);
+
     /// @notice Emitted when a payout is attributed to a recipient
 
     /// @param campaign Address of the campaign
@@ -116,12 +122,6 @@ contract Flywheel {
     /// @param token Address of the withdrawn token
     /// @param amount Amount of tokens withdrawn
     event RemainderWithdrawn(address indexed campaign, address token, uint256 amount);
-
-    /// @notice Emitted when a campaign is updated
-    ///
-    /// @param campaign Address of the campaign
-    /// @param uri The URI for the campaign
-    event CampaignMetadataUpdated(address indexed campaign, string uri);
 
     /// @notice Emitted when all campaigns are updated
     ///
@@ -240,6 +240,19 @@ contract Flywheel {
         emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, CampaignStatus.FINALIZED);
     }
 
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Only callable by the sponsor of a FINALIZED campaign
+    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
+    function updateMetadata(address campaign, bytes calldata data) external {
+        if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        CampaignHooks(campaigns[campaign].hooks).updateMetadata(msg.sender, campaign, data);
+        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
+    }
+
     /// @notice Processes attribution for a campaign
     ///
     /// @param campaign Address of the campaign
@@ -325,30 +338,6 @@ contract Flywheel {
         emit RemainderWithdrawn(campaign, token, balance);
     }
 
-    /// @notice Updates the metadata for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
-    ///
-    /// @dev Only callable by the sponsor of a FINALIZED campaign
-    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateCampaignMetadata(address campaign, bytes calldata data) external {
-        if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        CampaignHooks(campaigns[campaign].hooks).updateCampaignMetadata(msg.sender, campaign, data);
-        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
-    }
-
-    /// @notice Updates the metadata for all campaigns
-    ///
-    /// @param data The data for the campaigns
-    ///
-    /// @dev Only callable by the protocol contract
-    /// @dev Indexers should update their metadata cache for all campaigns using this hook by fetching the campaignURI
-    function updateMetadataForAllCampaigns(address hooks, bytes calldata data) external {
-        CampaignHooks(hooks).updateMetadataForAllCampaigns(msg.sender, data);
-        emit AllCampaignMetadataUpdated(hooks);
-    }
-
     /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
@@ -356,6 +345,15 @@ contract Flywheel {
     /// @return uri The URI for the campaign
     function campaignURI(address campaign) public view returns (string memory uri) {
         return CampaignHooks(campaigns[campaign].hooks).campaignURI(campaign);
+    }
+
+    /// @notice Returns the provider of a campaign
+    ///
+    /// @param campaign Address of the campaign
+    ///
+    /// @return attributor The attributor of the campaign
+    function campaignAttributor(address campaign) public view returns (address) {
+        return campaigns[campaign].attributor;
     }
 
     /// @notice Checks if the caller is the sponsor of a campaign

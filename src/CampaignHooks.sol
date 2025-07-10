@@ -10,7 +10,7 @@ import {Flywheel} from "./Flywheel.sol";
 /// @dev This contract provides the interface and base functionality for campaign hooks
 abstract contract CampaignHooks {
     /// @notice Address of the protocol contract
-    address public immutable protocol;
+    Flywheel public immutable protocol;
 
     /// @notice Thrown when a function is not implemented
     error Unimplemented();
@@ -19,12 +19,12 @@ abstract contract CampaignHooks {
     ///
     /// @param protocol_ Address of the protocol contract
     constructor(address protocol_) {
-        protocol = protocol_;
+        protocol = Flywheel(protocol_);
     }
 
     /// @notice Modifier to restrict function access to protocol only
     modifier onlyProtocol() {
-        require(msg.sender == protocol);
+        require(msg.sender == address(protocol));
         _;
     }
 
@@ -36,6 +36,16 @@ abstract contract CampaignHooks {
     /// @dev Only callable by the protocol contract
     function createCampaign(address campaign, bytes calldata initData) external onlyProtocol {
         _createCampaign(campaign, initData);
+    }
+
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Only callable by the protocol contract
+    function updateMetadata(address sender, address campaign, bytes calldata data) external onlyProtocol {
+        _updateMetadata(sender, campaign, data);
     }
 
     /// @notice Processes attribution for a campaign
@@ -54,16 +64,6 @@ abstract contract CampaignHooks {
         return _attribute(campaign, attributor, payoutToken, attributionData);
     }
 
-    /// @notice Updates the metadata for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
-    ///
-    /// @dev Only callable by the protocol contract
-    function updateCampaignMetadata(address sender, address campaign, bytes calldata data) external onlyProtocol {
-        _updateCampaignMetadata(sender, campaign, data);
-    }
-
     /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
@@ -80,6 +80,16 @@ abstract contract CampaignHooks {
     /// @dev Override this function in derived contracts
     function _createCampaign(address campaign, bytes calldata initData) internal virtual {}
 
+    /// @notice Internal function to update the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Override this function in derived contracts
+    function _updateMetadata(address sender, address campaign, bytes calldata data) internal virtual {
+        revert Unimplemented();
+    }
+
     /// @notice Internal function to process attribution
     ///
     /// @param campaign Address of the campaign
@@ -93,16 +103,6 @@ abstract contract CampaignHooks {
         virtual
         returns (Flywheel.Payout[] memory payouts, uint256 attributorFee)
     {
-        revert Unimplemented();
-    }
-
-    /// @notice Internal function to update the metadata for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
-    ///
-    /// @dev Override this function in derived contracts
-    function _updateCampaignMetadata(address sender, address campaign, bytes calldata data) internal virtual {
         revert Unimplemented();
     }
 }
