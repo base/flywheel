@@ -61,6 +61,7 @@ contract AdvertisementConversion is CampaignHooks {
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
+    /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
 
     /// @notice Mapping of campaign addresses to finalization information

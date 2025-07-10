@@ -154,6 +154,19 @@ contract Flywheel {
         CampaignHooks(hooks).createCampaign(campaign, initData);
     }
 
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param data The data for the campaign
+    ///
+    /// @dev Only callable by the sponsor of a FINALIZED campaign
+    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
+    function updateMetadata(address campaign, bytes calldata data) external {
+        if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        CampaignHooks(campaigns[campaign].hooks).updateMetadata(msg.sender, campaign, data);
+        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
+    }
+
     /// @notice Updates the status of a campaign
     ///
     /// @param campaign Address of the campaign
@@ -179,19 +192,6 @@ contract Flywheel {
         // Update status
         campaigns[campaign].status = newStatus;
         emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
-    }
-
-    /// @notice Updates the metadata for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param data The data for the campaign
-    ///
-    /// @dev Only callable by the sponsor of a FINALIZED campaign
-    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata data) external {
-        if (campaigns[campaign].status != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        CampaignHooks(campaigns[campaign].hooks).updateMetadata(msg.sender, campaign, data);
-        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
     }
 
     /// @notice Processes attribution for a campaign
