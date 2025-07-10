@@ -17,7 +17,6 @@ abstract contract CampaignHooks {
 
     /// @notice Constructor for CampaignHooks
     ///
-
     /// @param flywheel_ Address of the flywheel contract
     constructor(address flywheel_) {
         flywheel = Flywheel(flywheel_);

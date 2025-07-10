@@ -292,7 +292,7 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return Attributor of the campaign
+    /// @return attributor The attributor of the campaign
     function campaignAttributor(address campaign) public view returns (address) {
         return campaigns[campaign].attributor;
     }
@@ -301,7 +301,7 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return Sponsor of the campaign
+    /// @return sponsor The sponsor of the campaign
     function campaignSponsor(address campaign) public view returns (address) {
         return campaigns[campaign].sponsor;
     }
