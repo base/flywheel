@@ -3,13 +3,14 @@ pragma solidity 0.8.29;
 
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title AdvertisementConversion
 ///
 /// @notice Attribution hook for processing advertisement conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
-contract AdvertisementConversion is CampaignHooks {
+contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Attribution structure containing payout and conversion data
     struct Attribution {
         /// @dev The payout to be distributed
@@ -52,14 +53,18 @@ contract AdvertisementConversion is CampaignHooks {
         address provider;
         /// @dev Address of the advertiser
         address advertiser;
-        /// @dev Delay before finalization can occur
-        uint48 finalizationDelay;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
     }
 
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
+
+    /// @notice Maximum attribution deadline duration (30 days)
+    uint48 public constant MAX_ATTRIBUTION_DEADLINE_DURATION = 30 days;
+
+    /// @notice Attribution deadline duration (configurable by owner)
+    uint48 public attributionDeadlineDuration;
 
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
@@ -88,21 +93,45 @@ contract AdvertisementConversion is CampaignHooks {
     /// @param feeBps The invalid fee BPS
     error InvalidFeeBps(uint16 feeBps);
 
+    /// @notice Emitted when attribution deadline duration is updated
+    ///
+    /// @param oldDuration The previous duration
+    /// @param newDuration The new duration
+    event AttributionDeadlineDurationUpdated(uint48 oldDuration, uint48 newDuration);
+
+    /// @notice Error thrown when attribution deadline duration is invalid
+    ///
+    /// @param duration The invalid duration
+    error InvalidAttributionDeadlineDuration(uint48 duration);
+
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param protocol_ Address of the protocol contract
-    constructor(address protocol_) CampaignHooks(protocol_) {}
+    /// @param owner_ Address of the contract owner
+    constructor(address protocol_, address owner_) CampaignHooks(protocol_) Ownable(owner_) {
+        attributionDeadlineDuration = 7 days; // Set default to 7 days
+    }
+
+    /// @notice Updates the attribution deadline duration
+    ///
+    /// @param newDuration The new attribution deadline duration (0 to 30 days)
+    ///
+    /// @dev Only the contract owner can call this function
+    function updateAttributionDeadlineDuration(uint48 newDuration) external onlyOwner {
+        if (newDuration > MAX_ATTRIBUTION_DEADLINE_DURATION) {
+            revert InvalidAttributionDeadlineDuration(newDuration);
+        }
+
+        uint48 oldDuration = attributionDeadlineDuration;
+        attributionDeadlineDuration = newDuration;
+
+        emit AttributionDeadlineDurationUpdated(oldDuration, newDuration);
+    }
 
     /// @inheritdoc CampaignHooks
     function createCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address provider, address advertiser, uint48 finalizationDelay, string memory uri) =
-            abi.decode(hookData, (address, address, uint48, string));
-        state[campaign] = CampaignState({
-            provider: provider,
-            advertiser: advertiser,
-            finalizationDelay: finalizationDelay,
-            attributionDeadline: 0
-        });
+        (address provider, address advertiser, string memory uri) = abi.decode(hookData, (address, address, string));
+        state[campaign] = CampaignState({provider: provider, advertiser: advertiser, attributionDeadline: 0});
         campaignURI[campaign] = uri;
     }
 
@@ -127,7 +156,7 @@ contract AdvertisementConversion is CampaignHooks {
 
         // Advertiser always allowed to close and start finalization delay
         if (newStatus == Flywheel.CampaignStatus.CLOSED) {
-            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].finalizationDelay;
+            state[campaign].attributionDeadline = uint48(block.timestamp) + attributionDeadlineDuration;
             return;
         }
 
