@@ -137,7 +137,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @inheritdoc CampaignHooks
     function updateMetadata(address sender, address campaign, bytes calldata hookData) external override onlyFlywheel {
-        if (sender != state[campaign].provider) revert Unauthorized();
+        if (sender != state[campaign].provider && sender != state[campaign].advertiser) revert Unauthorized();
     }
 
     /// @inheritdoc CampaignHooks
