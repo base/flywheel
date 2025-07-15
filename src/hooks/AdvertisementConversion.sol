@@ -11,16 +11,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 ///
 /// @dev Handles both onchain and offchain conversion events
 contract AdvertisementConversion is CampaignHooks, Ownable {
-    /// @notice Attribution structure containing payout and conversion data
-    struct Attribution {
-        /// @dev The payout to be distributed
-        Flywheel.Payout payout;
-        /// @dev The conversion data
-        Conversion conversion;
-        /// @dev Empty bytes if offchain conversion, encoded log data if onchain
-        bytes logBytes;
-    }
-
     /// @notice Conversion data structure
     struct Conversion {
         /// @dev Unique identifier for the conversion event
@@ -74,18 +64,15 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Mapping of campaign addresses to finalization information
     mapping(address campaign => CampaignState) public state;
 
-    /// @notice Emitted when an offchain attribution event occurs
+    /// @notice Emitted when an attribution event occurs
     ///
     /// @param campaign Address of the campaign
-    /// @param conversion The conversion data
-    event OffchainConversion(address indexed campaign, Conversion conversion);
-
-    /// @notice Emitted when an onchain attribution event occurs
-    ///
-    /// @param campaign Address of the campaign
-    /// @param conversion The conversion data
-    /// @param log The onchain log data
-    event OnchainConversion(address indexed campaign, Conversion conversion, Log log);
+    /// @param recipient Address of the recipient
+    /// @param amount Amount of the payout
+    /// @param attributionRecordIpfsHash IPFS hash of the attribution record
+    event Attribution(
+        address indexed campaign, address indexed recipient, uint256 amount, bytes32 attributionRecordIpfsHash
+    );
 
     /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
@@ -174,26 +161,19 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (Attribution[] memory attributions, uint16 feeBps) = abi.decode(hookData, (Attribution[], uint16));
+        (Flywheel.Payout[] memory payouts, bytes32 attributionRecordIpfsHash, uint16 feeBps) =
+            abi.decode(hookData, (Flywheel.Payout[], bytes32, uint16));
         if (feeBps > MAX_BPS) revert InvalidFeeBps(feeBps);
 
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
-        payouts = new Flywheel.Payout[](attributions.length);
-        for (uint256 i = 0; i < attributions.length; i++) {
+        payouts = new Flywheel.Payout[](payouts.length);
+        for (uint256 i = 0; i < payouts.length; i++) {
             // Deduct attribution fee from payout amount
-            Flywheel.Payout memory payout = attributions[i].payout;
+            Flywheel.Payout memory payout = payouts[i];
             uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
             fee += attributionFee;
             payouts[i] = Flywheel.Payout({recipient: payout.recipient, amount: payout.amount - attributionFee});
-
-            // Emit onchain conversion if logBytes is present, else emit offchain conversion
-            bytes memory logBytes = attributions[i].logBytes;
-            Conversion memory conversion = attributions[i].conversion;
-            if (logBytes.length > 0) {
-                emit OnchainConversion(campaign, conversion, abi.decode(logBytes, (Log)));
-            } else {
-                emit OffchainConversion(campaign, conversion);
-            }
+            emit Attribution(campaign, payout.recipient, payout.amount, attributionRecordIpfsHash);
         }
         return (payouts, fee);
     }
