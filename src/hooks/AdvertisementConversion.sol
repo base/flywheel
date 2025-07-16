@@ -4,6 +4,7 @@ pragma solidity 0.8.29;
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {FlywheelPublisherRegistry} from "../FlywheelPublisherRegistry.sol";
 
 /// @title AdvertisementConversion
 ///
@@ -68,6 +69,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Attribution deadline duration (configurable by owner)
     uint48 public attributionDeadlineDuration;
 
+    /// @notice Address of the publisher registry contract
+    FlywheelPublisherRegistry public immutable publisherRegistry;
+
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
 
@@ -95,6 +99,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @param feeBps The invalid fee BPS
     error InvalidFeeBps(uint16 feeBps);
 
+    /// @notice Error thrown when publisher ref code is invalid
+    error InvalidPublisherRefCode();
+
     /// @notice Emitted when attribution deadline duration is updated
     ///
     /// @param oldDuration The previous duration
@@ -110,8 +117,13 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     ///
     /// @param protocol_ Address of the protocol contract
     /// @param owner_ Address of the contract owner
-    constructor(address protocol_, address owner_) CampaignHooks(protocol_) Ownable(owner_) {
+    /// @param publisherRegistry_ Address of the publisher registry contract
+    constructor(address protocol_, address owner_, address publisherRegistry_)
+        CampaignHooks(protocol_)
+        Ownable(owner_)
+    {
         attributionDeadlineDuration = 7 days; // Set default to 7 days
+        publisherRegistry = FlywheelPublisherRegistry(publisherRegistry_);
     }
 
     /// @notice Updates the attribution deadline duration
@@ -180,6 +192,14 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
         payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
+            // Validate publisher ref code exists in the registry if registry is set
+            if (address(publisherRegistry) != address(0)) {
+                string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
+                if (bytes(publisherRefCode).length > 0 && !publisherRegistry.publisherExists(publisherRefCode)) {
+                    revert InvalidPublisherRefCode();
+                }
+            }
+
             // Deduct attribution fee from payout amount
             Flywheel.Payout memory payout = attributions[i].payout;
             uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;

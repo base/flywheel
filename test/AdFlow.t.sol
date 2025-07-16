@@ -57,7 +57,7 @@ contract AdFlowTest is Test {
         publisherRegistry = FlywheelPublisherRegistry(address(proxy));
 
         // Deploy advertisement conversion hook
-        adHook = new AdvertisementConversion(address(flywheel), owner);
+        adHook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
 
         // Register publishers
         _registerPublishers();
