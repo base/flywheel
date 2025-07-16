@@ -65,6 +65,11 @@ contract AdFlowTest is Test {
         // Create campaign
         _createCampaign();
 
+        // Set attribution provider fee
+        vm.startPrank(provider);
+        adHook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        vm.stopPrank();
+
         // Fund campaign
         _fundCampaign();
     }
@@ -181,7 +186,7 @@ contract AdFlowTest is Test {
 
         // 4. Process attributions
         vm.startPrank(provider);
-        bytes memory attributionData = abi.encode(attributions, ATTRIBUTION_FEE_BPS);
+        bytes memory attributionData = abi.encode(attributions);
         flywheel.attribute(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
@@ -267,7 +272,7 @@ contract AdFlowTest is Test {
 
         // Process onchain attribution
         vm.startPrank(provider);
-        bytes memory attributionData = abi.encode(attributions, ATTRIBUTION_FEE_BPS);
+        bytes memory attributionData = abi.encode(attributions);
 
         // Expect OnchainConversion event
         vm.expectEmit(true, false, false, true);
@@ -281,15 +286,20 @@ contract AdFlowTest is Test {
         assertEq(flywheel.payouts(address(usdc), publisher1), expectedPayoutAmount);
     }
 
-    function test_invalidFeeBpsReverts() public {
-        // Open campaign
+    function test_unauthorizedAccessReverts() public {
+        // Try to update status as unauthorized user
+        vm.startPrank(makeAddr("unauthorized"));
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.OPEN, "");
+        vm.stopPrank();
+
+        // Open the campaign properly first
         vm.startPrank(provider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.OPEN, "");
         vm.stopPrank();
 
-        // Create attribution with invalid fee BPS (> 10000)
+        // Try to attribute as unauthorized provider
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-
         attributions[0] = AdvertisementConversion.Attribution({
             payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
             conversion: AdvertisementConversion.Conversion({
@@ -304,20 +314,10 @@ contract AdFlowTest is Test {
             logBytes: ""
         });
 
-        // Try to process attribution with invalid fee BPS
-        vm.startPrank(provider);
-        bytes memory attributionData = abi.encode(attributions, uint16(10001)); // Invalid: > MAX_BPS
-
-        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidFeeBps.selector, 10001));
-        flywheel.attribute(campaign, address(usdc), attributionData);
-        vm.stopPrank();
-    }
-
-    function test_unauthorizedAccessReverts() public {
-        // Try to update status as unauthorized user
-        vm.startPrank(makeAddr("unauthorized"));
+        vm.startPrank(makeAddr("unauthorized_provider"));
+        bytes memory attributionData = abi.encode(attributions);
         vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.OPEN, "");
+        flywheel.attribute(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // Try to withdraw funds as unauthorized user

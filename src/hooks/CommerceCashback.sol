@@ -50,7 +50,7 @@ contract CommerceCashback is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Decodes payment information and calculates rewards based on payment amounts
-    function attribute(address campaign, address attributor, address payoutToken, bytes calldata hookData)
+    function attribute(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         external
         override
         onlyFlywheel

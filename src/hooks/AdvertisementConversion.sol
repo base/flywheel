@@ -52,8 +52,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Structure for recording finalization information
     struct CampaignState {
-        /// @dev Address of the provider
-        address provider;
+        /// @dev Address of the attribution provider
+        address attributionProvider;
         /// @dev Address of the advertiser
         address advertiser;
         /// @dev Timestamp when finalization can occur
@@ -77,6 +77,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Mapping of campaign addresses to finalization information
     mapping(address campaign => CampaignState) public state;
+
+    /// @notice Mapping of attribution provider addresses to their fee in basis points
+    mapping(address attributionProvider => uint16 feeBps) public attributionProviderFees;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -107,6 +110,13 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @param oldDuration The previous duration
     /// @param newDuration The new duration
     event AttributionDeadlineDurationUpdated(uint48 oldDuration, uint48 newDuration);
+
+    /// @notice Emitted when an attribution provider updates their fee
+    ///
+    /// @param attributionProvider The attribution provider address
+    /// @param oldFeeBps The previous fee in basis points
+    /// @param newFeeBps The new fee in basis points
+    event AttributionProviderFeeUpdated(address indexed attributionProvider, uint16 oldFeeBps, uint16 newFeeBps);
 
     /// @notice Error thrown when attribution deadline duration is invalid
     ///
@@ -146,16 +156,34 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         emit AttributionDeadlineDurationUpdated(oldDuration, newDuration);
     }
 
+    /// @notice Sets the fee for an attribution provider
+    ///
+    /// @param feeBps The fee in basis points (0 to 10000, where 10000 = 100%)
+    ///
+    /// @dev Only the attribution provider themselves can set their fee
+    function setAttributionProviderFee(uint16 feeBps) external {
+        if (feeBps > MAX_BPS) revert InvalidFeeBps(feeBps);
+
+        uint16 oldFeeBps = attributionProviderFees[msg.sender];
+        attributionProviderFees[msg.sender] = feeBps;
+
+        emit AttributionProviderFeeUpdated(msg.sender, oldFeeBps, feeBps);
+    }
+
     /// @inheritdoc CampaignHooks
     function createCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address provider, address advertiser, string memory uri) = abi.decode(hookData, (address, address, string));
-        state[campaign] = CampaignState({provider: provider, advertiser: advertiser, attributionDeadline: 0});
+        (address attributionProvider, address advertiser, string memory uri) =
+            abi.decode(hookData, (address, address, string));
+        state[campaign] =
+            CampaignState({attributionProvider: attributionProvider, advertiser: advertiser, attributionDeadline: 0});
         campaignURI[campaign] = uri;
     }
 
     /// @inheritdoc CampaignHooks
     function updateMetadata(address sender, address campaign, bytes calldata hookData) external override onlyFlywheel {
-        if (sender != state[campaign].provider && sender != state[campaign].advertiser) revert Unauthorized();
+        if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
+            revert Unauthorized();
+        }
     }
 
     /// @inheritdoc CampaignHooks
@@ -167,7 +195,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         bytes calldata hookData
     ) external override onlyFlywheel {
         // Provider always allowed, early return
-        if (sender == state[campaign].provider) return;
+        if (sender == state[campaign].attributionProvider) return;
 
         // Otherwise only advertiser allowed to update status
         if (sender != state[campaign].advertiser) revert Unauthorized();
@@ -184,14 +212,20 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
-    function attribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
+    function attribute(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (Attribution[] memory attributions, uint16 feeBps) = abi.decode(hookData, (Attribution[], uint16));
-        if (feeBps > MAX_BPS) revert InvalidFeeBps(feeBps);
+        // Validate that the caller is the authorized attribution provider for this campaign
+        if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
+
+        // Get the fee from the stored attribution provider fees
+        uint16 feeBps = attributionProviderFees[attributionProvider];
+
+        // Decode only the attributions from hookData
+        Attribution[] memory attributions = abi.decode(hookData, (Attribution[]));
 
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
         payouts = new Flywheel.Payout[](attributions.length);
