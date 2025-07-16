@@ -143,13 +143,13 @@ Attribution Providers are the oracles of the Flywheel ecosystem - they verify th
 - **Tracks**: User conversions from publisher referrals
 - **Verifies**: Click IDs, conversion windows, user actions
 - **Submits**: Both onchain (DEX swaps, NFT mints) and offchain (signups, purchases) events
-- **Fee Model**: Percentage of each conversion (e.g., 5% of payout)
+- **Fee Model**: Percentage of each conversion (e.g., 1% of payout)
 
 ```solidity
 // Attribution submission
 bytes memory attributionData = abi.encode(
     attributions,      // Array of conversion events
-    500                // 5% fee in basis points
+    100                // 1% fee in basis points
 );
 flywheel.attribute(campaign, token, attributionData);
 ```
@@ -314,7 +314,7 @@ attributions[0] = Attribution({
 
 bytes memory attributionData = abi.encode(
     attributions,
-    500  // 5% attribution fee
+    ... more data TBD
 );
 
 flywheel.attribute(campaign, token, attributionData);
