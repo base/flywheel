@@ -113,6 +113,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @param duration The invalid duration
     error InvalidAttributionDeadlineDuration(uint48 duration);
 
+    /// @notice Error thrown when an invalid address is provided
+    error InvalidAddress();
+
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param protocol_ Address of the protocol contract
@@ -122,6 +125,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         CampaignHooks(protocol_)
         Ownable(owner_)
     {
+        if (publisherRegistry_ == address(0)) revert InvalidAddress();
         attributionDeadlineDuration = 7 days; // Set default to 7 days
         publisherRegistry = FlywheelPublisherRegistry(publisherRegistry_);
     }
@@ -192,12 +196,10 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
         payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
-            // Validate publisher ref code exists in the registry if registry is set
-            if (address(publisherRegistry) != address(0)) {
-                string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
-                if (bytes(publisherRefCode).length > 0 && !publisherRegistry.publisherExists(publisherRefCode)) {
-                    revert InvalidPublisherRefCode();
-                }
+            // Validate publisher ref code exists in the registry
+            string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
+            if (bytes(publisherRefCode).length > 0 && !publisherRegistry.publisherExists(publisherRefCode)) {
+                revert InvalidPublisherRefCode();
             }
 
             // Deduct attribution fee from payout amount
