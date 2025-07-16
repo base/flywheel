@@ -2,14 +2,15 @@
 
 # Flywheel Protocol
 
-A modular, permissionless advertising protocol built on Base that enables transparent attribution and monetization through a flexible hooks system.
+- A modular, permissionless advertising, rewards and referral protocol built on Base that enables transparent attribution and monetization through a flexible hooks system.
+- Essentially it allows the payout and attribution of any kind of relationship where `User` and or `Publisher` drove an onchain or offchain conversion `X` and gets gets rewarded `Y` for it (in form of ERC20) by Attribution Provider
 
 ## Overview
 
 Flywheel Protocol creates a decentralized incentive ecosystem where:
 
 - **Sponsors** create campaigns and fund them with tokens (advertisers, platforms, DAOs, etc.)
-- **Publishers (Optional)** drive traffic and earn rewards based on performance (Applicable in case of `AdvertiserConversion.sol`)
+- **Publishers (Optional)** drive traffic and earn rewards based on performance (Applicable in case of `AdvertiserConversion.sol` and Spindl/Base Ads)
 - **Attribution Providers** track conversions and submit verified data that triggers payouts to earn fees
 - **Users** can optionally receive incentives for completing desired actions (i.e. get USDC Cashback for purchasing on Shopify)
 
@@ -168,7 +169,7 @@ Each campaign specifies its trusted attribution provider(s):
 
 1. **For Existing Hooks**: Contact sponsors to be designated as their provider
 2. **For Custom Hooks**: Build attribution infrastructure for your use case
-3. **Fee Structure**: Negotiate with sponsors (typically 1-10% of rewards)
+3. **Fee Structure**: Negotiate with sponsors (typically 0-10% of rewards). In the case of `AdvertisementConversion.sol` and `CommerceCashback.sol`, it will be 0% for now.
 
 ## Use Case Examples
 
@@ -183,7 +184,7 @@ The modular architecture supports diverse incentive programs:
 
 ### 2. **E-commerce Cashback**
 
-- **Sponsor**: E-commerce platform (e.g., Shopify)
+- **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Attribution Provider**: Payment processor or platform itself
 - **Hook**: `CommerceCashback`
 - **Flow**: Users make purchases → Payment confirmed → Attribution submitted → Users receive cashback
