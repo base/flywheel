@@ -117,8 +117,9 @@ contract AdFlowTest is Test {
     }
 
     function _createCampaign() internal {
-        // Prepare hook data for campaign creation
-        bytes memory hookData = abi.encode(provider, advertiser, "https://campaign.com/metadata");
+        // Prepare hook data for campaign creation (empty allowlist means all publishers allowed)
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes);
 
         // Create campaign
         vm.startPrank(advertiser);
