@@ -58,6 +58,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         address advertiser;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
+        /// @dev Whether this campaign has a publisher allowlist
+        bool hasAllowlist;
     }
 
     /// @notice Maximum basis points
@@ -80,6 +82,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Mapping of attribution provider addresses to their fee in basis points
     mapping(address attributionProvider => uint16 feeBps) public attributionProviderFees;
+
+    /// @notice Mapping from campaign to allowed publisher ref codes
+    mapping(address campaign => mapping(string refCode => bool allowed)) public allowedPublishers;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -104,6 +109,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Error thrown when publisher ref code is invalid
     error InvalidPublisherRefCode();
+
+    /// @notice Error thrown when publisher ref code is not in allowlist
+    error PublisherNotAllowed();
 
     /// @notice Emitted when attribution deadline duration is updated
     ///
@@ -172,15 +180,35 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @inheritdoc CampaignHooks
     function createCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address attributionProvider, address advertiser, string memory uri) =
-            abi.decode(hookData, (address, address, string));
-        state[campaign] =
-            CampaignState({attributionProvider: attributionProvider, advertiser: advertiser, attributionDeadline: 0});
+        (address attributionProvider, address advertiser, string memory uri, string[] memory allowedRefCodes) =
+            abi.decode(hookData, (address, address, string, string[]));
+
+        bool hasAllowlist = allowedRefCodes.length > 0;
+
+        // Store campaign state
+        state[campaign] = CampaignState({
+            attributionProvider: attributionProvider,
+            advertiser: advertiser,
+            attributionDeadline: 0,
+            hasAllowlist: hasAllowlist
+        });
         campaignURI[campaign] = uri;
+
+        // Set up allowed publishers mapping if allowlist exists
+        if (hasAllowlist) {
+            for (uint256 i = 0; i < allowedRefCodes.length; i++) {
+                allowedPublishers[campaign][allowedRefCodes[i]] = true;
+            }
+        }
     }
 
     /// @inheritdoc CampaignHooks
-    function updateMetadata(address sender, address campaign, bytes calldata hookData) external override onlyFlywheel {
+    function updateMetadata(address sender, address campaign, bytes calldata hookData)
+        external
+        view
+        override
+        onlyFlywheel
+    {
         if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
             revert Unauthorized();
         }
@@ -236,11 +264,32 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
                 revert InvalidPublisherRefCode();
             }
 
+            // Check if publisher is in allowlist (if allowlist exists)
+            if (state[campaign].hasAllowlist) {
+                if (bytes(publisherRefCode).length > 0 && !allowedPublishers[campaign][publisherRefCode]) {
+                    revert PublisherNotAllowed();
+                }
+            }
+
+            // Determine the correct payout address
+            address payoutAddress;
+            uint8 recipientType = attributions[i].conversion.recipientType;
+
+            // @notice: recipientType = 1 => publisher and we should use the publisher registry to get the payout address
+            if (recipientType == 1 && bytes(publisherRefCode).length > 0) {
+                // Publisher: fetch payout address from registry
+                payoutAddress = publisherRegistry.getPublisherPayoutAddress(publisherRefCode, block.chainid);
+                // @notice: for all other recipient types, we use the provided address
+            } else {
+                // User or other recipient type: use provided address
+                payoutAddress = attributions[i].payout.recipient;
+            }
+
             // Deduct attribution fee from payout amount
             Flywheel.Payout memory payout = attributions[i].payout;
             uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
             fee += attributionFee;
-            payouts[i] = Flywheel.Payout({recipient: payout.recipient, amount: payout.amount - attributionFee});
+            payouts[i] = Flywheel.Payout({recipient: payoutAddress, amount: payout.amount - attributionFee});
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
             bytes memory logBytes = attributions[i].logBytes;
@@ -264,5 +313,47 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+    }
+
+    /// @notice Checks if a campaign has a publisher allowlist
+    /// @param campaign Address of the campaign
+    /// @return True if the campaign has an allowlist
+    function hasPublisherAllowlist(address campaign) external view returns (bool) {
+        return state[campaign].hasAllowlist;
+    }
+
+    /// @notice Checks if a publisher ref code is allowed for a campaign
+    /// @param campaign Address of the campaign
+    /// @param refCode Publisher ref code to check
+    /// @return True if the publisher is allowed (or if no allowlist exists)
+    function isPublisherAllowed(address campaign, string memory refCode) external view returns (bool) {
+        // If no allowlist exists, all publishers are allowed
+        if (!state[campaign].hasAllowlist) {
+            return true;
+        }
+        return allowedPublishers[campaign][refCode];
+    }
+
+    /// @notice Adds a publisher ref code to the campaign allowlist
+    /// @param campaign Address of the campaign
+    /// @param refCode Publisher ref code to add
+    /// @dev Only advertiser can add publishers to allowlist
+    function addAllowedPublisherRefCode(address campaign, string memory refCode) external {
+        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
+
+        if (bytes(refCode).length == 0) revert InvalidPublisherRefCode();
+
+        // Validate publisher exists in registry
+        if (!publisherRegistry.publisherExists(refCode)) {
+            revert InvalidPublisherRefCode();
+        }
+
+        // @notice: if the allowlist is not enabled during campaign creation, we revert
+        if (!state[campaign].hasAllowlist) {
+            revert Unauthorized();
+        }
+
+        // Add to mapping
+        allowedPublishers[campaign][refCode] = true;
     }
 }
