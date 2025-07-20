@@ -6,6 +6,27 @@ import {CampaignHooks} from "../CampaignHooks.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {FlywheelPublisherRegistry} from "../FlywheelPublisherRegistry.sol";
 
+// Enum for conversion config status
+enum ConversionConfigStatus {
+    ACTIVE,
+    DISABLED
+}
+
+// Enum for event type
+enum EventType {
+    ONCHAIN,
+    OFFCHAIN
+}
+
+// Conversion configuration structure
+struct ConversionConfig {
+    ConversionConfigStatus status; // ACTIVE or DISABLED
+    EventType eventType; // onchain or offchain
+    string conversionMetadataUrl; // url to extra metadata for offchain events
+}
+
+//
+
 /// @title AdvertisementConversion
 ///
 /// @notice Attribution hook for processing advertisement conversions
@@ -65,6 +86,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
+    /// @notice Maximum number of conversion configs per campaign (255 since we use uint8)
+    uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
+
     /// @notice Maximum attribution deadline duration (30 days)
     uint48 public constant MAX_ATTRIBUTION_DEADLINE_DURATION = 30 days;
 
@@ -85,6 +109,12 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Mapping from campaign to allowed publisher ref codes
     mapping(address campaign => mapping(string refCode => bool allowed)) public allowedPublishers;
+
+    /// @notice Mapping from campaign to conversion configs by config ID
+    mapping(address campaign => mapping(uint8 configId => ConversionConfig)) public conversionConfigs;
+
+    /// @notice Mapping from campaign to number of conversion configs
+    mapping(address campaign => uint8) public conversionConfigCount;
 
     /// @notice Emitted when an offchain attribution event occurs
     ///
@@ -112,6 +142,21 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Error thrown when publisher ref code is not in allowlist
     error PublisherNotAllowed();
+
+    /// @notice Error thrown when conversion config ID is invalid
+    error InvalidConversionConfigId();
+
+    /// @notice Error thrown when conversion config is disabled
+    error ConversionConfigDisabled();
+
+    /// @notice Error thrown when trying to add too many conversion configs
+    error TooManyConversionConfigs();
+
+    /// @notice Emitted when a new conversion config is added to a campaign
+    event ConversionConfigAdded(address indexed campaign, uint8 indexed configId, ConversionConfig config);
+
+    /// @notice Emitted when a conversion config is disabled  
+    event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, ConversionConfigStatus status);
 
     /// @notice Emitted when attribution deadline duration is updated
     ///
@@ -180,8 +225,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @inheritdoc CampaignHooks
     function createCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address attributionProvider, address advertiser, string memory uri, string[] memory allowedRefCodes) =
-            abi.decode(hookData, (address, address, string, string[]));
+        (address attributionProvider, address advertiser, string memory uri, string[] memory allowedRefCodes, ConversionConfig[] memory configs) =
+            abi.decode(hookData, (address, address, string, string[], ConversionConfig[]));
 
         bool hasAllowlist = allowedRefCodes.length > 0;
 
@@ -199,6 +244,12 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             for (uint256 i = 0; i < allowedRefCodes.length; i++) {
                 allowedPublishers[campaign][allowedRefCodes[i]] = true;
             }
+        }
+
+        // Store conversion configs
+        conversionConfigCount[campaign] = uint8(configs.length);
+        for (uint8 i = 0; i < configs.length; i++) {
+            conversionConfigs[campaign][i] = configs[i];
         }
     }
 
@@ -271,6 +322,17 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
                 }
             }
 
+            // Validate conversion config
+            uint8 configId = attributions[i].conversion.conversionConfigId;
+            if (configId >= conversionConfigCount[campaign]) {
+                revert InvalidConversionConfigId();
+            }
+            
+            ConversionConfig memory config = conversionConfigs[campaign][configId];
+            if (config.status == ConversionConfigStatus.DISABLED) {
+                revert ConversionConfigDisabled();
+            }
+
             // Determine the correct payout address
             address payoutAddress;
             uint8 recipientType = attributions[i].conversion.recipientType;
@@ -294,6 +356,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
             bytes memory logBytes = attributions[i].logBytes;
             Conversion memory conversion = attributions[i].conversion;
+
             if (logBytes.length > 0) {
                 emit OnchainConversion(campaign, conversion, abi.decode(logBytes, (Log)));
             } else {
@@ -355,5 +418,50 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
         // Add to mapping
         allowedPublishers[campaign][refCode] = true;
+    }
+
+    /// @notice Adds a new conversion config to an existing campaign
+    /// @param campaign Address of the campaign
+    /// @param config The conversion config to add
+    /// @dev Only advertiser can add conversion configs
+    function addConversionConfig(address campaign, ConversionConfig memory config) external {
+        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
+        
+        uint8 currentCount = conversionConfigCount[campaign];
+        if (currentCount >= type(uint8).max) revert TooManyConversionConfigs();
+        
+        // Add the new config
+        conversionConfigs[campaign][currentCount] = config;
+        conversionConfigCount[campaign] = currentCount + 1;
+        
+        emit ConversionConfigAdded(campaign, currentCount, config);
+    }
+
+    /// @notice Disables a conversion config for a campaign
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config to disable
+    /// @dev Only advertiser can disable conversion configs
+    function disableConversionConfig(address campaign, uint8 configId) external {
+        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
+        
+        if (configId >= conversionConfigCount[campaign]) {
+            revert InvalidConversionConfigId();
+        }
+        
+        // Disable the config
+        conversionConfigs[campaign][configId].status = ConversionConfigStatus.DISABLED;
+        
+        emit ConversionConfigStatusChanged(campaign, configId, ConversionConfigStatus.DISABLED);
+    }
+
+    /// @notice Gets a conversion config for a campaign
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config
+    /// @return The conversion config
+    function getConversionConfig(address campaign, uint8 configId) external view returns (ConversionConfig memory) {
+        if (configId >= conversionConfigCount[campaign]) {
+            revert InvalidConversionConfigId();
+        }
+        return conversionConfigs[campaign][configId];
     }
 }
