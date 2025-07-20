@@ -7,7 +7,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 import {Flywheel} from "../src/Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdvertisementConversion, ConversionConfig, ConversionConfigStatus, EventType} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../src/archive/test/DummyERC20.sol";
 import {TokenStore} from "../src/TokenStore.sol";
 
@@ -119,7 +119,21 @@ contract AdFlowTest is Test {
     function _createCampaign() internal {
         // Prepare hook data for campaign creation (empty allowlist means all publishers allowed)
         string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData = abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes);
+        
+        // Create conversion configs
+        ConversionConfig[] memory configs = new ConversionConfig[](2);
+        configs[0] = ConversionConfig({
+            status: ConversionConfigStatus.ACTIVE,
+            eventType: EventType.OFFCHAIN,
+            conversionMetadataUrl: "https://campaign.com/offchain-metadata"
+        });
+        configs[1] = ConversionConfig({
+            status: ConversionConfigStatus.ACTIVE,
+            eventType: EventType.ONCHAIN,
+            conversionMetadataUrl: "https://campaign.com/onchain-metadata"
+        });
+        
+        bytes memory hookData = abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs);
 
         // Create campaign
         vm.startPrank(advertiser);
@@ -161,7 +175,7 @@ contract AdFlowTest is Test {
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
-                conversionConfigId: 1,
+                conversionConfigId: 0,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 recipientType: 1,
@@ -176,7 +190,7 @@ contract AdFlowTest is Test {
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(2)),
                 clickId: "click_456",
-                conversionConfigId: 1,
+                conversionConfigId: 0,
                 publisherRefCode: pub2RefCode,
                 timestamp: uint32(block.timestamp),
                 recipientType: 1,
@@ -306,7 +320,7 @@ contract AdFlowTest is Test {
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
-                conversionConfigId: 1,
+                conversionConfigId: 0,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 recipientType: 1,
@@ -342,5 +356,75 @@ contract AdFlowTest is Test {
         assertEq(publisherRegistry.getPublisherPayoutAddress(pub2RefCode, 999), publisher2);
 
         console2.log("All override addresses verified successfully!");
+    }
+
+    function test_conversionConfigManagement() public {
+        // Test adding a new conversion config
+        ConversionConfig memory newConfig = ConversionConfig({
+            status: ConversionConfigStatus.ACTIVE,
+            eventType: EventType.OFFCHAIN,
+            conversionMetadataUrl: "https://campaign.com/new-config-metadata"
+        });
+
+        // Only advertiser can add conversion configs
+        vm.startPrank(advertiser);
+        vm.expectEmit(true, true, false, true);
+        emit AdvertisementConversion.ConversionConfigAdded(campaign, 2, newConfig);
+        adHook.addConversionConfig(campaign, newConfig);
+        vm.stopPrank();
+
+        // Verify the new config was added
+        ConversionConfig memory retrievedConfig = adHook.getConversionConfig(campaign, 2);
+        assertEq(uint8(retrievedConfig.status), uint8(ConversionConfigStatus.ACTIVE));
+        assertEq(uint8(retrievedConfig.eventType), uint8(EventType.OFFCHAIN));
+        assertEq(retrievedConfig.conversionMetadataUrl, "https://campaign.com/new-config-metadata");
+
+        // Test disabling a conversion config
+        vm.startPrank(advertiser);
+        vm.expectEmit(true, true, false, true);
+        emit AdvertisementConversion.ConversionConfigStatusChanged(campaign, 0, ConversionConfigStatus.DISABLED);
+        adHook.disableConversionConfig(campaign, 0);
+        vm.stopPrank();
+
+        // Verify the config was disabled
+        ConversionConfig memory disabledConfig = adHook.getConversionConfig(campaign, 0);
+        assertEq(uint8(disabledConfig.status), uint8(ConversionConfigStatus.DISABLED));
+
+        // Test that unauthorized users cannot manage configs
+        vm.startPrank(makeAddr("unauthorized"));
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        adHook.addConversionConfig(campaign, newConfig);
+
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        adHook.disableConversionConfig(campaign, 1);
+        vm.stopPrank();
+
+        // Test trying to use disabled config in attribution should fail
+        vm.startPrank(provider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.OPEN, "");
+        vm.stopPrank();
+
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click_disabled_config",
+                conversionConfigId: 0, // This config was disabled
+                publisherRefCode: pub1RefCode,
+                timestamp: uint32(block.timestamp),
+                recipientType: 1,
+                payoutAmount: ATTRIBUTION_AMOUNT
+            }),
+            logBytes: ""
+        });
+
+        vm.startPrank(provider);
+        bytes memory attributionData = abi.encode(attributions);
+        vm.expectRevert(AdvertisementConversion.ConversionConfigDisabled.selector);
+        flywheel.attribute(campaign, address(usdc), attributionData);
+        vm.stopPrank();
+
+        console2.log("Conversion config management tests completed successfully!");
     }
 }
