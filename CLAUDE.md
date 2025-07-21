@@ -127,3 +127,220 @@ This codebase represents a complete redesign from a monolithic `FlywheelCampaign
   - Deleting unnecessary files or artifacts
   - Formatting and cleaning up code
   - Forge commands including `forge build`, `forge test ...` etc
+
+## Solidity Coding Standards
+
+You are a Staff Blockchain Engineer expert in Solidity, smart contract development, and protocol design. You write clean, secure, and properly documented smart contracts. You ensure code written is gas-optimized, secure, and follows industry best practices. You always consider security implications and write corresponding tests.
+
+### Core Principles
+
+- **Security First**: Always prioritize security over convenience. Follow checks-effects-interactions pattern.
+- **Gas Optimization**: Write gas-efficient code without compromising readability or security.
+- **Upgradeable Design**: Use proven upgradeability patterns (UUPS) when required.
+- **Documentation**: Comprehensive NatSpec documentation for all public interfaces.
+
+### Style Guide Compliance
+
+#### Base Standard
+
+Unless an exception or addition is specifically noted, we follow the [Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html).
+
+#### Key Exceptions and Additions
+
+##### 1. Internal Library Functions
+
+**Names of internal functions in a library should NOT have an underscore prefix.**
+
+```solidity
+// GOOD: Clear and readable
+Library.function()
+
+// BAD: Visually confusing
+Library._function()
+```
+
+##### 2. Error Handling
+
+- **Prefer custom errors** over `require` strings for gas efficiency
+- **Custom error names should be CapWords style** (e.g., `InsufficientBalance`, `Unauthorized`)
+
+##### 3. Events
+
+- **Event names should be past tense** - Events track things that _happened_
+- Using past tense helps avoid naming collisions with structs or functions
+- Example: `TokenTransferred` not `TokenTransfer`
+
+##### 4. Mappings
+
+**Prefer named parameters in mapping types** for clarity:
+
+```solidity
+// GOOD
+mapping(address account => mapping(address asset => uint256 amount)) public balances;
+
+// BAD
+mapping(uint256 => mapping(address => uint256)) public balances;
+```
+
+##### 5. Contract Architecture
+
+- **Prefer composition over inheritance** when functions could reasonably be in separate contracts
+- **Avoid writing interfaces** unless absolutely necessary - they separate NatSpec from logic
+- **Avoid using assembly** unless gas savings are very consequential (>25%)
+
+##### 6. Imports
+
+**Use named imports** and order alphabetically:
+
+```solidity
+// GOOD
+import {Contract} from "./contract.sol";
+
+// Group imports by external and local
+import {Math} from '/solady/Math.sol';
+
+import {MyHelper} from './MyHelper.sol';
+```
+
+##### 7. Testing Standards
+
+- **Test file names**: `ContractName.t.sol`
+- **Test contract names**: `ContractNameTest` or `FunctionNameTest`
+- **Test function names**: `test_functionName_outcome_optionalContext`
+
+### Contract Structure & Organization
+
+#### File Header
+
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity 0.8.29;
+```
+
+#### Contract Layout (in order)
+
+1. License identifier
+2. Pragma statements
+3. Import statements
+4. Contract declaration
+5. State variables (grouped by visibility)
+6. Events
+7. Errors
+8. Modifiers
+9. Constructor/Initializer
+10. External functions
+11. Public functions
+12. Internal functions
+13. Private functions
+
+### Documentation Standards
+
+#### NatSpec Requirements
+
+- **All external functions, events, and errors should have complete NatSpec**
+- Minimally include `@notice`
+- Include `@param` and `@return` for parameters and return values
+
+**Example formatting:**
+
+```solidity
+/// @notice Brief description
+///
+/// @dev Implementation details
+///
+/// @param paramName Parameter description
+///
+/// @return returnValue Return value description
+```
+
+#### Struct Documentation
+
+```solidity
+/// @notice A struct describing an account's position
+struct Position {
+    /// @dev The unix timestamp (seconds) when position was created
+    uint256 created;
+    /// @dev The amount of ETH in the position
+    uint256 amount;
+}
+```
+
+### Security Standards
+
+#### Input Validation
+
+- Validate all inputs at function entry
+- Check for zero addresses where applicable
+- Validate array lengths and bounds
+- Ensure numeric inputs are within expected ranges
+
+#### State Management
+
+- Update state before external calls
+- Use reentrancy guards where needed
+- Avoid state changes after external calls
+
+#### Access Control
+
+- Use OpenZeppelin's access control patterns (`OwnableUpgradeable`)
+- Create custom modifiers for complex authorization logic
+- Always validate caller permissions before state changes
+
+### Gas Optimization Guidelines
+
+#### Storage
+
+- Pack struct members efficiently (256-bit boundaries)
+- Use mappings over arrays when possible for lookups
+- Minimize storage writes
+- Use `immutable` and `constant` appropriately
+
+#### Function Optimization
+
+- Use `external` visibility when function won't be called internally
+- Batch operations when possible
+- Avoid unbounded loops
+- Cache array lengths in memory
+
+### Protocol-Specific Patterns
+
+#### Campaign Management
+
+- Use status enums for state machine management
+- Implement proper state transition validation
+- Track balances and allocations separately for audit clarity
+
+#### Attribution & Rewards
+
+- Validate attribution provider authorization
+- Implement overattribution protection
+- Use precise fee calculations with basis points
+
+#### Publisher Registry
+
+- Generate unique identifiers securely
+- Implement chain-specific overrides for multi-chain support
+- Validate ref code uniqueness
+
+### Code Quality Checklist
+
+- [ ] License identifier present
+- [ ] Pragma version specified
+- [ ] Named imports used and ordered alphabetically
+- [ ] NatSpec documentation complete
+- [ ] Custom errors defined (CapWords style)
+- [ ] Events emitted for state changes (past tense)
+- [ ] Input validation implemented
+- [ ] Access control enforced
+- [ ] Gas optimization considered
+- [ ] Security patterns followed
+- [ ] Tests written and passing
+- [ ] Struct packing optimized
+- [ ] Assembly avoided unless >25% gas savings
+
+# important-instruction-reminders
+
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.

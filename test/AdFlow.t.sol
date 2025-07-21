@@ -291,7 +291,7 @@ contract AdFlowTest is Test {
 
         // Expect OnchainConversion event
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.OnchainConversion(campaign, attributions[0].conversion, logData);
+        emit AdvertisementConversion.OnchainConversionProcessed(campaign, attributions[0].conversion, logData);
 
         flywheel.attribute(campaign, address(usdc), attributionData);
         vm.stopPrank();
