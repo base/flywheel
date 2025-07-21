@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {Flywheel} from "../Flywheel.sol";
-import {CampaignHooks} from "../CampaignHooks.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+import {CampaignHooks} from "../CampaignHooks.sol";
+import {Flywheel} from "../Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../FlywheelPublisherRegistry.sol";
 
 // Enum for conversion config status
@@ -116,18 +117,18 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Mapping from campaign to number of conversion configs
     mapping(address campaign => uint8) public conversionConfigCount;
 
-    /// @notice Emitted when an offchain attribution event occurs
+    /// @notice Emitted when an offchain attribution event occurred
     ///
     /// @param campaign Address of the campaign
     /// @param conversion The conversion data
-    event OffchainConversion(address indexed campaign, Conversion conversion);
+    event OffchainConversionProcessed(address indexed campaign, Conversion conversion);
 
-    /// @notice Emitted when an onchain attribution event occurs
+    /// @notice Emitted when an onchain attribution event occurred
     ///
     /// @param campaign Address of the campaign
     /// @param conversion The conversion data
     /// @param log The onchain log data
-    event OnchainConversion(address indexed campaign, Conversion conversion, Log log);
+    event OnchainConversionProcessed(address indexed campaign, Conversion conversion, Log log);
 
     /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
@@ -358,9 +359,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             Conversion memory conversion = attributions[i].conversion;
 
             if (logBytes.length > 0) {
-                emit OnchainConversion(campaign, conversion, abi.decode(logBytes, (Log)));
+                emit OnchainConversionProcessed(campaign, conversion, abi.decode(logBytes, (Log)));
             } else {
-                emit OffchainConversion(campaign, conversion);
+                emit OffchainConversionProcessed(campaign, conversion);
             }
         }
         return (payouts, fee);
