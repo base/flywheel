@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
-import {DummyERC20} from "../src/archive/test/DummyERC20.sol";
+import {DummyERC20} from "./mocks/DummyERC20.sol";
 
 contract FlywheelTest is Test {
 // Flywheel public flywheel;

@@ -13,7 +13,7 @@ import {
     ConversionConfigStatus,
     EventType
 } from "../src/hooks/AdvertisementConversion.sol";
-import {DummyERC20} from "../src/archive/test/DummyERC20.sol";
+import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {TokenStore} from "../src/TokenStore.sol";
 
 contract AdFlowTest is Test {
