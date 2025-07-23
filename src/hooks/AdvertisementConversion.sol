@@ -375,6 +375,19 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
+    /// @dev Anyone can distribute payouts
+    function onDistribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
+        external
+        view
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
     function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
         external

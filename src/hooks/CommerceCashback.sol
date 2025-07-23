@@ -24,15 +24,23 @@ contract CommerceCashback is CampaignHooks {
     /// @notice Cashback basis points for calculating payouts
     uint16 public immutable cashbackBps;
 
-    /// @notice Mapping from campaign address to payment info hash to reward status
-    mapping(address campaign => mapping(bytes32 paymentInfoHash => bool rewarded)) public rewardedPayments;
+    /// @notice Mapping from campaign address to payment info hash to payment state
+    mapping(address campaign => mapping(bytes32 paymentInfoHash => AuthCaptureEscrow.PaymentState snapshot)) public
+        lastSnapshot;
 
-    /// @notice Emitted when a payment is rewarded
+    /// @notice Emitted when a payment is allocated
     ///
     /// @param campaign Address of the campaign
     /// @param paymentInfoHash Hash of the payment info
     /// @param amount Amount of cashback awarded
-    event CashbackAwarded(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
+    event CashbackAllocated(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
+
+    /// @notice Emitted when a payment is distributed
+    ///
+    /// @param campaign Address of the campaign
+    /// @param paymentInfoHash Hash of the payment info
+    /// @param amount Amount of cashback awarded
+    event CashbackDistributed(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
 
     /// @notice Constructor for CommerceRewards
     ///
@@ -56,36 +64,105 @@ contract CommerceCashback is CampaignHooks {
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        AuthCaptureEscrow.PaymentInfo[] memory payments = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo[]));
-        address payer = payments[0].payer;
-        uint256 cashbackTotal = 0;
-        for (uint256 i = 0; i < payments.length; i++) {
-            AuthCaptureEscrow.PaymentInfo memory payment = payments[i];
+        AuthCaptureEscrow.PaymentInfo memory payment = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo));
 
-            // Check operator is trusted
-            if (payment.operator != operator) revert();
+        // Check sender is operator
+        if (sender != operator) revert();
 
-            // Check token is correct
-            if (payment.token != payoutToken) revert();
+        // Check operator is correct
+        if (payment.operator != operator) revert();
 
-            // Check payer is correct
-            if (payment.payer != payer) revert();
+        // Check token is correct
+        if (payment.token != payoutToken) revert();
 
-            // Skip if already rewarded
-            bytes32 paymentInfoHash = authCaptureEscrow.getHash(payment);
-            if (rewardedPayments[campaign][paymentInfoHash]) continue;
-            rewardedPayments[campaign][paymentInfoHash] = true;
+        bytes32 paymentInfoHash = authCaptureEscrow.getHash(payment);
+        (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
+            authCaptureEscrow.paymentState(paymentInfoHash);
 
-            // Calculate payout
-            (, uint120 capturableAmount, uint120 refundableAmount) = authCaptureEscrow.paymentState(paymentInfoHash);
-            uint256 cashbackAmount = ((capturableAmount + refundableAmount) * cashbackBps) / MAX_BPS;
-            cashbackTotal += cashbackAmount;
+        // Skip if payment has not been collected
+        if (!hasCollectedPayment) revert();
 
-            // Emit cashback awarded event
-            emit CashbackAwarded(campaign, paymentInfoHash, cashbackAmount);
-        }
+        // Skip if reward has already been allocated
+        if (lastSnapshot[campaign][paymentInfoHash].hasCollectedPayment) revert();
+        lastSnapshot[campaign][paymentInfoHash] = AuthCaptureEscrow.PaymentState({
+            hasCollectedPayment: hasCollectedPayment,
+            capturableAmount: capturableAmount,
+            refundableAmount: refundableAmount
+        });
+
+        // Calculate payout
+        uint256 cashbackAmount = ((capturableAmount + refundableAmount) * cashbackBps) / MAX_BPS;
+
+        // Emit cashback allocated event
+        emit CashbackAllocated(campaign, paymentInfoHash, cashbackAmount);
+
         payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: payer, amount: cashbackTotal});
+        payouts[0] = Flywheel.Payout({recipient: payment.payer, amount: cashbackAmount});
         return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onDistribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        AuthCaptureEscrow.PaymentInfo memory payment = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo));
+
+        // Check sender is operator
+        if (sender != operator) revert();
+
+        // Check operator is correct
+        if (payment.operator != operator) revert();
+
+        // Check token is correct
+        if (payment.token != payoutToken) revert();
+
+        bytes32 paymentInfoHash = authCaptureEscrow.getHash(payment);
+
+        // Skip if reward has not been allocated
+        AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
+        if (!snapshot.hasCollectedPayment) revert();
+
+        // Get payment state
+        (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
+            authCaptureEscrow.paymentState(paymentInfoHash);
+        authCaptureEscrow.paymentState(paymentInfoHash);
+
+        // Capture was made if refundable amount is more than the last snapshot
+        if (refundableAmount < snapshot.refundableAmount) revert();
+
+        uint256 cashbackAmount = ((refundableAmount - snapshot.refundableAmount) * cashbackBps) / MAX_BPS;
+
+        lastSnapshot[campaign][paymentInfoHash] = AuthCaptureEscrow.PaymentState({
+            hasCollectedPayment: hasCollectedPayment,
+            capturableAmount: capturableAmount,
+            refundableAmount: refundableAmount
+        });
+
+        // Emit cashback distributed event
+        emit CashbackDistributed(campaign, paymentInfoHash, cashbackAmount);
+
+        payouts = new Flywheel.Payout[](1);
+        payouts[0] = Flywheel.Payout({recipient: payment.payer, amount: cashbackAmount});
+        return (payouts, 0);
+    }
+
+    /// @notice Updates the snapshot for a payment
+    ///
+    /// @param campaign Address of the campaign
+    /// @param paymentInfoHash Hash of the payment info
+    function updateSnapshot(address campaign, bytes32 paymentInfoHash) public {
+        // Get payment state
+        (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
+            authCaptureEscrow.paymentState(paymentInfoHash);
+        authCaptureEscrow.paymentState(paymentInfoHash);
+
+        lastSnapshot[campaign][paymentInfoHash] = AuthCaptureEscrow.PaymentState({
+            hasCollectedPayment: hasCollectedPayment,
+            capturableAmount: capturableAmount,
+            refundableAmount: refundableAmount
+        });
     }
 }

@@ -42,8 +42,12 @@ contract Flywheel {
     /// @notice Implementation address for TokenStore contracts
     address public immutable tokenStoreImpl;
 
-    /// @notice Mapping from token address to recipient address to payout amount
-    mapping(address token => mapping(address recipient => uint256 amount)) public payouts;
+    /// @notice Mapping from campaign address to token address to recipient address to allocation amount
+    mapping(address campaign => mapping(address token => mapping(address recipient => uint256 amount))) public
+        allocations;
+
+    /// @notice Mapping from campaign address to token address to total allocated amount
+    mapping(address campaign => mapping(address token => uint256 amount)) public totalAllocated;
 
     /// @notice Collectible fees
     mapping(address token => mapping(address recipient => uint256 amount)) public fees;
@@ -98,10 +102,11 @@ contract Flywheel {
 
     /// @notice Emitted when accumulated balance is distributed to a recipient
     ///
+    /// @param campaign Address of the campaign
     /// @param recipient Address receiving the distribution
     /// @param token Address of the distributed token
     /// @param amount Amount of tokens distributed
-    event PayoutsDistributed(address token, address recipient, uint256 amount);
+    event PayoutsDistributed(address indexed campaign, address token, address recipient, uint256 amount);
 
     /// @notice Emitted when accumulated fees are collected
     ///
@@ -118,6 +123,12 @@ contract Flywheel {
 
     /// @notice Thrown when campaign is in invalid status for operation
     error InvalidCampaignStatus();
+
+    /// @notice Thrown when campaign does not have enough balance to distribute
+    error InsufficientCampaignBalance();
+
+    /// @notice Thrown when amount to withdraw is greater than total allocated
+    error InvalidWithdrawAmount();
 
     /// @notice Modifier to check if a campaign exists
     ///
@@ -207,29 +218,66 @@ contract Flywheel {
         external
         campaignExists(campaign)
     {
-        // Check campaign allows attribution (OPEN, PAUSED, or CLOSED)
+        // Check campaign allows allocation (OPEN, PAUSED, or CLOSED)
         CampaignStatus status = _campaigns[campaign].status;
         if (status == CampaignStatus.CREATED || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
-        (Payout[] memory newPayouts, uint256 fee) =
+        (Payout[] memory allocatePayouts, uint256 fee) =
             CampaignHooks(_campaigns[campaign].hooks).onAllocate(msg.sender, campaign, payoutToken, hookData);
 
         // Add new payouts
         uint256 totalPayouts = 0;
-        for (uint256 i = 0; i < newPayouts.length; i++) {
-            address recipient = newPayouts[i].recipient;
-            uint256 amount = newPayouts[i].amount;
-            payouts[payoutToken][recipient] += amount;
+        for (uint256 i = 0; i < allocatePayouts.length; i++) {
+            address recipient = allocatePayouts[i].recipient;
+            uint256 amount = allocatePayouts[i].amount;
+            allocations[campaign][payoutToken][recipient] += amount;
             totalPayouts += amount;
             emit PayoutAllocated(campaign, payoutToken, recipient, amount);
         }
 
-        // Add attribution fee
-        fees[payoutToken][msg.sender] += fee;
-        emit FeeAllocated(campaign, payoutToken, msg.sender, fee);
+        // Check campaign has sufficient funds to allocate
+        if (IERC20(payoutToken).balanceOf(campaign) < totalPayouts) revert InsufficientCampaignBalance();
+        totalAllocated[campaign][payoutToken] += totalPayouts;
 
-        // Transfer tokens to Flywheel to reserve for payouts and fees
-        TokenStore(campaign).sendTokens(payoutToken, address(this), totalPayouts + fee);
+        // Add attribution fee
+        if (fee > 0) {
+            fees[payoutToken][msg.sender] += fee;
+            emit FeeAllocated(campaign, payoutToken, msg.sender, fee);
+        }
+    }
+
+    /// @notice Distributes accumulated balance to a recipient
+    ///
+    /// @param campaign Address of the campaign
+    /// @param payoutToken Address of the token to distribute
+    /// @param hookData Data for the campaign hook
+    function distribute(address campaign, address payoutToken, bytes calldata hookData)
+        external
+        campaignExists(campaign)
+    {
+        // Check campaign allows allocation (OPEN, PAUSED, CLOSED, FINALIZED)
+        CampaignStatus status = _campaigns[campaign].status;
+        if (status == CampaignStatus.CREATED) revert InvalidCampaignStatus();
+
+        (Payout[] memory distributePayouts, uint256 fee) =
+            CampaignHooks(_campaigns[campaign].hooks).onDistribute(msg.sender, campaign, payoutToken, hookData);
+
+        uint256 totalPayouts = 0;
+        for (uint256 i = 0; i < distributePayouts.length; i++) {
+            address recipient = distributePayouts[i].recipient;
+            uint256 amount = distributePayouts[i].amount;
+            allocations[campaign][payoutToken][recipient] -= amount;
+            TokenStore(campaign).sendTokens(payoutToken, recipient, amount);
+            emit PayoutsDistributed(campaign, payoutToken, recipient, amount);
+        }
+
+        totalAllocated[campaign][payoutToken] -= totalPayouts;
+
+        // Add attribution fee
+        if (fee > 0) {
+            fees[payoutToken][msg.sender] += fee;
+            emit FeeAllocated(campaign, payoutToken, msg.sender, fee);
+        }
     }
 
     /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
@@ -241,22 +289,12 @@ contract Flywheel {
         external
         campaignExists(campaign)
     {
+        // Check amount is less than total allocated
+        if (amount > totalAllocated[campaign][token]) revert InvalidWithdrawAmount();
+
         CampaignHooks(_campaigns[campaign].hooks).onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
         TokenStore(campaign).sendTokens(token, msg.sender, amount);
         emit FundsWithdrawn(campaign, token, msg.sender, amount);
-    }
-
-    /// @notice Distributes accumulated balance to a recipient
-    ///
-    /// @param token Address of the token to distribute
-    /// @param recipient Address of the recipient
-    ///
-    /// @dev Transfers the full balance for the token-recipient pair and resets it to zero
-    function distributePayouts(address token, address recipient) external {
-        uint256 balance = payouts[token][recipient];
-        delete payouts[token][recipient];
-        SafeERC20.safeTransfer(IERC20(token), recipient, balance);
-        emit PayoutsDistributed(token, recipient, balance);
     }
 
     /// @notice Collects fees from a campaign
