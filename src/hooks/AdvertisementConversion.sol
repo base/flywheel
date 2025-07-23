@@ -156,8 +156,10 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Emitted when a new conversion config is added to a campaign
     event ConversionConfigAdded(address indexed campaign, uint8 indexed configId, ConversionConfig config);
 
-    /// @notice Emitted when a conversion config is disabled  
-    event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, ConversionConfigStatus status);
+    /// @notice Emitted when a conversion config is disabled
+    event ConversionConfigStatusChanged(
+        address indexed campaign, uint8 indexed configId, ConversionConfigStatus status
+    );
 
     /// @notice Emitted when attribution deadline duration is updated
     ///
@@ -225,9 +227,14 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
-    function createCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address attributionProvider, address advertiser, string memory uri, string[] memory allowedRefCodes, ConversionConfig[] memory configs) =
-            abi.decode(hookData, (address, address, string, string[], ConversionConfig[]));
+    function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
+        (
+            address attributionProvider,
+            address advertiser,
+            string memory uri,
+            string[] memory allowedRefCodes,
+            ConversionConfig[] memory configs
+        ) = abi.decode(hookData, (address, address, string, string[], ConversionConfig[]));
 
         bool hasAllowlist = allowedRefCodes.length > 0;
 
@@ -255,7 +262,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
-    function updateMetadata(address sender, address campaign, bytes calldata hookData)
+    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
         external
         view
         override
@@ -267,7 +274,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
-    function updateStatus(
+    function onUpdateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
@@ -292,7 +299,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
-    function attribute(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
+    function onAllocate(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         external
         override
         onlyFlywheel
@@ -328,7 +335,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             if (configId >= conversionConfigCount[campaign]) {
                 revert InvalidConversionConfigId();
             }
-            
+
             ConversionConfig memory config = conversionConfigs[campaign][configId];
             if (config.status == ConversionConfigStatus.DISABLED) {
                 revert ConversionConfigDisabled();
@@ -369,7 +376,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @inheritdoc CampaignHooks
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
-    function withdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
+    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
         external
         view
         override
@@ -427,14 +434,14 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @dev Only advertiser can add conversion configs
     function addConversionConfig(address campaign, ConversionConfig memory config) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
-        
+
         uint8 currentCount = conversionConfigCount[campaign];
         if (currentCount >= type(uint8).max) revert TooManyConversionConfigs();
-        
+
         // Add the new config
         conversionConfigs[campaign][currentCount] = config;
         conversionConfigCount[campaign] = currentCount + 1;
-        
+
         emit ConversionConfigAdded(campaign, currentCount, config);
     }
 
@@ -444,14 +451,14 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @dev Only advertiser can disable conversion configs
     function disableConversionConfig(address campaign, uint8 configId) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
-        
+
         if (configId >= conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
-        
+
         // Disable the config
         conversionConfigs[campaign][configId].status = ConversionConfigStatus.DISABLED;
-        
+
         emit ConversionConfigStatusChanged(campaign, configId, ConversionConfigStatus.DISABLED);
     }
 

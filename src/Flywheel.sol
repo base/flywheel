@@ -73,20 +73,20 @@ contract Flywheel {
         address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
     );
 
-    /// @notice Emitted when a payout is attributed to a recipient
+    /// @notice Emitted when a payout is allocated to a recipient
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
     /// @param recipient Address receiving the payout
-    /// @param amount Amount of tokens attributed
+    /// @param amount Amount of tokens allocated
     event PayoutAllocated(address indexed campaign, address token, address recipient, uint256 amount);
 
-    /// @notice Emitted when a fee is attributed to a recipient
+    /// @notice Emitted when a fee is allocated to a recipient
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
     /// @param recipient Address of the recipient
-    /// @param amount Amount of tokens attributed
+    /// @param amount Amount of tokens allocated
     event FeeAllocated(address indexed campaign, address token, address recipient, uint256 amount);
 
     /// @notice Emitted when someone withdraws funding from a campaign
@@ -152,7 +152,7 @@ contract Flywheel {
         campaign = Clones.cloneDeterministic(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.CREATED, hooks: hooks});
         emit CampaignCreated(campaign, hooks);
-        CampaignHooks(hooks).createCampaign(campaign, hookData);
+        CampaignHooks(hooks).onCreateCampaign(campaign, hookData);
     }
 
     /// @notice Updates the metadata for a campaign
@@ -163,7 +163,7 @@ contract Flywheel {
     /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
     function updateMetadata(address campaign, bytes calldata hookData) external campaignExists(campaign) {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        CampaignHooks(_campaigns[campaign].hooks).updateMetadata(msg.sender, campaign, hookData);
+        CampaignHooks(_campaigns[campaign].hooks).onUpdateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
     }
 
@@ -191,7 +191,7 @@ contract Flywheel {
         if (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
         // Apply hook for access control and storage updates
-        CampaignHooks(_campaigns[campaign].hooks).updateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
+        CampaignHooks(_campaigns[campaign].hooks).onUpdateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
 
         // Update status
         _campaigns[campaign].status = newStatus;
@@ -203,7 +203,7 @@ contract Flywheel {
     /// @param campaign Address of the campaign
     /// @param payoutToken Address of the token to be distributed
     /// @param hookData Data for the campaign hook
-    function attribute(address campaign, address payoutToken, bytes calldata hookData)
+    function allocate(address campaign, address payoutToken, bytes calldata hookData)
         external
         campaignExists(campaign)
     {
@@ -212,7 +212,7 @@ contract Flywheel {
         if (status == CampaignStatus.CREATED || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
 
         (Payout[] memory newPayouts, uint256 fee) =
-            CampaignHooks(_campaigns[campaign].hooks).attribute(msg.sender, campaign, payoutToken, hookData);
+            CampaignHooks(_campaigns[campaign].hooks).onAllocate(msg.sender, campaign, payoutToken, hookData);
 
         // Add new payouts
         uint256 totalPayouts = 0;
@@ -241,7 +241,7 @@ contract Flywheel {
         external
         campaignExists(campaign)
     {
-        CampaignHooks(_campaigns[campaign].hooks).withdrawFunds(msg.sender, campaign, token, amount, hookData);
+        CampaignHooks(_campaigns[campaign].hooks).onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
         TokenStore(campaign).sendTokens(token, msg.sender, amount);
         emit FundsWithdrawn(campaign, token, msg.sender, amount);
     }

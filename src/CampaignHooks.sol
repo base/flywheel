@@ -32,7 +32,7 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function createCampaign(address campaign, bytes calldata hookData) external virtual onlyFlywheel {}
+    function onCreateCampaign(address campaign, bytes calldata hookData) external virtual onlyFlywheel {}
 
     /// @notice Updates the metadata for a campaign
     ///
@@ -41,7 +41,11 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function updateMetadata(address sender, address campaign, bytes calldata hookData) external virtual onlyFlywheel {
+    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+    {
         revert Unimplemented();
     }
 
@@ -53,7 +57,7 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function updateStatus(
+    function onUpdateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
@@ -65,13 +69,15 @@ abstract contract CampaignHooks {
 
     /// @notice Processes attribution for a campaign
     ///
+    /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param payoutToken Address of the token to be distributed
     /// @param hookData Data for the campaign hook
+    ///
     /// @return payouts Array of payouts to be distributed
     ///
     /// @dev Only callable by the flywheel contract
-    function attribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
+    function onAllocate(address sender, address campaign, address payoutToken, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
@@ -88,7 +94,7 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function withdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
+    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
         external
         virtual
         onlyFlywheel

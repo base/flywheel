@@ -7,7 +7,12 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 import {Flywheel} from "../src/Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
-import {AdvertisementConversion, ConversionConfig, ConversionConfigStatus, EventType} from "../src/hooks/AdvertisementConversion.sol";
+import {
+    AdvertisementConversion,
+    ConversionConfig,
+    ConversionConfigStatus,
+    EventType
+} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../src/archive/test/DummyERC20.sol";
 import {TokenStore} from "../src/TokenStore.sol";
 
@@ -119,7 +124,7 @@ contract AdFlowTest is Test {
     function _createCampaign() internal {
         // Prepare hook data for campaign creation (empty allowlist means all publishers allowed)
         string[] memory allowedRefCodes = new string[](0);
-        
+
         // Create conversion configs
         ConversionConfig[] memory configs = new ConversionConfig[](2);
         configs[0] = ConversionConfig({
@@ -132,8 +137,9 @@ contract AdFlowTest is Test {
             eventType: EventType.ONCHAIN,
             conversionMetadataUrl: "https://campaign.com/onchain-metadata"
         });
-        
-        bytes memory hookData = abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs);
+
+        bytes memory hookData =
+            abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs);
 
         // Create campaign
         vm.startPrank(advertiser);
@@ -202,7 +208,7 @@ contract AdFlowTest is Test {
         // 4. Process attributions
         vm.startPrank(provider);
         bytes memory attributionData = abi.encode(attributions);
-        flywheel.attribute(campaign, address(usdc), attributionData);
+        flywheel.allocate(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // 5. Verify attributions were processed
@@ -293,7 +299,7 @@ contract AdFlowTest is Test {
         vm.expectEmit(true, false, false, true);
         emit AdvertisementConversion.OnchainConversionProcessed(campaign, attributions[0].conversion, logData);
 
-        flywheel.attribute(campaign, address(usdc), attributionData);
+        flywheel.allocate(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // Verify attribution processed correctly
@@ -313,7 +319,7 @@ contract AdFlowTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.OPEN, "");
         vm.stopPrank();
 
-        // Try to attribute as unauthorized provider
+        // Try to allocate as unauthorized provider
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
             payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
@@ -332,7 +338,7 @@ contract AdFlowTest is Test {
         vm.startPrank(makeAddr("unauthorized_provider"));
         bytes memory attributionData = abi.encode(attributions);
         vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
-        flywheel.attribute(campaign, address(usdc), attributionData);
+        flywheel.allocate(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // Try to withdraw funds as unauthorized user
@@ -422,7 +428,7 @@ contract AdFlowTest is Test {
         vm.startPrank(provider);
         bytes memory attributionData = abi.encode(attributions);
         vm.expectRevert(AdvertisementConversion.ConversionConfigDisabled.selector);
-        flywheel.attribute(campaign, address(usdc), attributionData);
+        flywheel.allocate(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         console2.log("Conversion config management tests completed successfully!");
