@@ -287,8 +287,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Otherwise only advertiser allowed to update status
         if (sender != state[campaign].advertiser) revert Unauthorized();
 
-        // Advertiser always allowed to close and start finalization delay
-        if (newStatus == Flywheel.CampaignStatus.CLOSED) {
+        // Advertiser always allowed to start finalization delay
+        if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
             state[campaign].attributionDeadline = uint48(block.timestamp) + attributionDeadlineDuration;
             return;
         }
