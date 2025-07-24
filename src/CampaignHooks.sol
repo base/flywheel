@@ -10,8 +10,8 @@ abstract contract CampaignHooks {
     /// @notice Address of the flywheel contract
     Flywheel public immutable flywheel;
 
-    /// @notice Thrown when a function is not implemented
-    error Unimplemented();
+    /// @notice Thrown when a function is not supported
+    error Unsupported();
 
     /// @notice Modifier to restrict function access to flywheel only
     modifier onlyFlywheel() {
@@ -46,7 +46,7 @@ abstract contract CampaignHooks {
         virtual
         onlyFlywheel
     {
-        revert Unimplemented();
+        revert Unsupported();
     }
 
     /// @notice Updates the campaign status
@@ -64,7 +64,7 @@ abstract contract CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) external virtual onlyFlywheel {
-        revert Unimplemented();
+        revert Unsupported();
     }
 
     /// @notice Processes reward for a campaign
@@ -84,7 +84,7 @@ abstract contract CampaignHooks {
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        revert Unimplemented();
+        revert Unsupported();
     }
 
     /// @notice Processes attribution for a campaign
@@ -104,7 +104,7 @@ abstract contract CampaignHooks {
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        revert Unimplemented();
+        revert Unsupported();
     }
 
     /// @notice Distributes payouts for a campaign
@@ -124,7 +124,7 @@ abstract contract CampaignHooks {
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        revert Unimplemented();
+        revert Unsupported();
     }
 
     /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
@@ -140,7 +140,7 @@ abstract contract CampaignHooks {
         virtual
         onlyFlywheel
     {
-        revert Unimplemented();
+        revert Unsupported();
     }
 
     /// @notice Returns the URI for a campaign
@@ -148,6 +148,6 @@ abstract contract CampaignHooks {
     /// @param campaign Address of the campaign
     /// @return uri The URI for the campaign
     function campaignURI(address campaign) external view virtual returns (string memory uri) {
-        revert Unimplemented();
+        revert Unsupported();
     }
 }
