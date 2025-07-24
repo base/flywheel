@@ -11,7 +11,7 @@ import {CampaignHooks} from "./CampaignHooks.sol";
 ///
 /// @notice Main contract for managing advertising campaigns and attribution
 ///
-/// @dev Handles campaign lifecycle, attribution, and token distribution
+/// @dev Structures campaign metadata, lifecycle, payouts, and fees
 contract Flywheel {
     /// @notice Possible states a campaign can be in
     enum CampaignStatus {
@@ -142,7 +142,7 @@ contract Flywheel {
     error ZeroAddress();
 
     /// @notice Thrown when campaign does not have enough balance for an operation
-    error InsufficientCampaignBalance();
+    error InsufficientCampaignFunds();
 
     /// @notice Check if a campaign exists
     ///
@@ -233,7 +233,7 @@ contract Flywheel {
         (payouts, fee) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, data);
 
         _allocateFees(campaign, token, fee);
-        uint256 totalPayouts = _sumPayouts(payouts);
+        uint256 totalPayouts = _sumAmounts(payouts);
         uint256 reserved = _canReserve(campaign, token, totalPayouts + fee);
 
         totalReserved[campaign][token] = reserved + fee;
@@ -260,7 +260,7 @@ contract Flywheel {
         (payouts, fee) = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, data);
 
         _allocateFees(campaign, token, fee);
-        uint256 totalPayouts = _sumPayouts(payouts);
+        uint256 totalPayouts = _sumAmounts(payouts);
         uint256 reserved = _canReserve(campaign, token, totalPayouts + fee);
 
         totalReserved[campaign][token] = reserved + totalPayouts + fee;
@@ -287,7 +287,7 @@ contract Flywheel {
     {
         (payouts, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, data);
         _allocateFees(campaign, token, fee);
-        uint256 totalPayouts = _sumPayouts(payouts);
+        uint256 totalPayouts = _sumAmounts(payouts);
 
         totalReserved[campaign][token] = totalReserved[campaign][token] + fee - totalPayouts;
         for (uint256 i = 0; i < payouts.length; i++) {
@@ -306,7 +306,7 @@ contract Flywheel {
     function deallocate(address campaign, address token, bytes calldata data) external {
         Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, data);
 
-        totalReserved[campaign][token] -= _sumPayouts(payouts);
+        totalReserved[campaign][token] -= _sumAmounts(payouts);
         for (uint256 i = 0; i < payouts.length; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] -= amount;
@@ -402,7 +402,7 @@ contract Flywheel {
     /// @dev Reverts if the campaign does not have sufficient balance
     function _canReserve(address campaign, address token, uint256 amount) internal view returns (uint256 reserved) {
         reserved = totalReserved[campaign][token];
-        if (IERC20(token).balanceOf(campaign) < reserved + amount) revert InsufficientCampaignBalance();
+        if (IERC20(token).balanceOf(campaign) < reserved + amount) revert InsufficientCampaignFunds();
     }
 
     /// @notice Sums the amounts of a list of payouts
@@ -410,7 +410,7 @@ contract Flywheel {
     /// @param payouts List of payouts
     ///
     /// @return total Sum of the amounts of the payouts
-    function _sumPayouts(Payout[] memory payouts) internal pure returns (uint256 total) {
+    function _sumAmounts(Payout[] memory payouts) internal pure returns (uint256 total) {
         for (uint256 i = 0; i < payouts.length; i++) {
             total += payouts[i].amount;
         }
