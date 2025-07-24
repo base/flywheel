@@ -15,12 +15,14 @@ import {CampaignHooks} from "./CampaignHooks.sol";
 contract Flywheel {
     /// @notice Possible states a campaign can be in
     enum CampaignStatus {
-        CREATED, // Initial state when campaign is first created
-        OPEN, // Campaign is live and can accept attribution
-        PAUSED, // Campaign is temporarily paused
-        CLOSED, // Campaign is no longer live but can still accept lagging attribution
-        FINALIZED // Campaign attribution is complete
-
+        /// @dev Campaign is not yet live, default on creation
+        INACTIVE,
+        /// @dev Campaign is live and can process payouts
+        ACTIVE,
+        /// @dev Campaign is no longer live but can still process lagging payouts, can only update status to finalized
+        FINALIZING,
+        /// @dev Campaign is no longer live and no more payouts can be processed, cannot update status
+        FINALIZED
     }
 
     /// @notice Campaign information structure
@@ -157,7 +159,7 @@ contract Flywheel {
     /// @param campaign Address of the campaign
     modifier acceptingPayouts(address campaign) {
         CampaignStatus status = _campaigns[campaign].status;
-        if (status == CampaignStatus.CREATED || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        if (status == CampaignStatus.INACTIVE || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _;
     }
 
@@ -184,7 +186,7 @@ contract Flywheel {
     {
         if (hooks == address(0)) revert ZeroAddress();
         campaign = Clones.cloneDeterministic(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
-        _campaigns[campaign] = CampaignInfo({status: CampaignStatus.CREATED, hooks: CampaignHooks(hooks)});
+        _campaigns[campaign] = CampaignInfo({status: CampaignStatus.INACTIVE, hooks: CampaignHooks(hooks)});
         emit CampaignCreated(campaign, hooks);
         CampaignHooks(hooks).onCreateCampaign(campaign, hookData);
     }
@@ -212,10 +214,9 @@ contract Flywheel {
     {
         CampaignStatus oldStatus = _campaigns[campaign].status;
         if (
-            newStatus == oldStatus // must be different
-                || newStatus == CampaignStatus.CREATED // cannot go back to created
-                || oldStatus == CampaignStatus.FINALIZED // cannot change finalized
-                || (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) // closed can only move to finalized
+            newStatus == oldStatus // must update status
+                || oldStatus == CampaignStatus.FINALIZED // cannot update from finalized
+                || (oldStatus == CampaignStatus.FINALIZING && newStatus != CampaignStatus.FINALIZED) // finalizing can only update to finalized
         ) revert InvalidCampaignStatus();
 
         _campaigns[campaign].hooks.onUpdateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
