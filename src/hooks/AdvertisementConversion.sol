@@ -299,7 +299,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     }
 
     /// @inheritdoc CampaignHooks
-    function onAllocate(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
+    function onReward(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         external
         override
         onlyFlywheel
@@ -371,20 +371,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
                 emit OffchainConversionProcessed(campaign, conversion);
             }
         }
-        return (payouts, fee);
-    }
 
-    /// @inheritdoc CampaignHooks
-    /// @dev Anyone can distribute payouts
-    function onDistribute(address sender, address campaign, address payoutToken, bytes calldata hookData)
-        external
-        view
-        override
-        onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
-    {
-        payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        return (payouts, 0);
+        return (payouts, fee);
     }
 
     /// @inheritdoc CampaignHooks

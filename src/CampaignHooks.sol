@@ -67,6 +67,26 @@ abstract contract CampaignHooks {
         revert Unimplemented();
     }
 
+    /// @notice Processes reward for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param payoutToken Address of the token to be rewarded
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return payouts Array of payouts to be rewarded
+    /// @return fee Amount of fee to be paid
+    ///
+    /// @dev Only callable by the flywheel contract
+    function onReward(address sender, address campaign, address payoutToken, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        revert Unimplemented();
+    }
+
     /// @notice Processes attribution for a campaign
     ///
     /// @param sender Address of the sender

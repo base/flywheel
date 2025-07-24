@@ -46,11 +46,11 @@ contract Flywheel {
     mapping(address campaign => mapping(address token => mapping(address recipient => uint256 amount))) public
         allocations;
 
-    /// @notice Mapping from campaign address to token address to total allocated amount
-    mapping(address campaign => mapping(address token => uint256 amount)) public totalAllocated;
-
     /// @notice Collectible fees
-    mapping(address token => mapping(address recipient => uint256 amount)) public fees;
+    mapping(address campaign => mapping(address token => mapping(address recipient => uint256 amount))) public fees;
+
+    /// @notice Mapping from campaign address to token address to total allocated amount
+    mapping(address campaign => mapping(address token => uint256 amount)) public totalReserved;
 
     /// @notice Mapping from campaign address to campaign information
     mapping(address campaign => CampaignInfo) internal _campaigns;
@@ -76,6 +76,14 @@ contract Flywheel {
     event CampaignStatusUpdated(
         address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
     );
+
+    /// @notice Emitted when a payout is rewarded to a recipient
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the payout token
+    /// @param recipient Address receiving the payout
+    /// @param amount Amount of tokens rewarded
+    event PayoutRewarded(address indexed campaign, address token, address recipient, uint256 amount);
 
     /// @notice Emitted when a payout is allocated to a recipient
     ///
@@ -110,10 +118,11 @@ contract Flywheel {
 
     /// @notice Emitted when accumulated fees are collected
     ///
+    /// @param campaign Address of the campaign
     /// @param token Address of the collected token
     /// @param recipient Address of the recipient
     /// @param amount Amount of tokens collected
-    event FeesCollected(address token, address recipient, uint256 amount);
+    event FeesCollected(address indexed campaign, address token, address recipient, uint256 amount);
 
     /// @notice Thrown when campaign does not exist
     error CampaignDoesNotExist();
@@ -209,6 +218,41 @@ contract Flywheel {
         emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
     }
 
+    /// @notice Rewards a recipient with a payout
+    ///
+    /// @param campaign Address of the campaign
+    /// @param payoutToken Address of the token to reward
+    /// @param hookData Data for the campaign hook
+    function reward(address campaign, address payoutToken, bytes calldata hookData) external {
+        // Check campaign allows allocation (OPEN, PAUSED, or CLOSED)
+        CampaignStatus status = _campaigns[campaign].status;
+        if (status == CampaignStatus.CREATED || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+
+        (Payout[] memory rewardPayouts, uint256 fee) =
+            CampaignHooks(_campaigns[campaign].hooks).onReward(msg.sender, campaign, payoutToken, hookData);
+
+        // Add new payouts
+        uint256 totalPayouts = 0;
+        for (uint256 i = 0; i < rewardPayouts.length; i++) {
+            address recipient = rewardPayouts[i].recipient;
+            uint256 amount = rewardPayouts[i].amount;
+            totalPayouts += amount;
+            TokenStore(campaign).sendTokens(payoutToken, recipient, amount);
+            emit PayoutRewarded(campaign, payoutToken, recipient, amount);
+        }
+
+        // Check campaign has sufficient funds to allocate
+        uint256 reserved = totalReserved[campaign][payoutToken];
+        if (IERC20(payoutToken).balanceOf(campaign) < reserved + fee) revert InsufficientCampaignBalance();
+
+        // Add attribution fee
+        if (fee > 0) {
+            totalReserved[campaign][payoutToken] = reserved + fee;
+            fees[campaign][payoutToken][msg.sender] += fee;
+            emit FeeAllocated(campaign, payoutToken, msg.sender, fee);
+        }
+    }
+
     /// @notice Processes attribution for a campaign
     ///
     /// @param campaign Address of the campaign
@@ -236,12 +280,15 @@ contract Flywheel {
         }
 
         // Check campaign has sufficient funds to allocate
-        if (IERC20(payoutToken).balanceOf(campaign) < totalPayouts) revert InsufficientCampaignBalance();
-        totalAllocated[campaign][payoutToken] += totalPayouts;
+        uint256 reserved = totalReserved[campaign][payoutToken];
+        if (IERC20(payoutToken).balanceOf(campaign) < reserved + totalPayouts + fee) {
+            revert InsufficientCampaignBalance();
+        }
+        totalReserved[campaign][payoutToken] = reserved + totalPayouts + fee;
 
         // Add attribution fee
         if (fee > 0) {
-            fees[payoutToken][msg.sender] += fee;
+            fees[campaign][payoutToken][msg.sender] += fee;
             emit FeeAllocated(campaign, payoutToken, msg.sender, fee);
         }
     }
@@ -267,15 +314,18 @@ contract Flywheel {
             address recipient = distributePayouts[i].recipient;
             uint256 amount = distributePayouts[i].amount;
             allocations[campaign][payoutToken][recipient] -= amount;
+            totalPayouts += amount;
             TokenStore(campaign).sendTokens(payoutToken, recipient, amount);
             emit PayoutsDistributed(campaign, payoutToken, recipient, amount);
         }
 
-        totalAllocated[campaign][payoutToken] -= totalPayouts;
+        // Update total reserved campaign funds
+        uint256 reserved = totalReserved[campaign][payoutToken];
+        totalReserved[campaign][payoutToken] = reserved - totalPayouts + fee;
 
         // Add attribution fee
         if (fee > 0) {
-            fees[payoutToken][msg.sender] += fee;
+            fees[campaign][payoutToken][msg.sender] += fee;
             emit FeeAllocated(campaign, payoutToken, msg.sender, fee);
         }
     }
@@ -289,8 +339,8 @@ contract Flywheel {
         external
         campaignExists(campaign)
     {
-        // Check amount is less than total allocated
-        if (amount > totalAllocated[campaign][token]) revert InvalidWithdrawAmount();
+        // Check amount is less than total reserved
+        if (amount > IERC20(token).balanceOf(campaign) - totalReserved[campaign][token]) revert InvalidWithdrawAmount();
 
         CampaignHooks(_campaigns[campaign].hooks).onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
         TokenStore(campaign).sendTokens(token, msg.sender, amount);
@@ -299,13 +349,15 @@ contract Flywheel {
 
     /// @notice Collects fees from a campaign
     ///
+    /// @param campaign Address of the campaign
     /// @param token Address of the token to collect fees from
     /// @param recipient Address of the recipient to collect fees to
-    function collectFees(address token, address recipient) external {
-        uint256 amount = fees[token][msg.sender];
-        delete fees[token][msg.sender];
-        SafeERC20.safeTransfer(IERC20(token), recipient, amount);
-        emit FeesCollected(token, msg.sender, amount);
+    function collectFees(address campaign, address token, address recipient) external {
+        uint256 amount = fees[campaign][token][msg.sender];
+        delete fees[campaign][token][msg.sender];
+        totalReserved[campaign][token] -= amount;
+        TokenStore(campaign).sendTokens(token, recipient, amount);
+        emit FeesCollected(campaign, token, msg.sender, amount);
     }
 
     /// @notice Returns the address of a campaign given its creation parameters
