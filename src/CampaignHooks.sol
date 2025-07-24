@@ -123,6 +123,21 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
+    /// @notice Deallocates allocated payouts from a recipient for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to deallocate
+    /// @param data Data for the campaign hook
+    function onDeallocate(address sender, address campaign, address token, bytes calldata data)
+        external
+        virtual
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        revert Unsupported();
+    }
+
     /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
     ///
     /// @param sender Address of the sender

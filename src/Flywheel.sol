@@ -101,6 +101,14 @@ contract Flywheel {
     /// @param amount Amount of tokens distributed
     event PayoutsDistributed(address indexed campaign, address token, address recipient, uint256 amount);
 
+    /// @notice Emitted when allocated payouts are deallocated from a recipient
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the payout token
+    /// @param recipient Address receiving the deallocation
+    /// @param amount Amount of tokens deallocated
+    event PayoutsDeallocated(address indexed campaign, address token, address recipient, uint256 amount);
+
     /// @notice Emitted when a fee is allocated to a recipient
     ///
     /// @param campaign Address of the campaign
@@ -278,7 +286,6 @@ contract Flywheel {
         returns (Payout[] memory payouts, uint256 fee)
     {
         (payouts, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, data);
-
         _allocateFees(campaign, token, fee);
         uint256 totalPayouts = _sumPayouts(payouts);
 
@@ -288,6 +295,22 @@ contract Flywheel {
             allocations[campaign][token][recipient] -= amount;
             TokenStore(campaign).sendTokens(token, recipient, amount);
             emit PayoutsDistributed(campaign, token, recipient, amount);
+        }
+    }
+
+    /// @notice Deallocates allocated payouts from a recipient for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to deallocate
+    /// @param data Data for the campaign hook
+    function deallocate(address campaign, address token, bytes calldata data) external {
+        Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, data);
+
+        totalReserved[campaign][token] -= _sumPayouts(payouts);
+        for (uint256 i = 0; i < payouts.length; i++) {
+            (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
+            allocations[campaign][token][recipient] -= amount;
+            emit PayoutsDeallocated(campaign, token, recipient, amount);
         }
     }
 
