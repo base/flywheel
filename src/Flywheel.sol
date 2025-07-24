@@ -172,29 +172,32 @@ contract Flywheel {
     ///
     /// @param hooks Address of the campaign hooks contract
     /// @param nonce Nonce used to create the campaign
-    /// @param data Data for the campaign hook
+    /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the newly created campaign
     ///
     /// @dev Clones a new TokenStore contract for the campaign
     /// @dev Call `campaignAddress` to know the address of the campaign without deploying it
-    function createCampaign(address hooks, uint256 nonce, bytes calldata data) external returns (address campaign) {
+    function createCampaign(address hooks, uint256 nonce, bytes calldata hookData)
+        external
+        returns (address campaign)
+    {
         if (hooks == address(0)) revert ZeroAddress();
-        campaign = Clones.cloneDeterministic(tokenStoreImpl, keccak256(abi.encode(nonce, data)));
+        campaign = Clones.cloneDeterministic(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.CREATED, hooks: CampaignHooks(hooks)});
         emit CampaignCreated(campaign, hooks);
-        CampaignHooks(hooks).onCreateCampaign(campaign, data);
+        CampaignHooks(hooks).onCreateCampaign(campaign, hookData);
     }
 
     /// @notice Updates the metadata for a campaign
     ///
     /// @param campaign Address of the campaign
-    /// @param data Data for the campaign hook
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata data) external campaignExists(campaign) {
+    function updateMetadata(address campaign, bytes calldata hookData) external campaignExists(campaign) {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, data);
+        _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
     }
 
@@ -202,8 +205,8 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param newStatus New status of the campaign
-    /// @param data Data for the campaign hook
-    function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata data)
+    /// @param hookData Data for the campaign hook
+    function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
         external
         campaignExists(campaign)
     {
@@ -215,7 +218,7 @@ contract Flywheel {
                 || (oldStatus == CampaignStatus.CLOSED && newStatus != CampaignStatus.FINALIZED) // closed can only move to finalized
         ) revert InvalidCampaignStatus();
 
-        _campaigns[campaign].hooks.onUpdateStatus(msg.sender, campaign, oldStatus, newStatus, data);
+        _campaigns[campaign].hooks.onUpdateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
         _campaigns[campaign].status = newStatus;
         emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
     }
@@ -224,15 +227,15 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to reward
-    /// @param data Data for the campaign hook
-    function reward(address campaign, address token, bytes calldata data)
+    /// @param hookData Data for the campaign hook
+    function reward(address campaign, address token, bytes calldata hookData)
         external
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
     {
-        (payouts, fee) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, data);
+        (payouts, fee) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
 
-        _allocateFees(campaign, token, fee);
+        _allocateFee(campaign, token, fee);
         uint256 totalPayouts = _sumAmounts(payouts);
         uint256 reserved = _canReserve(campaign, token, totalPayouts + fee);
 
@@ -248,18 +251,18 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to be distributed
-    /// @param data Data for the campaign hook
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Allocated payouts are transferred to recipients on `distribute`
-    function allocate(address campaign, address token, bytes calldata data)
+    function allocate(address campaign, address token, bytes calldata hookData)
         external
         campaignExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
     {
-        (payouts, fee) = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, data);
+        (payouts, fee) = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, hookData);
 
-        _allocateFees(campaign, token, fee);
+        _allocateFee(campaign, token, fee);
         uint256 totalPayouts = _sumAmounts(payouts);
         uint256 reserved = _canReserve(campaign, token, totalPayouts + fee);
 
@@ -275,18 +278,18 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to distribute
-    /// @param data Data for the campaign hook
+    /// @param hookData Data for the campaign hook
     ///
     /// @dev Payouts must first be allocated to a recipient before they can be distributed
     /// @dev Use `reward` for immediate payouts
-    function distribute(address campaign, address token, bytes calldata data)
+    function distribute(address campaign, address token, bytes calldata hookData)
         external
         campaignExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
     {
-        (payouts, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, data);
-        _allocateFees(campaign, token, fee);
+        (payouts, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
+        _allocateFee(campaign, token, fee);
         uint256 totalPayouts = _sumAmounts(payouts);
 
         totalReserved[campaign][token] = totalReserved[campaign][token] + fee - totalPayouts;
@@ -302,9 +305,9 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to deallocate
-    /// @param data Data for the campaign hook
-    function deallocate(address campaign, address token, bytes calldata data) external {
-        Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, data);
+    /// @param hookData Data for the campaign hook
+    function deallocate(address campaign, address token, bytes calldata hookData) external {
+        Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
         totalReserved[campaign][token] -= _sumAmounts(payouts);
         for (uint256 i = 0; i < payouts.length; i++) {
@@ -318,13 +321,13 @@ contract Flywheel {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
-    /// @param data Data for the campaign hook
-    function withdrawFunds(address campaign, address token, uint256 amount, bytes calldata data)
+    /// @param hookData Data for the campaign hook
+    function withdrawFunds(address campaign, address token, uint256 amount, bytes calldata hookData)
         external
         campaignExists(campaign)
     {
         _canReserve(campaign, token, amount);
-        _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, amount, data);
+        _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
         TokenStore(campaign).sendTokens(token, msg.sender, amount);
         emit FundsWithdrawn(campaign, token, msg.sender, amount);
     }
@@ -345,11 +348,11 @@ contract Flywheel {
     /// @notice Returns the address of a campaign given its creation parameters
     ///
     /// @param nonce Nonce used to create the campaign
-    /// @param data Data for the campaign hook
+    /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the campaign
-    function campaignAddress(uint256 nonce, bytes calldata data) external view returns (address campaign) {
-        return Clones.predictDeterministicAddress(tokenStoreImpl, keccak256(abi.encode(nonce, data)));
+    function campaignAddress(uint256 nonce, bytes calldata hookData) external view returns (address campaign) {
+        return Clones.predictDeterministicAddress(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
     }
 
     /// @notice Returns the URI for a campaign
@@ -386,7 +389,7 @@ contract Flywheel {
     /// @param fee Amount of tokens to allocate
     ///
     /// @dev Fees are allocated to the recipient
-    function _allocateFees(address campaign, address token, uint256 fee) internal {
+    function _allocateFee(address campaign, address token, uint256 fee) internal {
         if (fee > 0) {
             fees[campaign][token][msg.sender] += fee;
             emit FeeAllocated(campaign, token, msg.sender, fee);

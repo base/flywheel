@@ -99,8 +99,8 @@ contract CommerceCashback is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Decodes cashback configuration and stores it for the campaign
-    function onCreateCampaign(address campaign, bytes calldata data) external override onlyFlywheel {
-        CashbackConfig memory config = abi.decode(data, (CashbackConfig));
+    function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
+        CashbackConfig memory config = abi.decode(hookData, (CashbackConfig));
         if (config.manager == address(0)) revert InvalidManager();
         if (config.cashbackBps > MAX_BPS) revert InvalidCashbackBps();
 
@@ -110,13 +110,13 @@ contract CommerceCashback is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Decodes payment information and calculates rewards based on payment amounts
-    function onAllocate(address sender, address campaign, address token, bytes calldata data)
+    function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, data);
+        AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, hookData);
         (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState) = _getPaymentState(payment);
         AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
         lastSnapshot[campaign][paymentInfoHash] = paymentState;
@@ -135,13 +135,13 @@ contract CommerceCashback is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onDistribute(address sender, address campaign, address token, bytes calldata data)
+    function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, data);
+        AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, hookData);
         (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState) = _getPaymentState(payment);
         AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
         lastSnapshot[campaign][paymentInfoHash] = paymentState;
@@ -161,13 +161,13 @@ contract CommerceCashback is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Deallocates allocated cashback for a payment
-    function onDeallocate(address sender, address campaign, address token, bytes calldata data)
+    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts)
     {
-        AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, data);
+        AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, hookData);
         (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState) = _getPaymentState(payment);
         AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
         lastSnapshot[campaign][paymentInfoHash] = paymentState;
@@ -187,7 +187,7 @@ contract CommerceCashback is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Validate sender is campaign cashback manager
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata data)
+    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
         external
         override
         onlyFlywheel
@@ -199,15 +199,15 @@ contract CommerceCashback is CampaignHooks {
     ///
     /// @param sender Address of the sender
     /// @param token Address of the token
-    /// @param data Data for the campaign hook
+    /// @param hookData Data for the campaign hook
     ///
     /// @return payment Payment info
-    function _parseParams(address sender, address campaign, address token, bytes calldata data)
+    function _parseParams(address sender, address campaign, address token, bytes calldata hookData)
         internal
         view
         returns (AuthCaptureEscrow.PaymentInfo memory payment)
     {
-        payment = abi.decode(data, (AuthCaptureEscrow.PaymentInfo));
+        payment = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo));
         if (sender != configs[campaign].manager) revert Unauthorized();
         if (payment.token != token) revert InvalidToken();
     }
