@@ -68,20 +68,20 @@ contract CommerceCashback is CampaignHooks {
     /// @notice Cashback basis points cannot exceed maximum
     error InvalidCashbackBps();
 
-    /// @notice Capturable amount is zero
-    error CapturableAmountZero();
+    /// @notice Payment has not been authorized
+    error PaymentNotAuthorized();
 
     /// @notice Capturable amount is not zero
-    error CapturableAmountNotZero();
+    error PaymentNotVoided();
 
     /// @notice Reward has already been allocated for this payment
     error RewardAlreadyAllocated();
 
-    /// @notice Reward has not been allocated yet
-    error RewardNotAllocated();
+    /// @notice Reward allocation is zero
+    error ZeroRewardAllocation();
 
     /// @notice Refundable amount decreased, indicating no capture was made
-    error RefundableAmountDecreased();
+    error ZeroAdditionalCaptures();
 
     /// @notice Sender is not authorized to perform this action
     error Unauthorized();
@@ -118,11 +118,15 @@ contract CommerceCashback is CampaignHooks {
     {
         AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, data);
         (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState) = _getPaymentState(payment);
-
-        if (paymentState.capturableAmount == 0) revert CapturableAmountZero();
-        if (lastSnapshot[campaign][paymentInfoHash].capturableAmount > 0) revert RewardAlreadyAllocated();
-
+        AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
         lastSnapshot[campaign][paymentInfoHash] = paymentState;
+
+        // Check payment has been authorized
+        if (paymentState.capturableAmount == 0) revert PaymentNotAuthorized();
+
+        // Check reward has not already been allocated
+        if (snapshot.capturableAmount > 0) revert RewardAlreadyAllocated();
+
         uint256 amount = _calculateCashback(campaign, paymentState.capturableAmount + paymentState.refundableAmount);
         emit CashbackAllocated(campaign, paymentInfoHash, amount);
 
@@ -139,12 +143,15 @@ contract CommerceCashback is CampaignHooks {
     {
         AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, data);
         (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState) = _getPaymentState(payment);
-
         AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
-        if (!snapshot.hasCollectedPayment) revert RewardNotAllocated();
-        if (paymentState.refundableAmount < snapshot.refundableAmount) revert RefundableAmountDecreased();
-
         lastSnapshot[campaign][paymentInfoHash] = paymentState;
+
+        // Check payment has had more value captured
+        if (paymentState.refundableAmount <= snapshot.refundableAmount) revert ZeroAdditionalCaptures();
+
+        // Check reward has remaining allocation
+        if (!snapshot.hasCollectedPayment) revert ZeroRewardAllocation();
+
         uint256 amount = _calculateCashback(campaign, paymentState.refundableAmount - snapshot.refundableAmount);
         emit CashbackDistributed(campaign, paymentInfoHash, amount);
 
@@ -162,12 +169,15 @@ contract CommerceCashback is CampaignHooks {
     {
         AuthCaptureEscrow.PaymentInfo memory payment = _parseParams(sender, campaign, token, data);
         (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState) = _getPaymentState(payment);
-
-        if (paymentState.capturableAmount > 0) revert CapturableAmountNotZero();
         AuthCaptureEscrow.PaymentState memory snapshot = lastSnapshot[campaign][paymentInfoHash];
-        if (snapshot.capturableAmount == 0) revert CapturableAmountZero();
-
         lastSnapshot[campaign][paymentInfoHash] = paymentState;
+
+        // Check payment was voided
+        if (paymentState.capturableAmount > 0) revert PaymentNotVoided();
+
+        // Check reward has remaining allocation
+        if (snapshot.capturableAmount == 0) revert ZeroRewardAllocation();
+
         uint256 amount = _calculateCashback(campaign, snapshot.capturableAmount);
         emit CashbackDeallocated(campaign, paymentInfoHash, amount);
 
