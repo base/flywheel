@@ -3,6 +3,7 @@ pragma solidity 0.8.29;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuardTransient} from "solady/utils/ReentrancyGuardTransient.sol";
 
 import {TokenStore} from "./TokenStore.sol";
 import {CampaignHooks} from "./CampaignHooks.sol";
@@ -12,7 +13,7 @@ import {CampaignHooks} from "./CampaignHooks.sol";
 /// @notice Main contract for managing advertising campaigns and attribution
 ///
 /// @dev Structures campaign metadata, lifecycle, payouts, and fees
-contract Flywheel {
+contract Flywheel is ReentrancyGuardTransient {
     /// @notice Possible states a campaign can be in
     enum CampaignStatus {
         CREATED, // Initial state when campaign is first created
@@ -180,6 +181,7 @@ contract Flywheel {
     /// @dev Call `campaignAddress` to know the address of the campaign without deploying it
     function createCampaign(address hooks, uint256 nonce, bytes calldata hookData)
         external
+        nonReentrant
         returns (address campaign)
     {
         if (hooks == address(0)) revert ZeroAddress();
@@ -195,7 +197,7 @@ contract Flywheel {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata hookData) external campaignExists(campaign) {
+    function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant campaignExists(campaign) {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
@@ -208,6 +210,7 @@ contract Flywheel {
     /// @param hookData Data for the campaign hook
     function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
         external
+        nonReentrant
         campaignExists(campaign)
     {
         CampaignStatus oldStatus = _campaigns[campaign].status;
@@ -230,6 +233,7 @@ contract Flywheel {
     /// @param hookData Data for the campaign hook
     function reward(address campaign, address token, bytes calldata hookData)
         external
+        nonReentrant
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
     {
@@ -256,6 +260,7 @@ contract Flywheel {
     /// @dev Allocated payouts are transferred to recipients on `distribute`
     function allocate(address campaign, address token, bytes calldata hookData)
         external
+        nonReentrant
         campaignExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
@@ -284,6 +289,7 @@ contract Flywheel {
     /// @dev Use `reward` for immediate payouts
     function distribute(address campaign, address token, bytes calldata hookData)
         external
+        nonReentrant
         campaignExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
@@ -306,7 +312,12 @@ contract Flywheel {
     /// @param campaign Address of the campaign
     /// @param token Address of the token to deallocate
     /// @param hookData Data for the campaign hook
-    function deallocate(address campaign, address token, bytes calldata hookData) external {
+    function deallocate(address campaign, address token, bytes calldata hookData)
+        external
+        nonReentrant
+        campaignExists(campaign)
+        acceptingPayouts(campaign)
+    {
         Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
         totalReserved[campaign][token] -= _sumAmounts(payouts);
@@ -324,6 +335,7 @@ contract Flywheel {
     /// @param hookData Data for the campaign hook
     function withdrawFunds(address campaign, address token, uint256 amount, bytes calldata hookData)
         external
+        nonReentrant
         campaignExists(campaign)
     {
         _canReserve(campaign, token, amount);
@@ -337,7 +349,11 @@ contract Flywheel {
     /// @param campaign Address of the campaign
     /// @param token Address of the token to collect fees from
     /// @param recipient Address of the recipient to collect fees to
-    function collectFees(address campaign, address token, address recipient) external {
+    function collectFees(address campaign, address token, address recipient)
+        external
+        nonReentrant
+        campaignExists(campaign)
+    {
         uint256 amount = fees[campaign][token][msg.sender];
         delete fees[campaign][token][msg.sender];
         totalReserved[campaign][token] -= amount;

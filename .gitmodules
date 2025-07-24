@@ -10,3 +10,6 @@
 [submodule "lib/commerce-payments"]
 	path = lib/commerce-payments
 	url = https://github.com/base/commerce-payments
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady
