@@ -150,6 +150,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Error thrown when conversion config is disabled
     error ConversionConfigDisabled();
 
+    /// @notice Error thrown when conversion type doesn't match config
+    error InvalidConversionType();
+
     /// @notice Error thrown when trying to add too many conversion configs
     error TooManyConversionConfigs();
 
@@ -160,6 +163,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     event ConversionConfigStatusChanged(
         address indexed campaign, uint8 indexed configId, ConversionConfigStatus status
     );
+
+    /// @notice Emitted when conversion config metadata is updated
+    event ConversionConfigMetadataUpdated(address indexed campaign, uint8 indexed configId);
 
     /// @notice Emitted when attribution deadline duration is updated
     ///
@@ -341,6 +347,15 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
                 revert ConversionConfigDisabled();
             }
 
+            // Validate that the conversion type matches the config
+            bytes memory logBytes = attributions[i].logBytes;
+            if (config.eventType == EventType.ONCHAIN && logBytes.length == 0) {
+                revert InvalidConversionType();
+            }
+            if (config.eventType == EventType.OFFCHAIN && logBytes.length > 0) {
+                revert InvalidConversionType();
+            }
+
             // Determine the correct payout address
             address payoutAddress;
             uint8 recipientType = attributions[i].conversion.recipientType;
@@ -362,7 +377,6 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             payouts[i] = Flywheel.Payout({recipient: payoutAddress, amount: payout.amount - attributionFee});
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
-            bytes memory logBytes = attributions[i].logBytes;
             Conversion memory conversion = attributions[i].conversion;
 
             if (logBytes.length > 0) {
@@ -461,6 +475,26 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         conversionConfigs[campaign][configId].status = ConversionConfigStatus.DISABLED;
 
         emit ConversionConfigStatusChanged(campaign, configId, ConversionConfigStatus.DISABLED);
+    }
+
+    /// @notice Signals that conversion config metadata has been updated
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config that was updated
+    /// @dev Only advertiser or attribution provider can signal metadata updates
+    /// @dev Indexers should update their metadata cache for this conversion config
+    function updateConversionConfigMetadata(address campaign, uint8 configId) external {
+        // Check authorization - either advertiser or attribution provider
+        if (msg.sender != state[campaign].advertiser && msg.sender != state[campaign].attributionProvider) {
+            revert Unauthorized();
+        }
+
+        // Validate config exists
+        if (configId >= conversionConfigCount[campaign]) {
+            revert InvalidConversionConfigId();
+        }
+
+        // Emit event to signal metadata update
+        emit ConversionConfigMetadataUpdated(campaign, configId);
     }
 
     /// @notice Gets a conversion config for a campaign
