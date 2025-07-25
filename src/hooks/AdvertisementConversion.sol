@@ -87,7 +87,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
-    /// @notice Maximum number of conversion configs per campaign (255 since we use uint8)
+    /// @notice Maximum number of conversion configs per campaign (255 since we use uint8, IDs are 1-indexed)
     uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
 
     /// @notice Maximum attribution deadline duration (30 days)
@@ -263,7 +263,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Store conversion configs
         conversionConfigCount[campaign] = uint8(configs.length);
         for (uint8 i = 0; i < configs.length; i++) {
-            conversionConfigs[campaign][i] = configs[i];
+            conversionConfigs[campaign][i + 1] = configs[i];
         }
     }
 
@@ -338,7 +338,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
             // Validate conversion config
             uint8 configId = attributions[i].conversion.conversionConfigId;
-            if (configId >= conversionConfigCount[campaign]) {
+            if (configId == 0 || configId > conversionConfigCount[campaign]) {
                 revert InvalidConversionConfigId();
             }
 
@@ -454,10 +454,11 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         if (currentCount >= type(uint8).max) revert TooManyConversionConfigs();
 
         // Add the new config
-        conversionConfigs[campaign][currentCount] = config;
-        conversionConfigCount[campaign] = currentCount + 1;
+        uint8 newConfigId = currentCount + 1;
+        conversionConfigs[campaign][newConfigId] = config;
+        conversionConfigCount[campaign] = newConfigId;
 
-        emit ConversionConfigAdded(campaign, currentCount, config);
+        emit ConversionConfigAdded(campaign, newConfigId, config);
     }
 
     /// @notice Disables a conversion config for a campaign
@@ -467,7 +468,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     function disableConversionConfig(address campaign, uint8 configId) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
-        if (configId >= conversionConfigCount[campaign]) {
+        if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
 
@@ -489,7 +490,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         }
 
         // Validate config exists
-        if (configId >= conversionConfigCount[campaign]) {
+        if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
 
@@ -502,7 +503,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @param configId The ID of the conversion config
     /// @return The conversion config
     function getConversionConfig(address campaign, uint8 configId) external view returns (ConversionConfig memory) {
-        if (configId >= conversionConfigCount[campaign]) {
+        if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
         return conversionConfigs[campaign][configId];
