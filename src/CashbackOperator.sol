@@ -211,10 +211,7 @@ contract CashbackOperator is Ownable {
         // Voided and captured payments should have no allocation if there is no capturable amount, so only proceed if there's an allocated amount
         if (allocatedAmount > 0) {
             // Deallocate the exact amount that was allocated for this payment
-            Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-            payouts[0] = Flywheel.Payout({recipient: paymentInfo.payer, amount: allocatedAmount});
-
-            bytes memory hookData = abi.encode(payouts);
+            bytes memory hookData = _createPayoutData(paymentInfo.payer, allocatedAmount);
             flywheel.deallocate(cashbackCampaign, paymentInfo.token, hookData);
 
             // Clear the allocation tracking
@@ -237,16 +234,35 @@ contract CashbackOperator is Ownable {
         paymentState = AuthCaptureEscrow.PaymentState(hasCollectedPayment, capturableAmount, refundableAmount);
     }
 
+    /// @notice Helper function to create payout data for a specific amount
+    /// @param recipient The recipient of the payout
+    /// @param amount The exact payout amount
+    /// @return hookData Encoded payout data for flywheel calls
+    function _createPayoutData(address recipient, uint256 amount) internal pure returns (bytes memory hookData) {
+        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
+        payouts[0] = Flywheel.Payout({recipient: recipient, amount: amount});
+        hookData = abi.encode(payouts);
+    }
+
+    /// @notice Helper function to create cashback payout data
+    /// @param paymentInfo PaymentInfo struct
+    /// @param amount Payment amount to calculate cashback from
+    /// @return cashbackAmount The calculated cashback amount
+    /// @return hookData Encoded payout data for flywheel calls
+    function _prepareCashbackData(AuthCaptureEscrow.PaymentInfo calldata paymentInfo, uint256 amount)
+        internal
+        view
+        returns (uint256 cashbackAmount, bytes memory hookData)
+    {
+        cashbackAmount = (amount * cashbackBps) / MAX_CASHBACK_BPS;
+        hookData = _createPayoutData(paymentInfo.payer, cashbackAmount);
+    }
+
     /// @notice Rewards corresponding amount of cashback to payer immediately
     /// @param paymentInfo PaymentInfo struct
     /// @param amount Amount to reward
     function _rewardCashback(AuthCaptureEscrow.PaymentInfo calldata paymentInfo, uint256 amount) internal {
-        uint256 cashbackAmount = (amount * cashbackBps) / MAX_CASHBACK_BPS;
-
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: paymentInfo.payer, amount: cashbackAmount});
-
-        bytes memory hookData = abi.encode(payouts);
+        (, bytes memory hookData) = _prepareCashbackData(paymentInfo, amount);
         flywheel.reward(cashbackCampaign, paymentInfo.token, hookData);
     }
 
@@ -254,13 +270,9 @@ contract CashbackOperator is Ownable {
     /// @param paymentInfo PaymentInfo struct
     /// @param amount Amount to allocate
     function _allocateCashback(AuthCaptureEscrow.PaymentInfo calldata paymentInfo, uint256 amount) internal {
-        uint256 cashbackAmount = (amount * cashbackBps) / MAX_CASHBACK_BPS;
+        (uint256 cashbackAmount, bytes memory hookData) = _prepareCashbackData(paymentInfo, amount);
         bytes32 paymentHash = escrow.getHash(paymentInfo);
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: paymentInfo.payer, amount: cashbackAmount});
-
-        bytes memory hookData = abi.encode(payouts);
         flywheel.allocate(cashbackCampaign, paymentInfo.token, hookData);
 
         // Track allocation per payment
@@ -271,13 +283,9 @@ contract CashbackOperator is Ownable {
     /// @param paymentInfo PaymentInfo struct
     /// @param amount Amount to distribute
     function _distributeCashback(AuthCaptureEscrow.PaymentInfo calldata paymentInfo, uint256 amount) internal {
-        uint256 cashbackAmount = (amount * cashbackBps) / MAX_CASHBACK_BPS;
+        (uint256 cashbackAmount, bytes memory hookData) = _prepareCashbackData(paymentInfo, amount);
         bytes32 paymentHash = escrow.getHash(paymentInfo);
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: paymentInfo.payer, amount: cashbackAmount});
-
-        bytes memory hookData = abi.encode(payouts);
         flywheel.distribute(cashbackCampaign, paymentInfo.token, hookData);
         paymentAllocations[paymentHash] -= cashbackAmount;
     }
@@ -286,13 +294,9 @@ contract CashbackOperator is Ownable {
     /// @param paymentInfo PaymentInfo struct
     /// @param amount Amount to deallocate
     function _deallocateCashback(AuthCaptureEscrow.PaymentInfo calldata paymentInfo, uint256 amount) internal {
-        uint256 cashbackAmount = (amount * cashbackBps) / MAX_CASHBACK_BPS;
+        (uint256 cashbackAmount, bytes memory hookData) = _prepareCashbackData(paymentInfo, amount);
         bytes32 paymentHash = escrow.getHash(paymentInfo);
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: paymentInfo.payer, amount: cashbackAmount});
-
-        bytes memory hookData = abi.encode(payouts);
         flywheel.deallocate(cashbackCampaign, paymentInfo.token, hookData);
 
         // Clear allocation tracking since it's now deallocated
