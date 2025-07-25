@@ -45,6 +45,41 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
+    function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        if (sender != managers[campaign]) revert Unauthorized();
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        if (sender != managers[campaign]) revert Unauthorized();
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        if (sender != managers[campaign]) revert Unauthorized();
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+    }
+
+    /// @inheritdoc CampaignHooks
     function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
         external
         override
