@@ -6,41 +6,58 @@ import {CampaignHooks} from "../CampaignHooks.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 /**
- * Notes:
- * - enforces that rewards for a given payment can never total to more than the payment's captured amount (does this with marginal enforcement)
- * - allows for proper refund accounting in a refund operator contracts
- *
- * Open questions:
- * - should payouts be restricted to single payout only i.e. to the payer of the payment?
- * - should allocation and distribution be enabled instead of just one-shot rewards?
- *     (this would be a convenience purely for the campaign managers -- they can always deallocate if a payment was voided or relcaimed)
- *     (calls to onDistribute would just perform the same accounting that's happening in onReward)
- * - do we want to add a helper function for creating the hookdata for a single payout?
- * - are we sure about the refund math possible in the refund operator? (arbitrary sequences of captures, rewards, and refunds)
+ * Questions:
+ * - Do we enforce that rewards for a given payment can never total to more than the payment's captured amount?
+ * The tradeoff here is between whether other rewarders can preclude a desired rewarder to reward by taking up 100% of the payment's captured amount.
+ * v.s. we let anyone award any amount, but means there may not be enough refund liquidity to properly refund everyone proportionally.
+ * (this is the current behavior as written)
  */
 
 /// @title CashbackRewards
 ///
 /// @notice Campaign Hooks for cashback rewards controlled by a campaign manager
+///
+/// @author Coinbase
 contract CashbackRewards is CampaignHooks {
-    /// @notice The escrow contract to track payment states
+    /// @notice Tracks rewards info per payment per campaign
+    struct RewardsInfo {
+        uint128 allocated;
+        uint128 distributed;
+    }
+
+    /// @notice Thrown when the sender is not the manager of the campaign
+    error Unauthorized();
+
+    /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
+    error InsufficientAllocatedAmount(uint256 amount, uint256 allocated);
+
+    /// @notice Emitted when cashback is allocated for a payment
+    event CashbackAllocated(bytes32 paymentHash, address campaign, address token, uint256 amount);
+
+    /// @notice Emitted when cashback is deallocated for a payment
+    event CashbackDeallocated(bytes32 paymentHash, address campaign, address token, uint256 amount);
+
+    /// @notice Emitted when cashback is distributed for a payment
+    event CashbackDistributed(bytes32 paymentHash, address campaign, address token, uint256 amount);
+
+    /// @notice Emitted when cashback is rewarded for a payment
+    event CashbackRewarded(bytes32 paymentHash, address campaign, address token, uint256 amount);
+
+    /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
     /// @notice Managers of the campaigns
     mapping(address campaign => address manager) public managers;
 
-    /// @notice Tracks total rewards distributed per payment per campaign
-    mapping(bytes32 paymentHash => mapping(address campaign => uint256 amount)) public rewardsDistributed;
+    /// @notice Tracks rewards info per payment per campaign
+    mapping(bytes32 paymentHash => mapping(address campaign => RewardsInfo info)) public rewardsInfo;
 
-    /// @notice Tracks which campaigns have contributed to each payment (for refund purposes)
+    /// @notice Tracks which campaigns have contributed to each payment (for refund accounting)
     mapping(bytes32 paymentHash => address[] campaigns) public paymentContributors;
 
-    /// @notice Thrown when the sender is not the manager of the campaign
-    error Unauthorized();
-
-    /// @notice Thrown when payout recipient doesn't match the payment's payer
-    error PayoutRecipientMismatch(address recipient, address expectedPayer);
-
+    /// @notice Constructor
+    /// @param flywheel_ The Flywheel core protocol contract address
+    /// @param escrow_ The AuthCaptureEscrow contract address
     constructor(address flywheel_, address escrow_) CampaignHooks(flywheel_) {
         escrow = escrow_;
     }
@@ -58,56 +75,114 @@ contract CashbackRewards is CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) external override onlyFlywheel {
-        if (sender != managers[campaign]) revert Unauthorized();
+        _validateSender(sender, campaign);
     }
 
     /// @inheritdoc CampaignHooks
-    /// @dev Expects hookData to contain abi.encode(paymentInfo, payouts)
-    /// @dev Validates that all payout recipients match the payment's payer (security critical!)
+    /// @dev Tracks per-payment allocation of cashback rewards
+    function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        _validateSender(sender, campaign);
+
+        uint256 amount;
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo;
+        (paymentInfo, amount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint256));
+
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        rewardsInfo[paymentInfoHash][campaign].allocated += amount;
+
+        Flywheel.Payout[] memory payouts = _createPayouts(paymentInfo, amount);
+        emit CashbackAllocated(paymentInfoHash, campaign, token, amount);
+
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    /// @dev Deallocates cashback rewards for a payment, enforcing per-payment liquidity constraints
+    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        _validateSender(sender, campaign);
+
+        uint256 amount;
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo;
+        (paymentInfo, amount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint256));
+
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        // Hook must enforce per-payment liquidity constraints
+        if (rewardsInfo[paymentInfoHash][campaign].allocated < amount) {
+            revert InsufficientAllocatedAmount(amount, rewardsInfo[paymentInfoHash][campaign].allocated);
+        }
+        rewardsInfo[paymentInfoHash][campaign].allocated -= amount;
+
+        Flywheel.Payout[] memory payouts = _createPayouts(paymentInfo, amount);
+        emit CashbackDeallocated(paymentInfoHash, campaign, token, amount);
+
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    /// @dev Distributes cashback rewards for a payment, enforcing per-payment liquidity constraints
+    function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        _validateSender(sender, campaign);
+
+        uint256 amount;
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo;
+        (paymentInfo, amount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint256));
+
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        // Hook must enforce per-payment liquidity constraints
+        if (rewardsInfo[paymentInfoHash][campaign].allocated < amount) {
+            revert InsufficientAllocatedAmount(amount, rewardsInfo[paymentInfoHash][campaign].allocated);
+        }
+
+        _registerRewardContribution(paymentInfoHash, campaign, amount);
+
+        Flywheel.Payout[] memory payouts = _createPayouts(paymentInfo, amount);
+        emit CashbackDistributed(paymentInfoHash, campaign, token, amount);
+
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    /// @dev Distributes cashback rewards for a payment without prior allocation (useful for one-shot rewards)
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        if (sender != managers[campaign]) revert Unauthorized();
+        _validateSender(sender, campaign);
 
-        // Decode the PaymentInfo and payouts from hookData
+        uint256 amount;
         AuthCaptureEscrow.PaymentInfo memory paymentInfo;
-        (paymentInfo, payouts) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, Flywheel.Payout[]));
+        (paymentInfo, amount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint256));
 
-        // Security: Validate all payout recipients match the payment's payer
-        // This prevents gaming the system by paying yourself while claiming to reward the real payer
-        for (uint256 i = 0; i < payouts.length; i++) {
-            if (payouts[i].recipient != paymentInfo.payer) {
-                revert PayoutRecipientMismatch(payouts[i].recipient, paymentInfo.payer);
-            }
-        }
-
-        // Calculate the payment hash from the PaymentInfo
-        // This ensures we're tracking contributions to real payments
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
 
-        // Track this campaign as a contributor if it's the first time
-        if (rewardsDistributed[paymentInfoHash][campaign] == 0) {
-            paymentContributors[paymentInfoHash].push(campaign);
-        }
+        _registerRewardContribution(paymentInfoHash, campaign, amount);
 
-        uint256 totalAmount = 0;
-        for (uint256 i = 0; i < payouts.length; i++) {
-            totalAmount += payouts[i].amount;
-        }
+        // Also track the amount as allocated? (useful if we want this counter to always reflect the total amount processed through this hook)
+        rewardsInfo[paymentInfoHash][campaign].allocated += amount;
 
-        AuthCaptureEscrow.PaymentState memory paymentState = escrow.paymentState(paymentInfoHash);
-        uint256 netCaptured = paymentState.refundableAmount;
-        uint256 alreadyRewarded = rewardsDistributed[paymentInfoHash][campaign];
+        Flywheel.Payout[] memory payouts = _createPayouts(paymentInfo, amount);
 
-        if (alreadyRewarded + totalAmount > netCaptured) {
-            revert ExceedsNetCaptured(totalAmount, netCaptured - alreadyRewarded);
-        }
-
-        // Track total rewards distributed for this payment from this campaign
-        rewardsDistributed[paymentInfoHash][campaign] += totalAmount;
+        emit CashbackRewarded(paymentInfoHash, campaign, amount);
 
         return (payouts, 0); // No fee charged
     }
@@ -118,14 +193,7 @@ contract CashbackRewards is CampaignHooks {
         override
         onlyFlywheel
     {
-        if (sender != managers[campaign]) revert Unauthorized();
-    }
-
-    /// @notice Get the list of campaigns that contributed rewards for a specific payment
-    /// @param paymentInfoHash The hash of the payment info
-    /// @return campaigns Array of campaign addresses that contributed
-    function getPaymentContributors(bytes32 paymentInfoHash) external view returns (address[] memory campaigns) {
-        return paymentContributors[paymentInfoHash];
+        _validateSender(sender, campaign);
     }
 
     /// @notice Get contribution details for a payment (useful for refund calculations)
@@ -143,5 +211,64 @@ contract CashbackRewards is CampaignHooks {
         for (uint256 i = 0; i < contributors.length; i++) {
             amounts[i] = rewardsDistributed[paymentInfoHash][contributors[i]];
         }
+    }
+
+    /// @dev Tracks reward contribution for a payment
+    /// @param paymentInfoHash Hash of the payment info
+    /// @param campaign Campaign address
+    /// @param amount Amount of cashback to reward
+    function _registerRewardContribution(bytes32 paymentInfoHash, address campaign, uint256 amount) internal {
+        // Track this campaign as a contributor if it's the first time
+        if (rewardsInfo[paymentInfoHash][campaign].distributed == 0) {
+            paymentContributors[paymentInfoHash].push(campaign);
+        }
+
+        AuthCaptureEscrow.PaymentState memory paymentState = escrow.paymentState(paymentInfoHash);
+        uint256 netCaptured = paymentState.refundableAmount;
+        uint256 alreadyRewarded = rewardsInfo[paymentInfoHash][campaign].distributed;
+
+        // Enforce that the total amount rewarded will not exceed the net captured amount
+        if (alreadyRewarded + amount > netCaptured) {
+            revert ExceedsNetCaptured(amount, netCaptured - alreadyRewarded);
+        }
+
+        rewardsInfo[paymentInfoHash][campaign].distributed += amount;
+    }
+
+    /// @notice Gets the payment state for a payment
+    /// @param paymentInfo Payment info
+    /// @return paymentInfoHash Hash of the payment info
+    /// @return paymentState Payment state
+    function _getPaymentState(AuthCaptureEscrow.PaymentInfo calldata paymentInfo)
+        internal
+        view
+        returns (bytes32 paymentInfoHash, AuthCaptureEscrow.PaymentState memory paymentState)
+    {
+        paymentInfoHash = escrow.getHash(paymentInfo);
+        (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
+            escrow.paymentState(paymentInfoHash);
+        paymentState = AuthCaptureEscrow.PaymentState(hasCollectedPayment, capturableAmount, refundableAmount);
+    }
+
+    /// @notice Creates a Flywheel.Payout array for a given payment and amount
+    /// @param paymentInfo Payment info
+    /// @param amount Amount of cashback to reward
+    /// @return payouts Payout
+    function _createPayouts(AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint256 amount)
+        internal
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        Flywheel.Payout memory payout;
+        payout.recipient = paymentInfo.payer;
+        payout.amount = amount;
+        payouts = new Flywheel.Payout[](1);
+        payouts[0] = payout;
+    }
+
+    /// @notice Validates that the sender is the manager of the campaign
+    /// @param sender Sender address
+    /// @param campaign Campaign address
+    function _validateSender(address sender, address campaign) internal {
+        if (sender != managers[campaign]) revert Unauthorized();
     }
 }
