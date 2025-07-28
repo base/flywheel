@@ -9,26 +9,26 @@ import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
 
 /// @notice Script for deploying the FlywheelPublisherRegistry contract
 contract DeployPublisherRegistry is Script {
-    /// @notice Owner address for the registry
-    address public constant OWNER = 0x7116F87D6ff2ECa5e3b2D5C5224fc457978194B2;
-
     /// @notice Deploys the FlywheelPublisherRegistry with proxy
+    /// @param owner Address that will own the registry contract
     /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
-    function run(address signerAddress) external returns (address) {
+    function run(address owner, address signerAddress) external returns (address) {
+        require(owner != address(0), "Owner cannot be zero address");
+        
         vm.startBroadcast();
 
         // Deploy the implementation contract
         FlywheelPublisherRegistry implementation = new FlywheelPublisherRegistry();
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeCall(FlywheelPublisherRegistry.initialize, (OWNER, signerAddress));
+        bytes memory initData = abi.encodeCall(FlywheelPublisherRegistry.initialize, (owner, signerAddress));
 
         // Deploy the proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
 
         console.log("FlywheelPublisherRegistry implementation deployed at:", address(implementation));
         console.log("FlywheelPublisherRegistry proxy deployed at:", address(proxy));
-        console.log("Owner:", OWNER);
+        console.log("Owner:", owner);
         console.log("Signer address:", signerAddress);
 
         vm.stopBroadcast();
@@ -37,7 +37,8 @@ contract DeployPublisherRegistry is Script {
     }
 
     /// @notice Deploys the FlywheelPublisherRegistry without signer
-    function run() external returns (address) {
-        return this.run(address(0));
+    /// @param owner Address that will own the registry contract
+    function run(address owner) external returns (address) {
+        return this.run(owner, address(0));
     }
 }

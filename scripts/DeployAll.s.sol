@@ -10,9 +10,6 @@ import {DeployAdvertisementConversion} from "./DeployAdvertisementConversion.s.s
 
 /// @notice Script for deploying all Flywheel protocol contracts in the correct order
 contract DeployAll is Script {
-    /// @notice Owner address for contracts that need it
-    address public constant OWNER = 0x7116F87D6ff2ECa5e3b2D5C5224fc457978194B2;
-
     /// @notice Deployment information structure
     struct DeploymentInfo {
         address flywheel;
@@ -22,10 +19,13 @@ contract DeployAll is Script {
     }
 
     /// @notice Deploys all contracts in the correct order
+    /// @param owner Address that will own the contracts
     /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
-    function run(address signerAddress) external returns (DeploymentInfo memory info) {
+    function run(address owner, address signerAddress) external returns (DeploymentInfo memory info) {
+        require(owner != address(0), "Owner cannot be zero address");
+        
         console.log("Starting deployment of Flywheel protocol contracts...");
-        console.log("Owner address:", OWNER);
+        console.log("Owner address:", owner);
         console.log("Signer address:", signerAddress);
         console.log("==========================================");
 
@@ -37,12 +37,12 @@ contract DeployAll is Script {
         // Deploy PublisherRegistry (independent contract)
         console.log("2. Deploying PublisherRegistry...");
         DeployPublisherRegistry registryDeployer = new DeployPublisherRegistry();
-        info.publisherRegistry = registryDeployer.run(signerAddress);
+        info.publisherRegistry = registryDeployer.run(owner, signerAddress);
 
         // Deploy AdvertisementConversion hook (depends on both Flywheel and PublisherRegistry)
         console.log("3. Deploying AdvertisementConversion hook...");
         DeployAdvertisementConversion hookDeployer = new DeployAdvertisementConversion();
-        info.advertisementConversion = hookDeployer.run(info.flywheel, info.publisherRegistry);
+        info.advertisementConversion = hookDeployer.run(info.flywheel, owner, info.publisherRegistry);
 
         console.log("==========================================");
         console.log("Deployment complete!");
@@ -54,7 +54,8 @@ contract DeployAll is Script {
     }
 
     /// @notice Deploys all contracts without signer
-    function run() external returns (DeploymentInfo memory) {
-        return this.run(address(0));
+    /// @param owner Address that will own the contracts
+    function run(address owner) external returns (DeploymentInfo memory) {
+        return this.run(owner, address(0));
     }
 }
