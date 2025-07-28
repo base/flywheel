@@ -553,3 +553,125 @@ The new modular architecture is currently undergoing audit. The previous monolit
 ## Deployment
 
 The protocol is designed for deployment on Ethereum L2s and can technically be deployed on any EVM. Primary focus will be to have attribution and payouts to happen on Base for now although we can attribute data from other EVMs (Opt, Arb, etc.)
+
+### Deployment Scripts
+
+Foundry deployment scripts are available in the `scripts/` directory for deploying all protocol contracts:
+
+- **`DeployFlywheel.s.sol`** - Deploys the core Flywheel contract
+- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable PublisherRegistry with proxy
+- **`DeployAdvertisementConversion.s.sol`** - Deploys the AdvertisementConversion hook
+- **`DeployAll.s.sol`** - Orchestrates deployment of all contracts in the correct order
+
+### Deployment Configuration
+
+#### Required Parameters
+
+##### Owner Address
+
+All deployment scripts require an owner address that will have administrative control over the deployed contracts. This address will be able to:
+
+- Upgrade the PublisherRegistry contract (via UUPS proxy)
+- Configure protocol parameters
+- Manage contract permissions
+
+##### Chain ID
+
+The target chain is specified via the `--rpc-url` parameter. Examples:
+
+- **Base Mainnet**: `https://mainnet.base.org`
+- **Base Sepolia**: `https://sepolia.base.org`
+
+#### Etherscan Verification
+
+Contract verification uses the `ETHERSCAN_API_KEY` from your `.env` file:
+
+- **Base networks**: Use your Basescan API key
+- **Other networks**: Use the appropriate explorer API key
+
+Create a `.env` file in the project root:
+
+```bash
+PRIVATE_KEY=your_private_key_here
+ETHERSCAN_API_KEY=your_basescan_api_key_here
+```
+
+**Important**: Load your environment variables before running commands:
+
+```bash
+source .env
+```
+
+#### Signer Address (Optional)
+
+The PublisherRegistry supports an optional "signer" address that can:
+
+- Register publishers with custom ref codes (instead of auto-generated ones)
+- Register publishers on behalf of others
+- Enable backend integration for programmatic publisher management
+
+**When to use:**
+
+- Set to `address(0)` for simple deployments (self-registration only)
+- Set to your backend service address for advanced publisher management
+
+### Deployment Examples
+
+#### Deploy All Contracts (No Signer)
+
+```bash
+# Base Sepolia - Replace OWNER_ADDRESS with your desired owner address
+forge script scripts/DeployAll.s.sol --sig "run(address)" OWNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+
+# Example with specific owner
+forge script scripts/DeployAll.s.sol --sig "run(address)" 0x7116F87D6ff2ECa5e3b2D5C5224fc457978194B2 --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+```
+
+#### Deploy All Contracts (With Signer)
+
+```bash
+# With both owner and signer addresses for custom publisher registration
+forge script scripts/DeployAll.s.sol --sig "run(address,address)" OWNER_ADDRESS SIGNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+
+# Example with specific addresses
+forge script scripts/DeployAll.s.sol --sig "run(address,address)" 0x7116F87D6ff2ECa5e3b2D5C5224fc457978194B2 0x1234567890123456789012345678901234567890 --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+```
+
+#### Deploy Individual Contracts
+
+```bash
+# Deploy only Flywheel (no owner parameter needed)
+forge script scripts/DeployFlywheel.s.sol --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+
+# Deploy only PublisherRegistry with owner
+forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address)" OWNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+
+# Deploy only PublisherRegistry with owner and signer
+forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" OWNER_ADDRESS SIGNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
+```
+
+### Deployment Order
+
+The scripts handle dependencies automatically, but the deployment order is:
+
+1. **Flywheel** (independent)
+2. **PublisherRegistry** (independent, upgradeable via UUPS proxy)
+3. **AdvertisementConversion** (requires Flywheel and PublisherRegistry addresses)
+
+### Contract Ownership
+
+The owner address is specified during deployment and will have administrative control over:
+
+- **PublisherRegistry**: Can upgrade the contract via UUPS proxy pattern
+- **AdvertisementConversion**: Can configure protocol parameters and manage permissions
+
+**Important**: Choose your owner address carefully as it will have significant control over the protocol. Consider using a multisig wallet for production deployments.
+
+### Post-Deployment
+
+After deployment, you'll receive addresses for:
+
+- **Flywheel**: Core protocol contract
+- **PublisherRegistry**: Publisher management (proxy address)
+- **AdvertisementConversion**: Hook for ad campaigns
+- **TokenStore Implementation**: Template for campaign treasuries (auto-deployed by Flywheel)

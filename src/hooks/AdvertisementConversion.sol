@@ -320,8 +320,12 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Decode only the attributions from hookData
         Attribution[] memory attributions = abi.decode(hookData, (Attribution[]));
 
+        // Arrays to track unique recipients and their accumulated amounts
+        address[] memory recipients = new address[](attributions.length);
+        uint256[] memory amounts = new uint256[](attributions.length);
+        uint256 uniqueCount = 0;
+
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
-        payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
             // Validate publisher ref code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
@@ -374,7 +378,24 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             Flywheel.Payout memory payout = attributions[i].payout;
             uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
             fee += attributionFee;
-            payouts[i] = Flywheel.Payout({recipient: payoutAddress, amount: payout.amount - attributionFee});
+            uint256 netAmount = payout.amount - attributionFee;
+
+            // Find if this payoutAddress already exists in our tracking arrays
+            bool found = false;
+            for (uint256 j = 0; j < uniqueCount; j++) {
+                if (recipients[j] == payoutAddress) {
+                    amounts[j] += netAmount;
+                    found = true;
+                    break;
+                }
+            }
+
+            // If not found, add as new recipient
+            if (!found && netAmount > 0) {
+                recipients[uniqueCount] = payoutAddress;
+                amounts[uniqueCount] = netAmount;
+                uniqueCount++;
+            }
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
             Conversion memory conversion = attributions[i].conversion;
@@ -384,6 +405,12 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             } else {
                 emit OffchainConversionProcessed(campaign, conversion);
             }
+        }
+
+        // Create the final payouts array with only unique recipients
+        payouts = new Flywheel.Payout[](uniqueCount);
+        for (uint256 i = 0; i < uniqueCount; i++) {
+            payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i]});
         }
 
         return (payouts, fee);

@@ -7,3 +7,8 @@ via_ir = true
 [profile.deploy]
 optimizer = true
 optimizer_runs = 100000
+
+# Etherscan API Configuration
+[etherscan]
+# For Base Sepolia, try using the Basescan endpoint directly
+base-sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
