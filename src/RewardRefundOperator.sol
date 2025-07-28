@@ -13,14 +13,51 @@ import {SimpleRewards} from "./hooks/SimpleRewards.sol";
  *      captured amount is being refunded, then refunds that same proportion of rewards
  *      back to each campaign that contributed rewards for that payment.
  *
- * Mathematical Example (with NET CAPTURED accounting):
- * - Payment: $100 captured, $30 previously refunded → Net: $70
- * - Campaign A contributed $10 rewards (already got $3 back), remaining: $7
- * - Campaign B contributed $5 rewards (already got $1.50 back), remaining: $3.50
- * - If $35 is being refunded (50% of $70 net captured):
- *   - Campaign A gets back: 50% × $7 = $3.50
- *   - Campaign B gets back: 50% × $3.50 = $1.75
- *   - Buyer gets: $35 - $5.25 = $29.75
+ * Mathematical Example (with NET CAPTURED accounting + inter-refund rewards):
+ *
+ * Step 1: Initial State
+ * - Captured: $100, Refunded: $0, Net: $100
+ * - Campaign A rewards: $10, Campaign B rewards: $5
+ *
+ * Step 2: First Refund ($30)
+ * - Refund $30 out of $100 net = 30% proportion
+ * - Campaign A gets back: 30% × $10 = $3, remaining unreturned: $7
+ * - Campaign B gets back: 30% × $5 = $1.50, remaining unreturned: $3.50
+ * - Buyer gets: $30 - $4.50 = $25.50
+ * - New state: Net captured = $70
+ *
+ * Step 3: Inter-Refund Reward (Campaign C joins late)
+ * - Campaign C adds $6 reward (after seeing the payment activity)
+ * - Current unreturned rewards: A=$7, B=$3.50, C=$6 (total=$16.50)
+ *
+ * Step 4: Second Refund ($35)
+ * - Refund $35 out of $70 net = 50% proportion
+ * - Campaign A gets back: 50% × $7 = $3.50, remaining: $3.50
+ * - Campaign B gets back: 50% × $3.50 = $1.75, remaining: $1.75
+ * - Campaign C gets back: 50% × $6 = $3.00, remaining: $3.00
+ * - Total reward refunds: $8.25
+ * - Buyer gets: $35 - $8.25 = $26.75
+ *
+ * Final Verification:
+ * - Total rewards given: $10 + $5 + $6 = $21
+ * - Total rewards refunded: $3 + $1.50 + $3.50 + $1.75 + $3.00 = $12.75
+ * - Remaining unreturned: $21 - $12.75 = $8.25 ✅ (matches sum of remaining)
+ * - Net captured remaining: $70 - $35 = $35 ✅
+ *
+ * EDGE CASE HANDLING: If total unreturned rewards exceed net captured amount, the algorithm
+ * automatically scales down all reward refunds proportionally to fit within the refund amount.
+ * This ensures mathematical soundness even with excessive reward scenarios.
+ *
+ * Example: If refund is $35 but proportional rewards would be $50, all rewards are scaled by 35/50 = 70%
+ *
+ * Extreme Edge Case Test:
+ * - Net captured: $70, Campaign C adds massive $200 reward after first refund
+ * - Second refund: $35 (50% of $70)
+ * - Unreturned rewards: A=$7, B=$3.50, C=$200 (total=$210.50)
+ * - Ideal proportional: A=$3.50, B=$1.75, C=$100 (total=$105.25)
+ * - But only $35 available! Scale by 35/105.25 = 33.25%
+ * - Final refunds: A=$1.16, B=$0.58, C=$33.26 (total=$35.00)
+ * - Buyer gets: $0 (all goes to scaled reward refunds)
  *
  * Usage Pattern:
  * 1. Rewards are tracked automatically via SimpleRewards hook
@@ -101,9 +138,10 @@ contract RewardRefundOperator is Ownable {
         // Get all campaigns that contributed rewards (using our internal tracking)
         address[] memory contributors = _getContributorCampaigns(paymentInfoHash);
 
-        uint256 totalRewardRefunds = 0;
+        // Pre-calculate total reward refunds to ensure we don't exceed refund amount
+        uint256 totalPotentialRefunds = 0;
+        uint256[] memory individualRefunds = new uint256[](contributors.length);
 
-        // Process proportional refunds to each reward contributor
         for (uint256 i = 0; i < contributors.length; i++) {
             address campaign = contributors[i];
             uint256 totalRewardsGiven = rewardsHook.rewardsDistributed(paymentInfoHash, campaign);
@@ -111,32 +149,50 @@ contract RewardRefundOperator is Ownable {
 
             if (totalRewardsGiven == 0) continue;
 
-            // Calculate REMAINING rewards this campaign is owed refunds for
             uint256 remainingRefundableRewards = totalRewardsGiven - alreadyRefundedToThisCampaign;
-
             if (remainingRefundableRewards == 0) continue;
 
-            // Calculate proportional refund amount for this campaign based on remaining rewards
             uint256 proportionalRefund = (remainingRefundableRewards * refundProportion) / 1e18;
-
-            // Ensure we don't over-refund due to rounding
             if (proportionalRefund > remainingRefundableRewards) {
                 proportionalRefund = remainingRefundableRewards;
             }
 
-            if (proportionalRefund > 0) {
+            individualRefunds[i] = proportionalRefund;
+            totalPotentialRefunds += proportionalRefund;
+        }
+
+        // If total reward refunds would exceed refund amount, scale them down proportionally
+        // This handles the edge case where sum(unreturned_rewards) > net_captured_amount
+        uint256 scalingFactor = 1e18; // Default: no scaling
+        if (totalPotentialRefunds > refundAmount) {
+            scalingFactor = (refundAmount * 1e18) / totalPotentialRefunds;
+        }
+
+        uint256 totalRewardRefunds = 0;
+
+        // Execute transfers using pre-calculated and scaled amounts
+        for (uint256 i = 0; i < contributors.length; i++) {
+            if (individualRefunds[i] == 0) continue;
+
+            address campaign = contributors[i];
+
+            // Apply scaling factor if total refunds exceeded refund amount
+            uint256 finalRefundAmount = (individualRefunds[i] * scalingFactor) / 1e18;
+
+            if (finalRefundAmount > 0) {
                 // Update tracking
-                totalRewardsRefundedByCampaign[paymentInfoHash][campaign] += proportionalRefund;
-                totalRewardRefunds += proportionalRefund;
+                totalRewardsRefundedByCampaign[paymentInfoHash][campaign] += finalRefundAmount;
+                totalRewardRefunds += finalRefundAmount;
 
                 // Transfer refund to campaign
-                IERC20(token).transfer(campaign, proportionalRefund);
+                IERC20(token).transfer(campaign, finalRefundAmount);
 
-                emit RewardsRefunded(paymentInfoHash, campaign, proportionalRefund, refundProportion);
+                emit RewardsRefunded(paymentInfoHash, campaign, finalRefundAmount, refundProportion);
             }
         }
 
         // Send remaining refund amount to the buyer
+        // Due to pre-calculation and scaling, totalRewardRefunds will never exceed refundAmount
         uint256 buyerRefundAmount = refundAmount - totalRewardRefunds;
         if (buyerRefundAmount > 0) {
             IERC20(token).transfer(paymentInfo.payer, buyerRefundAmount);
