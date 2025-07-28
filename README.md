@@ -54,8 +54,8 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 
 The main contract that manages:
 
-- Campaign lifecycle (Created → Open → Paused → Closed → Finalized)
-- Attribution and payout accumulation
+- Campaign lifecycle (Inactive → Active → Finalizing → Finalized)
+- Reward, allocation, distribution, and deallocation of payouts
 - Fee collection and distribution
 - TokenStore deployment for each campaign
 
@@ -133,7 +133,7 @@ Attribution Providers are the oracles of the Flywheel ecosystem - they verify th
 
 1. **Track Conversions**: Monitor onchain and offchain events
 2. **Verify Authenticity**: Ensure conversions are legitimate
-3. **Submit Attribution**: Call `flywheel.attribute()` with proof
+3. **Submit Payouts**: Call reward/allocate operations with proof
 4. **Earn Fees**: Receive compensation for accurate attribution
 
 ### Attribution Provider Examples by Campaign Type
@@ -146,12 +146,12 @@ Attribution Providers are the oracles of the Flywheel ecosystem - they verify th
 - **Fee Model**: Percentage of each conversion (e.g., 1% of payout)
 
 ```solidity
-// Attribution submission
-bytes memory attributionData = abi.encode(
-    attributions,      // Array of conversion events
+// Payout submission with immediate reward
+bytes memory hookData = abi.encode(
+    payouts,           // Array of payout recipients and amounts
     100                // 1% fee in basis points
 );
-flywheel.attribute(campaign, token, attributionData);
+flywheel.reward(campaign, token, hookData);
 ```
 
 #### E-commerce Cashback (Payment Processor)
@@ -187,7 +187,7 @@ The modular architecture supports diverse incentive programs:
 - **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Attribution Provider**: Payment processor or platform itself
 - **Hook**: `CommerceCashback`
-- **Flow**: Users make purchases → Payment confirmed → Attribution submitted → Users receive cashback
+- **Flow**: Users make purchases → Payment confirmed → Payouts issued → Users receive cashback
 
 ### 3. **Creator Rewards**
 
@@ -201,7 +201,7 @@ The modular architecture supports diverse incentive programs:
 - **Sponsor**: DeFi protocol
 - **Attribution Provider**: TBD but could be onchain indexer or protocol itself
 - **Hook**: Custom DeFi activity hook
-- **Flow**: Users perform actions → Blockchain events indexed → Attribution submitted → Users earn
+- **Flow**: Users perform actions → Blockchain events indexed → Payouts issued → Users earn
 
 ### 5. **Other (Example: Gaming Achievements)**
 
@@ -209,7 +209,7 @@ The modular architecture supports diverse incentive programs:
 - **Sponsor**: Game developer or guild
 - **Attribution Provider**: Game servers or decentralized validators
 - **Hook**: Custom gaming hook
-- **Flow**: Players complete quests → Server verifies → Attribution submitted → Rewards distributed
+- **Flow**: Players complete quests → Server verifies → Payouts issued → Rewards distributed
 
 ## Key Improvements
 
@@ -282,7 +282,7 @@ AdvertisementConversion hook = new AdvertisementConversion(flywheel);
 
 // Prepare campaign data
 bytes memory hookData = abi.encode(
-    attributionProvider,   // Who can submit attributions
+    payoutProvider,        // Who can submit payouts
     msg.sender,           // Sponsor
     "ipfs://metadata"     // Campaign details
 );
@@ -297,66 +297,137 @@ address campaign = flywheel.createCampaign(
 // Fund campaign
 IERC20(token).transfer(campaign, 100_000e18);
 
-// Open campaign for attribution
-flywheel.updateStatus(campaign, CampaignStatus.OPEN, "");
+// Activate campaign for payouts
+flywheel.updateStatus(campaign, CampaignStatus.ACTIVE, "");
 ```
 
-### Submitting Attribution
+### Payout Operations
+
+The Flywheel protocol supports four main payout operations:
+
+#### Immediate Rewards
 
 ```solidity
-// Attribution provider submits conversion data
-Attribution[] memory attributions = new Attribution[](2);
-attributions[0] = Attribution({
-    payout: Flywheel.Payout(publisherAddress, 100e18),
-    conversion: conversionData,
-    logBytes: "" // empty for offchain
-});
-
-bytes memory attributionData = abi.encode(
-    attributions,
-    ... more data TBD
+// Immediate payout to recipients
+bytes memory hookData = abi.encode(
+    recipients,
+    amounts,
+    // hook-specific data
 );
 
-flywheel.attribute(campaign, token, attributionData);
+flywheel.reward(campaign, token, hookData);
 ```
 
-### Claiming Rewards
+#### Allocate Payouts
 
 ```solidity
-// Publishers/users claim accumulated rewards
-flywheel.distributePayouts(token, recipient);
+// Reserve payouts for future distribution
+bytes memory hookData = abi.encode(
+    recipients,
+    amounts,
+    // hook-specific data
+);
 
-// Attribution providers collect fees
-flywheel.collectFees(token, feeRecipient);
+flywheel.allocate(campaign, token, hookData);
+```
+
+#### Distribute Allocated Payouts
+
+```solidity
+// Distribute previously allocated payouts
+bytes memory hookData = abi.encode(
+    recipients,
+    amounts,
+    // hook-specific data
+);
+
+flywheel.distribute(campaign, token, hookData);
+```
+
+#### Deallocate Payouts
+
+```solidity
+// Remove allocated payouts (cancel allocations)
+bytes memory hookData = abi.encode(
+    recipients,
+    amounts,
+    // hook-specific data
+);
+
+flywheel.deallocate(campaign, token, hookData);
+```
+
+### Collecting Fees
+
+```solidity
+// Attribution providers collect accumulated fees
+flywheel.collectFees(campaign, token, feeRecipient);
 ```
 
 ## Campaign Lifecycle
 
-1. **Create Campaign**
+### State Transitions and Access Control
 
-   - Deploy TokenStore via clone
-   - Set initial hook configuration
-   - Define attribution provider(s)
-   - Fund with ERC20 tokens
+| State          | Who Can Update To          | Next Valid States    | Payout Functions Available                       |
+| -------------- | -------------------------- | -------------------- | ------------------------------------------------ |
+| **INACTIVE**   | Anyone (campaign creation) | ACTIVE               | None                                             |
+| **ACTIVE**     | Hook-dependent             | INACTIVE, FINALIZING | reward(), allocate(), distribute(), deallocate() |
+| **FINALIZING** | Hook-dependent             | FINALIZED            | reward(), allocate(), distribute(), deallocate() |
+| **FINALIZED**  | None (terminal state)      | None                 | None                                             |
 
-2. **Open Campaign**
+### Detailed State Descriptions
 
-   - Attribution providers can submit conversions
-   - Payouts accumulate for recipients
+1. **INACTIVE State**
 
-3. **Pause/Resume**
+   - **Created by**: Anyone calling `createCampaign()` (this is will be considered Advertiser)
+   - **Purpose**: Initial state after campaign creation
+   - **Actions allowed**: Fund campaign, update metadata
+   - **Who can transition to ACTIVE**:
+     - **AdvertisementConversion**: Attribution Provider (always), Advertiser (limited)
+     - **CommerceCashback**: Status changes not supported
 
-   - Temporarily halt attribution
-   - Useful for campaign adjustments
+2. **ACTIVE State**
 
-4. **Close Campaign**
+   - **Purpose**: Campaign is live and processing payouts
+   - **Payout functions**: All four functions available based on hook implementation
+     - **AdvertisementConversion**: Only `reward()` implemented
+     - **CommerceCashback**: `allocate()`, `distribute()`, `deallocate()` implemented
+   - **Who can transition**:
+     - **AdvertisementConversion**:
+       - Attribution Provider: Can go to ANY state (including back to INACTIVE)
+       - Advertiser: Can only go to FINALIZING
+     - **CommerceCashback**: Status changes not supported (campaigns stay ACTIVE)
 
-   - Stop new traffic
-   - Allow final attribution window
+3. **FINALIZING State**
 
-5. **Finalize Campaign**
-   - Attribution complete
-   - Withdraw remaining funds
+   - **Purpose**: Grace period for final payouts before campaign closure
+   - **Attribution deadline**: Set when entering this state (configurable, default 7 days)
+   - **Payout functions**: Still available for processing lagging attributions
+   - **Who can transition to FINALIZED**:
+     - **AdvertisementConversion**:
+       - Attribution Provider: Can transition immediately
+       - Advertiser: Only after attribution deadline passes
+     - **CommerceCashback**: Status changes not supported
+
+4. **FINALIZED State**
+   - **Purpose**: Campaign permanently closed
+   - **Payout functions**: None available
+   - **Fund withdrawal**:
+     - **AdvertisementConversion**: Only Advertiser
+     - **CommerceCashback**: Only Manager
+
+### Role Definitions by Hook Type
+
+#### AdvertisementConversion Campaigns
+
+- **Advertiser**: Campaign sponsor who funds the campaign
+- **Attribution Provider**: Authorized to submit conversion data and earn fees
+- **Publishers**: Earn rewards based on conversions (managed via PublisherRegistry)
+
+#### CommerceCashback Campaigns
+
+- **Manager**: Controls campaign lifecycle and processes payment-based rewards
+- **Users**: Receive cashback rewards directly (no publishers involved)
 
 ## Creating Custom Hooks
 
@@ -372,7 +443,7 @@ contract MyCustomHook is CampaignHooks {
         // Set attribution provider(s)
     }
 
-    function attribute(
+    function onReward(
         address sender,
         address campaign,
         address token,
@@ -380,9 +451,39 @@ contract MyCustomHook is CampaignHooks {
     ) external override onlyFlywheel
       returns (Payout[] memory, uint256 fee) {
         // Verify sender is authorized attribution provider
-        // Validate attribution data
+        // Validate payout data
         // Calculate payouts and fees
         // Return results
+    }
+
+    function onAllocate(
+        address sender,
+        address campaign,
+        address token,
+        bytes calldata data
+    ) external override onlyFlywheel
+      returns (Payout[] memory, uint256 fee) {
+        // Similar implementation for allocation
+    }
+
+    function onDistribute(
+        address sender,
+        address campaign,
+        address token,
+        bytes calldata data
+    ) external override onlyFlywheel
+      returns (Payout[] memory, uint256 fee) {
+        // Implementation for distribution
+    }
+
+    function onDeallocate(
+        address sender,
+        address campaign,
+        address token,
+        bytes calldata data
+    ) external override onlyFlywheel
+      returns (Payout[] memory) {
+        // Implementation for deallocation
     }
 
     // Implement other required functions...
@@ -393,14 +494,15 @@ contract MyCustomHook is CampaignHooks {
 
 For users familiar with the old FlywheelCampaigns contract:
 
-| Old System                           | New System                               |
-| ------------------------------------ | ---------------------------------------- |
-| `FlywheelCampaigns.createCampaign()` | `Flywheel.createCampaign()` with hooks   |
-| `CampaignBalance` contracts          | `TokenStore` contracts                   |
-| Fixed attribution logic              | Customizable via hooks                   |
-| Monolithic contract                  | Modular architecture                     |
-| Campaign configs in main contract    | Campaign logic in hooks                  |
-| Single attribution provider model    | Flexible provider configuration per hook |
+| Old System                           | New System                                                         |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `FlywheelCampaigns.createCampaign()` | `Flywheel.createCampaign()` with hooks                             |
+| `CampaignBalance` contracts          | `TokenStore` contracts                                             |
+| `attribute()` function               | `reward()`, `allocate()`, `distribute()`, `deallocate()` functions |
+| Fixed attribution logic              | Customizable via hooks                                             |
+| Monolithic contract                  | Modular architecture                                               |
+| Campaign configs in main contract    | Campaign logic in hooks                                            |
+| Single attribution provider model    | Flexible provider configuration per hook                           |
 
 Publishers registered in the old system remain compatible with the new architecture through the shared `FlywheelPublisherRegistry`.
 
@@ -425,7 +527,7 @@ Publishers registered in the old system remain compatible with the new architect
 
 - Track conversion events (onchain/offchain)
 - Verify event authenticity
-- Submit attribution data in batches
+- Submit payout operations in batches
 - Earn fees for accurate attribution
 - Maintain reputation for reliability
 
