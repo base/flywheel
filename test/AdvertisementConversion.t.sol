@@ -246,27 +246,63 @@ contract AdvertisementConversionTest is Test {
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
 
-    function test_onReward_revert_invalidConfigId_zero() public {
-        // Create attribution with config ID 0 (invalid in 1-indexed system)
+    function test_onReward_ofacFundsRerouting() public {
+        // Simulate OFAC-sanctioned address
+        address ofacAddress = address(0xBAD);
+        address burnAddress = address(0xdead);
+
+        // Give OFAC address some tokens
+        token.transfer(ofacAddress, 1000 ether);
+
+        // OFAC address adds funds to campaign by transferring directly
+        vm.prank(ofacAddress);
+        token.transfer(campaign, 1000 ether);
+
+        // Set attribution provider fee
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(0); // No fee for burn transaction
+
+        // Attribution provider re-routes the sanctioned funds to burn address
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
             conversion: AdvertisementConversion.Conversion({
-                eventId: bytes16(uint128(1)),
-                clickId: "click123",
-                conversionConfigId: 0, // Invalid - IDs start at 1
-                publisherRefCode: "",
+                eventId: bytes16(uint128(999)), // Unique ID for OFAC re-routing
+                clickId: "ofac_sanctioned_funds",
+                conversionConfigId: 0, // No config - unregistered conversion
+                publisherRefCode: "", // No publisher
                 timestamp: uint32(block.timestamp),
-                payoutRecipient: address(0),
-                payoutAmount: 100 ether
+                payoutRecipient: burnAddress, // Send to burn address
+                payoutAmount: 1000 ether // Full amount
             }),
-            logBytes: ""
+            logBytes: "" // Offchain event
         });
 
         bytes memory hookData = abi.encode(attributions);
 
-        // Expect revert
-        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        // Expect the event to be emitted
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.OffchainConversionProcessed(
+            campaign,
+            AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(999)),
+                clickId: "ofac_sanctioned_funds",
+                conversionConfigId: 0,
+                publisherRefCode: "",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: burnAddress,
+                payoutAmount: 1000 ether
+            })
+        );
+
+        // Call onReward through flywheel
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        (Flywheel.Payout[] memory payouts, uint256 fee) =
+            hook.onReward(attributionProvider, campaign, address(token), hookData);
+
+        // Verify results
+        assertEq(payouts.length, 1);
+        assertEq(payouts[0].recipient, burnAddress);
+        assertEq(payouts[0].amount, 1000 ether); // Full amount sent to burn
+        assertEq(fee, 0); // No fee taken
     }
 }

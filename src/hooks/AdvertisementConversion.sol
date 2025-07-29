@@ -37,7 +37,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         bytes16 eventId;
         /// @dev Click identifier
         string clickId;
-        /// @dev Configuration ID for the conversion
+        /// @dev Configuration ID for the conversion (0 = no config/unregistered)
         uint8 conversionConfigId;
         /// @dev Publisher reference code
         string publisherRefCode;
@@ -325,19 +325,22 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
                 }
             }
 
-            // Validate conversion config
+            // Validate conversion config (if configId is not 0)
             uint8 configId = attributions[i].conversion.conversionConfigId;
-            if (configId == 0 || configId > conversionConfigCount[campaign]) {
-                revert InvalidConversionConfigId();
-            }
-
-            ConversionConfig memory config = conversionConfigs[campaign][configId];
-            if (!config.isActive) revert ConversionConfigDisabled();
-
-            // Validate that the conversion type matches the config
             bytes memory logBytes = attributions[i].logBytes;
-            if (config.isEventOnchain && logBytes.length == 0) revert InvalidConversionType();
-            if (!config.isEventOnchain && logBytes.length > 0) revert InvalidConversionType();
+
+            if (configId != 0) {
+                if (configId > conversionConfigCount[campaign]) {
+                    revert InvalidConversionConfigId();
+                }
+
+                ConversionConfig memory config = conversionConfigs[campaign][configId];
+                if (!config.isActive) revert ConversionConfigDisabled();
+
+                // Validate that the conversion type matches the config
+                if (config.isEventOnchain && logBytes.length == 0) revert InvalidConversionType();
+                if (!config.isEventOnchain && logBytes.length > 0) revert InvalidConversionType();
+            }
 
             address payoutAddress = attributions[i].conversion.payoutRecipient;
 
