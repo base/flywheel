@@ -4,12 +4,7 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
-import {
-    AdvertisementConversion,
-    ConversionConfig,
-    ConversionConfigStatus,
-    EventType
-} from "../src/hooks/AdvertisementConversion.sol";
+import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -48,15 +43,15 @@ contract AdvertisementConversionTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create a campaign with conversion configs
-        ConversionConfig[] memory configs = new ConversionConfig[](2);
-        configs[0] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](2);
+        configs[0] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/config0"
         });
-        configs[1] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        configs[1] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config1"
         });
 
@@ -74,7 +69,7 @@ contract AdvertisementConversionTest is Test {
         hook.updateConversionConfigMetadata(campaign, 1);
 
         // Verify the metadata URL hasn't changed
-        ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
+        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
         assertEq(config.conversionMetadataUrl, "https://example.com/config0");
     }
 
@@ -84,7 +79,7 @@ contract AdvertisementConversionTest is Test {
         hook.updateConversionConfigMetadata(campaign, 2);
 
         // Verify the metadata URL hasn't changed
-        ConversionConfig memory config = hook.getConversionConfig(campaign, 2);
+        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 2);
         assertEq(config.conversionMetadataUrl, "https://example.com/config1");
     }
 
@@ -127,14 +122,13 @@ contract AdvertisementConversionTest is Test {
         // Create attribution with logBytes for ONCHAIN config
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // ONCHAIN config (1-indexed)
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
-                recipientType: 0,
+                payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
             logBytes: abi.encode(
@@ -164,14 +158,13 @@ contract AdvertisementConversionTest is Test {
         // Create attribution without logBytes for OFFCHAIN config
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2, // OFFCHAIN config (1-indexed)
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
-                recipientType: 0,
+                payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
             logBytes: "" // Empty for offchain
@@ -195,14 +188,13 @@ contract AdvertisementConversionTest is Test {
         // Create attribution without logBytes for ONCHAIN config (invalid)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // ONCHAIN config (1-indexed)
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
-                recipientType: 0,
+                payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
             logBytes: "" // Empty logBytes for ONCHAIN is invalid
@@ -220,14 +212,13 @@ contract AdvertisementConversionTest is Test {
         // Create attribution with logBytes for OFFCHAIN config (invalid)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2, // OFFCHAIN config (1-indexed)
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
-                recipientType: 0,
+                payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
             logBytes: abi.encode(
@@ -247,14 +238,13 @@ contract AdvertisementConversionTest is Test {
         // Create attribution with config ID 0 (invalid in 1-indexed system)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 0, // Invalid - IDs start at 1
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
-                recipientType: 0,
+                payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
             logBytes: ""

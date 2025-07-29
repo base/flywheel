@@ -7,37 +7,24 @@ import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../FlywheelPublisherRegistry.sol";
 
-// Enum for conversion config status
-enum ConversionConfigStatus {
-    ACTIVE,
-    DISABLED
-}
-
-// Enum for event type
-enum EventType {
-    ONCHAIN,
-    OFFCHAIN
-}
-
-// Conversion configuration structure
-struct ConversionConfig {
-    ConversionConfigStatus status; // ACTIVE or DISABLED
-    EventType eventType; // onchain or offchain
-    string conversionMetadataUrl; // url to extra metadata for offchain events
-}
-
-//
-
 /// @title AdvertisementConversion
 ///
 /// @notice Attribution hook for processing advertisement conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
 contract AdvertisementConversion is CampaignHooks, Ownable {
+    // Conversion configuration structure
+    struct ConversionConfig {
+        /// @dev Whether the conversion config is active
+        bool isActive;
+        /// @dev Whether the conversion event is onchain
+        bool isEventOnchain;
+        /// @dev URL to extra metadata for offchain events
+        string conversionMetadataUrl;
+    }
+
     /// @notice Attribution structure containing payout and conversion data
     struct Attribution {
-        /// @dev The payout to be distributed
-        Flywheel.Payout payout;
         /// @dev The conversion data
         Conversion conversion;
         /// @dev Empty bytes if offchain conversion, encoded log data if onchain
@@ -56,8 +43,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         string publisherRefCode;
         /// @dev Timestamp of the conversion
         uint32 timestamp;
-        /// @dev Type of recipient for the conversion
-        uint8 recipientType;
+        /// @dev Recipient address for the conversion, zero address implies using the publisher registry to get the payout address
+        address payoutRecipient;
         /// @dev Amount of the payout for this conversion
         uint256 payoutAmount;
     }
@@ -160,9 +147,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     event ConversionConfigAdded(address indexed campaign, uint8 indexed configId, ConversionConfig config);
 
     /// @notice Emitted when a conversion config is disabled
-    event ConversionConfigStatusChanged(
-        address indexed campaign, uint8 indexed configId, ConversionConfigStatus status
-    );
+    event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, bool isActive);
 
     /// @notice Emitted when conversion config metadata is updated
     event ConversionConfigMetadataUpdated(address indexed campaign, uint8 indexed configId);
@@ -347,38 +332,24 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             }
 
             ConversionConfig memory config = conversionConfigs[campaign][configId];
-            if (config.status == ConversionConfigStatus.DISABLED) {
-                revert ConversionConfigDisabled();
-            }
+            if (!config.isActive) revert ConversionConfigDisabled();
 
             // Validate that the conversion type matches the config
             bytes memory logBytes = attributions[i].logBytes;
-            if (config.eventType == EventType.ONCHAIN && logBytes.length == 0) {
-                revert InvalidConversionType();
-            }
-            if (config.eventType == EventType.OFFCHAIN && logBytes.length > 0) {
-                revert InvalidConversionType();
-            }
+            if (config.isEventOnchain && logBytes.length == 0) revert InvalidConversionType();
+            if (!config.isEventOnchain && logBytes.length > 0) revert InvalidConversionType();
 
-            // Determine the correct payout address
-            address payoutAddress;
-            uint8 recipientType = attributions[i].conversion.recipientType;
+            address payoutAddress = attributions[i].conversion.payoutRecipient;
 
-            // @notice: recipientType = 1 => publisher and we should use the publisher registry to get the payout address
-            if (recipientType == 1 && bytes(publisherRefCode).length > 0) {
-                // Publisher: fetch payout address from registry
+            // if the recipient is the zero address, we use the publisher registry to get the payout address
+            if (payoutAddress == address(0)) {
                 payoutAddress = publisherRegistry.getPublisherPayoutAddress(publisherRefCode, block.chainid);
-                // @notice: for all other recipient types, we use the provided address
-            } else {
-                // User or other recipient type: use provided address
-                payoutAddress = attributions[i].payout.recipient;
             }
 
             // Deduct attribution fee from payout amount
-            Flywheel.Payout memory payout = attributions[i].payout;
-            uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
+            uint256 attributionFee = (attributions[i].conversion.payoutAmount * feeBps) / MAX_BPS;
             fee += attributionFee;
-            uint256 netAmount = payout.amount - attributionFee;
+            uint256 netAmount = attributions[i].conversion.payoutAmount - attributionFee;
 
             // Find if this payoutAddress already exists in our tracking arrays
             bool found = false;
@@ -500,9 +471,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         }
 
         // Disable the config
-        conversionConfigs[campaign][configId].status = ConversionConfigStatus.DISABLED;
+        conversionConfigs[campaign][configId].isActive = false;
 
-        emit ConversionConfigStatusChanged(campaign, configId, ConversionConfigStatus.DISABLED);
+        emit ConversionConfigStatusChanged(campaign, configId, false);
     }
 
     /// @notice Signals that conversion config metadata has been updated
