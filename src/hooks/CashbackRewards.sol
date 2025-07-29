@@ -38,9 +38,6 @@ contract CashbackRewards is CampaignHooks {
     /// @notice Thrown when the sender is not the manager of the campaign
     error Unauthorized();
 
-    /// @notice Thrown when the amount overflows the uint120 type
-    error AmountOverflow();
-
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocatedAmount(uint256 amount, uint256 allocated);
 
