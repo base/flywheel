@@ -33,7 +33,7 @@ contract CashbackRewards is CampaignHooks {
     mapping(bytes32 paymentHash => mapping(address campaign => RewardsInfo info)) public rewardsInfo;
 
     /// @notice Tracks which campaigns have contributed to each payment (for refund accounting)
-    mapping(bytes32 paymentHash => address[] campaigns) public paymentContributors;
+    mapping(bytes32 paymentHash => address[] campaigns) public participatingCampaigns;
 
     /// @notice Thrown when the sender is not the manager of the campaign
     error Unauthorized();
@@ -46,6 +46,9 @@ contract CashbackRewards is CampaignHooks {
 
     /// @notice Thrown when the amount rewarded exceeds the net captured amount
     error ExceedsNetCaptured(uint256 amount, uint256 netCaptured);
+
+    /// @notice Thrown when the payment amount is invalid
+    error ZeroPayoutAmount();
 
     /// @notice Thrown when the token is invalid
     error InvalidToken();
@@ -162,20 +165,20 @@ contract CashbackRewards is CampaignHooks {
         onlyManager(sender, campaign)
     {}
 
-    /// @notice Get contribution details for a payment (useful for refund calculations)
+    /// @notice Get rewards for a payment
     /// @param paymentInfoHash The hash of the payment info
-    /// @return contributors Array of campaign addresses
-    /// @return rewards Array of rewards contributed by each campaign (same index as contributors)
-    function getPaymentContributionDetails(bytes32 paymentInfoHash)
+    /// @return campaigns Array of campaign addresses
+    /// @return rewards Array of rewards contributed by each campaign (same index as campaigns)
+    function getRewards(bytes32 paymentInfoHash)
         external
         view
-        returns (address[] memory contributors, RewardsInfo[] memory rewards)
+        returns (address[] memory campaigns, RewardsInfo[] memory rewards)
     {
-        contributors = paymentContributors[paymentInfoHash];
-        rewards = new RewardsInfo[](contributors.length);
+        campaigns = participatingCampaigns[paymentInfoHash];
+        rewards = new RewardsInfo[](campaigns.length);
 
-        for (uint256 i = 0; i < contributors.length; i++) {
-            rewards[i] = rewardsInfo[paymentInfoHash][contributors[i]];
+        for (uint256 i = 0; i < campaigns.length; i++) {
+            rewards[i] = rewardsInfo[paymentInfoHash][campaigns[i]];
         }
     }
 
@@ -196,7 +199,7 @@ contract CashbackRewards is CampaignHooks {
     function _distribute(bytes32 paymentInfoHash, address campaign, uint120 amount) internal {
         // Track this campaign as a contributor if it's the first time
         if (rewardsInfo[paymentInfoHash][campaign].distributed == 0) {
-            paymentContributors[paymentInfoHash].push(campaign);
+            participatingCampaigns[paymentInfoHash].push(campaign);
         }
 
         // Enforce that the total amount rewarded will not exceed the net captured amount
@@ -218,6 +221,7 @@ contract CashbackRewards is CampaignHooks {
         returns (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount)
     {
         (paymentInfo, payoutAmount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
+        if (payoutAmount == 0) revert ZeroPayoutAmount();
         if (paymentInfo.token != token) revert InvalidToken();
         paymentInfoHash = escrow.getHash(paymentInfo);
     }
