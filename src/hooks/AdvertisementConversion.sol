@@ -341,9 +341,10 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
             address payoutAddress = attributions[i].conversion.payoutRecipient;
 
-            // if the recipient is the zero address, we use the publisher registry to get the payout address
+            // If the recipient is the zero address, we use the publisher registry to get the payout address
             if (payoutAddress == address(0)) {
                 payoutAddress = publisherRegistry.getPublisherPayoutAddress(publisherRefCode, block.chainid);
+                attributions[i].conversion.payoutRecipient = payoutAddress;
             }
 
             // Deduct attribution fee from payout amount
