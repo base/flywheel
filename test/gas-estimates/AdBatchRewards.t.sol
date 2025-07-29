@@ -25,7 +25,7 @@ contract AdBatchRewardsTest is Test {
     address public publisherTba = address(0x4);
 
     address public campaign;
-    
+
     // Constants
     uint256 public constant CAMPAIGN_FUNDING = 10000 * 1e6; // 10,000 tokens (6 decimals)
     uint256 public constant PAYOUT_PER_EVENT = 10 * 1e6; // 10 tokens per event
@@ -34,11 +34,10 @@ contract AdBatchRewardsTest is Test {
     string public constant PUBLISHER_METADATA_URL = "https://tba.publisher.com";
     string public constant CAMPAIGN_METADATA_URL = "https://example.com/campaign";
 
-    
     uint8 public constant RECIPIENT_TYPE_REFERRENT = 0;
     uint8 public constant RECIPIENT_TYPE_PUBLISHER = 1;
     uint8 public constant RECIPIENT_TYPE_USER = 2;
-    
+
     // Conversion config metadata URLs
     string public constant ONCHAIN_CONFIG_1_URL = "https://example.com/onchain-config-1";
     string public constant ONCHAIN_CONFIG_2_URL = "https://example.com/onchain-config-2";
@@ -103,33 +102,25 @@ contract AdBatchRewardsTest is Test {
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
         // Register publisher
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts = 
+        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
             new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
         vm.prank(owner);
         publisherRegistry.registerPublisherCustom(
-            PUBLISHER_REF_CODE,
-            publisherTba,
-            PUBLISHER_METADATA_URL,
-            publisherTba,
-            overridePayouts
+            PUBLISHER_REF_CODE, publisherTba, PUBLISHER_METADATA_URL, publisherTba, overridePayouts
         );
     }
 
-    function _createAttribution(
-        uint256 eventId,
-        string memory clickIdPrefix,
-        uint8 configId,
-        uint256 txHashSeed
-    ) internal view returns (AdvertisementConversion.Attribution memory) {
+    function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint8 configId, uint256 txHashSeed)
+        internal
+        view
+        returns (AdvertisementConversion.Attribution memory)
+    {
         bool isOffchain = (configId == 3);
-        
+
         // Generate realistic UUID-like clickId (32 hex chars, no dashes)
         bytes32 hash = keccak256(abi.encode(eventId, block.timestamp));
-        string memory clickId = string(abi.encodePacked(
-            clickIdPrefix,
-            vm.toString(uint256(hash))
-        ));
-        
+        string memory clickId = string(abi.encodePacked(clickIdPrefix, vm.toString(uint256(hash))));
+
         return AdvertisementConversion.Attribution({
             payout: Flywheel.Payout({recipient: publisherTba, amount: PAYOUT_PER_EVENT}),
             conversion: AdvertisementConversion.Conversion({
@@ -141,13 +132,15 @@ contract AdBatchRewardsTest is Test {
                 recipientType: RECIPIENT_TYPE_PUBLISHER, // we are testing publisher rewards only here
                 payoutAmount: PAYOUT_PER_EVENT
             }),
-            logBytes: isOffchain ? bytes("") : abi.encode(
-                AdvertisementConversion.Log({
-                    chainId: block.chainid,
-                    transactionHash: bytes32(uint256(txHashSeed)),
-                    index: uint256(eventId)
-                })
-            )
+            logBytes: isOffchain
+                ? bytes("")
+                : abi.encode(
+                    AdvertisementConversion.Log({
+                        chainId: block.chainid,
+                        transactionHash: bytes32(uint256(txHashSeed)),
+                        index: uint256(eventId)
+                    })
+                )
         });
     }
 
@@ -161,15 +154,11 @@ contract AdBatchRewardsTest is Test {
         string memory refCode
     ) internal view returns (AdvertisementConversion.Attribution memory) {
         bool isOffchain = (configId == 3);
-        
+
         // Generate realistic UUID-like clickId (32 hex chars, no dashes)
         bytes32 hash = keccak256(abi.encode(eventId, txHashSeed));
-        string memory clickId = string(abi.encodePacked(
-            clickIdPrefix,
-            "0x",
-            _toHexString(uint256(hash))
-        ));
-        
+        string memory clickId = string(abi.encodePacked(clickIdPrefix, "0x", _toHexString(uint256(hash))));
+
         return AdvertisementConversion.Attribution({
             payout: Flywheel.Payout({recipient: recipient, amount: PAYOUT_PER_EVENT}),
             conversion: AdvertisementConversion.Conversion({
@@ -181,26 +170,28 @@ contract AdBatchRewardsTest is Test {
                 recipientType: recipientType,
                 payoutAmount: PAYOUT_PER_EVENT
             }),
-            logBytes: isOffchain ? bytes("") : abi.encode(
-                AdvertisementConversion.Log({
-                    chainId: 1, // Use fixed chainId for consistency
-                    transactionHash: bytes32(uint256(txHashSeed)),
-                    index: uint256(eventId)
-                })
-            )
+            logBytes: isOffchain
+                ? bytes("")
+                : abi.encode(
+                    AdvertisementConversion.Log({
+                        chainId: 1, // Use fixed chainId for consistency
+                        transactionHash: bytes32(uint256(txHashSeed)),
+                        index: uint256(eventId)
+                    })
+                )
         });
     }
 
     function _toHexString(uint256 value) internal pure returns (string memory) {
         if (value == 0) return "0";
-        
+
         uint256 temp = value;
         uint256 digits;
         while (temp != 0) {
             digits++;
             temp /= 16;
         }
-        
+
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits -= 1;
@@ -213,12 +204,11 @@ contract AdBatchRewardsTest is Test {
         return string(buffer);
     }
 
-
     function test_batchRewards_1000Events() public {
         uint256 numEvents = 1000;
         // Create 1000 attribution events cycling through all configs
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](numEvents);
-        
+
         for (uint256 i = 0; i < numEvents; i++) {
             uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
             attributions[i] = _createAttribution(i + 1, "click_", configId, i + 1);
@@ -241,14 +231,14 @@ contract AdBatchRewardsTest is Test {
 
         // Verify campaign balance decreased by net payout amount only (fee stays in campaign until distributed)
         assertEq(
-            token.balanceOf(campaign), 
+            token.balanceOf(campaign),
             initialCampaignBalance - expectedNetPayout,
             "Campaign balance should decrease by net payout amount"
         );
 
         // Verify publisher received net payout
         assertEq(
-            token.balanceOf(publisherTba), 
+            token.balanceOf(publisherTba),
             initialPublisherBalance + expectedNetPayout,
             "Publisher should receive net payout after fees"
         );
@@ -261,26 +251,22 @@ contract AdBatchRewardsTest is Test {
         );
 
         // Verify total amounts add up correctly
-        assertEq(
-            expectedNetPayout + expectedFee,
-            totalPayout,
-            "Net payout plus fee should equal total payout"
-        );
+        assertEq(expectedNetPayout + expectedFee, totalPayout, "Net payout plus fee should equal total payout");
     }
 
     function test_batchRewards_1000Events_10Publishers() public {
         uint256 numEvents = 1000;
         uint256 numPublishers = 10;
-        
+
         // Register 10 additional publishers
         address[] memory publishers = new address[](numPublishers);
         publishers[0] = publisherTba; // Use existing publisher as first one
-        
+
         for (uint256 i = 1; i < numPublishers; i++) {
             publishers[i] = address(uint160(0x1000 + i)); // Create unique addresses
-            
+
             // Register each publisher
-            FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts = 
+            FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
                 new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
             vm.prank(owner);
             publisherRegistry.registerPublisherCustom(
@@ -326,12 +312,13 @@ contract AdBatchRewardsTest is Test {
 
         // Create 1000 attribution events distributed across 10 publishers (100 each)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](numEvents);
-        
+
         for (uint256 i = 0; i < numEvents; i++) {
             uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
             uint256 publisherIndex = i % numPublishers; // Distribute evenly across publishers
-            string memory refCode = publisherIndex == 0 ? PUBLISHER_REF_CODE : string(abi.encodePacked("pub_", vm.toString(publisherIndex)));
-            
+            string memory refCode =
+                publisherIndex == 0 ? PUBLISHER_REF_CODE : string(abi.encodePacked("pub_", vm.toString(publisherIndex)));
+
             attributions[i] = AdvertisementConversion.Attribution({
                 payout: Flywheel.Payout({recipient: publishers[publisherIndex], amount: PAYOUT_PER_EVENT}),
                 conversion: AdvertisementConversion.Conversion({
@@ -343,13 +330,15 @@ contract AdBatchRewardsTest is Test {
                     recipientType: 0,
                     payoutAmount: PAYOUT_PER_EVENT
                 }),
-                logBytes: configId == 3 ? bytes("") : abi.encode(
-                    AdvertisementConversion.Log({
-                        chainId: block.chainid,
-                        transactionHash: bytes32(uint256(i + 1)),
-                        index: uint256(i)
-                    })
-                )
+                logBytes: configId == 3
+                    ? bytes("")
+                    : abi.encode(
+                        AdvertisementConversion.Log({
+                            chainId: block.chainid,
+                            transactionHash: bytes32(uint256(i + 1)),
+                            index: uint256(i)
+                        })
+                    )
             });
         }
 
@@ -374,7 +363,7 @@ contract AdBatchRewardsTest is Test {
 
         // Verify campaign balance decreased by net payout amount
         assertEq(
-            token.balanceOf(multiPublisherCampaign), 
+            token.balanceOf(multiPublisherCampaign),
             initialCampaignBalance - expectedNetPayout,
             "Campaign balance should decrease by net payout amount"
         );
@@ -382,7 +371,7 @@ contract AdBatchRewardsTest is Test {
         // Verify each publisher received their share
         for (uint256 i = 0; i < numPublishers; i++) {
             assertEq(
-                token.balanceOf(publishers[i]), 
+                token.balanceOf(publishers[i]),
                 initialPublisherBalances[i] + expectedPayoutPerPublisher,
                 string(abi.encodePacked("Publisher ", vm.toString(i), " should receive correct payout"))
             );
@@ -398,7 +387,7 @@ contract AdBatchRewardsTest is Test {
 
     function test_batchRewards_1000Events_UniqueUsers() public {
         uint256 numEvents = 1000;
-        
+
         // Create a new campaign that allows all publishers
         ConversionConfig[] memory configs = new ConversionConfig[](3);
         configs[0] = ConversionConfig({
@@ -434,11 +423,11 @@ contract AdBatchRewardsTest is Test {
         // Create 1000 attribution events with unique user recipients (recipient type = 2)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](numEvents);
         address[] memory uniqueUsers = new address[](numEvents);
-        
+
         for (uint256 i = 0; i < numEvents; i++) {
             uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
             uniqueUsers[i] = address(uint160(0x2000 + i)); // Create unique user addresses
-            
+
             attributions[i] = _createAttributionWithRecipient(
                 i + 1,
                 "click_",
@@ -471,7 +460,7 @@ contract AdBatchRewardsTest is Test {
 
         // Verify campaign balance decreased by net payout amount
         assertEq(
-            token.balanceOf(userCampaign), 
+            token.balanceOf(userCampaign),
             initialCampaignBalance - expectedNetPayout,
             "Campaign balance should decrease by net payout amount"
         );
@@ -479,7 +468,7 @@ contract AdBatchRewardsTest is Test {
         // Verify each user received their individual payout (sampling first 10 for efficiency)
         for (uint256 i = 0; i < 10; i++) {
             assertEq(
-                token.balanceOf(uniqueUsers[i]), 
+                token.balanceOf(uniqueUsers[i]),
                 initialUserBalances[i] + expectedPayoutPerUser,
                 string(abi.encodePacked("User ", vm.toString(i), " should receive correct payout"))
             );
