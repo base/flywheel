@@ -44,6 +44,9 @@ contract CashbackRewards is CampaignHooks {
     /// @notice Thrown when the amount rewarded exceeds the net captured amount
     error ExceedsNetCaptured(uint256 amount, uint256 netCaptured);
 
+    /// @notice Thrown when the token is invalid
+    error InvalidToken();
+
     /// @dev Modifier to check if the sender is the manager of the campaign
     /// @param sender Sender address
     /// @param campaign Campaign address
@@ -89,13 +92,12 @@ contract CashbackRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint120 amount) =
-            abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
-        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
+            _parseHookData(token, hookData);
 
-        _registerRewardContribution(paymentInfoHash, campaign, amount);
+        _distribute(paymentInfoHash, campaign, payoutAmount);
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, amount), 0);
+        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
 
     /// @inheritdoc CampaignHooks
@@ -106,13 +108,12 @@ contract CashbackRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint120 amount) =
-            abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
-        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
+            _parseHookData(token, hookData);
 
-        rewardsInfo[paymentInfoHash][campaign].allocated += amount;
+        rewardsInfo[paymentInfoHash][campaign].allocated += payoutAmount;
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, amount), 0);
+        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
 
     /// @inheritdoc CampaignHooks
@@ -123,18 +124,13 @@ contract CashbackRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint120 amount) =
-            abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
-        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
+            _parseHookData(token, hookData);
 
-        // Hook must enforce per-payment liquidity constraints
-        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
-        if (allocated < amount) revert InsufficientAllocatedAmount(amount, allocated);
-        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - amount;
+        _deallocate(paymentInfoHash, campaign, payoutAmount);
+        _distribute(paymentInfoHash, campaign, payoutAmount);
 
-        _registerRewardContribution(paymentInfoHash, campaign, amount);
-
-        return (_createPayouts(paymentInfo, paymentInfoHash, amount), 0);
+        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
 
     /// @inheritdoc CampaignHooks
@@ -145,15 +141,12 @@ contract CashbackRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint120 amount) =
-            abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
-        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
+            _parseHookData(token, hookData);
 
-        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
-        if (allocated < amount) revert InsufficientAllocatedAmount(amount, allocated);
-        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - amount;
+        _deallocate(paymentInfoHash, campaign, payoutAmount);
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, amount));
+        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount));
     }
 
     /// @inheritdoc CampaignHooks
@@ -181,11 +174,21 @@ contract CashbackRewards is CampaignHooks {
         }
     }
 
+    /// @dev Deallocates a given amount from the allocated amount for a given payment and campaign
+    /// @param paymentInfoHash Hash of the payment info
+    /// @param campaign Campaign address
+    /// @param amount Amount of cashback to deallocate from the allocated amount
+    function _deallocate(bytes32 paymentInfoHash, address campaign, uint120 amount) internal {
+        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
+        if (allocated < amount) revert InsufficientAllocatedAmount(amount, allocated);
+        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - amount;
+    }
+
     /// @dev Tracks reward contribution for a payment
     /// @param paymentInfoHash Hash of the payment info
     /// @param campaign Campaign address
-    /// @param amount Amount of cashback to reward
-    function _registerRewardContribution(bytes32 paymentInfoHash, address campaign, uint120 amount) internal {
+    /// @param amount Amount of cashback to distribute
+    function _distribute(bytes32 paymentInfoHash, address campaign, uint120 amount) internal {
         // Track this campaign as a contributor if it's the first time
         if (rewardsInfo[paymentInfoHash][campaign].distributed == 0) {
             paymentContributors[paymentInfoHash].push(campaign);
@@ -199,12 +202,28 @@ contract CashbackRewards is CampaignHooks {
         rewardsInfo[paymentInfoHash][campaign].distributed += amount;
     }
 
+    /// @dev Parses the hook data and returns the payment info, payment info hash, and payout amount
+    /// @param hookData The hook data
+    /// @return paymentInfo The payment info
+    /// @return paymentInfoHash The payment info hash
+    /// @return payoutAmount The payout amount
+    function _parseHookData(address token, bytes calldata hookData)
+        internal
+        view
+        returns (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount)
+    {
+        (paymentInfo, payoutAmount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
+        if (paymentInfo.token != token) revert InvalidToken();
+        paymentInfoHash = escrow.getHash(paymentInfo);
+    }
+
     /// @notice Creates a Flywheel.Payout array for a given payment and amount
     /// @param paymentInfo Payment info
     /// @param amount Amount of cashback to reward
     /// @return payouts Payout
     function _createPayouts(AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 amount)
         internal
+        pure
         returns (Flywheel.Payout[] memory payouts)
     {
         payouts = new Flywheel.Payout[](1);
