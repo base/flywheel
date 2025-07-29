@@ -41,27 +41,6 @@ contract CommerceCashback is CampaignHooks {
     /// @param cashbackBps Cashback basis points
     event CashbackConfigured(address indexed campaign, address manager, uint16 cashbackBps);
 
-    /// @notice Emitted when a payment is allocated
-    ///
-    /// @param campaign Address of the campaign
-    /// @param paymentInfoHash Hash of the payment info
-    /// @param amount Amount of cashback awarded
-    event CashbackAllocated(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
-
-    /// @notice Emitted when a payment is distributed
-    ///
-    /// @param campaign Address of the campaign
-    /// @param paymentInfoHash Hash of the payment info
-    /// @param amount Amount of cashback awarded
-    event CashbackDistributed(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
-
-    /// @notice Emitted when a payment is deallocated
-    ///
-    /// @param campaign Address of the campaign
-    /// @param paymentInfoHash Hash of the payment info
-    /// @param amount Amount of cashback deallocated
-    event CashbackDeallocated(address indexed campaign, bytes32 indexed paymentInfoHash, uint256 amount);
-
     /// @notice Manager address cannot be zero
     error InvalidManager();
 
@@ -128,10 +107,10 @@ contract CommerceCashback is CampaignHooks {
         if (snapshot.capturableAmount > 0) revert RewardAlreadyAllocated();
 
         uint256 amount = _calculateCashback(campaign, paymentState.capturableAmount + paymentState.refundableAmount);
-        emit CashbackAllocated(campaign, paymentInfoHash, amount);
 
         payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: payment.payer, amount: amount});
+        payouts[0] =
+            Flywheel.Payout({recipient: payment.payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
     }
 
     /// @inheritdoc CampaignHooks
@@ -153,10 +132,10 @@ contract CommerceCashback is CampaignHooks {
         if (!snapshot.hasCollectedPayment) revert ZeroRewardAllocation();
 
         uint256 amount = _calculateCashback(campaign, paymentState.refundableAmount - snapshot.refundableAmount);
-        emit CashbackDistributed(campaign, paymentInfoHash, amount);
 
         payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: payment.payer, amount: amount});
+        payouts[0] =
+            Flywheel.Payout({recipient: payment.payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
     }
 
     /// @inheritdoc CampaignHooks
@@ -179,10 +158,10 @@ contract CommerceCashback is CampaignHooks {
         if (snapshot.capturableAmount == 0) revert ZeroRewardAllocation();
 
         uint256 amount = _calculateCashback(campaign, snapshot.capturableAmount);
-        emit CashbackDeallocated(campaign, paymentInfoHash, amount);
 
         payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: payment.payer, amount: amount});
+        payouts[0] =
+            Flywheel.Payout({recipient: payment.payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
     }
 
     /// @inheritdoc CampaignHooks

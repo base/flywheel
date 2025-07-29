@@ -135,7 +135,8 @@ contract FlywheelTest is Test {
 
         Flywheel.Payout memory payout = Flywheel.Payout({
             recipient: publisher1,
-            amount: 100e18 // 100 tokens
+            amount: 100e18, // 100 tokens
+            extraData: ""
         });
 
         attributions[0] = AdvertisementConversion.Attribution({
@@ -196,7 +197,8 @@ contract FlywheelTest is Test {
 
         Flywheel.Payout memory payout = Flywheel.Payout({
             recipient: publisher2,
-            amount: 200 * 10 ** 18 // 200 tokens
+            amount: 200 * 10 ** 18, // 200 tokens
+            extraData: ""
         });
 
         attributions[0] = AdvertisementConversion.Attribution({
@@ -254,7 +256,8 @@ contract FlywheelTest is Test {
 
         Flywheel.Payout memory payout = Flywheel.Payout({
             recipient: publisher1,
-            amount: 50 * 10 ** 18 // 50 tokens
+            amount: 50 * 10 ** 18, // 50 tokens
+            extraData: ""
         });
 
         attributions[0] = AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: ""});
@@ -325,7 +328,8 @@ contract FlywheelTest is Test {
 
         Flywheel.Payout memory payout = Flywheel.Payout({
             recipient: publisher1,
-            amount: 100 * 10 ** 18 // 100 tokens
+            amount: 100 * 10 ** 18, // 100 tokens
+            extraData: ""
         });
 
         attributions[0] = AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: ""});

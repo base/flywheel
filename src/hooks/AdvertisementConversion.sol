@@ -410,7 +410,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Create the final payouts array with only unique recipients
         payouts = new Flywheel.Payout[](uniqueCount);
         for (uint256 i = 0; i < uniqueCount; i++) {
-            payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i]});
+            payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: ""});
         }
 
         return (payouts, fee);

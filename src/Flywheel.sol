@@ -40,6 +40,8 @@ contract Flywheel is ReentrancyGuardTransient {
         address recipient;
         /// @dev amount Amount of tokens to be paid out
         uint256 amount;
+        /// @dev extraData Extra data for the payout to attach in events
+        bytes extraData;
     }
 
     /// @notice Implementation address for TokenStore contracts
@@ -86,7 +88,8 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param token Address of the payout token
     /// @param recipient Address receiving the payout
     /// @param amount Amount of tokens rewarded
-    event PayoutRewarded(address indexed campaign, address token, address recipient, uint256 amount);
+    /// @param extraData Extra data for the payout to attach in events
+    event PayoutRewarded(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
 
     /// @notice Emitted when a payout is allocated to a recipient
     ///
@@ -94,7 +97,8 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param token Address of the payout token
     /// @param recipient Address receiving the payout
     /// @param amount Amount of tokens allocated
-    event PayoutAllocated(address indexed campaign, address token, address recipient, uint256 amount);
+    /// @param extraData Extra data for the payout to attach in events
+    event PayoutAllocated(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
 
     /// @notice Emitted when allocated payouts are distributed to a recipient
     ///
@@ -102,7 +106,10 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param token Address of the payout token
     /// @param recipient Address receiving the distribution
     /// @param amount Amount of tokens distributed
-    event PayoutsDistributed(address indexed campaign, address token, address recipient, uint256 amount);
+    /// @param extraData Extra data for the payout to attach in events
+    event PayoutsDistributed(
+        address indexed campaign, address token, address recipient, uint256 amount, bytes extraData
+    );
 
     /// @notice Emitted when allocated payouts are deallocated from a recipient
     ///
@@ -110,7 +117,10 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param token Address of the payout token
     /// @param recipient Address receiving the deallocation
     /// @param amount Amount of tokens deallocated
-    event PayoutsDeallocated(address indexed campaign, address token, address recipient, uint256 amount);
+    /// @param extraData Extra data for the payout to attach in events
+    event PayoutsDeallocated(
+        address indexed campaign, address token, address recipient, uint256 amount, bytes extraData
+    );
 
     /// @notice Emitted when a fee is allocated to a recipient
     ///
@@ -248,7 +258,7 @@ contract Flywheel is ReentrancyGuardTransient {
         for (uint256 i = 0; i < payouts.length; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             TokenStore(campaign).sendTokens(token, recipient, amount);
-            emit PayoutRewarded(campaign, token, recipient, amount);
+            emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
 
@@ -276,7 +286,7 @@ contract Flywheel is ReentrancyGuardTransient {
         for (uint256 i = 0; i < payouts.length; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] += amount;
-            emit PayoutAllocated(campaign, token, recipient, amount);
+            emit PayoutAllocated(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
 
@@ -304,7 +314,7 @@ contract Flywheel is ReentrancyGuardTransient {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] -= amount;
             TokenStore(campaign).sendTokens(token, recipient, amount);
-            emit PayoutsDistributed(campaign, token, recipient, amount);
+            emit PayoutsDistributed(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
 
@@ -325,7 +335,7 @@ contract Flywheel is ReentrancyGuardTransient {
         for (uint256 i = 0; i < payouts.length; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] -= amount;
-            emit PayoutsDeallocated(campaign, token, recipient, amount);
+            emit PayoutsDeallocated(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
 
