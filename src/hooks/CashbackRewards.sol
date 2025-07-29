@@ -39,10 +39,10 @@ contract CashbackRewards is CampaignHooks {
     error Unauthorized();
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
-    error InsufficientAllocatedAmount(uint256 amount, uint256 allocated);
+    error InsufficientAllocatedAmount(uint120 amount, uint120 allocated);
 
     /// @notice Thrown when the amount rewarded exceeds the net captured amount
-    error ExceedsNetCaptured(uint256 amount, uint256 netCaptured);
+    error ExceedsNetCaptured(uint120 amount, uint120 netCaptured);
 
     /// @notice Thrown when the payment amount is invalid
     error ZeroPayoutAmount();
@@ -208,6 +208,7 @@ contract CashbackRewards is CampaignHooks {
     }
 
     /// @dev Parses the hook data and returns the payment info, payment info hash, and payout amount
+    /// @param token Expected token address for validation
     /// @param hookData The hook data
     /// @return paymentInfo The payment info
     /// @return paymentInfoHash The payment info hash
@@ -225,8 +226,9 @@ contract CashbackRewards is CampaignHooks {
 
     /// @notice Creates a Flywheel.Payout array for a given payment and amount
     /// @param paymentInfo Payment info
+    /// @param paymentInfoHash Hash of payment info
     /// @param amount Amount of cashback to reward
-    /// @return payouts Payout
+    /// @return payouts Payout array
     function _createPayouts(AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 amount)
         internal
         pure
