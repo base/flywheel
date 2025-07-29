@@ -4,12 +4,7 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
-import {
-    AdvertisementConversion,
-    ConversionConfig,
-    ConversionConfigStatus,
-    EventType
-} from "../src/hooks/AdvertisementConversion.sol";
+import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -24,6 +19,9 @@ contract FlywheelTest is Test {
     address public owner = address(0x3);
     address public publisher1 = address(0x4);
     address public publisher2 = address(0x5);
+
+    address public publisher1Payout = address(0x6);
+    address public publisher2Payout = address(0x7);
     address public user = address(0x6);
 
     uint16 public constant ATTRIBUTION_FEE_BPS = 500; // 5%
@@ -50,6 +48,22 @@ contract FlywheelTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         publisherRegistry = FlywheelPublisherRegistry(address(proxy));
 
+        // Register publishers with ref codes
+        vm.startPrank(owner);
+        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overrides =
+            new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
+
+        // Register publisher1 with ref code "PUBLISHER_1"
+        publisherRegistry.registerPublisherCustom(
+            "PUBLISHER_1", publisher1, "https://example.com/publisher1", publisher1Payout, overrides
+        );
+
+        // Register publisher2 with ref code "PUBLISHER_2"
+        publisherRegistry.registerPublisherCustom(
+            "PUBLISHER_2", publisher2, "https://example.com/publisher2", publisher2Payout, overrides
+        );
+        vm.stopPrank();
+
         // Deploy hook
         hook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
 
@@ -58,15 +72,15 @@ contract FlywheelTest is Test {
     }
 
     function _createCampaign() internal {
-        ConversionConfig[] memory configs = new ConversionConfig[](2);
-        configs[0] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](2);
+        configs[0] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/offchain"
         });
-        configs[1] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        configs[1] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/onchain"
         });
 
@@ -127,20 +141,13 @@ contract FlywheelTest is Test {
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_123",
             conversionConfigId: 1,
-            publisherRefCode: "",
+            publisherRefCode: "PUBLISHER_1",
             timestamp: uint32(block.timestamp),
-            recipientType: 0,
+            payoutRecipient: address(0),
             payoutAmount: 100e18
         });
 
-        Flywheel.Payout memory payout = Flywheel.Payout({
-            recipient: publisher1,
-            amount: 100e18, // 100 tokens
-            extraData: ""
-        });
-
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: payout,
             conversion: conversion,
             logBytes: "" // Empty for offchain
         });
@@ -155,7 +162,7 @@ contract FlywheelTest is Test {
         uint256 payoutAmount = 100e18;
         uint256 feeAmount = payoutAmount * ATTRIBUTION_FEE_BPS / 10000;
         uint256 expectedPayout = payoutAmount - feeAmount; // Amount minus fee
-        assertEq(token.balanceOf(publisher1), expectedPayout, "Publisher should receive tokens minus fee");
+        assertEq(token.balanceOf(publisher1Payout), expectedPayout, "Publisher should receive tokens minus fee");
 
         // Check attribution provider fee is allocated
         uint256 expectedFee = feeAmount;
@@ -186,23 +193,16 @@ contract FlywheelTest is Test {
             eventId: bytes16(0xabcdef1234567890abcdef1234567890),
             clickId: "click_456",
             conversionConfigId: 2,
-            publisherRefCode: "",
+            publisherRefCode: "PUBLISHER_2",
             timestamp: uint32(block.timestamp),
-            recipientType: 0,
+            payoutRecipient: address(0),
             payoutAmount: 200 * 10 ** 18
         });
 
         AdvertisementConversion.Log memory log =
             AdvertisementConversion.Log({chainId: 1, transactionHash: keccak256("test_transaction"), index: 0});
 
-        Flywheel.Payout memory payout = Flywheel.Payout({
-            recipient: publisher2,
-            amount: 200 * 10 ** 18, // 200 tokens
-            extraData: ""
-        });
-
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: payout,
             conversion: conversion,
             logBytes: abi.encode(log) // Encoded log for onchain
         });
@@ -217,7 +217,7 @@ contract FlywheelTest is Test {
         uint256 payoutAmount2 = 200 * 10 ** 18;
         uint256 feeAmount2 = payoutAmount2 * ATTRIBUTION_FEE_BPS / 10000;
         uint256 expectedPayout = payoutAmount2 - feeAmount2;
-        assertEq(token.balanceOf(publisher2), expectedPayout, "Publisher should receive tokens minus fee");
+        assertEq(token.balanceOf(publisher2Payout), expectedPayout, "Publisher should receive tokens minus fee");
 
         // Check attribution provider fee is allocated
         uint256 expectedFee = feeAmount2;
@@ -229,6 +229,8 @@ contract FlywheelTest is Test {
     }
 
     function test_distributeAndWithdraw() public {
+        address payoutRecipient = address(0x1222);
+
         // Activate campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
@@ -250,17 +252,11 @@ contract FlywheelTest is Test {
             conversionConfigId: 1,
             publisherRefCode: "",
             timestamp: uint32(block.timestamp),
-            recipientType: 0,
+            payoutRecipient: payoutRecipient,
             payoutAmount: 50 * 10 ** 18
         });
 
-        Flywheel.Payout memory payout = Flywheel.Payout({
-            recipient: publisher1,
-            amount: 50 * 10 ** 18, // 50 tokens
-            extraData: ""
-        });
-
-        attributions[0] = AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: ""});
+        attributions[0] = AdvertisementConversion.Attribution({conversion: conversion, logBytes: ""});
 
         bytes memory attributionData = abi.encode(attributions);
 
@@ -268,11 +264,11 @@ contract FlywheelTest is Test {
         vm.prank(attributionProvider);
         flywheel.reward(campaign, address(token), attributionData);
 
-        // Verify publisher received tokens
+        // Verify payoutRecipient received tokens
         uint256 payoutAmount3 = 50 * 10 ** 18;
         uint256 feeAmount3 = payoutAmount3 * ATTRIBUTION_FEE_BPS / 10000;
         uint256 expectedPayout = payoutAmount3 - feeAmount3;
-        assertEq(token.balanceOf(publisher1), expectedPayout, "Publisher should receive tokens minus fee");
+        assertEq(token.balanceOf(payoutRecipient), expectedPayout, "Payout recipient should receive tokens minus fee");
 
         // Finalize campaign
         vm.startPrank(attributionProvider);
@@ -301,6 +297,8 @@ contract FlywheelTest is Test {
     }
 
     function test_collectFees() public {
+        address payoutRecipient = address(0x1222);
+
         // Activate campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
@@ -322,17 +320,11 @@ contract FlywheelTest is Test {
             conversionConfigId: 1,
             publisherRefCode: "",
             timestamp: uint32(block.timestamp),
-            recipientType: 0,
+            payoutRecipient: payoutRecipient,
             payoutAmount: 100 * 10 ** 18
         });
 
-        Flywheel.Payout memory payout = Flywheel.Payout({
-            recipient: publisher1,
-            amount: 100 * 10 ** 18, // 100 tokens
-            extraData: ""
-        });
-
-        attributions[0] = AdvertisementConversion.Attribution({payout: payout, conversion: conversion, logBytes: ""});
+        attributions[0] = AdvertisementConversion.Attribution({conversion: conversion, logBytes: ""});
 
         bytes memory attributionData = abi.encode(attributions);
 
