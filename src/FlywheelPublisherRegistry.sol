@@ -163,6 +163,10 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, Ownable2St
             revert RefCodeAlreadyTaken();
         }
 
+        if (_publisherOwner == address(0) || _defaultPayout == address(0)) {
+            revert InvalidAddress();
+        }
+
         // validate ref code uniqueness
         publishers[_refCode].owner = _publisherOwner;
         publishers[_refCode].metadataUrl = _metadataUrl;
@@ -181,6 +185,9 @@ contract FlywheelPublisherRegistry is Initializable, UUPSUpgradeable, Ownable2St
     /// @param _newOwner New owner address
     /// @dev Only callable by current publisher owner
     function updatePublisherOwner(string memory _refCode, address _newOwner) external onlyPublisher(_refCode) {
+        if (_newOwner == address(0)) {
+            revert InvalidAddress();
+        }
         publishers[_refCode].owner = _newOwner;
         emit UpdatedPublisherOwner(_refCode, _newOwner);
     }

@@ -525,6 +525,16 @@ contract FlywheelPublisherRegistryTest is Test {
         assertEq(registeredMetadataUrl, newMetadataUrl, "New owner's update failed");
     }
 
+    function test_updatePublisherOwner_RevertOnZeroAddress() public {
+        (string memory refCode,) = registerDefaultPublisher();
+
+        // Try to update owner to address(0)
+        vm.startPrank(publisherOwner);
+        vm.expectRevert(InvalidAddress.selector);
+        pubRegistry.updatePublisherOwner(refCode, address(0));
+        vm.stopPrank();
+    }
+
     function test_getPublisherPayoutAddress_WithOverride() public {
         (string memory refCode,) = registerDefaultPublisher();
 

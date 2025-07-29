@@ -87,7 +87,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
-    /// @notice Maximum number of conversion configs per campaign (255 since we use uint8)
+    /// @notice Maximum number of conversion configs per campaign (255 since we use uint8, IDs are 1-indexed)
     uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
 
     /// @notice Maximum attribution deadline duration (30 days)
@@ -150,6 +150,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Error thrown when conversion config is disabled
     error ConversionConfigDisabled();
 
+    /// @notice Error thrown when conversion type doesn't match config
+    error InvalidConversionType();
+
     /// @notice Error thrown when trying to add too many conversion configs
     error TooManyConversionConfigs();
 
@@ -160,6 +163,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     event ConversionConfigStatusChanged(
         address indexed campaign, uint8 indexed configId, ConversionConfigStatus status
     );
+
+    /// @notice Emitted when conversion config metadata is updated
+    event ConversionConfigMetadataUpdated(address indexed campaign, uint8 indexed configId);
 
     /// @notice Emitted when attribution deadline duration is updated
     ///
@@ -257,7 +263,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Store conversion configs
         conversionConfigCount[campaign] = uint8(configs.length);
         for (uint8 i = 0; i < configs.length; i++) {
-            conversionConfigs[campaign][i] = configs[i];
+            conversionConfigs[campaign][i + 1] = configs[i];
         }
     }
 
@@ -314,8 +320,12 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         // Decode only the attributions from hookData
         Attribution[] memory attributions = abi.decode(hookData, (Attribution[]));
 
+        // Arrays to track unique recipients and their accumulated amounts
+        address[] memory recipients = new address[](attributions.length);
+        uint256[] memory amounts = new uint256[](attributions.length);
+        uint256 uniqueCount = 0;
+
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
-        payouts = new Flywheel.Payout[](attributions.length);
         for (uint256 i = 0; i < attributions.length; i++) {
             // Validate publisher ref code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
@@ -332,13 +342,22 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
             // Validate conversion config
             uint8 configId = attributions[i].conversion.conversionConfigId;
-            if (configId >= conversionConfigCount[campaign]) {
+            if (configId == 0 || configId > conversionConfigCount[campaign]) {
                 revert InvalidConversionConfigId();
             }
 
             ConversionConfig memory config = conversionConfigs[campaign][configId];
             if (config.status == ConversionConfigStatus.DISABLED) {
                 revert ConversionConfigDisabled();
+            }
+
+            // Validate that the conversion type matches the config
+            bytes memory logBytes = attributions[i].logBytes;
+            if (config.eventType == EventType.ONCHAIN && logBytes.length == 0) {
+                revert InvalidConversionType();
+            }
+            if (config.eventType == EventType.OFFCHAIN && logBytes.length > 0) {
+                revert InvalidConversionType();
             }
 
             // Determine the correct payout address
@@ -359,10 +378,26 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             Flywheel.Payout memory payout = attributions[i].payout;
             uint256 attributionFee = (payout.amount * feeBps) / MAX_BPS;
             fee += attributionFee;
-            payouts[i] = Flywheel.Payout({recipient: payoutAddress, amount: payout.amount - attributionFee});
+            uint256 netAmount = payout.amount - attributionFee;
+
+            // Find if this payoutAddress already exists in our tracking arrays
+            bool found = false;
+            for (uint256 j = 0; j < uniqueCount; j++) {
+                if (recipients[j] == payoutAddress) {
+                    amounts[j] += netAmount;
+                    found = true;
+                    break;
+                }
+            }
+
+            // If not found, add as new recipient
+            if (!found && netAmount > 0) {
+                recipients[uniqueCount] = payoutAddress;
+                amounts[uniqueCount] = netAmount;
+                uniqueCount++;
+            }
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
-            bytes memory logBytes = attributions[i].logBytes;
             Conversion memory conversion = attributions[i].conversion;
 
             if (logBytes.length > 0) {
@@ -370,6 +405,12 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             } else {
                 emit OffchainConversionProcessed(campaign, conversion);
             }
+        }
+
+        // Create the final payouts array with only unique recipients
+        payouts = new Flywheel.Payout[](uniqueCount);
+        for (uint256 i = 0; i < uniqueCount; i++) {
+            payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: ""});
         }
 
         return (payouts, fee);
@@ -440,10 +481,11 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         if (currentCount >= type(uint8).max) revert TooManyConversionConfigs();
 
         // Add the new config
-        conversionConfigs[campaign][currentCount] = config;
-        conversionConfigCount[campaign] = currentCount + 1;
+        uint8 newConfigId = currentCount + 1;
+        conversionConfigs[campaign][newConfigId] = config;
+        conversionConfigCount[campaign] = newConfigId;
 
-        emit ConversionConfigAdded(campaign, currentCount, config);
+        emit ConversionConfigAdded(campaign, newConfigId, config);
     }
 
     /// @notice Disables a conversion config for a campaign
@@ -453,7 +495,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     function disableConversionConfig(address campaign, uint8 configId) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
-        if (configId >= conversionConfigCount[campaign]) {
+        if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
 
@@ -463,12 +505,32 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         emit ConversionConfigStatusChanged(campaign, configId, ConversionConfigStatus.DISABLED);
     }
 
+    /// @notice Signals that conversion config metadata has been updated
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config that was updated
+    /// @dev Only advertiser or attribution provider can signal metadata updates
+    /// @dev Indexers should update their metadata cache for this conversion config
+    function updateConversionConfigMetadata(address campaign, uint8 configId) external {
+        // Check authorization - either advertiser or attribution provider
+        if (msg.sender != state[campaign].advertiser && msg.sender != state[campaign].attributionProvider) {
+            revert Unauthorized();
+        }
+
+        // Validate config exists
+        if (configId == 0 || configId > conversionConfigCount[campaign]) {
+            revert InvalidConversionConfigId();
+        }
+
+        // Emit event to signal metadata update
+        emit ConversionConfigMetadataUpdated(campaign, configId);
+    }
+
     /// @notice Gets a conversion config for a campaign
     /// @param campaign Address of the campaign
     /// @param configId The ID of the conversion config
     /// @return The conversion config
     function getConversionConfig(address campaign, uint8 configId) external view returns (ConversionConfig memory) {
-        if (configId >= conversionConfigCount[campaign]) {
+        if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
         return conversionConfigs[campaign][configId];
