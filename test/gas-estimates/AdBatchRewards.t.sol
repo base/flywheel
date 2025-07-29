@@ -4,12 +4,7 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../../src/FlywheelPublisherRegistry.sol";
-import {
-    AdvertisementConversion,
-    ConversionConfig,
-    ConversionConfigStatus,
-    EventType
-} from "../../src/hooks/AdvertisementConversion.sol";
+import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -65,20 +60,20 @@ contract AdBatchRewardsTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create campaign with 3 conversion configs (2 onchain, 1 offchain)
-        ConversionConfig[] memory configs = new ConversionConfig[](3);
-        configs[0] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](3);
+        configs[0] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: ONCHAIN_CONFIG_1_URL
         });
-        configs[1] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        configs[1] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: ONCHAIN_CONFIG_2_URL
         });
-        configs[2] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        configs[2] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL
         });
 
@@ -122,14 +117,13 @@ contract AdBatchRewardsTest is Test {
         string memory clickId = string(abi.encodePacked(clickIdPrefix, vm.toString(uint256(hash))));
 
         return AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisherTba, amount: PAYOUT_PER_EVENT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
                 conversionConfigId: configId,
                 publisherRefCode: PUBLISHER_REF_CODE,
                 timestamp: uint32(block.timestamp),
-                recipientType: RECIPIENT_TYPE_PUBLISHER, // we are testing publisher rewards only here
+                payoutRecipient: publisherTba,
                 payoutAmount: PAYOUT_PER_EVENT
             }),
             logBytes: isOffchain
@@ -150,7 +144,6 @@ contract AdBatchRewardsTest is Test {
         uint8 configId,
         uint256 txHashSeed,
         address recipient,
-        uint8 recipientType,
         string memory refCode
     ) internal view returns (AdvertisementConversion.Attribution memory) {
         bool isOffchain = (configId == 3);
@@ -160,14 +153,13 @@ contract AdBatchRewardsTest is Test {
         string memory clickId = string(abi.encodePacked(clickIdPrefix, "0x", _toHexString(uint256(hash))));
 
         return AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: recipient, amount: PAYOUT_PER_EVENT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
                 conversionConfigId: configId,
                 publisherRefCode: refCode,
                 timestamp: uint32(block.timestamp),
-                recipientType: recipientType,
+                payoutRecipient: recipient,
                 payoutAmount: PAYOUT_PER_EVENT
             }),
             logBytes: isOffchain
@@ -279,20 +271,20 @@ contract AdBatchRewardsTest is Test {
         }
 
         // Create a new campaign that allows all publishers (empty allowedRefCodes = allow all)
-        ConversionConfig[] memory configs = new ConversionConfig[](3);
-        configs[0] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](3);
+        configs[0] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: ONCHAIN_CONFIG_1_URL
         });
-        configs[1] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        configs[1] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: ONCHAIN_CONFIG_2_URL
         });
-        configs[2] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        configs[2] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL
         });
 
@@ -320,14 +312,13 @@ contract AdBatchRewardsTest is Test {
                 publisherIndex == 0 ? PUBLISHER_REF_CODE : string(abi.encodePacked("pub_", vm.toString(publisherIndex)));
 
             attributions[i] = AdvertisementConversion.Attribution({
-                payout: Flywheel.Payout({recipient: publishers[publisherIndex], amount: PAYOUT_PER_EVENT, extraData: ""}),
                 conversion: AdvertisementConversion.Conversion({
                     eventId: bytes16(uint128(i + 1)),
                     clickId: string(abi.encodePacked("click_", vm.toString(i))),
                     conversionConfigId: configId,
                     publisherRefCode: refCode,
                     timestamp: uint32(block.timestamp),
-                    recipientType: 0,
+                    payoutRecipient: address(0),
                     payoutAmount: PAYOUT_PER_EVENT
                 }),
                 logBytes: configId == 3
@@ -389,20 +380,20 @@ contract AdBatchRewardsTest is Test {
         uint256 numEvents = 1000;
 
         // Create a new campaign that allows all publishers
-        ConversionConfig[] memory configs = new ConversionConfig[](3);
-        configs[0] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](3);
+        configs[0] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: ONCHAIN_CONFIG_1_URL
         });
-        configs[1] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        configs[1] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: ONCHAIN_CONFIG_2_URL
         });
-        configs[2] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        configs[2] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL
         });
 
@@ -434,7 +425,6 @@ contract AdBatchRewardsTest is Test {
                 configId,
                 i + 1,
                 uniqueUsers[i], // Each event pays a different user
-                RECIPIENT_TYPE_USER, // User recipients (type 2)
                 PUBLISHER_REF_CODE
             );
         }

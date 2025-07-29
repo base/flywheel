@@ -7,12 +7,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 import {Flywheel} from "../src/Flywheel.sol";
 import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
-import {
-    AdvertisementConversion,
-    ConversionConfig,
-    ConversionConfigStatus,
-    EventType
-} from "../src/hooks/AdvertisementConversion.sol";
+import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {TokenStore} from "../src/TokenStore.sol";
 
@@ -131,15 +126,15 @@ contract AdFlowTest is Test {
         string[] memory allowedRefCodes = new string[](0);
 
         // Create conversion configs
-        ConversionConfig[] memory configs = new ConversionConfig[](2);
-        configs[0] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](2);
+        configs[0] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: "https://campaign.com/offchain-metadata"
         });
-        configs[1] = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.ONCHAIN,
+        configs[1] = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: true,
             conversionMetadataUrl: "https://campaign.com/onchain-metadata"
         });
 
@@ -180,14 +175,13 @@ contract AdFlowTest is Test {
 
         // Attribution for publisher 1
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 conversionConfigId: 1,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
-                recipientType: 1,
+                payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
             }),
             logBytes: "" // Offchain conversion
@@ -195,14 +189,13 @@ contract AdFlowTest is Test {
 
         // Attribution for publisher 2
         attributions[1] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher2, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(2)),
                 clickId: "click_456",
                 conversionConfigId: 1,
                 publisherRefCode: pub2RefCode,
                 timestamp: uint32(block.timestamp),
-                recipientType: 1,
+                payoutRecipient: publisher2,
                 payoutAmount: ATTRIBUTION_AMOUNT
             }),
             logBytes: "" // Offchain conversion
@@ -267,14 +260,13 @@ contract AdFlowTest is Test {
             AdvertisementConversion.Log({chainId: block.chainid, transactionHash: keccak256("test_tx"), index: 0});
 
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "onchain_click_123",
                 conversionConfigId: 2,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
-                recipientType: 1,
+                payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
             }),
             logBytes: abi.encode(logData)
@@ -311,14 +303,13 @@ contract AdFlowTest is Test {
         // Try to allocate as unauthorized provider
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 conversionConfigId: 1,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
-                recipientType: 1,
+                payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
             }),
             logBytes: ""
@@ -355,9 +346,9 @@ contract AdFlowTest is Test {
 
     function test_conversionConfigManagement() public {
         // Test adding a new conversion config
-        ConversionConfig memory newConfig = ConversionConfig({
-            status: ConversionConfigStatus.ACTIVE,
-            eventType: EventType.OFFCHAIN,
+        AdvertisementConversion.ConversionConfig memory newConfig = AdvertisementConversion.ConversionConfig({
+            isActive: true,
+            isEventOnchain: false,
             conversionMetadataUrl: "https://campaign.com/new-config-metadata"
         });
 
@@ -369,21 +360,21 @@ contract AdFlowTest is Test {
         vm.stopPrank();
 
         // Verify the new config was added
-        ConversionConfig memory retrievedConfig = adHook.getConversionConfig(campaign, 3);
-        assertEq(uint8(retrievedConfig.status), uint8(ConversionConfigStatus.ACTIVE));
-        assertEq(uint8(retrievedConfig.eventType), uint8(EventType.OFFCHAIN));
+        AdvertisementConversion.ConversionConfig memory retrievedConfig = adHook.getConversionConfig(campaign, 3);
+        assertEq(retrievedConfig.isActive, true);
+        assertEq(retrievedConfig.isEventOnchain, false);
         assertEq(retrievedConfig.conversionMetadataUrl, "https://campaign.com/new-config-metadata");
 
         // Test disabling a conversion config
         vm.startPrank(advertiser);
         vm.expectEmit(true, true, false, true);
-        emit AdvertisementConversion.ConversionConfigStatusChanged(campaign, 1, ConversionConfigStatus.DISABLED);
+        emit AdvertisementConversion.ConversionConfigStatusChanged(campaign, 1, false);
         adHook.disableConversionConfig(campaign, 1);
         vm.stopPrank();
 
         // Verify the config was disabled
-        ConversionConfig memory disabledConfig = adHook.getConversionConfig(campaign, 1);
-        assertEq(uint8(disabledConfig.status), uint8(ConversionConfigStatus.DISABLED));
+        AdvertisementConversion.ConversionConfig memory disabledConfig = adHook.getConversionConfig(campaign, 1);
+        assertEq(disabledConfig.isActive, false);
 
         // Test that unauthorized users cannot manage configs
         vm.startPrank(makeAddr("unauthorized"));
@@ -401,14 +392,13 @@ contract AdFlowTest is Test {
 
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_disabled_config",
                 conversionConfigId: 1, // This config was disabled
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
-                recipientType: 1,
+                payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
             }),
             logBytes: ""
