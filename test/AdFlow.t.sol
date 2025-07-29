@@ -180,7 +180,7 @@ contract AdFlowTest is Test {
 
         // Attribution for publisher 1
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
+            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
@@ -195,7 +195,7 @@ contract AdFlowTest is Test {
 
         // Attribution for publisher 2
         attributions[1] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher2, amount: ATTRIBUTION_AMOUNT}),
+            payout: Flywheel.Payout({recipient: publisher2, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(2)),
                 clickId: "click_456",
@@ -267,7 +267,7 @@ contract AdFlowTest is Test {
             AdvertisementConversion.Log({chainId: block.chainid, transactionHash: keccak256("test_tx"), index: 0});
 
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
+            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "onchain_click_123",
@@ -311,7 +311,7 @@ contract AdFlowTest is Test {
         // Try to allocate as unauthorized provider
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
+            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
@@ -401,7 +401,7 @@ contract AdFlowTest is Test {
 
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT}),
+            payout: Flywheel.Payout({recipient: publisher1, amount: ATTRIBUTION_AMOUNT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_disabled_config",

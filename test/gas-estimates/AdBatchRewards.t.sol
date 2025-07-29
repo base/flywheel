@@ -122,7 +122,7 @@ contract AdBatchRewardsTest is Test {
         string memory clickId = string(abi.encodePacked(clickIdPrefix, vm.toString(uint256(hash))));
 
         return AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: publisherTba, amount: PAYOUT_PER_EVENT}),
+            payout: Flywheel.Payout({recipient: publisherTba, amount: PAYOUT_PER_EVENT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
@@ -160,7 +160,7 @@ contract AdBatchRewardsTest is Test {
         string memory clickId = string(abi.encodePacked(clickIdPrefix, "0x", _toHexString(uint256(hash))));
 
         return AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: recipient, amount: PAYOUT_PER_EVENT}),
+            payout: Flywheel.Payout({recipient: recipient, amount: PAYOUT_PER_EVENT, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
@@ -320,7 +320,7 @@ contract AdBatchRewardsTest is Test {
                 publisherIndex == 0 ? PUBLISHER_REF_CODE : string(abi.encodePacked("pub_", vm.toString(publisherIndex)));
 
             attributions[i] = AdvertisementConversion.Attribution({
-                payout: Flywheel.Payout({recipient: publishers[publisherIndex], amount: PAYOUT_PER_EVENT}),
+                payout: Flywheel.Payout({recipient: publishers[publisherIndex], amount: PAYOUT_PER_EVENT, extraData: ""}),
                 conversion: AdvertisementConversion.Conversion({
                     eventId: bytes16(uint128(i + 1)),
                     clickId: string(abi.encodePacked("click_", vm.toString(i))),

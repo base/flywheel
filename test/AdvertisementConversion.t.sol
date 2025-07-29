@@ -127,7 +127,7 @@ contract AdvertisementConversionTest is Test {
         // Create attribution with logBytes for ONCHAIN config
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether}),
+            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
@@ -164,7 +164,7 @@ contract AdvertisementConversionTest is Test {
         // Create attribution without logBytes for OFFCHAIN config
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether}),
+            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
@@ -195,7 +195,7 @@ contract AdvertisementConversionTest is Test {
         // Create attribution without logBytes for ONCHAIN config (invalid)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether}),
+            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
@@ -220,7 +220,7 @@ contract AdvertisementConversionTest is Test {
         // Create attribution with logBytes for OFFCHAIN config (invalid)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether}),
+            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
@@ -247,7 +247,7 @@ contract AdvertisementConversionTest is Test {
         // Create attribution with config ID 0 (invalid in 1-indexed system)
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
         attributions[0] = AdvertisementConversion.Attribution({
-            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether}),
+            payout: Flywheel.Payout({recipient: randomUser, amount: 100 ether, extraData: ""}),
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
