@@ -42,6 +42,18 @@ contract AdvertisementConversionTest is Test {
         initialHolders[0] = address(this);
         token = new DummyERC20(initialHolders);
 
+        // Register randomUser as a publisher with ref code
+        vm.prank(owner);
+        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overrides =
+            new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
+        publisherRegistry.registerPublisherCustom(
+            "TEST_REF_CODE",
+            randomUser,
+            "https://example.com/publisher",
+            randomUser, // default payout address
+            overrides
+        );
+
         // Create a campaign with conversion configs
         AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](2);
         configs[0] = AdvertisementConversion.ConversionConfig({
@@ -126,7 +138,7 @@ contract AdvertisementConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // ONCHAIN config (1-indexed)
-                publisherRefCode: "",
+                publisherRefCode: "TEST_REF_CODE",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -162,7 +174,7 @@ contract AdvertisementConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2, // OFFCHAIN config (1-indexed)
-                publisherRefCode: "",
+                publisherRefCode: "TEST_REF_CODE",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
