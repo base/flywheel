@@ -290,6 +290,27 @@ contract Flywheel is ReentrancyGuardTransient {
         }
     }
 
+    /// @notice Deallocates allocated payouts from a recipient for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to deallocate
+    /// @param hookData Data for the campaign hook
+    function deallocate(address campaign, address token, bytes calldata hookData)
+        external
+        nonReentrant
+        campaignExists(campaign)
+        acceptingPayouts(campaign)
+    {
+        Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
+
+        totalReserved[campaign][token] -= _sumAmounts(payouts);
+        for (uint256 i = 0; i < payouts.length; i++) {
+            (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
+            allocations[campaign][token][recipient] -= amount;
+            emit PayoutsDeallocated(campaign, token, recipient, amount, payouts[i].extraData);
+        }
+    }
+
     /// @notice Distributes allocated payouts to a recipient for a campaign
     ///
     /// @param campaign Address of the campaign
@@ -315,27 +336,6 @@ contract Flywheel is ReentrancyGuardTransient {
             allocations[campaign][token][recipient] -= amount;
             TokenStore(campaign).sendTokens(token, recipient, amount);
             emit PayoutsDistributed(campaign, token, recipient, amount, payouts[i].extraData);
-        }
-    }
-
-    /// @notice Deallocates allocated payouts from a recipient for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param token Address of the token to deallocate
-    /// @param hookData Data for the campaign hook
-    function deallocate(address campaign, address token, bytes calldata hookData)
-        external
-        nonReentrant
-        campaignExists(campaign)
-        acceptingPayouts(campaign)
-    {
-        Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
-
-        totalReserved[campaign][token] -= _sumAmounts(payouts);
-        for (uint256 i = 0; i < payouts.length; i++) {
-            (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
-            allocations[campaign][token][recipient] -= amount;
-            emit PayoutsDeallocated(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
 

@@ -107,6 +107,21 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
+    /// @notice Deallocates allocated payouts from a recipient for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to deallocate
+    /// @param hookData Data for the campaign hook
+    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        revert Unsupported();
+    }
+
     /// @notice Distributes payouts for a campaign
     ///
     /// @param sender Address of the sender
@@ -123,21 +138,6 @@ abstract contract CampaignHooks {
         virtual
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
-    {
-        revert Unsupported();
-    }
-
-    /// @notice Deallocates allocated payouts from a recipient for a campaign
-    ///
-    /// @param sender Address of the sender
-    /// @param campaign Address of the campaign
-    /// @param token Address of the token to deallocate
-    /// @param hookData Data for the campaign hook
-    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
-        external
-        virtual
-        onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts)
     {
         revert Unsupported();
     }

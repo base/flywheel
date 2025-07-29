@@ -26,6 +26,9 @@ contract CashbackRewards is CampaignHooks {
     /// @notice Managers of the campaigns
     mapping(address campaign => address manager) public managers;
 
+    /// @notice Mapping of campaign addresses to their URI
+    mapping(address campaign => string uri) public override campaignURI;
+
     /// @notice Tracks rewards info per payment per campaign
     mapping(bytes32 paymentHash => mapping(address campaign => RewardsInfo info)) public rewardsInfo;
 
@@ -64,7 +67,9 @@ contract CashbackRewards is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        managers[campaign] = abi.decode(hookData, (address));
+        (address manager, string memory uri) = abi.decode(hookData, (address, string));
+        managers[campaign] = manager;
+        campaignURI[campaign] = uri;
     }
 
     /// @inheritdoc CampaignHooks
@@ -117,6 +122,22 @@ contract CashbackRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
+    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        onlyManager(sender, campaign)
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
+            _parseHookData(token, hookData);
+
+        _deallocate(paymentInfoHash, campaign, payoutAmount);
+
+        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount));
+    }
+
+    /// @inheritdoc CampaignHooks
     function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
@@ -131,22 +152,6 @@ contract CashbackRewards is CampaignHooks {
         _distribute(paymentInfoHash, campaign, payoutAmount);
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
-    }
-
-    /// @inheritdoc CampaignHooks
-    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-        onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts)
-    {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
-            _parseHookData(token, hookData);
-
-        _deallocate(paymentInfoHash, campaign, payoutAmount);
-
-        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount));
     }
 
     /// @inheritdoc CampaignHooks
