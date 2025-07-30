@@ -14,8 +14,8 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 contract FlywheelPublisherRegistry is
     Initializable,
     AccessControlUpgradeable,
-    UUPSUpgradeable,
-    Ownable2StepUpgradeable
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable
 {
     /// @notice Information about a registered publisher
     struct Publisher {
@@ -59,11 +59,11 @@ contract FlywheelPublisherRegistry is
         address indexed owner, address indexed defaultPayout, string refCode, string metadataUrl, bool isCustom
     );
 
-    /// @notice Emitted when a publisher's default payout address is updated
+    /// @notice Emitted when a publisher's owner is updated
     ///
     /// @param refCode Referral code for the publisher
-    /// @param payoutAddress New default payout address for all chains
-    event UpdatePublisherDefaultPayoutAddress(string refCode, address payoutAddress);
+    /// @param newOwner New owner address
+    event UpdatedPublisherOwner(string refCode, address newOwner);
 
     /// @notice Emitted when a publisher's metadata URL is updated
     ///
@@ -71,11 +71,11 @@ contract FlywheelPublisherRegistry is
     /// @param metadataUrl New URL containing metadata info
     event UpdateMetadataUrl(string refCode, string metadataUrl);
 
-    /// @notice Emitted when a publisher's owner is updated
+    /// @notice Emitted when a publisher's default payout address is updated
     ///
     /// @param refCode Referral code for the publisher
-    /// @param newOwner New owner address
-    event UpdatedPublisherOwner(string refCode, address newOwner);
+    /// @param payoutAddress New default payout address for all chains
+    event UpdatePublisherDefaultPayoutAddress(string refCode, address payoutAddress);
 
     /// @notice Thrown when caller doesn't have required permissions
     error Unauthorized();
@@ -131,14 +131,7 @@ contract FlywheelPublisherRegistry is
             refCode = getRefCode(nextPublisherNonce);
         } while (_getRegistryStorage().publishers[refCode].owner != address(0));
 
-        Publisher storage publisher = _getRegistryStorage().publishers[refCode];
-
-        publisher.owner = msg.sender;
-        publisher.metadataUrl = _metadataUrl;
-        publisher.defaultPayout = _defaultPayout;
-
-        emit PublisherRegistered(msg.sender, _defaultPayout, refCode, _metadataUrl, false);
-
+        _register(refCode, msg.sender, _metadataUrl, _defaultPayout);
         return (refCode, nextPublisherNonce);
     }
 
@@ -157,20 +150,7 @@ contract FlywheelPublisherRegistry is
         // Check sender is signer (owner has all roles)
         _checkRole(SIGNER_ROLE, msg.sender);
 
-        // Validate addresses
-        if (_publisherOwner == address(0) || _defaultPayout == address(0)) revert InvalidAddress();
-
-        Publisher storage publisher = _getRegistryStorage().publishers[_refCode];
-
-        // Check if ref code is already taken
-        if (publisher.owner != address(0)) revert RefCodeAlreadyTaken();
-
-        // set publisher data
-        publisher.owner = _publisherOwner;
-        publisher.metadataUrl = _metadataUrl;
-        publisher.defaultPayout = _defaultPayout;
-
-        emit PublisherRegistered(_publisherOwner, _defaultPayout, _refCode, _metadataUrl, true);
+        _register(_refCode, _publisherOwner, _metadataUrl, _defaultPayout);
     }
 
     /// @notice Updates the owner of a publisher
@@ -273,6 +253,31 @@ contract FlywheelPublisherRegistry is
     /// @dev Overrides OpenZeppelin's renounceOwnership to prevent accidental calls
     function renounceOwnership() public pure override {
         revert OwnershipRenunciationDisabled();
+    }
+
+    /// @notice Registers a new publisher
+    ///
+    /// @param _refCode Ref code of the publisher
+    /// @param _publisherOwner Owner of the publisher
+    /// @param _metadataUrl URL containing publisher's metadata
+    /// @param _defaultPayout Default payout address for all chains
+    function _register(
+        string memory _refCode,
+        address _publisherOwner,
+        string memory _metadataUrl,
+        address _defaultPayout
+    ) internal {
+        // Validate addresses
+        if (_publisherOwner == address(0) || _defaultPayout == address(0)) revert InvalidAddress();
+
+        // Check if ref code is already taken
+        Publisher storage publisher = _getRegistryStorage().publishers[_refCode];
+        if (publisher.owner != address(0)) revert RefCodeAlreadyTaken();
+
+        publisher.owner = _publisherOwner;
+        publisher.metadataUrl = _metadataUrl;
+        publisher.defaultPayout = _defaultPayout;
+        emit PublisherRegistered(_publisherOwner, _defaultPayout, _refCode, _metadataUrl, true);
     }
 
     /// @notice Authorization for upgrades
