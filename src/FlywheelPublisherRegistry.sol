@@ -59,6 +59,7 @@ contract FlywheelPublisherRegistry is
     }
 
     /// @notice EIP-712 storage structure for registry data
+    /// @custom:storage-location erc7201:flywheel.publisher.registry.publishers
     struct RegistryStorage {
         mapping(string refCode => Publisher publisher) publishers;
     }
@@ -91,14 +92,6 @@ contract FlywheelPublisherRegistry is
         _;
     }
 
-    /// @notice Ensures caller is either the owner or has SIGNER_ROLE
-    modifier onlyOwnerOrSigner() {
-        bool isOwner = msg.sender == owner();
-        bool hasSigner = hasRole(SIGNER_ROLE, msg.sender);
-        if (!isOwner && !hasSigner) revert Unauthorized();
-        _;
-    }
-
     /// @notice Registers a new publisher in the system
     /// @param _metadataUrl URL containing publisher's metadata
     /// @param _defaultPayout Default payout address for all chains
@@ -128,7 +121,10 @@ contract FlywheelPublisherRegistry is
         address _publisherOwner,
         string memory _metadataUrl,
         address _defaultPayout
-    ) external onlyOwnerOrSigner {
+    ) external {
+        // Check sender is signer (owner has all roles)
+        _checkRole(SIGNER_ROLE, msg.sender);
+
         Publisher storage publisher = _getRegistryStorage().publishers[_refCode];
 
         // check if ref code is already taken
