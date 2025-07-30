@@ -5,7 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
-import {FlywheelPublisherRegistry} from "../FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../ReferralCodeRegistry.sol";
 
 /// @title AdvertisementConversion
 ///
@@ -83,7 +83,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     uint48 public constant MAX_ATTRIBUTION_DEADLINE_DURATION = 30 days;
 
     /// @notice Address of the publisher registry contract
-    FlywheelPublisherRegistry public immutable publisherRegistry;
+    ReferralCodeRegistry public immutable publisherRegistry;
 
     /// @notice Attribution deadline duration (configurable by owner)
     uint48 public attributionDeadlineDuration;
@@ -173,7 +173,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     error InvalidAttributionDeadlineDuration(uint48 duration);
 
     /// @notice Error thrown when an invalid address is provided
-    error InvalidAddress();
+    error ZeroAddress();
 
     /// @notice Constructor for ConversionAttestation
     ///
@@ -184,9 +184,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         CampaignHooks(protocol_)
         Ownable(owner_)
     {
-        if (publisherRegistry_ == address(0)) revert InvalidAddress();
+        if (publisherRegistry_ == address(0)) revert ZeroAddress();
         attributionDeadlineDuration = 7 days; // Set default to 7 days
-        publisherRegistry = FlywheelPublisherRegistry(publisherRegistry_);
+        publisherRegistry = ReferralCodeRegistry(publisherRegistry_);
     }
 
     /// @notice Updates the attribution deadline duration
@@ -315,7 +315,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         for (uint256 i = 0; i < attributions.length; i++) {
             // Validate publisher ref code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
-            if (bytes(publisherRefCode).length > 0 && !publisherRegistry.publisherExists(publisherRefCode)) {
+            if (bytes(publisherRefCode).length > 0 && !publisherRegistry.isReferralCodeRegistered(publisherRefCode)) {
                 revert InvalidPublisherRefCode();
             }
 
@@ -347,7 +347,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
             // If the recipient is the zero address, we use the publisher registry to get the payout address
             if (payoutAddress == address(0)) {
-                payoutAddress = publisherRegistry.getPublisherPayoutAddress(publisherRefCode);
+                payoutAddress = publisherRegistry.getPayoutRecipient(publisherRefCode);
                 attributions[i].conversion.payoutRecipient = payoutAddress;
             }
 
@@ -413,7 +413,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         if (bytes(refCode).length == 0) revert InvalidPublisherRefCode();
 
         // Validate publisher exists in registry
-        if (!publisherRegistry.publisherExists(refCode)) {
+        if (!publisherRegistry.isReferralCodeRegistered(refCode)) {
             revert InvalidPublisherRefCode();
         }
 

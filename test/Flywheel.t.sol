@@ -3,14 +3,14 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract FlywheelTest is Test {
     Flywheel public flywheel;
-    FlywheelPublisherRegistry public publisherRegistry;
+    ReferralCodeRegistry public publisherRegistry;
     AdvertisementConversion public hook;
     DummyERC20 public token;
 
@@ -39,27 +39,23 @@ contract FlywheelTest is Test {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        FlywheelPublisherRegistry impl = new FlywheelPublisherRegistry();
+        ReferralCodeRegistry impl = new ReferralCodeRegistry();
         bytes memory initData = abi.encodeWithSelector(
-            FlywheelPublisherRegistry.initialize.selector,
+            ReferralCodeRegistry.initialize.selector,
             owner,
             address(0x999) // signer address
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = FlywheelPublisherRegistry(address(proxy));
+        publisherRegistry = ReferralCodeRegistry(address(proxy));
 
         // Register publishers with ref codes
         vm.startPrank(owner);
 
         // Register publisher1 with ref code "PUBLISHER_1"
-        publisherRegistry.registerPublisherCustom(
-            "PUBLISHER_1", publisher1, "https://example.com/publisher1", publisher1Payout
-        );
+        publisherRegistry.registerCustom("PUBLISHER_1", publisher1, publisher1Payout, "https://example.com/publisher1");
 
         // Register publisher2 with ref code "PUBLISHER_2"
-        publisherRegistry.registerPublisherCustom(
-            "PUBLISHER_2", publisher2, "https://example.com/publisher2", publisher2Payout
-        );
+        publisherRegistry.registerCustom("PUBLISHER_2", publisher2, publisher2Payout, "https://example.com/publisher2");
         vm.stopPrank();
 
         // Deploy hook

@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {Flywheel} from "../src/Flywheel.sol";
-import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {TokenStore} from "../src/TokenStore.sol";
@@ -14,7 +14,7 @@ import {TokenStore} from "../src/TokenStore.sol";
 contract AdFlowTest is Test {
     // Contracts
     Flywheel public flywheel;
-    FlywheelPublisherRegistry public publisherRegistry;
+    ReferralCodeRegistry public publisherRegistry;
     AdvertisementConversion public adHook;
     DummyERC20 public usdc;
 
@@ -48,14 +48,14 @@ contract AdFlowTest is Test {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        FlywheelPublisherRegistry impl = new FlywheelPublisherRegistry();
+        ReferralCodeRegistry impl = new ReferralCodeRegistry();
         bytes memory initData = abi.encodeWithSelector(
-            FlywheelPublisherRegistry.initialize.selector,
+            ReferralCodeRegistry.initialize.selector,
             owner,
             signer // signer address
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = FlywheelPublisherRegistry(address(proxy));
+        publisherRegistry = ReferralCodeRegistry(address(proxy));
 
         // Deploy advertisement conversion hook
         adHook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
@@ -77,16 +77,12 @@ contract AdFlowTest is Test {
 
     function _registerPublishers() internal {
         vm.prank(owner);
-        publisherRegistry.registerPublisherCustom(
-            "pub1_ref_code", publisher1, "https://publisher1.com/metadata", publisher1
-        );
+        publisherRegistry.registerCustom("pub1_ref_code", publisher1, publisher1, "https://publisher1.com/metadata");
         pub1RefCode = "pub1_ref_code";
 
         // Register publisher 2 with different chain overrides
         vm.prank(owner);
-        publisherRegistry.registerPublisherCustom(
-            "pub2_ref_code", publisher2, "https://publisher2.com/metadata", publisher2
-        );
+        publisherRegistry.registerCustom("pub2_ref_code", publisher2, publisher2, "https://publisher2.com/metadata");
         pub2RefCode = "pub2_ref_code";
 
         console2.log("Publisher 1 ref code:", pub1RefCode);

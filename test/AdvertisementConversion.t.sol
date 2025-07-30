@@ -3,14 +3,14 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AdvertisementConversionTest is Test {
     Flywheel public flywheel;
-    FlywheelPublisherRegistry public publisherRegistry;
+    ReferralCodeRegistry public publisherRegistry;
     AdvertisementConversion public hook;
     DummyERC20 public token;
 
@@ -25,15 +25,15 @@ contract AdvertisementConversionTest is Test {
         // Deploy contracts
         flywheel = new Flywheel();
 
-        // Deploy FlywheelPublisherRegistry as upgradeable proxy
-        FlywheelPublisherRegistry implementation = new FlywheelPublisherRegistry();
+        // Deploy ReferralCodeRegistry as upgradeable proxy
+        ReferralCodeRegistry implementation = new ReferralCodeRegistry();
         bytes memory initData = abi.encodeWithSelector(
-            FlywheelPublisherRegistry.initialize.selector,
+            ReferralCodeRegistry.initialize.selector,
             owner,
             address(0x999) // signer address
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        publisherRegistry = FlywheelPublisherRegistry(address(proxy));
+        publisherRegistry = ReferralCodeRegistry(address(proxy));
 
         hook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
 
@@ -44,11 +44,11 @@ contract AdvertisementConversionTest is Test {
 
         // Register randomUser as a publisher with ref code
         vm.prank(owner);
-        publisherRegistry.registerPublisherCustom(
+        publisherRegistry.registerCustom(
             "TEST_REF_CODE",
             randomUser,
-            "https://example.com/publisher",
-            randomUser // default payout address
+            randomUser, // default payout address
+            "https://example.com/publisher"
         );
 
         // Create a campaign with conversion configs

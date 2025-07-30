@@ -3,14 +3,14 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
-import {FlywheelPublisherRegistry} from "../../src/FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../../src/ReferralCodeRegistry.sol";
 import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AdBatchRewardsTest is Test {
     Flywheel public flywheel;
-    FlywheelPublisherRegistry public publisherRegistry;
+    ReferralCodeRegistry public publisherRegistry;
     AdvertisementConversion public hook;
     DummyERC20 public token;
 
@@ -42,15 +42,15 @@ contract AdBatchRewardsTest is Test {
         // Deploy contracts
         flywheel = new Flywheel();
 
-        // Deploy FlywheelPublisherRegistry as upgradeable proxy
-        FlywheelPublisherRegistry implementation = new FlywheelPublisherRegistry();
+        // Deploy ReferralCodeRegistry as upgradeable proxy
+        ReferralCodeRegistry implementation = new ReferralCodeRegistry();
         bytes memory initData = abi.encodeWithSelector(
-            FlywheelPublisherRegistry.initialize.selector,
+            ReferralCodeRegistry.initialize.selector,
             owner,
             address(0x999) // signer address
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        publisherRegistry = FlywheelPublisherRegistry(address(proxy));
+        publisherRegistry = ReferralCodeRegistry(address(proxy));
 
         hook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
 
@@ -98,9 +98,7 @@ contract AdBatchRewardsTest is Test {
 
         // Register publisher
         vm.prank(owner);
-        publisherRegistry.registerPublisherCustom(
-            PUBLISHER_REF_CODE, publisherTba, PUBLISHER_METADATA_URL, publisherTba
-        );
+        publisherRegistry.registerCustom(PUBLISHER_REF_CODE, publisherTba, publisherTba, PUBLISHER_METADATA_URL);
     }
 
     function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint8 configId, uint256 txHashSeed)
@@ -257,11 +255,11 @@ contract AdBatchRewardsTest is Test {
 
             // Register each publisher
             vm.prank(owner);
-            publisherRegistry.registerPublisherCustom(
+            publisherRegistry.registerCustom(
                 string(abi.encodePacked("pub_", vm.toString(i))),
                 publishers[i],
-                string(abi.encodePacked("https://publisher", vm.toString(i), ".com")),
-                publishers[i]
+                publishers[i],
+                string(abi.encodePacked("https://publisher", vm.toString(i), ".com"))
             );
         }
 
