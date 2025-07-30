@@ -76,49 +76,21 @@ contract AdFlowTest is Test {
     }
 
     function _registerPublishers() internal {
-        // Register publisher 1 with chain-specific overrides
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overrides1 =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](2);
-
-        // Override for Ethereum mainnet (chain ID 1)
-        overrides1[0] = FlywheelPublisherRegistry.OverridePublisherPayout({
-            chainId: 1,
-            payoutAddress: makeAddr("publisher1_ethereum")
-        });
-
-        // Override for Polygon (chain ID 137)
-        overrides1[1] = FlywheelPublisherRegistry.OverridePublisherPayout({
-            chainId: 137,
-            payoutAddress: makeAddr("publisher1_polygon")
-        });
-
         vm.prank(owner);
         publisherRegistry.registerPublisherCustom(
-            "pub1_ref_code", publisher1, "https://publisher1.com/metadata", publisher1, overrides1
+            "pub1_ref_code", publisher1, "https://publisher1.com/metadata", publisher1
         );
         pub1RefCode = "pub1_ref_code";
 
         // Register publisher 2 with different chain overrides
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overrides2 =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](1);
-
-        // Override for Arbitrum (chain ID 42161)
-        overrides2[0] = FlywheelPublisherRegistry.OverridePublisherPayout({
-            chainId: 42161,
-            payoutAddress: makeAddr("publisher2_arbitrum")
-        });
-
         vm.prank(owner);
         publisherRegistry.registerPublisherCustom(
-            "pub2_ref_code", publisher2, "https://publisher2.com/metadata", publisher2, overrides2
+            "pub2_ref_code", publisher2, "https://publisher2.com/metadata", publisher2
         );
         pub2RefCode = "pub2_ref_code";
 
         console2.log("Publisher 1 ref code:", pub1RefCode);
         console2.log("Publisher 2 ref code:", pub2RefCode);
-        console2.log("Publisher 1 Ethereum override:", makeAddr("publisher1_ethereum"));
-        console2.log("Publisher 1 Polygon override:", makeAddr("publisher1_polygon"));
-        console2.log("Publisher 2 Arbitrum override:", makeAddr("publisher2_arbitrum"));
     }
 
     function _createCampaign() internal {
@@ -326,22 +298,6 @@ contract AdFlowTest is Test {
         vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
         flywheel.withdrawFunds(campaign, address(usdc), 100, "");
         vm.stopPrank();
-    }
-
-    function test_publisherOverrideAddresses() public {
-        // Test publisher 1 overrides
-        assertEq(publisherRegistry.getPublisherPayoutAddress(pub1RefCode, 1), makeAddr("publisher1_ethereum"));
-        assertEq(publisherRegistry.getPublisherPayoutAddress(pub1RefCode, 137), makeAddr("publisher1_polygon"));
-        // Should use default for chain without override
-        assertEq(publisherRegistry.getPublisherPayoutAddress(pub1RefCode, 999), publisher1);
-
-        // Test publisher 2 overrides
-        assertEq(publisherRegistry.getPublisherPayoutAddress(pub2RefCode, 42161), makeAddr("publisher2_arbitrum"));
-        // Should use default for chain without override
-        assertEq(publisherRegistry.getPublisherPayoutAddress(pub2RefCode, 1), publisher2);
-        assertEq(publisherRegistry.getPublisherPayoutAddress(pub2RefCode, 999), publisher2);
-
-        console2.log("All override addresses verified successfully!");
     }
 
     function test_conversionConfigManagement() public {

@@ -97,11 +97,9 @@ contract AdBatchRewardsTest is Test {
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
         // Register publisher
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
         vm.prank(owner);
         publisherRegistry.registerPublisherCustom(
-            PUBLISHER_REF_CODE, publisherTba, PUBLISHER_METADATA_URL, publisherTba, overridePayouts
+            PUBLISHER_REF_CODE, publisherTba, PUBLISHER_METADATA_URL, publisherTba
         );
     }
 
@@ -258,15 +256,12 @@ contract AdBatchRewardsTest is Test {
             publishers[i] = address(uint160(0x1000 + i)); // Create unique addresses
 
             // Register each publisher
-            FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-                new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
             vm.prank(owner);
             publisherRegistry.registerPublisherCustom(
                 string(abi.encodePacked("pub_", vm.toString(i))),
                 publishers[i],
                 string(abi.encodePacked("https://publisher", vm.toString(i), ".com")),
-                publishers[i],
-                overridePayouts
+                publishers[i]
             );
         }
 

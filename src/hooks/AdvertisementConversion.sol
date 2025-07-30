@@ -346,7 +346,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
             // If the recipient is the zero address, we use the publisher registry to get the payout address
             if (payoutAddress == address(0)) {
-                payoutAddress = publisherRegistry.getPublisherPayoutAddress(publisherRefCode, block.chainid);
+                payoutAddress = publisherRegistry.getPublisherPayoutAddress(publisherRefCode);
                 attributions[i].conversion.payoutRecipient = payoutAddress;
             }
 

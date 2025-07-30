@@ -44,14 +44,11 @@ contract AdvertisementConversionTest is Test {
 
         // Register randomUser as a publisher with ref code
         vm.prank(owner);
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overrides =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
         publisherRegistry.registerPublisherCustom(
             "TEST_REF_CODE",
             randomUser,
             "https://example.com/publisher",
-            randomUser, // default payout address
-            overrides
+            randomUser // default payout address
         );
 
         // Create a campaign with conversion configs

@@ -23,9 +23,6 @@ event PublisherRegistered(
     address indexed owner, address indexed defaultPayout, string refCode, string metadataUrl, bool isCustom
 );
 
-/// @notice Emitted when a publisher's payout override is created or updated
-event UpdatePublisherChainPayoutAddress(string refCode, uint256 chainId, address payoutAddress);
-
 event UpdatePublisherDefaultPayoutAddress(string refCode, address payoutAddress);
 
 /// @notice Emitted when a publisher's metadata URL is updated
@@ -51,59 +48,19 @@ contract FlywheelPublisherRegistry is
 
     /// @notice EIP-1967 storage slot base for publishers mapping
     /// @dev keccak256("flywheel.publisher.registry.publishers") - 1
-    bytes32 private constant PUBLISHERS_SLOT_BASE = 0x3456789012cdef013456789012cdef013456789012cdef013456789012cdef01;
-
-    /// @notice Structure for chain-specific payout address overrides
-    struct OverridePublisherPayout {
-        uint256 chainId; // Chain ID for the override
-        address payoutAddress; // Payout address for the specific chain
-    }
+    bytes32 private constant REGISTRY_STORAGE_LOCATION =
+        0x3456789012cdef013456789012cdef013456789012cdef013456789012cdef01;
 
     /// @notice Information about a registered publisher
     struct Publisher {
         address owner; // Address that controls this publisher
         string metadataUrl; // URL containing metadata info
         address defaultPayout; // Default payout address for all chains
-        mapping(uint256 chainId => address payoutAddress) overridePayouts; // Chain-specific payout addresses in case a publisher wants to override the default payout for a specific chain
     }
 
-    /// @notice EIP-712 storage structure for publisher data
-    struct PublisherStorage {
-        address owner;
-        string metadataUrl;
-        address defaultPayout;
-        mapping(uint256 chainId => address payoutAddress) overridePayouts;
-    }
-
-    /// @notice Gets the storage slot for a specific publisher ref code
-    /// @param refCode The publisher ref code
-    /// @return slot The storage slot for the publisher data
-    function _getPublisherSlot(string memory refCode) private pure returns (bytes32 slot) {
-        return keccak256(abi.encodePacked(PUBLISHERS_SLOT_BASE, refCode));
-    }
-
-    /// @notice Gets the storage reference for a publisher
-    /// @param refCode The publisher ref code
-    /// @return r The storage reference to the publisher data
-    function _getPublisherStorage(string memory refCode) private pure returns (PublisherStorage storage r) {
-        bytes32 slot = _getPublisherSlot(refCode);
-        assembly {
-            r.slot := slot
-        }
-    }
-
-    /// @notice Public getter for publisher information
-    /// @param refCode The publisher ref code
-    /// @return owner The publisher owner
-    /// @return metadataUrl The publisher metadata URL
-    /// @return defaultPayout The publisher default payout address
-    function publishers(string memory refCode)
-        external
-        view
-        returns (address owner, string memory metadataUrl, address defaultPayout)
-    {
-        PublisherStorage storage publisher = _getPublisherStorage(refCode);
-        return (publisher.owner, publisher.metadataUrl, publisher.defaultPayout);
+    /// @notice EIP-712 storage structure for registry data
+    struct RegistryStorage {
+        mapping(string refCode => Publisher publisher) publishers;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -128,7 +85,7 @@ contract FlywheelPublisherRegistry is
     /// @notice Ensures caller is the owner of the specified publisher
     /// @param _refCode Ref code of the publisher to validate
     modifier onlyPublisher(string memory _refCode) {
-        if (_getPublisherStorage(_refCode).owner != msg.sender) {
+        if (_getRegistryStorage().publishers[_refCode].owner != msg.sender) {
             revert Unauthorized();
         }
         _;
@@ -145,27 +102,16 @@ contract FlywheelPublisherRegistry is
     /// @notice Registers a new publisher in the system
     /// @param _metadataUrl URL containing publisher's metadata
     /// @param _defaultPayout Default payout address for all chains
-    /// @param _overridePayouts Array of chain-specific payout overrides
-    function registerPublisher(
-        string memory _metadataUrl,
-        address _defaultPayout,
-        OverridePublisherPayout[] memory _overridePayouts
-    ) external returns (string memory, uint256) {
+    function registerPublisher(string memory _metadataUrl, address _defaultPayout)
+        external
+        returns (string memory, uint256)
+    {
         string memory refCode = _generateUniqueRefCode();
-        PublisherStorage storage publisher = _getPublisherStorage(refCode);
+        Publisher storage publisher = _getRegistryStorage().publishers[refCode];
 
         publisher.owner = msg.sender;
         publisher.metadataUrl = _metadataUrl;
         publisher.defaultPayout = _defaultPayout;
-
-        uint256 overridePayoutsLength = _overridePayouts.length;
-        for (uint256 i; i < overridePayoutsLength; i++) {
-            publisher.overridePayouts[uint256(_overridePayouts[i].chainId)] = _overridePayouts[i].payoutAddress;
-
-            emit UpdatePublisherChainPayoutAddress(
-                refCode, _overridePayouts[i].chainId, _overridePayouts[i].payoutAddress
-            );
-        }
 
         emit PublisherRegistered(msg.sender, _defaultPayout, refCode, _metadataUrl, false);
 
@@ -177,15 +123,13 @@ contract FlywheelPublisherRegistry is
     /// @param _publisherOwner Owner of the publisher
     /// @param _metadataUrl URL containing publisher's metadata
     /// @param _defaultPayout Default payout address for all chains
-    /// @param _overridePayouts Array of chain-specific payout overrides
     function registerPublisherCustom(
         string memory _refCode,
         address _publisherOwner,
         string memory _metadataUrl,
-        address _defaultPayout,
-        OverridePublisherPayout[] memory _overridePayouts
+        address _defaultPayout
     ) external onlyOwnerOrSigner {
-        PublisherStorage storage publisher = _getPublisherStorage(_refCode);
+        Publisher storage publisher = _getRegistryStorage().publishers[_refCode];
 
         // check if ref code is already taken
         if (publisher.owner != address(0)) {
@@ -201,10 +145,6 @@ contract FlywheelPublisherRegistry is
         publisher.metadataUrl = _metadataUrl;
         publisher.defaultPayout = _defaultPayout;
 
-        uint256 overridePayoutsLength = _overridePayouts.length;
-        for (uint256 i; i < overridePayoutsLength; i++) {
-            publisher.overridePayouts[uint256(_overridePayouts[i].chainId)] = _overridePayouts[i].payoutAddress;
-        }
         emit PublisherRegistered(_publisherOwner, _defaultPayout, _refCode, _metadataUrl, true);
     }
 
@@ -216,7 +156,7 @@ contract FlywheelPublisherRegistry is
         if (_newOwner == address(0)) {
             revert InvalidAddress();
         }
-        _getPublisherStorage(_refCode).owner = _newOwner;
+        _getRegistryStorage().publishers[_refCode].owner = _newOwner;
         emit UpdatedPublisherOwner(_refCode, _newOwner);
     }
 
@@ -225,7 +165,7 @@ contract FlywheelPublisherRegistry is
     /// @param _metadataUrl New URL containing inventory dimensions
     /// @dev Only callable by publisher owner
     function updateMetadataUrl(string memory _refCode, string memory _metadataUrl) external onlyPublisher(_refCode) {
-        _getPublisherStorage(_refCode).metadataUrl = _metadataUrl;
+        _getRegistryStorage().publishers[_refCode].metadataUrl = _metadataUrl;
 
         emit UpdateMetadataUrl(_refCode, _metadataUrl);
     }
@@ -238,23 +178,9 @@ contract FlywheelPublisherRegistry is
         external
         onlyPublisher(_refCode)
     {
-        _getPublisherStorage(_refCode).defaultPayout = _newDefaultPayoutAddress;
+        _getRegistryStorage().publishers[_refCode].defaultPayout = _newDefaultPayoutAddress;
 
         emit UpdatePublisherDefaultPayoutAddress(_refCode, _newDefaultPayoutAddress);
-    }
-
-    /// @notice Updates a chain-specific payout override for a publisher
-    /// @param _refCode refCode of the publisher to update
-    /// @param _chainId Chain ID for the override
-    /// @param _newPayoutAddress New payout address for the specified chain
-    /// @dev Only callable by publisher owner
-    function updatePublisherOverridePayout(string memory _refCode, uint256 _chainId, address _newPayoutAddress)
-        external
-        onlyPublisher(_refCode)
-    {
-        _getPublisherStorage(_refCode).overridePayouts[_chainId] = _newPayoutAddress;
-
-        emit UpdatePublisherChainPayoutAddress(_refCode, _chainId, _newPayoutAddress);
     }
 
     function getRefCode(uint256 _publisherNonce) public pure returns (string memory) {
@@ -273,33 +199,23 @@ contract FlywheelPublisherRegistry is
         return string(str);
     }
 
-    /// @notice Gets the chain-specific payout address for a publisher
-    /// @param _refCode ID of the publisher
-    /// @param _chainId Chain ID to get the payout address for
-    /// @return The payout address for the specified chain
-    function getPublisherOverridePayout(string memory _refCode, uint256 _chainId) external view returns (address) {
-        return _getPublisherStorage(_refCode).overridePayouts[_chainId];
+    function publishers(string memory _refCode) external view returns (address, string memory, address) {
+        Publisher memory publisher = _getRegistryStorage().publishers[_refCode];
+        return (publisher.owner, publisher.metadataUrl, publisher.defaultPayout);
     }
 
     /// @notice Gets the default payout address for a publisher
     /// @param _refCode Ref code of the publisher
     /// @return The default payout address
-    function getPublisherDefaultPayoutAddress(string memory _refCode) external view returns (address) {
-        return _getPublisherStorage(_refCode).defaultPayout;
-    }
-
-    function getPublisherPayoutAddress(string memory _refCode, uint256 _chainId) external view returns (address) {
-        PublisherStorage storage publisher = _getPublisherStorage(_refCode);
-        return publisher.overridePayouts[_chainId] != address(0)
-            ? publisher.overridePayouts[_chainId]
-            : publisher.defaultPayout;
+    function getPublisherPayoutAddress(string memory _refCode) external view returns (address) {
+        return _getRegistryStorage().publishers[_refCode].defaultPayout;
     }
 
     /// @notice Checks if a publisher exists
     /// @param _refCode Ref code of the publisher to check
     /// @return True if the publisher exists
     function publisherExists(string memory _refCode) external view returns (bool) {
-        return _getPublisherStorage(_refCode).owner != address(0);
+        return _getRegistryStorage().publishers[_refCode].owner != address(0);
     }
 
     /// @notice Checks if an address has a role
@@ -325,8 +241,15 @@ contract FlywheelPublisherRegistry is
         do {
             nextPublisherNonce++;
             refCode = getRefCode(nextPublisherNonce);
-        } while (_getPublisherStorage(refCode).owner != address(0));
+        } while (_getRegistryStorage().publishers[refCode].owner != address(0));
 
         return refCode;
+    }
+
+    /// @notice Gets the storage reference for the registry
+    function _getRegistryStorage() private pure returns (RegistryStorage storage $) {
+        assembly {
+            $.slot := REGISTRY_STORAGE_LOCATION
+        }
     }
 }
