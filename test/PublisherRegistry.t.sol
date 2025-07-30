@@ -5,18 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {
-    FlywheelPublisherRegistry,
-    Unauthorized,
-    RefCodeAlreadyTaken,
-    OwnershipRenunciationDisabled,
-    InvalidAddress
-} from "../src/FlywheelPublisherRegistry.sol";
-import {
-    PublisherRegistered,
-    UpdatePublisherDefaultPayoutAddress,
-    UpdateMetadataUrl
-} from "../src/FlywheelPublisherRegistry.sol";
+import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
 
 contract FlywheelPublisherRegistryTest is Test {
     FlywheelPublisherRegistry public implementation;
@@ -55,7 +44,7 @@ contract FlywheelPublisherRegistryTest is Test {
         bytes memory initData =
             abi.encodeWithSelector(FlywheelPublisherRegistry.initialize.selector, address(0), address(0));
 
-        vm.expectRevert(InvalidAddress.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.InvalidAddress.selector);
         new ERC1967Proxy(address(freshImpl), initData);
     }
 
@@ -128,7 +117,9 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Expect the event before calling the function
         vm.expectEmit(true, true, true, true);
-        emit PublisherRegistered(publisherOwner, defaultPayout, customRefCode, metadataUrl, true);
+        emit FlywheelPublisherRegistry.PublisherRegistered(
+            publisherOwner, defaultPayout, customRefCode, metadataUrl, true
+        );
 
         pubRegistry.registerPublisherCustom(customRefCode, publisherOwner, metadataUrl, defaultPayout);
 
@@ -165,7 +156,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         vm.startPrank(unauthorized);
 
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         pubRegistry.registerPublisherCustom(customRefCode, address(0x789), "https://example.com", address(0x101));
 
         vm.stopPrank();
@@ -191,7 +182,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Unauthorized address should fail
         vm.startPrank(address(0x999));
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         freshRegistry.registerPublisherCustom("fail123", address(0x789), "https://example.com", address(0x101));
         vm.stopPrank();
     }
@@ -240,7 +231,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Expect the event before calling the function
         vm.expectEmit(true, true, true, true);
-        emit UpdateMetadataUrl(refCode, newDimsUrl);
+        emit FlywheelPublisherRegistry.UpdateMetadataUrl(refCode, newDimsUrl);
 
         pubRegistry.updateMetadataUrl(refCode, newDimsUrl);
 
@@ -260,7 +251,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Expect the event before calling the function
         vm.expectEmit(true, true, true, true);
-        emit UpdatePublisherDefaultPayoutAddress(refCode, newDefaultPayout);
+        emit FlywheelPublisherRegistry.UpdatePublisherDefaultPayoutAddress(refCode, newDefaultPayout);
 
         pubRegistry.updatePublisherDefaultPayout(refCode, newDefaultPayout);
 
@@ -273,7 +264,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // non-publisher cannot update default payout
         vm.startPrank(address(0x123));
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         pubRegistry.updatePublisherDefaultPayout(refCode, newDefaultPayout);
         vm.stopPrank();
     }
@@ -294,7 +285,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // non-publisher cannot update owner
         vm.startPrank(address(0x123));
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         pubRegistry.updatePublisherOwner(refCode, newOwner);
         vm.stopPrank();
     }
@@ -371,7 +362,9 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Expect events before calling the function
         vm.expectEmit(true, true, true, true);
-        emit PublisherRegistered(customOwner, customDefaultPayout, customRefCode, customMetadataUrl, true);
+        emit FlywheelPublisherRegistry.PublisherRegistered(
+            customOwner, customDefaultPayout, customRefCode, customMetadataUrl, true
+        );
 
         pubRegistry.registerPublisherCustom(customRefCode, customOwner, customMetadataUrl, customDefaultPayout);
 
@@ -393,7 +386,7 @@ contract FlywheelPublisherRegistryTest is Test {
         pubRegistry.registerPublisherCustom(customRefCode, address(0x123), "https://first.com", address(0x456));
 
         // Try to register second publisher with same ref code
-        vm.expectRevert(RefCodeAlreadyTaken.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.RefCodeAlreadyTaken.selector);
         pubRegistry.registerPublisherCustom(customRefCode, address(0x789), "https://second.com", address(0x101));
         vm.stopPrank();
     }
@@ -404,7 +397,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Try to update owner from unauthorized address
         vm.startPrank(address(0x123));
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         pubRegistry.updatePublisherOwner(refCode, newOwner);
         vm.stopPrank();
     }
@@ -426,7 +419,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Verify old owner cannot make updates
         vm.startPrank(publisherOwner);
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         pubRegistry.updateMetadataUrl(refCode, "https://oldowner.com");
         vm.stopPrank();
 
@@ -440,7 +433,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Try to update owner to address(0)
         vm.startPrank(publisherOwner);
-        vm.expectRevert(InvalidAddress.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.InvalidAddress.selector);
         pubRegistry.updatePublisherOwner(refCode, address(0));
         vm.stopPrank();
     }
@@ -457,7 +450,7 @@ contract FlywheelPublisherRegistryTest is Test {
     /// @notice Test renounceOwnership function should revert
     function test_renounceOwnership_shouldRevert() public {
         vm.prank(owner);
-        vm.expectRevert(OwnershipRenunciationDisabled.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.OwnershipRenunciationDisabled.selector);
         pubRegistry.renounceOwnership();
     }
 
@@ -612,7 +605,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Old owner should not be able to register custom publishers
         vm.prank(owner);
-        vm.expectRevert(Unauthorized.selector);
+        vm.expectRevert(FlywheelPublisherRegistry.Unauthorized.selector);
         pubRegistry.registerPublisherCustom("oldowner123", address(0x789), "https://oldowner.com", address(0x101));
     }
 }
