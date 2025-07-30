@@ -222,7 +222,7 @@ contract ReferralCodeRegistryTest is Test {
         assertEq(pubRegistry.getMetadataUrl(refCode), publisherMetadataUrl);
         assertEq(pubRegistry.getPayoutRecipient(refCode), defaultPayout);
         assertEq(pubRegistry.isReferralCodeRegistered(refCode), true);
-        assertEq(pubRegistry.computeReferralCode(pubRegistry.nextRecordNonce() - 1), refCode);
+        assertEq(pubRegistry.computeReferralCode(pubRegistry.nonce()), refCode);
     }
 
     function test_updateMetadataUrl() public {
@@ -313,17 +313,17 @@ contract ReferralCodeRegistryTest is Test {
         vm.store(
             address(pubRegistry),
             bytes32(uint256(1)), // slot 1 contains nextPublisherNonce
-            bytes32(nonce1 - 1)
+            bytes32(nonce1)
         );
 
         // Register first publisher - should get the ref code from nonce1
         vm.startPrank(publisherOwner);
         string memory firstRefCode = pubRegistry.register(defaultPayout, "first.com");
-        uint256 firstNonce = pubRegistry.nextRecordNonce();
+        uint256 firstNonce = pubRegistry.nonce();
 
         // Register second publisher - should skip the collision and generate a new unique code
         string memory secondRefCode = pubRegistry.register(defaultPayout, "second.com");
-        uint256 secondNonce = pubRegistry.nextRecordNonce();
+        uint256 secondNonce = pubRegistry.nonce();
         vm.stopPrank();
 
         console.log("xxx first registered ref code", firstRefCode);
@@ -335,8 +335,8 @@ contract ReferralCodeRegistryTest is Test {
             "Should generate different ref codes"
         );
 
-        assertEq(firstRefCode, pubRegistry.computeReferralCode(firstNonce - 1), "First ref code mismatch");
-        assertEq(secondRefCode, pubRegistry.computeReferralCode(secondNonce - 1), "Second ref code mismatch");
+        assertEq(firstRefCode, pubRegistry.computeReferralCode(firstNonce), "First ref code mismatch");
+        assertEq(secondRefCode, pubRegistry.computeReferralCode(secondNonce), "Second ref code mismatch");
 
         // Verify both publishers were registered with their respective ref codes
         assertEq(pubRegistry.getOwner(firstRefCode), publisherOwner, "First publisher not registered correctly");
@@ -451,11 +451,7 @@ contract ReferralCodeRegistryTest is Test {
         vm.stopPrank();
 
         // Verify the ref code was generated correctly
-        assertEq(
-            refCode,
-            pubRegistry.computeReferralCode(pubRegistry.nextRecordNonce() - 1),
-            "Ref code should match generated nonce"
-        );
+        assertEq(refCode, pubRegistry.computeReferralCode(pubRegistry.nonce()), "Ref code should match generated nonce");
 
         // Verify publisher was registered with the generated ref code
         assertEq(

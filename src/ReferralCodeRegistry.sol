@@ -12,21 +12,17 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///
 /// @author Coinbase
 contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownable2StepUpgradeable, UUPSUpgradeable {
-    /// @notice Information about a registered referral code
-    struct Records {
-        /// @dev Address that controls this referral code
-        address owner;
-        /// @dev Default payout address for all chains
-        address payoutRecipient;
-        /// @dev URL containing metadata info
-        string metadataUrl;
-    }
-
     /// @notice EIP-712 storage structure for registry data
-    /// @custom:storage-location erc7201:flywheel.publisher.registry.records
+    /// @custom:storage-location erc7201:base.flywheel.ReferralCodeRegistry
     struct RegistryStorage {
-        /// @dev Mapping of ref codes to records
-        mapping(string refCode => Records records) records;
+        /// @dev Nonce for generating unique referral codes
+        uint256 nonce;
+        /// @dev Mapping of ref codes to owners
+        mapping(string refCode => address owner) owners;
+        /// @dev Mapping of ref codes to payout recipients
+        mapping(string refCode => address payoutRecipient) payoutRecipients;
+        /// @dev Mapping of ref codes to metadata URLs
+        mapping(string refCode => string metadataUrl) metadataUrls;
     }
 
     /// @notice Default length of new permissionless referral codes
@@ -35,13 +31,10 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @notice Role identifier for addresses authorized to call registerCustom
     bytes32 public constant SIGNER_ROLE = keccak256("SIGNER_ROLE");
 
-    /// @notice EIP-1967 storage slot base for records mapping
-    /// @dev keccak256("flywheel.publisher.registry.records") - 1
+    /// @notice EIP-1967 storage slot base for registry mapping using ERC-7201
+    /// @dev keccak256(abi.encode(uint256(keccak256("base.flywheel.ReferralCodeRegistry")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant REGISTRY_STORAGE_LOCATION =
-        0x3456789012cdef013456789012cdef013456789012cdef013456789012cdef01;
-
-    /// @notice Counter for generating unique referral codes
-    uint256 public nextRecordNonce = 1;
+        0x6e7d4431538d420f63c9bb71a8a04d60eb7d1fab71f40fdd3a613396b82ec300;
 
     /// @notice Emitted when a new referral code is registered
     ///
@@ -91,7 +84,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     ///
     /// @param refCode Ref code of the referral code to validate
     modifier onlyRefCodeOwner(string memory refCode) {
-        address owner = _getRegistryStorage().records[refCode].owner;
+        address owner = _getRegistryStorage().owners[refCode];
         if (owner == address(0)) revert Unregistered();
         if (owner != msg.sender) revert Unauthorized();
         _;
@@ -124,11 +117,10 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     function register(address payoutRecipient, string memory metadataUrl) external returns (string memory refCode) {
         // Generate unique referral code by looping until we find an unused one
         do {
-            refCode = computeReferralCode(nextRecordNonce++);
+            refCode = computeReferralCode(++_getRegistryStorage().nonce);
         } while (isReferralCodeRegistered(refCode));
 
         _register(refCode, msg.sender, payoutRecipient, metadataUrl, false);
-        return refCode;
     }
 
     /// @notice Registers a new referral code in the system with a custom value
@@ -142,10 +134,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
         address refCodeOwner,
         address payoutRecipient,
         string memory metadataUrl
-    ) external {
-        // Check sender is signer (owner has all roles)
-        _checkRole(SIGNER_ROLE, msg.sender);
-
+    ) external onlyRole(SIGNER_ROLE) {
         _register(refCode, refCodeOwner, payoutRecipient, metadataUrl, true);
     }
 
@@ -156,7 +145,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @dev Only callable by current referral code owner
     function updateOwner(string memory refCode, address newOwner) external onlyRefCodeOwner(refCode) {
         if (newOwner == address(0)) revert ZeroAddress();
-        _getRegistryStorage().records[refCode].owner = newOwner;
+        _getRegistryStorage().owners[refCode] = newOwner;
         emit ReferralCodeOwnerUpdated(refCode, newOwner);
     }
 
@@ -167,7 +156,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @dev Only callable by referral code owner
     function updatePayoutRecipient(string memory refCode, address payoutRecipient) external onlyRefCodeOwner(refCode) {
         if (payoutRecipient == address(0)) revert ZeroAddress();
-        _getRegistryStorage().records[refCode].payoutRecipient = payoutRecipient;
+        _getRegistryStorage().payoutRecipients[refCode] = payoutRecipient;
         emit ReferralCodePayoutRecipientUpdated(refCode, payoutRecipient);
     }
 
@@ -177,7 +166,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @param metadataUrl New URL containing inventory dimensions
     /// @dev Only callable by referral code owner
     function updateMetadataUrl(string memory refCode, string memory metadataUrl) external onlyRefCodeOwner(refCode) {
-        _getRegistryStorage().records[refCode].metadataUrl = metadataUrl;
+        _getRegistryStorage().metadataUrls[refCode] = metadataUrl;
         emit ReferralCodeMetadataUrlUpdated(refCode, metadataUrl);
     }
 
@@ -188,7 +177,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @return The owner of the referral code
     function getOwner(string memory refCode) external view returns (address) {
         if (!isReferralCodeRegistered(refCode)) revert Unregistered();
-        return _getRegistryStorage().records[refCode].owner;
+        return _getRegistryStorage().owners[refCode];
     }
 
     /// @notice Gets the default payout address for a referral code
@@ -198,7 +187,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @return The default payout address
     function getPayoutRecipient(string memory refCode) external view returns (address) {
         if (!isReferralCodeRegistered(refCode)) revert Unregistered();
-        return _getRegistryStorage().records[refCode].payoutRecipient;
+        return _getRegistryStorage().payoutRecipients[refCode];
     }
 
     /// @notice Gets the metadata URL for a referral code
@@ -208,7 +197,14 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     /// @return The metadata URL for the referral code
     function getMetadataUrl(string memory refCode) external view returns (string memory) {
         if (!isReferralCodeRegistered(refCode)) revert Unregistered();
-        return _getRegistryStorage().records[refCode].metadataUrl;
+        return _getRegistryStorage().metadataUrls[refCode];
+    }
+
+    /// @notice Gets the nonce for the registry
+    ///
+    /// @return The nonce for the registry
+    function nonce() public view returns (uint256) {
+        return _getRegistryStorage().nonce;
     }
 
     /// @notice Checks if a referral code exists
@@ -217,7 +213,7 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
     ///
     /// @return True if the referral code exists
     function isReferralCodeRegistered(string memory refCode) public view returns (bool) {
-        return _getRegistryStorage().records[refCode].owner != address(0);
+        return _getRegistryStorage().owners[refCode] != address(0);
     }
 
     /// @notice Checks if an address has a role
@@ -277,10 +273,10 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
         // Check if ref code is already taken
         if (isReferralCodeRegistered(refCode)) revert AlreadyRegistered();
 
-        Records storage referralCodeRecords = _getRegistryStorage().records[refCode];
-        referralCodeRecords.owner = refCodeOwner;
-        referralCodeRecords.payoutRecipient = payoutRecipient;
-        referralCodeRecords.metadataUrl = metadataUrl;
+        RegistryStorage storage $ = _getRegistryStorage();
+        $.owners[refCode] = refCodeOwner;
+        $.payoutRecipients[refCode] = payoutRecipient;
+        $.metadataUrls[refCode] = metadataUrl;
         emit ReferralCodeRegistered(refCode, refCodeOwner, payoutRecipient, metadataUrl, isCustom);
     }
 
