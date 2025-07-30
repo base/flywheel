@@ -34,22 +34,21 @@ event UpdateMetadataUrl(string refCode, string metadataUrl);
 /// @notice Emitted when a publisher's owner is updated
 event UpdatedPublisherOwner(string refCode, address newOwner);
 
-/// @notice Emitted when a signer role is granted
-event SignerRoleGranted(address indexed account, address indexed admin);
-
-/// @notice Emitted when a signer role is revoked
-event SignerRoleRevoked(address indexed account, address indexed admin);
-
 /// @notice Registry for publishers in the Flywheel Protocol
 /// @dev Manages publisher registration and payout address management
-contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, UUPSUpgradeable, Ownable2StepUpgradeable {
+contract FlywheelPublisherRegistry is
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable
+{
     /// @notice Counter for generating unique publisher ref codes
     uint256 public nextPublisherNonce = 1;
     uint256 private constant REF_CODE_LENGTH = 8;
 
     /// @notice Role identifier for addresses authorized to call registerPublisherCustom
     bytes32 public constant SIGNER_ROLE = keccak256("SIGNER_ROLE");
-    
+
     /// @notice EIP-1967 storage slot base for publishers mapping
     /// @dev keccak256("flywheel.publisher.registry.publishers") - 1
     bytes32 private constant PUBLISHERS_SLOT_BASE = 0x3456789012cdef013456789012cdef013456789012cdef013456789012cdef01;
@@ -67,7 +66,7 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
         address defaultPayout; // Default payout address for all chains
         mapping(uint256 chainId => address payoutAddress) overridePayouts; // Chain-specific payout addresses in case a publisher wants to override the default payout for a specific chain
     }
-    
+
     /// @notice EIP-712 storage structure for publisher data
     struct PublisherStorage {
         address owner;
@@ -76,15 +75,13 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
         mapping(uint256 chainId => address payoutAddress) overridePayouts;
     }
 
-
-    
     /// @notice Gets the storage slot for a specific publisher ref code
     /// @param refCode The publisher ref code
     /// @return slot The storage slot for the publisher data
     function _getPublisherSlot(string memory refCode) private pure returns (bytes32 slot) {
         return keccak256(abi.encodePacked(PUBLISHERS_SLOT_BASE, refCode));
     }
-    
+
     /// @notice Gets the storage reference for a publisher
     /// @param refCode The publisher ref code
     /// @return r The storage reference to the publisher data
@@ -94,14 +91,17 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
             r.slot := slot
         }
     }
-    
-    
+
     /// @notice Public getter for publisher information
     /// @param refCode The publisher ref code
     /// @return owner The publisher owner
     /// @return metadataUrl The publisher metadata URL
     /// @return defaultPayout The publisher default payout address
-    function publishers(string memory refCode) external view returns (address owner, string memory metadataUrl, address defaultPayout) {
+    function publishers(string memory refCode)
+        external
+        view
+        returns (address owner, string memory metadataUrl, address defaultPayout)
+    {
         PublisherStorage storage publisher = _getPublisherStorage(refCode);
         return (publisher.owner, publisher.metadataUrl, publisher.defaultPayout);
     }
@@ -115,24 +115,14 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
     /// @param _owner Address that will own the contract
     /// @param _signer Address to grant SIGNER_ROLE (can be address(0) to skip)
     function initialize(address _owner, address _signer) external initializer {
-        if (_owner == address(0)) {
-            revert InvalidAddress();
-        }
+        if (_owner == address(0)) revert InvalidAddress();
 
         __AccessControl_init();
         __Ownable2Step_init();
-        // Transfer ownership to the provided owner address
         _transferOwnership(_owner);
         __UUPSUpgradeable_init();
 
-        // Grant DEFAULT_ADMIN_ROLE to owner (for managing other roles)
-        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
-        
-        // Grant SIGNER_ROLE to initial signer if provided
-        if (_signer != address(0)) {
-            _grantRole(SIGNER_ROLE, _signer);
-            emit SignerRoleGranted(_signer, _owner);
-        }
+        if (_signer != address(0)) _grantRole(SIGNER_ROLE, _signer);
     }
 
     /// @notice Ensures caller is the owner of the specified publisher
@@ -148,35 +138,8 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
     modifier onlyOwnerOrSigner() {
         bool isOwner = msg.sender == owner();
         bool hasSigner = hasRole(SIGNER_ROLE, msg.sender);
-
-        if (!isOwner && !hasSigner) {
-            revert Unauthorized();
-        }
+        if (!isOwner && !hasSigner) revert Unauthorized();
         _;
-    }
-
-    /// @notice Grants SIGNER_ROLE to an address
-    /// @param _signer Address to grant SIGNER_ROLE
-    function grantSignerRole(address _signer) external onlyOwner {
-        if (_signer == address(0)) {
-            revert InvalidAddress();
-        }
-        _grantRole(SIGNER_ROLE, _signer);
-        emit SignerRoleGranted(_signer, msg.sender);
-    }
-
-    /// @notice Revokes SIGNER_ROLE from an address
-    /// @param _signer Address to revoke SIGNER_ROLE from
-    function revokeSignerRole(address _signer) external onlyOwner {
-        _revokeRole(SIGNER_ROLE, _signer);
-        emit SignerRoleRevoked(_signer, msg.sender);
-    }
-
-    /// @notice Checks if an address has SIGNER_ROLE
-    /// @param _account Address to check
-    /// @return True if the address has SIGNER_ROLE
-    function isSigner(address _account) external view returns (bool) {
-        return hasRole(SIGNER_ROLE, _account);
     }
 
     /// @notice Registers a new publisher in the system
@@ -197,8 +160,7 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
 
         uint256 overridePayoutsLength = _overridePayouts.length;
         for (uint256 i; i < overridePayoutsLength; i++) {
-            publisher.overridePayouts[uint256(_overridePayouts[i].chainId)] =
-                _overridePayouts[i].payoutAddress;
+            publisher.overridePayouts[uint256(_overridePayouts[i].chainId)] = _overridePayouts[i].payoutAddress;
 
             emit UpdatePublisherChainPayoutAddress(
                 refCode, _overridePayouts[i].chainId, _overridePayouts[i].payoutAddress
@@ -224,7 +186,7 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
         OverridePublisherPayout[] memory _overridePayouts
     ) external onlyOwnerOrSigner {
         PublisherStorage storage publisher = _getPublisherStorage(_refCode);
-        
+
         // check if ref code is already taken
         if (publisher.owner != address(0)) {
             revert RefCodeAlreadyTaken();
@@ -241,8 +203,7 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
 
         uint256 overridePayoutsLength = _overridePayouts.length;
         for (uint256 i; i < overridePayoutsLength; i++) {
-            publisher.overridePayouts[uint256(_overridePayouts[i].chainId)] =
-                _overridePayouts[i].payoutAddress;
+            publisher.overridePayouts[uint256(_overridePayouts[i].chainId)] = _overridePayouts[i].payoutAddress;
         }
         emit PublisherRegistered(_publisherOwner, _defaultPayout, _refCode, _metadataUrl, true);
     }
@@ -341,6 +302,14 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
         return _getPublisherStorage(_refCode).owner != address(0);
     }
 
+    /// @notice Checks if an address has a role
+    /// @param role The role to check
+    /// @param account The address to check
+    /// @return True if the address has the role
+    function hasRole(bytes32 role, address account) public view override returns (bool) {
+        return account == owner() || super.hasRole(role, account);
+    }
+
     /// @notice Authorization for upgrades
     /// @param newImplementation Address of new implementation
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -350,7 +319,6 @@ contract FlywheelPublisherRegistry is Initializable, AccessControlUpgradeable, U
     function renounceOwnership() public pure override {
         revert OwnershipRenunciationDisabled();
     }
-
 
     function _generateUniqueRefCode() internal returns (string memory) {
         string memory refCode;

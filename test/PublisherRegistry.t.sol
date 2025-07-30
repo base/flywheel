@@ -2,6 +2,9 @@ pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 import {
     FlywheelPublisherRegistry,
     Unauthorized,
@@ -9,11 +12,8 @@ import {
     OwnershipRenunciationDisabled,
     InvalidAddress
 } from "../src/FlywheelPublisherRegistry.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
     PublisherRegistered,
-    SignerRoleGranted,
-    SignerRoleRevoked,
     UpdatePublisherChainPayoutAddress,
     UpdatePublisherDefaultPayoutAddress,
     UpdateMetadataUrl
@@ -45,7 +45,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
     function test_constructor() public {
         assertEq(pubRegistry.owner(), owner);
-        assertTrue(pubRegistry.isSigner(signer));
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer));
     }
 
     function test_initializeWithZeroOwner() public {
@@ -70,7 +70,7 @@ contract FlywheelPublisherRegistryTest is Test {
         FlywheelPublisherRegistry freshRegistry = FlywheelPublisherRegistry(address(freshProxy));
 
         assertEq(freshRegistry.owner(), owner);
-        assertFalse(freshRegistry.isSigner(address(0x123))); // No signers
+        assertFalse(freshRegistry.hasRole(implementation.SIGNER_ROLE(), address(0x123))); // No signers
     }
 
     function test_grantSignerRole() public {
@@ -80,14 +80,14 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Expect the event before calling the function
         vm.expectEmit(true, true, false, false);
-        emit SignerRoleGranted(newSigner, owner);
+        emit IAccessControl.RoleGranted(implementation.SIGNER_ROLE(), newSigner, owner);
 
-        pubRegistry.grantSignerRole(newSigner);
+        pubRegistry.grantRole(implementation.SIGNER_ROLE(), newSigner);
 
         vm.stopPrank();
 
-        assertTrue(pubRegistry.isSigner(newSigner));
-        assertTrue(pubRegistry.isSigner(signer)); // original signer still there
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), newSigner));
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer)); // original signer still there
     }
 
     function test_grantSignerRole_Unauthorized() public {
@@ -96,7 +96,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         vm.startPrank(unauthorized);
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
-        pubRegistry.grantSignerRole(newSigner);
+        pubRegistry.grantRole(pubRegistry.SIGNER_ROLE(), newSigner);
         vm.stopPrank();
     }
 
@@ -104,23 +104,23 @@ contract FlywheelPublisherRegistryTest is Test {
         vm.startPrank(owner);
 
         // First verify signer has role
-        assertTrue(pubRegistry.isSigner(signer));
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer));
 
         vm.expectEmit(true, true, false, false);
-        emit SignerRoleRevoked(signer, owner);
+        emit IAccessControl.RoleRevoked(implementation.SIGNER_ROLE(), signer, owner);
 
-        pubRegistry.revokeSignerRole(signer);
+        pubRegistry.revokeRole(pubRegistry.SIGNER_ROLE(), signer);
 
         vm.stopPrank();
 
-        assertFalse(pubRegistry.isSigner(signer));
+        assertFalse(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer));
     }
 
     function test_grantSignerRole_ZeroAddress() public {
         vm.startPrank(owner);
 
         vm.expectRevert(InvalidAddress.selector);
-        pubRegistry.grantSignerRole(address(0));
+        pubRegistry.grantRole(pubRegistry.SIGNER_ROLE(), address(0));
 
         vm.stopPrank();
     }
