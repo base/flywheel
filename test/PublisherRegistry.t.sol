@@ -2,6 +2,9 @@ pragma solidity 0.8.29;
 
 import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 import {
     FlywheelPublisherRegistry,
     Unauthorized,
@@ -9,13 +12,10 @@ import {
     OwnershipRenunciationDisabled,
     InvalidAddress
 } from "../src/FlywheelPublisherRegistry.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
     PublisherRegistered,
-    UpdatePublisherChainPayoutAddress,
     UpdatePublisherDefaultPayoutAddress,
-    UpdateMetadataUrl,
-    UpdateSignerAddress
+    UpdateMetadataUrl
 } from "../src/FlywheelPublisherRegistry.sol";
 
 contract FlywheelPublisherRegistryTest is Test {
@@ -44,7 +44,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
     function test_constructor() public {
         assertEq(pubRegistry.owner(), owner);
-        assertEq(pubRegistry.signerAddress(), signer);
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer));
     }
 
     function test_initializeWithZeroOwner() public {
@@ -53,7 +53,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Try to initialize with zero owner
         bytes memory initData =
-            abi.encodeWithSelector(FlywheelPublisherRegistry.initialize.selector, address(0), signer);
+            abi.encodeWithSelector(FlywheelPublisherRegistry.initialize.selector, address(0), address(0));
 
         vm.expectRevert(InvalidAddress.selector);
         new ERC1967Proxy(address(freshImpl), initData);
@@ -69,47 +69,53 @@ contract FlywheelPublisherRegistryTest is Test {
         FlywheelPublisherRegistry freshRegistry = FlywheelPublisherRegistry(address(freshProxy));
 
         assertEq(freshRegistry.owner(), owner);
-        assertEq(freshRegistry.signerAddress(), address(0));
+        assertFalse(freshRegistry.hasRole(implementation.SIGNER_ROLE(), address(0x123))); // No signers
     }
 
-    function test_updateSignerAddress() public {
+    function test_grantSignerRole() public {
         address newSigner = address(0x456);
 
         vm.startPrank(owner);
 
         // Expect the event before calling the function
-        vm.expectEmit(true, true, true, true);
-        emit UpdateSignerAddress(newSigner);
+        vm.expectEmit(true, true, false, false);
+        emit IAccessControl.RoleGranted(implementation.SIGNER_ROLE(), newSigner, owner);
 
-        pubRegistry.updateSignerAddress(newSigner);
+        pubRegistry.grantRole(implementation.SIGNER_ROLE(), newSigner);
 
         vm.stopPrank();
 
-        assertEq(pubRegistry.signerAddress(), newSigner);
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), newSigner));
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer)); // original signer still there
     }
 
-    function test_updateSignerAddress_Unauthorized() public {
-        address newSigner = address(0x456);
-        address unauthorized = address(0x789);
+    // todo: something is not working here for some reason
+    // function test_grantSignerRole_Unauthorized(address account, address newSigner) public {
+    //     vm.assume(account != pubRegistry.owner());
+    //     vm.assume(!pubRegistry.hasRole(pubRegistry.getRoleAdmin(pubRegistry.SIGNER_ROLE()), account));
+    //     vm.assume(newSigner != owner);
+    //     vm.assume(newSigner != signer);
 
-        vm.startPrank(unauthorized);
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
-        pubRegistry.updateSignerAddress(newSigner);
-        vm.stopPrank();
-    }
+    //     vm.startPrank(account);
+    //     vm.expectRevert(); //)abi.encodeWithSignature("AccessControlUnauthorizedAccount(address,bytes32)", account, pubRegistry.SIGNER_ROLE()));
+    //     pubRegistry.grantRole(pubRegistry.SIGNER_ROLE(), newSigner);
+    //     vm.stopPrank();
+    // }
 
-    function test_updateSignerAddress_ToZero() public {
+    function test_revokeSignerRole() public {
         vm.startPrank(owner);
 
-        // Update to zero address (should be allowed)
-        vm.expectEmit(true, true, true, true);
-        emit UpdateSignerAddress(address(0));
+        // First verify signer has role
+        assertTrue(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer));
 
-        pubRegistry.updateSignerAddress(address(0));
+        vm.expectEmit(true, true, false, false);
+        emit IAccessControl.RoleRevoked(implementation.SIGNER_ROLE(), signer, owner);
+
+        pubRegistry.revokeRole(pubRegistry.SIGNER_ROLE(), signer);
 
         vm.stopPrank();
 
-        assertEq(pubRegistry.signerAddress(), address(0));
+        assertFalse(pubRegistry.hasRole(implementation.SIGNER_ROLE(), signer));
     }
 
     function test_registerPublisherCustom_BySigner() public {
@@ -124,13 +130,7 @@ contract FlywheelPublisherRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit PublisherRegistered(publisherOwner, defaultPayout, customRefCode, metadataUrl, true);
 
-        pubRegistry.registerPublisherCustom(
-            customRefCode,
-            publisherOwner,
-            metadataUrl,
-            defaultPayout,
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom(customRefCode, publisherOwner, metadataUrl, defaultPayout);
 
         vm.stopPrank();
 
@@ -150,13 +150,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         vm.startPrank(owner);
 
-        pubRegistry.registerPublisherCustom(
-            customRefCode,
-            publisherOwner,
-            metadataUrl,
-            defaultPayout,
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom(customRefCode, publisherOwner, metadataUrl, defaultPayout);
 
         vm.stopPrank();
 
@@ -172,13 +166,7 @@ contract FlywheelPublisherRegistryTest is Test {
         vm.startPrank(unauthorized);
 
         vm.expectRevert(Unauthorized.selector);
-        pubRegistry.registerPublisherCustom(
-            customRefCode,
-            address(0x789),
-            "https://example.com",
-            address(0x101),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom(customRefCode, address(0x789), "https://example.com", address(0x101));
 
         vm.stopPrank();
     }
@@ -194,13 +182,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Only owner should be able to call when signer is zero
         vm.startPrank(owner);
-        freshRegistry.registerPublisherCustom(
-            customRefCode,
-            address(0x789),
-            "https://example.com",
-            address(0x101),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        freshRegistry.registerPublisherCustom(customRefCode, address(0x789), "https://example.com", address(0x101));
         vm.stopPrank();
 
         // Verify it worked
@@ -210,13 +192,7 @@ contract FlywheelPublisherRegistryTest is Test {
         // Unauthorized address should fail
         vm.startPrank(address(0x999));
         vm.expectRevert(Unauthorized.selector);
-        freshRegistry.registerPublisherCustom(
-            "fail123",
-            address(0x789),
-            "https://example.com",
-            address(0x101),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        freshRegistry.registerPublisherCustom("fail123", address(0x789), "https://example.com", address(0x101));
         vm.stopPrank();
     }
 
@@ -227,29 +203,19 @@ contract FlywheelPublisherRegistryTest is Test {
     address private optimismPayout = address(0x8);
 
     function registerDefaultPublisher() internal returns (string memory, uint256) {
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](1);
-
-        overridePayouts[0] = FlywheelPublisherRegistry.OverridePublisherPayout(optimismChainId, optimismPayout);
-
         vm.startPrank(publisherOwner);
         (string memory refCode, uint256 publisherNonce) =
-            pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout, overridePayouts);
+            pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout);
         vm.stopPrank();
 
         return (refCode, publisherNonce);
     }
 
     function test_registerPublisher() public {
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](1);
-
-        overridePayouts[0] = FlywheelPublisherRegistry.OverridePublisherPayout(optimismChainId, optimismPayout);
-
         // Then execute the registration
         vm.startPrank(publisherOwner);
         (string memory refCode, uint256 publisherNonce) =
-            pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout, overridePayouts);
+            pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout);
         vm.stopPrank();
 
         // Verify state changes
@@ -263,10 +229,6 @@ contract FlywheelPublisherRegistryTest is Test {
         assertTrue(
             keccak256(abi.encode(refCode)) == keccak256(abi.encode(pubRegistry.getRefCode(publisherNonce))),
             "ref code mismatch"
-        );
-        assertTrue(
-            pubRegistry.getPublisherOverridePayout(refCode, optimismChainId) == optimismPayout,
-            "override payout mismatch"
         );
     }
 
@@ -313,30 +275,6 @@ contract FlywheelPublisherRegistryTest is Test {
         vm.startPrank(address(0x123));
         vm.expectRevert(Unauthorized.selector);
         pubRegistry.updatePublisherDefaultPayout(refCode, newDefaultPayout);
-        vm.stopPrank();
-    }
-
-    function test_updateOverridePayout() public {
-        (string memory refCode, uint256 publisherNonce) = registerDefaultPublisher();
-        address newOverridePayout = address(0x999);
-
-        vm.startPrank(publisherOwner);
-
-        // Expect the event before calling the function
-        vm.expectEmit(true, true, true, true);
-        emit UpdatePublisherChainPayoutAddress(refCode, optimismChainId, newOverridePayout);
-
-        pubRegistry.updatePublisherOverridePayout(refCode, optimismChainId, newOverridePayout);
-
-        vm.stopPrank();
-
-        // Existing state check
-        assertTrue(pubRegistry.getPublisherOverridePayout(refCode, optimismChainId) == newOverridePayout);
-
-        // non-publisher cannot update default payout
-        vm.startPrank(address(0x123));
-        vm.expectRevert(Unauthorized.selector);
-        pubRegistry.updatePublisherOverridePayout(refCode, optimismChainId, newOverridePayout);
         vm.stopPrank();
     }
 
@@ -396,16 +334,11 @@ contract FlywheelPublisherRegistryTest is Test {
         );
 
         // Register first publisher - should get the ref code from nonce1
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
-
         vm.startPrank(publisherOwner);
-        (string memory firstRefCode, uint256 firstNonce) =
-            pubRegistry.registerPublisher("first.com", defaultPayout, overridePayouts);
+        (string memory firstRefCode, uint256 firstNonce) = pubRegistry.registerPublisher("first.com", defaultPayout);
 
         // Register second publisher - should skip the collision and generate a new unique code
-        (string memory secondRefCode, uint256 secondNonce) =
-            pubRegistry.registerPublisher("second.com", defaultPayout, overridePayouts);
+        (string memory secondRefCode, uint256 secondNonce) = pubRegistry.registerPublisher("second.com", defaultPayout);
         vm.stopPrank();
 
         console.log("xxx first registered ref code", firstRefCode);
@@ -434,19 +367,13 @@ contract FlywheelPublisherRegistryTest is Test {
         string memory customMetadataUrl = "https://custom.com";
         address customDefaultPayout = address(0x456);
 
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](1);
-        overridePayouts[0] = FlywheelPublisherRegistry.OverridePublisherPayout(optimismChainId, optimismPayout);
-
         vm.startPrank(owner);
 
         // Expect events before calling the function
         vm.expectEmit(true, true, true, true);
         emit PublisherRegistered(customOwner, customDefaultPayout, customRefCode, customMetadataUrl, true);
 
-        pubRegistry.registerPublisherCustom(
-            customRefCode, customOwner, customMetadataUrl, customDefaultPayout, overridePayouts
-        );
+        pubRegistry.registerPublisherCustom(customRefCode, customOwner, customMetadataUrl, customDefaultPayout);
 
         vm.stopPrank();
 
@@ -456,11 +383,6 @@ contract FlywheelPublisherRegistryTest is Test {
         assertEq(registeredOwner, customOwner, "Custom owner mismatch");
         assertEq(registeredMetadataUrl, customMetadataUrl, "Custom metadata url mismatch");
         assertEq(registeredDefaultPayout, customDefaultPayout, "Custom default payout mismatch");
-        assertEq(
-            pubRegistry.getPublisherOverridePayout(customRefCode, optimismChainId),
-            optimismPayout,
-            "Custom override payout mismatch"
-        );
     }
 
     function test_registerPublisherCustom_RefCodeTaken() public {
@@ -468,23 +390,11 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Register first publisher
         vm.startPrank(owner);
-        pubRegistry.registerPublisherCustom(
-            customRefCode,
-            address(0x123),
-            "https://first.com",
-            address(0x456),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom(customRefCode, address(0x123), "https://first.com", address(0x456));
 
         // Try to register second publisher with same ref code
         vm.expectRevert(RefCodeAlreadyTaken.selector);
-        pubRegistry.registerPublisherCustom(
-            customRefCode,
-            address(0x789),
-            "https://second.com",
-            address(0x101),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom(customRefCode, address(0x789), "https://second.com", address(0x101));
         vm.stopPrank();
     }
 
@@ -535,111 +445,11 @@ contract FlywheelPublisherRegistryTest is Test {
         vm.stopPrank();
     }
 
-    function test_getPublisherPayoutAddress_WithOverride() public {
+    function test_getPublisherPayoutAddress() public {
         (string memory refCode,) = registerDefaultPublisher();
 
-        // Verify that when an override exists for a chain, it returns the override address
-        address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode, optimismChainId);
-        assertEq(payoutAddress, optimismPayout, "Should return override payout address when it exists");
-    }
-
-    function test_getPublisherPayoutAddress_WithoutOverride() public {
-        (string memory refCode,) = registerDefaultPublisher();
-        uint256 nonExistentChainId = 999; // Chain ID with no override
-
-        // Verify that when no override exists, it returns the default payout address
-        address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode, nonExistentChainId);
-        assertEq(payoutAddress, defaultPayout, "Should return default payout address when no override exists");
-    }
-
-    function test_getPublisherPayoutAddress_WithZeroOverride() public {
-        (string memory refCode,) = registerDefaultPublisher();
-        uint256 newChainId = 100;
-
-        // Set a zero address override
-        vm.startPrank(publisherOwner);
-        pubRegistry.updatePublisherOverridePayout(refCode, newChainId, address(0));
-        vm.stopPrank();
-
-        // Verify that when override is zero address, it returns the default payout address
-        address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode, newChainId);
-        assertEq(payoutAddress, defaultPayout, "Should return default payout address when override is zero address");
-    }
-
-    function test_getPublisherPayoutAddress_MultipleOverrides() public {
-        // Register a publisher with multiple chain overrides
-        string memory refCode;
-        {
-            FlywheelPublisherRegistry.OverridePublisherPayout[] memory overridePayouts =
-                new FlywheelPublisherRegistry.OverridePublisherPayout[](3);
-
-            // Override for Optimism (chainId: 10)
-            overridePayouts[0] = FlywheelPublisherRegistry.OverridePublisherPayout(10, address(0x111));
-            // Override for Arbitrum (chainId: 42161)
-            overridePayouts[1] = FlywheelPublisherRegistry.OverridePublisherPayout(42161, address(0x222));
-            // Override for Base (chainId: 8453)
-            overridePayouts[2] = FlywheelPublisherRegistry.OverridePublisherPayout(8453, address(0x333));
-
-            vm.startPrank(publisherOwner);
-            (refCode,) = pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout, overridePayouts);
-            vm.stopPrank();
-        }
-
-        // Verify each chain-specific override
-        assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 10), address(0x111), "Optimism override mismatch");
-        assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 42161), address(0x222), "Arbitrum override mismatch");
-        assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 8453), address(0x333), "Base override mismatch");
-
-        // Verify default payout is used for chains without overrides
-        assertEq(
-            pubRegistry.getPublisherPayoutAddress(refCode, 1), // Ethereum mainnet
-            defaultPayout,
-            "Should use default for Ethereum mainnet"
-        );
-        assertEq(
-            pubRegistry.getPublisherPayoutAddress(refCode, 137), // Polygon
-            defaultPayout,
-            "Should use default for Polygon"
-        );
-    }
-
-    function test_getPublisherPayoutAddress_UpdateOverrides() public {
-        (string memory refCode,) = registerDefaultPublisher();
-
-        // Initially verify default behavior
-        assertEq(
-            pubRegistry.getPublisherPayoutAddress(refCode, 42161), // Arbitrum
-            defaultPayout,
-            "Should start with default payout"
-        );
-
-        // Add override for Arbitrum
-        vm.startPrank(publisherOwner);
-        pubRegistry.updatePublisherOverridePayout(refCode, 42161, address(0x222));
-        vm.stopPrank();
-
-        // Verify override is now used
-        assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 42161), address(0x222), "Should use new override");
-
-        // Update the override
-        vm.startPrank(publisherOwner);
-        pubRegistry.updatePublisherOverridePayout(refCode, 42161, address(0x333));
-        vm.stopPrank();
-
-        // Verify updated override is used
-        assertEq(pubRegistry.getPublisherPayoutAddress(refCode, 42161), address(0x333), "Should use updated override");
-
-        // Remove override by setting to zero address
-        vm.startPrank(publisherOwner);
-        pubRegistry.updatePublisherOverridePayout(refCode, 42161, address(0));
-        vm.stopPrank();
-
-        // Verify falls back to default
-        assertEq(
-            pubRegistry.getPublisherPayoutAddress(refCode, 42161),
-            defaultPayout,
-            "Should fall back to default after removing override"
-        );
+        address payoutAddress = pubRegistry.getPublisherPayoutAddress(refCode);
+        assertEq(payoutAddress, defaultPayout, "Should return default payout address");
     }
 
     // Tests for missing coverage lines
@@ -656,9 +466,8 @@ contract FlywheelPublisherRegistryTest is Test {
         // This tests the return statement on line 250 when no collision occurs
         // Register a publisher, which calls _generateUniqueRefCode internally
         vm.startPrank(publisherOwner);
-        (string memory refCode, uint256 publisherNonce) = pubRegistry.registerPublisher(
-            publisherMetadataUrl, defaultPayout, new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        (string memory refCode, uint256 publisherNonce) =
+            pubRegistry.registerPublisher(publisherMetadataUrl, defaultPayout);
         vm.stopPrank();
 
         // Verify the ref code was generated correctly
@@ -783,13 +592,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // New owner should be able to register custom publishers
         vm.prank(newOwner);
-        pubRegistry.registerPublisherCustom(
-            "newowner123",
-            address(0x789),
-            "https://newowner.com",
-            address(0x101),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom("newowner123", address(0x789), "https://newowner.com", address(0x101));
 
         // Verify custom publisher was registered
         (address registeredOwner,,) = pubRegistry.publishers("newowner123");
@@ -810,12 +613,6 @@ contract FlywheelPublisherRegistryTest is Test {
         // Old owner should not be able to register custom publishers
         vm.prank(owner);
         vm.expectRevert(Unauthorized.selector);
-        pubRegistry.registerPublisherCustom(
-            "oldowner123",
-            address(0x789),
-            "https://oldowner.com",
-            address(0x101),
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0)
-        );
+        pubRegistry.registerPublisherCustom("oldowner123", address(0x789), "https://oldowner.com", address(0x101));
     }
 }

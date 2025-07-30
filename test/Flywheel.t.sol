@@ -50,17 +50,15 @@ contract FlywheelTest is Test {
 
         // Register publishers with ref codes
         vm.startPrank(owner);
-        FlywheelPublisherRegistry.OverridePublisherPayout[] memory overrides =
-            new FlywheelPublisherRegistry.OverridePublisherPayout[](0);
 
         // Register publisher1 with ref code "PUBLISHER_1"
         publisherRegistry.registerPublisherCustom(
-            "PUBLISHER_1", publisher1, "https://example.com/publisher1", publisher1Payout, overrides
+            "PUBLISHER_1", publisher1, "https://example.com/publisher1", publisher1Payout
         );
 
         // Register publisher2 with ref code "PUBLISHER_2"
         publisherRegistry.registerPublisherCustom(
-            "PUBLISHER_2", publisher2, "https://example.com/publisher2", publisher2Payout, overrides
+            "PUBLISHER_2", publisher2, "https://example.com/publisher2", publisher2Payout
         );
         vm.stopPrank();
 
