@@ -12,6 +12,8 @@ import {FlywheelPublisherRegistry} from "../FlywheelPublisherRegistry.sol";
 /// @notice Attribution hook for processing advertisement conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
+///
+/// @author Coinbase
 contract AdvertisementConversion is CampaignHooks, Ownable {
     // Conversion configuration structure
     struct ConversionConfig {
@@ -80,11 +82,11 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Maximum attribution deadline duration (30 days)
     uint48 public constant MAX_ATTRIBUTION_DEADLINE_DURATION = 30 days;
 
-    /// @notice Attribution deadline duration (configurable by owner)
-    uint48 public attributionDeadlineDuration;
-
     /// @notice Address of the publisher registry contract
     FlywheelPublisherRegistry public immutable publisherRegistry;
+
+    /// @notice Attribution deadline duration (configurable by owner)
+    uint48 public attributionDeadlineDuration;
 
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
@@ -117,6 +119,28 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @param log The onchain log data
     event OnchainConversionProcessed(address indexed campaign, Conversion conversion, Log log);
 
+    /// @notice Emitted when a new conversion config is added to a campaign
+    event ConversionConfigAdded(address indexed campaign, uint8 indexed configId, ConversionConfig config);
+
+    /// @notice Emitted when a conversion config is disabled
+    event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, bool isActive);
+
+    /// @notice Emitted when conversion config metadata is updated
+    event ConversionConfigMetadataUpdated(address indexed campaign, uint8 indexed configId);
+
+    /// @notice Emitted when attribution deadline duration is updated
+    ///
+    /// @param oldDuration The previous duration
+    /// @param newDuration The new duration
+    event AttributionDeadlineDurationUpdated(uint48 oldDuration, uint48 newDuration);
+
+    /// @notice Emitted when an attribution provider updates their fee
+    ///
+    /// @param attributionProvider The attribution provider address
+    /// @param oldFeeBps The previous fee in basis points
+    /// @param newFeeBps The new fee in basis points
+    event AttributionProviderFeeUpdated(address indexed attributionProvider, uint16 oldFeeBps, uint16 newFeeBps);
+
     /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
 
@@ -142,28 +166,6 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Error thrown when trying to add too many conversion configs
     error TooManyConversionConfigs();
-
-    /// @notice Emitted when a new conversion config is added to a campaign
-    event ConversionConfigAdded(address indexed campaign, uint8 indexed configId, ConversionConfig config);
-
-    /// @notice Emitted when a conversion config is disabled
-    event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, bool isActive);
-
-    /// @notice Emitted when conversion config metadata is updated
-    event ConversionConfigMetadataUpdated(address indexed campaign, uint8 indexed configId);
-
-    /// @notice Emitted when attribution deadline duration is updated
-    ///
-    /// @param oldDuration The previous duration
-    /// @param newDuration The new duration
-    event AttributionDeadlineDurationUpdated(uint48 oldDuration, uint48 newDuration);
-
-    /// @notice Emitted when an attribution provider updates their fee
-    ///
-    /// @param attributionProvider The attribution provider address
-    /// @param oldFeeBps The previous fee in basis points
-    /// @param newFeeBps The new fee in basis points
-    event AttributionProviderFeeUpdated(address indexed attributionProvider, uint16 oldFeeBps, uint16 newFeeBps);
 
     /// @notice Error thrown when attribution deadline duration is invalid
     ///
@@ -255,7 +257,6 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @inheritdoc CampaignHooks
     function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
         external
-        view
         override
         onlyFlywheel
     {
@@ -395,31 +396,11 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
     function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
         external
-        view
         override
         onlyFlywheel
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
-    }
-
-    /// @notice Checks if a campaign has a publisher allowlist
-    /// @param campaign Address of the campaign
-    /// @return True if the campaign has an allowlist
-    function hasPublisherAllowlist(address campaign) external view returns (bool) {
-        return state[campaign].hasAllowlist;
-    }
-
-    /// @notice Checks if a publisher ref code is allowed for a campaign
-    /// @param campaign Address of the campaign
-    /// @param refCode Publisher ref code to check
-    /// @return True if the publisher is allowed (or if no allowlist exists)
-    function isPublisherAllowed(address campaign, string memory refCode) external view returns (bool) {
-        // If no allowlist exists, all publishers are allowed
-        if (!state[campaign].hasAllowlist) {
-            return true;
-        }
-        return allowedPublishers[campaign][refCode];
     }
 
     /// @notice Adds a publisher ref code to the campaign allowlist
@@ -498,6 +479,25 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
         // Emit event to signal metadata update
         emit ConversionConfigMetadataUpdated(campaign, configId);
+    }
+
+    /// @notice Checks if a campaign has a publisher allowlist
+    /// @param campaign Address of the campaign
+    /// @return True if the campaign has an allowlist
+    function hasPublisherAllowlist(address campaign) external view returns (bool) {
+        return state[campaign].hasAllowlist;
+    }
+
+    /// @notice Checks if a publisher ref code is allowed for a campaign
+    /// @param campaign Address of the campaign
+    /// @param refCode Publisher ref code to check
+    /// @return True if the publisher is allowed (or if no allowlist exists)
+    function isPublisherAllowed(address campaign, string memory refCode) external view returns (bool) {
+        // If no allowlist exists, all publishers are allowed
+        if (!state[campaign].hasAllowlist) {
+            return true;
+        }
+        return allowedPublishers[campaign][refCode];
     }
 
     /// @notice Gets a conversion config for a campaign
