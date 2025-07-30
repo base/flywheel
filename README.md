@@ -90,22 +90,133 @@ Abstract interface that enables:
 
 #### **AdvertisementConversion.sol**
 
-Traditional performance marketing campaigns:
+Traditional performance marketing campaigns where publishers drive conversions and earn rewards.
 
-- Publishers earn based on conversions
-- Supports flat fee or percentage-based rewards
-- Configurable attribution windows
-- Multi-tier rewards (publisher + user)
+**Core Features:**
+
+- Publishers earn based on verified conversions
+- Supports both onchain and offchain attribution events
+- Configurable conversion configs with metadata
+- Publisher allowlists for restricted campaigns
+- Attribution fee collection for providers
+
+**Campaign Creation:**
 
 ```solidity
-// Example: Create an ad campaign with 10% publisher commission
 bytes memory hookData = abi.encode(
-    provider,          // Attribution provider address
-    advertiser,        // Campaign sponsor address
-    "https://api.spindl.xyz/metadata/...",       // Campaign metadata URI
-    ... other data TBD
+    attributionProvider,    // Who can submit conversions
+    advertiser,            // Campaign sponsor
+    "https://api.spindl.xyz/metadata/...",    // Campaign metadata URI
+    allowedRefCodes,       // Publisher allowlist (empty = no restrictions)
+    conversionConfigs      // Array of ConversionConfig structs
 );
 ```
+
+**Common Reward Scenarios:**
+
+1. **Publisher-Only Rewards (Direct Payout)**
+
+   ```solidity
+   Conversion memory conversion = Conversion({
+       eventId: "unique-event-id",
+       clickId: "click-12345",
+       conversionConfigId: 1,
+       publisherRefCode: "publisher-123",
+       timestamp: uint32(block.timestamp),
+       payoutRecipient: 0x1234...5678,  // Direct payout address
+       payoutAmount: 10e18  // 10 tokens
+   });
+   ```
+
+   - Payout goes directly to specified `payoutRecipient`
+   - Useful when publisher wants specific address for rewards
+   - Attribution fee deducted from `payoutAmount`
+
+2. **Publisher Registry Lookup**
+
+   ```solidity
+   Conversion memory conversion = Conversion({
+       eventId: "unique-event-id",
+       clickId: "click-12345",
+       conversionConfigId: 1,
+       publisherRefCode: "publisher-123",
+       timestamp: uint32(block.timestamp),
+       payoutRecipient: address(0),  // Use registry lookup
+       payoutAmount: 10e18
+   });
+   ```
+
+   - When `payoutRecipient = address(0)`, system looks up publisher's payout address
+   - Uses `publisherRegistry.getPublisherPayoutAddress(refCode, chainId)`
+   - Allows publishers to manage payout addresses centrally
+   - Supports multi-chain publisher identity
+
+3. **Onchain vs Offchain Conversions**
+
+   ```solidity
+   // Offchain conversion (e.g., email signup, purchase)
+   Attribution memory offchainAttr = Attribution({
+       conversion: conversion,
+       logBytes: ""  // Empty for offchain events
+   });
+
+   // Onchain conversion (e.g., DEX swap, NFT mint)
+   Log memory logData = Log({
+       chainId: 8453,  // Base
+       transactionHash: 0xabcd...,
+       index: 2
+   });
+   Attribution memory onchainAttr = Attribution({
+       conversion: conversion,
+       logBytes: abi.encode(logData)  // Log data for verification
+   });
+   ```
+
+4. **Conversion Config Validation**
+
+   - `conversionConfigId = 0`: No validation, accepts any conversion type
+   - `conversionConfigId > 0`: Must match registered config
+     - Validates `isEventOnchain` matches presence of `logBytes`
+     - Config must be active (`isActive = true`)
+     - Used to enforce conversion type requirements
+
+5. **Publisher Allowlist**
+
+   ```solidity
+   // Campaign with allowlist (only specific publishers)
+   string[] memory allowedRefCodes = ["publisher-123", "publisher-456"];
+
+   // Campaign without allowlist (any registered publisher)
+   string[] memory allowedRefCodes = [];
+   ```
+
+   - Empty allowlist = any registered publisher can earn
+   - Non-empty allowlist = only specified publishers allowed
+   - Advertiser can add publishers via `addAllowedPublisherRefCode()`
+
+6. **Attribution Fee Structure**
+
+   ```solidity
+   // Attribution provider sets their fee (0-100%)
+   attributionProvider.setAttributionProviderFee(100); // 1% fee
+
+   // During payout:
+   uint256 attributionFee = (payoutAmount * feeBps) / 10000;
+   uint256 netPayout = payoutAmount - attributionFee;
+   ```
+
+   - Attribution providers earn fees for verification work
+   - Fee deducted from publisher payout, not campaign funds
+   - Currently set to 0% for Base/Spindl campaigns
+
+**Validation Rules:**
+
+- Publisher ref code must exist in `FlywheelPublisherRegistry`
+- If allowlist exists, publisher must be approved
+- Conversion config must be active (if specified)
+- Conversion type must match config (onchain/offchain)
+- Only attribution provider can submit conversions
+- Only advertiser can withdraw remaining funds (when finalized)
 
 #### **CommerceCashback.sol**
 

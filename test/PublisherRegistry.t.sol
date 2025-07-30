@@ -12,10 +12,11 @@ import {
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {
     PublisherRegistered,
+    SignerRoleGranted,
+    SignerRoleRevoked,
     UpdatePublisherChainPayoutAddress,
     UpdatePublisherDefaultPayoutAddress,
-    UpdateMetadataUrl,
-    UpdateSignerAddress
+    UpdateMetadataUrl
 } from "../src/FlywheelPublisherRegistry.sol";
 
 contract FlywheelPublisherRegistryTest is Test {
@@ -44,7 +45,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
     function test_constructor() public {
         assertEq(pubRegistry.owner(), owner);
-        assertEq(pubRegistry.signerAddress(), signer);
+        assertTrue(pubRegistry.isSigner(signer));
     }
 
     function test_initializeWithZeroOwner() public {
@@ -53,7 +54,7 @@ contract FlywheelPublisherRegistryTest is Test {
 
         // Try to initialize with zero owner
         bytes memory initData =
-            abi.encodeWithSelector(FlywheelPublisherRegistry.initialize.selector, address(0), signer);
+            abi.encodeWithSelector(FlywheelPublisherRegistry.initialize.selector, address(0), address(0));
 
         vm.expectRevert(InvalidAddress.selector);
         new ERC1967Proxy(address(freshImpl), initData);
@@ -69,47 +70,59 @@ contract FlywheelPublisherRegistryTest is Test {
         FlywheelPublisherRegistry freshRegistry = FlywheelPublisherRegistry(address(freshProxy));
 
         assertEq(freshRegistry.owner(), owner);
-        assertEq(freshRegistry.signerAddress(), address(0));
+        assertFalse(freshRegistry.isSigner(address(0x123))); // No signers
     }
 
-    function test_updateSignerAddress() public {
+    function test_grantSignerRole() public {
         address newSigner = address(0x456);
 
         vm.startPrank(owner);
 
         // Expect the event before calling the function
-        vm.expectEmit(true, true, true, true);
-        emit UpdateSignerAddress(newSigner);
+        vm.expectEmit(true, true, false, false);
+        emit SignerRoleGranted(newSigner, owner);
 
-        pubRegistry.updateSignerAddress(newSigner);
+        pubRegistry.grantSignerRole(newSigner);
 
         vm.stopPrank();
 
-        assertEq(pubRegistry.signerAddress(), newSigner);
+        assertTrue(pubRegistry.isSigner(newSigner));
+        assertTrue(pubRegistry.isSigner(signer)); // original signer still there
     }
 
-    function test_updateSignerAddress_Unauthorized() public {
+    function test_grantSignerRole_Unauthorized() public {
         address newSigner = address(0x456);
         address unauthorized = address(0x789);
 
         vm.startPrank(unauthorized);
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", unauthorized));
-        pubRegistry.updateSignerAddress(newSigner);
+        pubRegistry.grantSignerRole(newSigner);
         vm.stopPrank();
     }
 
-    function test_updateSignerAddress_ToZero() public {
+    function test_revokeSignerRole() public {
         vm.startPrank(owner);
 
-        // Update to zero address (should be allowed)
-        vm.expectEmit(true, true, true, true);
-        emit UpdateSignerAddress(address(0));
+        // First verify signer has role
+        assertTrue(pubRegistry.isSigner(signer));
 
-        pubRegistry.updateSignerAddress(address(0));
+        vm.expectEmit(true, true, false, false);
+        emit SignerRoleRevoked(signer, owner);
+
+        pubRegistry.revokeSignerRole(signer);
 
         vm.stopPrank();
 
-        assertEq(pubRegistry.signerAddress(), address(0));
+        assertFalse(pubRegistry.isSigner(signer));
+    }
+
+    function test_grantSignerRole_ZeroAddress() public {
+        vm.startPrank(owner);
+
+        vm.expectRevert(InvalidAddress.selector);
+        pubRegistry.grantSignerRole(address(0));
+
+        vm.stopPrank();
     }
 
     function test_registerPublisherCustom_BySigner() public {
