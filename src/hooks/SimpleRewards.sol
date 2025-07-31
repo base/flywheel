@@ -14,6 +14,17 @@ contract SimpleRewards is CampaignHooks {
     /// @notice Thrown when the sender is not the manager of the campaign
     error Unauthorized();
 
+    /// @notice Modifier to check if the sender is the manager of the campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    ///
+    /// @dev Reverts if the sender is not the manager of the campaign
+    modifier onlyManager(address sender, address campaign) {
+        if (sender != managers[campaign]) revert Unauthorized();
+        _;
+    }
+
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
     /// @inheritdoc CampaignHooks
@@ -28,18 +39,52 @@ contract SimpleRewards is CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) external override onlyFlywheel {
-        if (sender != managers[campaign]) revert Unauthorized();
-    }
+    ) external override onlyFlywheel onlyManager(sender, campaign) {}
 
     /// @inheritdoc CampaignHooks
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
+        onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        if (sender != managers[campaign]) revert Unauthorized();
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        onlyManager(sender, campaign)
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        return (payouts, 0);
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        onlyManager(sender, campaign)
+        returns (Flywheel.Payout[] memory payouts)
+    {
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        return (payouts);
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        onlyManager(sender, campaign)
+        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+    {
         payouts = abi.decode(hookData, (Flywheel.Payout[]));
         return (payouts, 0);
     }
@@ -49,7 +94,6 @@ contract SimpleRewards is CampaignHooks {
         external
         override
         onlyFlywheel
-    {
-        if (sender != managers[campaign]) revert Unauthorized();
-    }
+        onlyManager(sender, campaign)
+    {}
 }
