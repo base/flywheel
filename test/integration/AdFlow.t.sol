@@ -5,11 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {Flywheel} from "../src/Flywheel.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
-import {DummyERC20} from "./mocks/DummyERC20.sol";
-import {TokenStore} from "../src/TokenStore.sol";
+import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
+import {DummyERC20} from "../mocks/DummyERC20.sol";
+import {TokenStore} from "../../src/TokenStore.sol";
 
 contract AdFlowTest is Test {
     // Contracts

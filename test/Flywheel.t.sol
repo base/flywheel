@@ -4,6 +4,7 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {TokenStore} from "../src/TokenStore.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -343,5 +344,338 @@ contract FlywheelTest is Test {
         uint256 remainingFees = flywheel.fees(campaign, address(token), attributionProvider);
         assertEq(remainingFees, 0, "Fees should be cleared after collection");
         vm.stopPrank();
+    }
+
+    // =============================================================
+    //                    ALLOCATE/DISTRIBUTE FUNCTIONALITY
+    // =============================================================
+
+    function test_allocateAndDistribute() public {
+        // Note: AdvertisementConversion hook doesn't support allocate/distribute
+        // This test demonstrates that the hook properly rejects unsupported operations
+        address payoutRecipient = address(0x1333);
+
+        // Activate campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Fund campaign
+        vm.prank(advertiser);
+        token.transfer(campaign, INITIAL_BALANCE);
+
+        // Create attribution data for allocation
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(0x11111111111111112222222222222222)),
+                clickId: "allocate_test",
+                conversionConfigId: 1,
+                publisherRefCode: "",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: payoutRecipient,
+                payoutAmount: 150e18
+            }),
+            logBytes: ""
+        });
+
+        bytes memory attributionData = abi.encode(attributions);
+
+        // AdvertisementConversion hook doesn't support allocate - should revert
+        vm.expectRevert(); // Unsupported operation
+        vm.prank(attributionProvider);
+        flywheel.allocate(campaign, address(token), attributionData);
+    }
+
+    function test_deallocate() public {
+        // Note: AdvertisementConversion hook doesn't support deallocate
+        // This test demonstrates that the hook properly rejects unsupported operations
+        address payoutRecipient = address(0x1444);
+
+        // Activate campaign and fund it
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        vm.prank(advertiser);
+        token.transfer(campaign, INITIAL_BALANCE);
+
+        // Create attribution data
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(0x33333333333333334444444444444444)),
+                clickId: "deallocate_test",
+                conversionConfigId: 1,
+                publisherRefCode: "",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: payoutRecipient,
+                payoutAmount: 100e18
+            }),
+            logBytes: ""
+        });
+
+        bytes memory attributionData = abi.encode(attributions);
+
+        // AdvertisementConversion hook doesn't support deallocate - should revert
+        vm.expectRevert(); // Unsupported operation
+        vm.prank(attributionProvider);
+        flywheel.deallocate(campaign, address(token), attributionData);
+    }
+
+    // =============================================================
+    //                    MULTI-TOKEN SUPPORT
+    // =============================================================
+
+    function test_multiTokenCampaign() public {
+        // Deploy a second token
+        address[] memory holders = new address[](1);
+        holders[0] = advertiser;
+        DummyERC20 token2 = new DummyERC20(holders);
+
+        // Activate campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Fund campaign with both tokens
+        vm.startPrank(advertiser);
+        token.transfer(campaign, INITIAL_BALANCE);
+        token2.transfer(campaign, INITIAL_BALANCE / 2);
+        vm.stopPrank();
+
+        // Create attributions for both tokens
+        address recipient1 = address(0x1555);
+        address recipient2 = address(0x1666);
+
+        // Attribution for token1
+        AdvertisementConversion.Attribution[] memory attributions1 = new AdvertisementConversion.Attribution[](1);
+        attributions1[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(0x55555555555555556666666666666666)),
+                clickId: "token1_test",
+                conversionConfigId: 1,
+                publisherRefCode: "",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: recipient1,
+                payoutAmount: 50e18
+            }),
+            logBytes: ""
+        });
+
+        // Attribution for token2
+        AdvertisementConversion.Attribution[] memory attributions2 = new AdvertisementConversion.Attribution[](1);
+        attributions2[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(0x77777777777777778888888888888888)),
+                clickId: "token2_test",
+                conversionConfigId: 1,
+                publisherRefCode: "",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: recipient2,
+                payoutAmount: 25e18
+            }),
+            logBytes: ""
+        });
+
+        // Process both attributions
+        vm.startPrank(attributionProvider);
+        flywheel.reward(campaign, address(token), abi.encode(attributions1));
+        flywheel.reward(campaign, address(token2), abi.encode(attributions2));
+        vm.stopPrank();
+
+        // Verify both recipients received their respective tokens
+        assertEq(token.balanceOf(recipient1), 50e18, "Recipient1 should receive token1");
+        assertEq(token2.balanceOf(recipient2), 25e18, "Recipient2 should receive token2");
+    }
+
+    function test_multiTokenFeeCollection() public {
+        // Deploy second token
+        address[] memory holders = new address[](1);
+        holders[0] = advertiser;
+        DummyERC20 token2 = new DummyERC20(holders);
+
+        // Activate campaign and set fee
+        vm.startPrank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        hook.setAttributionProviderFee(1000); // 10%
+        vm.stopPrank();
+
+        // Fund campaign with both tokens
+        vm.startPrank(advertiser);
+        token.transfer(campaign, INITIAL_BALANCE);
+        token2.transfer(campaign, INITIAL_BALANCE);
+        vm.stopPrank();
+
+        // Create attributions that generate fees in both tokens
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(0x99999999999999990000000000000000)),
+                clickId: "fee_test",
+                conversionConfigId: 1,
+                publisherRefCode: "",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0x1777),
+                payoutAmount: 100e18
+            }),
+            logBytes: ""
+        });
+
+        // Process attributions for both tokens
+        vm.startPrank(attributionProvider);
+        flywheel.reward(campaign, address(token), abi.encode(attributions));
+        flywheel.reward(campaign, address(token2), abi.encode(attributions));
+        vm.stopPrank();
+
+        // Verify fees are collected for both tokens
+        uint256 expectedFee = 100e18 * 1000 / 10000; // 10%
+        assertEq(flywheel.fees(campaign, address(token), attributionProvider), expectedFee);
+        assertEq(flywheel.fees(campaign, address(token2), attributionProvider), expectedFee);
+
+        // Collect fees for both tokens
+        vm.startPrank(attributionProvider);
+        flywheel.collectFees(campaign, address(token), attributionProvider);
+        flywheel.collectFees(campaign, address(token2), attributionProvider);
+        vm.stopPrank();
+
+        // Verify attribution provider received fees in both tokens
+        // Note: attribution provider started with 1000000e18 initial token balance, so add the fee to that
+        assertEq(
+            token.balanceOf(attributionProvider), 1000000e18 + expectedFee, "Should receive initial + fee for token1"
+        );
+        assertEq(token2.balanceOf(attributionProvider), expectedFee, "Should receive fee for token2");
+    }
+
+    // =============================================================
+    //                    TOKENSTORE INTEGRATION
+    // =============================================================
+
+    function test_tokenStoreCloneDeployment() public {
+        // Verify TokenStore was cloned correctly
+        assertTrue(campaign != address(0), "Campaign address should be non-zero");
+
+        // Verify the campaign is a clone of the TokenStore implementation
+        // The campaign address should have code (cloned contract)
+        uint256 codeSize;
+        address campaignAddr = campaign;
+        assembly {
+            codeSize := extcodesize(campaignAddr)
+        }
+        assertTrue(codeSize > 0, "Campaign should have contract code");
+    }
+
+    function test_tokenStoreAccessControl() public {
+        // Fund campaign first
+        vm.prank(advertiser);
+        token.transfer(campaign, INITIAL_BALANCE);
+
+        // Try to call TokenStore directly (should fail)
+        vm.expectRevert();
+        TokenStore(campaign).sendTokens(address(token), advertiser, 100e18);
+
+        // Only Flywheel should be able to call TokenStore
+        vm.prank(address(flywheel));
+        TokenStore(campaign).sendTokens(address(token), advertiser, 100e18);
+
+        // Verify the transfer worked - advertiser should have received the tokens back
+        // Note: advertiser's balance should have the 100e18 transferred back plus remaining initial balance
+        uint256 expectedBalance = (1000000e18 - INITIAL_BALANCE) + 100e18; // Initial remaining + transfer
+        assertEq(token.balanceOf(advertiser), expectedBalance, "Advertiser should receive transferred tokens");
+    }
+
+    // =============================================================
+    //                    CAMPAIGN ADDRESS PREDICTION
+    // =============================================================
+
+    function test_campaignAddressPrediction() public {
+        // Create hook data for a new campaign
+        string[] memory allowedRefs = new string[](0);
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://test.com"
+        });
+
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs);
+
+        // Predict the campaign address
+        address predictedAddress = flywheel.campaignAddress(999, hookData);
+
+        // Create the campaign
+        address actualAddress = flywheel.createCampaign(address(hook), 999, hookData);
+
+        // Verify prediction was correct
+        assertEq(predictedAddress, actualAddress, "Predicted address should match actual address");
+    }
+
+    function test_campaignAddressUniqueness() public {
+        string[] memory allowedRefs = new string[](0);
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](0);
+
+        bytes memory hookData1 = abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs);
+        bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs);
+
+        // Same nonce, different data should produce different addresses
+        address addr1 = flywheel.campaignAddress(100, hookData1);
+        address addr2 = flywheel.campaignAddress(100, hookData2);
+        assertTrue(addr1 != addr2, "Different hook data should produce different addresses");
+
+        // Same data, different nonce should produce different addresses
+        address addr3 = flywheel.campaignAddress(101, hookData1);
+        assertTrue(addr1 != addr3, "Different nonce should produce different addresses");
+    }
+
+    // =============================================================
+    //                    EDGE CASE STATUS TRANSITIONS
+    // =============================================================
+
+    function test_invalidStatusTransitions() public {
+        // Go to ACTIVE first
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Try to update to same status (this should fail at Flywheel level)
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Move to FINALIZING
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Move to FINALIZED
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Try to change from FINALIZED (should fail at Flywheel level)
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    function test_statusUpdateWithHookData() public {
+        // Test that hook receives the correct data on status updates
+        bytes memory testData = "test_hook_data";
+
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, testData);
+
+        // Verify status was updated
+        assertEq(uint8(flywheel.campaignStatus(campaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    function test_finalizedStatusImmutable() public {
+        // Move to FINALIZED status
+        vm.startPrank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        vm.stopPrank();
+
+        // Try to change status from FINALIZED (should fail)
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
     }
 }

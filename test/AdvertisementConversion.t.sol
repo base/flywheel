@@ -420,4 +420,464 @@ contract AdvertisementConversionTest is Test {
         // Verify it was added
         assertTrue(hook.isPublisherAllowed(allowlistCampaign, "NEW_PUB"));
     }
+
+    // =============================================================
+    //                    ATTRIBUTION PROVIDER FEE MANAGEMENT
+    // =============================================================
+
+    function test_setAttributionProviderFee_success() public {
+        uint16 newFee = 750; // 7.5%
+        
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.AttributionProviderFeeUpdated(attributionProvider, 0, newFee); // old, new
+        
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(newFee);
+        
+        assertEq(hook.attributionProviderFees(attributionProvider), newFee);
+    }
+
+    function test_setAttributionProviderFee_anyoneCanSetOwnFee() public {
+        // Any address can set their own attribution provider fee
+        vm.prank(randomUser);
+        hook.setAttributionProviderFee(1000);
+        
+        assertEq(hook.attributionProviderFees(randomUser), 1000);
+    }
+
+    function test_setAttributionProviderFee_revert_feeTooHigh() public {
+        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidFeeBps.selector, 10001));
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(10001); // > 100%
+    }
+
+    function test_setAttributionProviderFee_maxFeeAllowed() public {
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(10000); // Exactly 100%
+        
+        assertEq(hook.attributionProviderFees(attributionProvider), 10000);
+    }
+
+    // =============================================================
+    //                    CONVERSION CONFIG MANAGEMENT
+    // =============================================================
+
+    function test_addConversionConfig_success() public {
+        AdvertisementConversion.ConversionConfigInput memory newConfig = 
+            AdvertisementConversion.ConversionConfigInput({
+                isEventOnchain: true,
+                conversionMetadataUrl: "https://example.com/new-config"
+            });
+
+        vm.expectEmit(true, true, false, true);
+        emit AdvertisementConversion.ConversionConfigAdded(
+            campaign,
+            3, // Next ID
+            AdvertisementConversion.ConversionConfig({
+                isActive: true,
+                isEventOnchain: true,
+                conversionMetadataUrl: "https://example.com/new-config"
+            })
+        );
+
+        vm.prank(advertiser);
+        hook.addConversionConfig(campaign, newConfig);
+
+        // Verify config was added
+        AdvertisementConversion.ConversionConfig memory retrievedConfig = hook.getConversionConfig(campaign, 3);
+        assertTrue(retrievedConfig.isActive);
+        assertTrue(retrievedConfig.isEventOnchain);
+        assertEq(retrievedConfig.conversionMetadataUrl, "https://example.com/new-config");
+    }
+
+    function test_addConversionConfig_revert_unauthorized() public {
+        AdvertisementConversion.ConversionConfigInput memory newConfig = 
+            AdvertisementConversion.ConversionConfigInput({
+                isEventOnchain: false,
+                conversionMetadataUrl: "https://example.com/unauthorized"
+            });
+
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(randomUser);
+        hook.addConversionConfig(campaign, newConfig);
+    }
+
+    function test_disableConversionConfig_success() public {
+        vm.expectEmit(true, true, false, true);
+        emit AdvertisementConversion.ConversionConfigStatusChanged(campaign, 1, false);
+
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 1);
+
+        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
+        assertFalse(config.isActive);
+    }
+
+    function test_disableConversionConfig_revert_unauthorized() public {
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(randomUser);
+        hook.disableConversionConfig(campaign, 1);
+    }
+
+    function test_disableConversionConfig_revert_invalidId() public {
+        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 99); // uint8 max is 255
+    }
+
+    // Note: There's no enableConversionConfig function - configs cannot be re-enabled once disabled
+    // This is by design to prevent accidental re-activation of disabled conversion types
+
+    // =============================================================
+    //                    PUBLISHER ALLOWLIST MANAGEMENT
+    // =============================================================
+
+    // Note: There's no removeAllowedPublisherRefCode function - publishers cannot be removed once added
+    // This is by design to prevent accidental removal of authorized publishers
+
+    function test_isPublisherAllowed_noAllowlist() public {
+        // Campaign with empty allowlist should allow all publishers
+        assertTrue(hook.isPublisherAllowed(campaign, "ANY_REF_CODE"));
+        assertTrue(hook.isPublisherAllowed(campaign, "NONEXISTENT_CODE"));
+    }
+
+    // =============================================================
+    //                    EDGE CASES AND ERROR HANDLING
+    // =============================================================
+
+    function test_onReward_revert_unauthorizedAttributionProvider() public {
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 1,
+                publisherRefCode: "TEST_REF_CODE",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: abi.encode(
+                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(address(flywheel)); // Called from flywheel but with wrong attribution provider
+        hook.onReward(randomUser, campaign, address(token), hookData); // randomUser not the campaign's attribution provider
+    }
+
+    function test_onReward_revert_invalidConversionConfigId() public {
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 99, // Invalid config ID
+                publisherRefCode: "TEST_REF_CODE",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.prank(address(flywheel));
+        hook.onReward(attributionProvider, campaign, address(token), hookData);
+    }
+
+    function test_onReward_revert_disabledConversionConfig() public {
+        // Disable config 1
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 1);
+
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 1, // Disabled config
+                publisherRefCode: "TEST_REF_CODE",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: abi.encode(
+                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.expectRevert(AdvertisementConversion.ConversionConfigDisabled.selector);
+        vm.prank(address(flywheel));
+        hook.onReward(attributionProvider, campaign, address(token), hookData);
+    }
+
+    function test_onReward_revert_publisherNotInAllowlist() public {
+        // Register a publisher that will NOT be in the allowlist
+        vm.prank(owner);
+        publisherRegistry.registerPublisherCustom(
+            "NOT_ALLOWED_PUBLISHER", address(0x9999), "https://notallowed.com", address(0x9999)
+        );
+
+        // Create campaign with specific allowlist that DOESN'T include the registered publisher
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "TEST_REF_CODE"; // Only TEST_REF_CODE is allowed
+
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+
+        address restrictedCampaign = flywheel.createCampaign(address(hook), 5, hookData);
+
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 1,
+                publisherRefCode: "NOT_ALLOWED_PUBLISHER", // Registered but not in allowlist
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory rewardData = abi.encode(attributions);
+
+        vm.expectRevert(AdvertisementConversion.PublisherNotAllowed.selector);
+        vm.prank(address(flywheel));
+        hook.onReward(attributionProvider, restrictedCampaign, address(token), rewardData);
+    }
+
+    function test_onReward_revert_publisherNotRegistered() public {
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 2,
+                publisherRefCode: "NONEXISTENT_PUBLISHER",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.expectRevert(AdvertisementConversion.InvalidPublisherRefCode.selector);
+        vm.prank(address(flywheel));
+        hook.onReward(attributionProvider, campaign, address(token), hookData);
+    }
+
+    // =============================================================
+    //                    BATCH ATTRIBUTION PROCESSING
+    // =============================================================
+
+    function test_onReward_batchAttributions() public {
+        // Register additional publishers
+        vm.startPrank(owner);
+        publisherRegistry.registerPublisherCustom("PUB1", address(0x1001), "https://pub1.com", address(0x1001));
+        publisherRegistry.registerPublisherCustom("PUB2", address(0x1002), "https://pub2.com", address(0x1002));
+        vm.stopPrank();
+
+        // Set attribution provider fee
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(500); // 5%
+
+        // Create batch of attributions
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](3);
+        
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click1",
+                conversionConfigId: 1,
+                publisherRefCode: "TEST_REF_CODE",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: abi.encode(
+                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
+        });
+
+        attributions[1] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(2)),
+                clickId: "click2",
+                conversionConfigId: 2,
+                publisherRefCode: "PUB1",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 200 ether
+            }),
+            logBytes: ""
+        });
+
+        attributions[2] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(3)),
+                clickId: "click3",
+                conversionConfigId: 2,
+                publisherRefCode: "PUB2",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0x2222), // Custom recipient
+                payoutAmount: 150 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, uint256 fee) =
+            hook.onReward(attributionProvider, campaign, address(token), hookData);
+
+        // Verify results
+        assertEq(payouts.length, 3);
+        
+        // First attribution: TEST_REF_CODE publisher (randomUser)
+        assertEq(payouts[0].recipient, randomUser);
+        assertEq(payouts[0].amount, 95 ether); // 100 - 5%
+        
+        // Second attribution: PUB1 publisher
+        assertEq(payouts[1].recipient, address(0x1001));
+        assertEq(payouts[1].amount, 190 ether); // 200 - 5%
+        
+        // Third attribution: Custom recipient
+        assertEq(payouts[2].recipient, address(0x2222));
+        assertEq(payouts[2].amount, 142.5 ether); // 150 - 5%
+        
+        // Total fee: 5% of (100 + 200 + 150) = 22.5 ether
+        assertEq(fee, 22.5 ether);
+    }
+
+    // =============================================================
+    //                    STATUS UPDATE HOOKS
+    // =============================================================
+
+    function test_onUpdateStatus_success() public {
+        vm.prank(address(flywheel));
+        hook.onUpdateStatus(
+            attributionProvider,
+            campaign,
+            Flywheel.CampaignStatus.INACTIVE,
+            Flywheel.CampaignStatus.ACTIVE,
+            ""
+        );
+        // Should not revert - hook allows all status transitions
+    }
+
+    function test_onUpdateStatus_revert_unauthorized() public {
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(address(flywheel)); // Called from flywheel but with wrong sender
+        hook.onUpdateStatus(
+            randomUser, // randomUser is not the campaign's attribution provider
+            campaign,
+            Flywheel.CampaignStatus.INACTIVE,
+            Flywheel.CampaignStatus.ACTIVE,
+            ""
+        );
+    }
+
+    // =============================================================
+    //                    UNSUPPORTED OPERATIONS
+    // =============================================================
+
+    function test_onAllocate_revert_unsupported() public {
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 1,
+                publisherRefCode: "TEST_REF_CODE",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: abi.encode(
+                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.expectRevert(); // Should revert with unsupported operation
+        vm.prank(address(flywheel));
+        hook.onAllocate(attributionProvider, campaign, address(token), hookData);
+    }
+
+    function test_onDeallocate_revert_unsupported() public {
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 1,
+                publisherRefCode: "TEST_REF_CODE",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: abi.encode(
+                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
+        });
+
+        bytes memory hookData = abi.encode(attributions);
+
+        vm.expectRevert(); // Should revert with unsupported operation
+        vm.prank(address(flywheel));
+        hook.onDeallocate(attributionProvider, campaign, address(token), hookData);
+    }
+
+    function test_onDistribute_revert_unsupported() public {
+        vm.expectRevert(); // Should revert with unsupported operation
+        vm.prank(address(flywheel));
+        hook.onDistribute(attributionProvider, campaign, address(token), "");
+    }
+
+    // =============================================================
+    //                    CAMPAIGN URI AND METADATA
+    // =============================================================
+
+    function test_campaignURI_returnsCorrectURI() public {
+        string memory uri = hook.campaignURI(campaign);
+        assertEq(uri, "https://example.com/campaign");
+    }
+
+    function test_getConversionConfig_returnsCorrectConfig() public {
+        AdvertisementConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
+        assertTrue(config1.isActive);
+        assertTrue(config1.isEventOnchain);
+        assertEq(config1.conversionMetadataUrl, "https://example.com/config0");
+
+        AdvertisementConversion.ConversionConfig memory config2 = hook.getConversionConfig(campaign, 2);
+        assertTrue(config2.isActive);
+        assertFalse(config2.isEventOnchain);
+        assertEq(config2.conversionMetadataUrl, "https://example.com/config1");
+    }
+
+    function test_getConversionConfig_revert_invalidId() public {
+        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        hook.getConversionConfig(campaign, 99);
+    }
 }

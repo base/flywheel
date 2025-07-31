@@ -49,12 +49,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Publishers earn based on verified conversions
 - Supports both onchain and offchain attribution events
+- Uses **immediate payout model** (`reward` only - no allocate/distribute)
 - Integrates with FlywheelPublisherRegistry for publisher management
 - Used for Spindl/Base Ads campaigns
 
 **CommerceCashback.sol** - E-commerce cashback campaigns:
 
 - Direct user rewards for purchases (no publishers involved)
+- Uses **allocate/distribute model** (supports all payout functions including reward)
 - Integrates with AuthCaptureEscrow for payment verification
 - Percentage-based cashback calculation
 
@@ -78,11 +80,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Attribution Flow
 
-1. Attribution provider calls `flywheel.attribute(campaign, token, attributionData)`
+The Flywheel protocol supports two payout models depending on the hook implementation:
+
+#### Immediate Payout Model (AdvertisementConversion)
+
+1. Attribution provider calls `flywheel.reward(campaign, token, attributionData)`
 2. Hook validates attribution data and sender permissions
 3. Hook returns array of payouts and attribution fee
-4. Flywheel accumulates payouts and transfers tokens from campaign
-5. Recipients call `distributePayouts()` to claim rewards
+4. Flywheel immediately transfers tokens to recipients
+5. Attribution provider fees are accumulated for later collection
+
+#### Allocate/Distribute Model (CashbackRewards and others)
+
+1. Attribution provider calls `flywheel.allocate(campaign, token, attributionData)`
+2. Hook validates and returns payouts to be allocated (not immediately sent)
+3. Payouts are accumulated in the Flywheel contract
+4. Recipients call `flywheel.distribute()` to claim their allocated rewards
+5. `flywheel.deallocate()` can reverse allocations before distribution
 
 ### Gas Optimization
 
@@ -344,3 +358,7 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## Testing Guidelines
+
+- If I am telling you to create tests, and things don't work as expected based on README.md, then always let me know
