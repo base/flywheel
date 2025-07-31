@@ -19,6 +19,7 @@ contract CashbackRewardsBase is Test {
     uint16 internal constant FEE_BPS = 0; // No fees for simplicity
 
     uint256 internal constant MANAGER_PK = uint256(keccak256("manager"));
+    uint256 internal constant OPERATOR_PK = uint256(keccak256("operator"));
     uint256 internal constant BUYER_PK = uint256(keccak256("buyer"));
     uint256 internal constant RECEIVER_PK = uint256(keccak256("receiver"));
 
@@ -35,13 +36,10 @@ contract CashbackRewardsBase is Test {
     OperatorRefundCollector public refundCollector;
 
     address public manager;
+    address public operator;
     address public buyer;
     address public receiver;
     address public cashbackCampaign;
-
-    // Use manager as operator and address(0) as feeReceiver for simplicity
-    address public operator;
-    address public feeReceiver;
 
     string public constant CAMPAIGN_URI = "https://example.com/campaign/metadata";
 
@@ -61,12 +59,10 @@ contract CashbackRewardsBase is Test {
         manager = vm.addr(MANAGER_PK);
         buyer = vm.addr(BUYER_PK);
         receiver = vm.addr(RECEIVER_PK);
+        operator = vm.addr(OPERATOR_PK);
 
-        // Use manager as operator and address(0) as feeReceiver for simplicity
-        operator = manager;
-        feeReceiver = address(0);
-
-        vm.label(manager, "Manager/Operator");
+        vm.label(manager, "Manager");
+        vm.label(operator, "Operator");
         vm.label(buyer, "Buyer");
         vm.label(receiver, "Receiver");
         vm.label(address(flywheel), "Flywheel");
@@ -78,10 +74,6 @@ contract CashbackRewardsBase is Test {
 
         _setupInitialTokenBalances();
     }
-
-    /*//////////////////////////////////////////////////////////////
-                           CAMPAIGN SETUP
-    //////////////////////////////////////////////////////////////*/
 
     function _createCashbackCampaign() internal {
         // Encode hook data: (manager, uri)
@@ -102,10 +94,6 @@ contract CashbackRewardsBase is Test {
         flywheel.updateStatus(cashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          TOKEN SETUP
-    //////////////////////////////////////////////////////////////*/
-
     function _setupInitialTokenBalances() internal {
         // Give buyer tokens for payments
         usdc.mint(buyer, 10_000e6); // 10,000 USDC
@@ -116,10 +104,6 @@ contract CashbackRewardsBase is Test {
         // Give operator some tokens for refunds
         usdc.mint(operator, 1_000e6); // 1,000 USDC
     }
-
-    /*//////////////////////////////////////////////////////////////
-                         PAYMENT HELPERS
-    //////////////////////////////////////////////////////////////*/
 
     /// @notice Create a standard PaymentInfo struct for testing
     function createPaymentInfo(address payer, uint120 maxAmount)
@@ -223,7 +207,7 @@ contract CashbackRewardsBase is Test {
         bytes memory signature = signERC3009Payment(paymentInfo, BUYER_PK);
 
         vm.prank(operator);
-        escrow.charge(paymentInfo, paymentInfo.maxAmount, address(paymentCollector), signature, FEE_BPS, feeReceiver);
+        escrow.charge(paymentInfo, paymentInfo.maxAmount, address(paymentCollector), signature, FEE_BPS, address(0));
 
         return escrow.getHash(paymentInfo);
     }
