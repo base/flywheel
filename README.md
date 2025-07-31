@@ -2,8 +2,11 @@
 
 # Flywheel Protocol
 
-- A modular, permissionless advertising, rewards and referral protocol built on Base that enables transparent attribution and monetization through a flexible hooks system.
-- Essentially it allows the payout and attribution of any kind of relationship where `User` and or `Publisher` drove an onchain or offchain conversion `X` and gets gets rewarded `Y` for it (in form of ERC20) by Attribution Provider
+- A modular, permissionless protocol for transparent attribution and ERC20 reward distribution
+- Enables any relationship where Users/Publishers drive conversions and get rewarded by Sponsors through verified Attribution Providers
+- Flexible hooks system supports diverse campaign types: advertising (AdvertisementConversion), e-commerce cashback (CashbackRewards), and custom rewards (SimpleRewards)
+- Permissionless architecture allows third parties to create custom hooks for any use case
+- Each hook can customize payout models, fee structures, and attribution logic while leveraging the core Flywheel infrastructure for secure token management
 
 ## Overview
 
@@ -16,24 +19,13 @@ Flywheel Protocol creates a decentralized incentive ecosystem where:
 
 The protocol uses a modular architecture with hooks, allowing for diverse campaign types without modifying the core protocol.
 
-## Architecture Evolution
+## Architecture
 
-### From Monolithic to Modular
-
-The new Flywheel Protocol represents a complete architectural redesign from the original implementation:
-
-**Old Architecture (Archived)**
-
-- Monolithic `FlywheelCampaigns.sol` contract handling all logic
-- Tightly coupled campaign management and attribution
-- Limited flexibility for new campaign types
-- Complex state management in a single contract
-
-**New Architecture**
+**Core Design Principles**
 
 - Modular design with hooks for extensibility
 - Core `Flywheel.sol` protocol handles only essential functions
-- Campaign-specific logic isolated in hook contracts (i.e. `AdvertisementConversion.sol` and `CommerceCashback.sol` that are derived from `CampaignHooks.sol`)
+- Campaign-specific logic isolated in hook contracts (i.e. `AdvertisementConversion.sol` and `CashbackRewards.sol` that are derived from `CampaignHooks.sol`)
 - Clean separation between protocol and implementation
 
 ## Architecture Diagram
@@ -48,7 +40,7 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 - **Publisher Registry**: Optional component for publisher-based campaigns
 - **Participants**: Shows the flow between sponsors, attribution providers, publishers, and users
 
-### Core Components
+## Core Components
 
 #### 1. **Flywheel.sol** - Core Protocol
 
@@ -83,12 +75,12 @@ Abstract interface that enables:
 - Multi-chain publisher identity
 - Backward compatible with existing publishers
 
-### Hook Examples
+## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
 - for v1, we ship `AdvertisementConversion.sol`, `CashbackRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
 
-#### **AdvertisementConversion.sol**
+### **AdvertisementConversion.sol**
 
 Traditional performance marketing campaigns where publishers drive conversions and earn rewards.
 
@@ -218,11 +210,12 @@ bytes memory hookData = abi.encode(
 - Only attribution provider can submit conversions
 - Only advertiser can withdraw remaining funds (when finalized)
 
-#### **CashbackRewards.sol**
+### **CashbackRewards.sol**
 
 E-commerce cashback campaigns where users receive direct rewards for purchases:
 
 **Core Features:**
+
 - Direct user rewards for purchases (no publishers involved)
 - Uses **allocate/distribute model** (supports all payout functions including reward)
 - Integrates with AuthCaptureEscrow for payment verification
@@ -230,6 +223,7 @@ E-commerce cashback campaigns where users receive direct rewards for purchases:
 - Manager-controlled campaign operations
 
 **Campaign Creation:**
+
 ```solidity
 bytes memory hookData = abi.encode(
     manager,          // Campaign manager address
@@ -238,16 +232,18 @@ bytes memory hookData = abi.encode(
 ```
 
 **Payout Models Supported:**
+
 - `reward()` - Immediate payout to users
-- `allocate()` - Reserve rewards for future distribution  
+- `allocate()` - Reserve rewards for future distribution
 - `distribute()` - Distribute previously allocated rewards
 - `deallocate()` - Cancel allocated rewards
 
-#### **SimpleRewards.sol**
+### **SimpleRewards.sol**
 
 Basic rewards hook with minimal logic for flexible campaign types:
 
 **Core Features:**
+
 - Simple pass-through of payout data with minimal validation
 - Uses **allocate/distribute model** (supports all payout functions)
 - Manager-controlled campaign operations
@@ -255,6 +251,7 @@ Basic rewards hook with minimal logic for flexible campaign types:
 - Suitable for custom attribution logic handled externally
 
 **Campaign Creation:**
+
 ```solidity
 bytes memory hookData = abi.encode(
     manager          // Campaign manager address
@@ -262,15 +259,17 @@ bytes memory hookData = abi.encode(
 ```
 
 **Use Cases:**
+
 - Custom attribution systems that handle logic externally
 - Simple reward programs without complex validation
 - Prototyping new campaign types before building specialized hooks
 - Backend-controlled reward distribution
 
 **Payout Models Supported:**
+
 - `reward()` - Immediate payout to recipients
 - `allocate()` - Reserve payouts for future distribution
-- `distribute()` - Distribute previously allocated payouts  
+- `distribute()` - Distribute previously allocated payouts
 - `deallocate()` - Cancel allocated payouts
 
 ## Attribution Providers
@@ -405,7 +404,7 @@ The modular architecture supports diverse incentive programs:
 - Clone pattern for TokenStore deployment
 - Batch operations for attribution
 - Optimized storage patterns
-- ~50% gas reduction compared to old architecture
+- Significant gas optimization through efficient patterns
 
 ### Flexibility
 
@@ -612,7 +611,7 @@ flywheel.collectFees(campaign, token, feeRecipient);
 
 #### CashbackRewards Campaigns
 
-- **Manager**: Controls campaign lifecycle and processes payment-based rewards  
+- **Manager**: Controls campaign lifecycle and processes payment-based rewards
 - **Users**: Receive cashback rewards directly (no publishers involved)
 
 #### SimpleRewards Campaigns
@@ -681,22 +680,6 @@ contract MyCustomHook is CampaignHooks {
 }
 ```
 
-## Migration from Old Protocol
-
-For users familiar with the old FlywheelCampaigns contract:
-
-| Old System                           | New System                                                         |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `FlywheelCampaigns.createCampaign()` | `Flywheel.createCampaign()` with hooks                             |
-| `CampaignBalance` contracts          | `TokenStore` contracts                                             |
-| `attribute()` function               | `reward()`, `allocate()`, `distribute()`, `deallocate()` functions |
-| Fixed attribution logic              | Customizable via hooks                                             |
-| Monolithic contract                  | Modular architecture                                               |
-| Campaign configs in main contract    | Campaign logic in hooks                                            |
-| Single attribution provider model    | Flexible provider configuration per hook                           |
-
-Publishers registered in the old system remain compatible with the new architecture through the shared `ReferralCodeRegistry`.
-
 ## Protocol Participants
 
 ### Sponsors
@@ -739,7 +722,7 @@ Publishers registered in the old system remain compatible with the new architect
 
 ## Audits
 
-The new modular architecture is currently undergoing audit. The previous monolithic version was audited by Macro in November 2023.
+The modular architecture is currently undergoing audit.
 
 ## Deployment
 
