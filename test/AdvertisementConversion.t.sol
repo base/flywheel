@@ -52,14 +52,13 @@ contract AdvertisementConversionTest is Test {
         );
 
         // Create a campaign with conversion configs
-        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](2);
-        configs[0] = AdvertisementConversion.ConversionConfig({
-            isActive: true,
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](2);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/config0"
         });
-        configs[1] = AdvertisementConversion.ConversionConfig({
-            isActive: true,
+        configs[1] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config1"
         });
@@ -301,5 +300,124 @@ contract AdvertisementConversionTest is Test {
         assertEq(payouts[0].recipient, burnAddress);
         assertEq(payouts[0].amount, 1000 ether); // Full amount sent to burn
         assertEq(fee, 0); // No fee taken
+    }
+
+    function test_createCampaign_emitsConversionConfigAddedEvents() public {
+        // Create conversion configs
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](2);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: true,
+            conversionMetadataUrl: "https://example.com/config0"
+        });
+        configs[1] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config1"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+
+        // Calculate expected campaign address
+        address expectedCampaign = flywheel.campaignAddress(2, hookData);
+
+        // Expect events for each config (with isActive: true added automatically)
+        vm.expectEmit(true, true, false, true);
+        emit AdvertisementConversion.ConversionConfigAdded(
+            expectedCampaign,
+            1,
+            AdvertisementConversion.ConversionConfig({
+                isActive: true,
+                isEventOnchain: true,
+                conversionMetadataUrl: "https://example.com/config0"
+            })
+        );
+
+        vm.expectEmit(true, true, false, true);
+        emit AdvertisementConversion.ConversionConfigAdded(
+            expectedCampaign,
+            2,
+            AdvertisementConversion.ConversionConfig({
+                isActive: true,
+                isEventOnchain: false,
+                conversionMetadataUrl: "https://example.com/config1"
+            })
+        );
+
+        // Create campaign
+        address newCampaign = flywheel.createCampaign(address(hook), 2, hookData);
+
+        assertEq(newCampaign, expectedCampaign);
+    }
+
+    function test_createCampaign_emitsPublisherAddedToAllowlistEvents() public {
+        // Register additional publishers
+        vm.startPrank(owner);
+        publisherRegistry.registerPublisherCustom("PUB1", address(0x1001), "https://example.com/pub1", address(0x1001));
+        publisherRegistry.registerPublisherCustom("PUB2", address(0x1002), "https://example.com/pub2", address(0x1002));
+        vm.stopPrank();
+
+        // Create empty conversion configs
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](0);
+
+        // Create allowlist
+        string[] memory allowedRefCodes = new string[](3);
+        allowedRefCodes[0] = "PUB1";
+        allowedRefCodes[1] = "PUB2";
+        allowedRefCodes[2] = "TEST_REF_CODE";
+
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+
+        // Calculate expected campaign address
+        address expectedCampaign = flywheel.campaignAddress(3, hookData);
+
+        // Expect events for each publisher
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB1");
+
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB2");
+
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.PublisherAddedToAllowlist(expectedCampaign, "TEST_REF_CODE");
+
+        // Create campaign
+        address newCampaign = flywheel.createCampaign(address(hook), 3, hookData);
+
+        assertEq(newCampaign, expectedCampaign);
+    }
+
+    function test_addAllowedPublisherRefCode_emitsEvent() public {
+        // First create a campaign with allowlist enabled
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](0);
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "TEST_REF_CODE";
+
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+
+        address allowlistCampaign = flywheel.createCampaign(address(hook), 4, hookData);
+
+        // Register a new publisher
+        vm.prank(owner);
+        publisherRegistry.registerPublisherCustom(
+            "NEW_PUB", address(0x2001), "https://example.com/newpub", address(0x2001)
+        );
+
+        // Expect event
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.PublisherAddedToAllowlist(allowlistCampaign, "NEW_PUB");
+
+        // Add publisher to allowlist
+        vm.prank(advertiser);
+        hook.addAllowedPublisherRefCode(allowlistCampaign, "NEW_PUB");
+
+        // Verify it was added
+        assertTrue(hook.isPublisherAllowed(allowlistCampaign, "NEW_PUB"));
     }
 }

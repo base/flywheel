@@ -66,14 +66,13 @@ contract FlywheelTest is Test {
     }
 
     function _createCampaign() internal {
-        AdvertisementConversion.ConversionConfig[] memory configs = new AdvertisementConversion.ConversionConfig[](2);
-        configs[0] = AdvertisementConversion.ConversionConfig({
-            isActive: true,
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](2);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/offchain"
         });
-        configs[1] = AdvertisementConversion.ConversionConfig({
-            isActive: true,
+        configs[1] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/onchain"
         });
