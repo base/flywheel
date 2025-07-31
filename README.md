@@ -86,7 +86,7 @@ Abstract interface that enables:
 ### Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
-- for v1, we plan to ship `AdvertisementConversion.sol` and `CommerceCashback.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
+- for v1, we ship `AdvertisementConversion.sol`, `CashbackRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
 
 #### **AdvertisementConversion.sol**
 
@@ -218,23 +218,60 @@ bytes memory hookData = abi.encode(
 - Only attribution provider can submit conversions
 - Only advertiser can withdraw remaining funds (when finalized)
 
-#### **CommerceCashback.sol**
+#### **CashbackRewards.sol**
 
-E-commerce cashback campaigns:
+E-commerce cashback campaigns where users receive direct rewards for purchases:
 
-- Direct user rewards for purchases
-- Simplified flow without publishers
-- Percentage-based cashback
-- Payment verification through AuthCaptureEscrow
+**Core Features:**
+- Direct user rewards for purchases (no publishers involved)
+- Uses **allocate/distribute model** (supports all payout functions including reward)
+- Integrates with AuthCaptureEscrow for payment verification
+- Tracks rewards per payment with allocation/distribution states
+- Manager-controlled campaign operations
 
+**Campaign Creation:**
 ```solidity
-// Example: Create a 1% cashback campaign for Shopify
 bytes memory hookData = abi.encode(
-    sponsor,           // Shopify or merchant address
-    100,               // 1% cashback (basis points)
-    ... other data TBD
+    manager,          // Campaign manager address
+    "https://api.example.com/metadata/..."  // Campaign metadata URI
 );
 ```
+
+**Payout Models Supported:**
+- `reward()` - Immediate payout to users
+- `allocate()` - Reserve rewards for future distribution  
+- `distribute()` - Distribute previously allocated rewards
+- `deallocate()` - Cancel allocated rewards
+
+#### **SimpleRewards.sol**
+
+Basic rewards hook with minimal logic for flexible campaign types:
+
+**Core Features:**
+- Simple pass-through of payout data with minimal validation
+- Uses **allocate/distribute model** (supports all payout functions)
+- Manager-controlled campaign operations
+- No complex business logic - pure reward distribution
+- Suitable for custom attribution logic handled externally
+
+**Campaign Creation:**
+```solidity
+bytes memory hookData = abi.encode(
+    manager          // Campaign manager address
+);
+```
+
+**Use Cases:**
+- Custom attribution systems that handle logic externally
+- Simple reward programs without complex validation
+- Prototyping new campaign types before building specialized hooks
+- Backend-controlled reward distribution
+
+**Payout Models Supported:**
+- `reward()` - Immediate payout to recipients
+- `allocate()` - Reserve payouts for future distribution
+- `distribute()` - Distribute previously allocated payouts  
+- `deallocate()` - Cancel allocated payouts
 
 ## Attribution Providers
 
@@ -280,7 +317,33 @@ Each campaign specifies its trusted attribution provider(s):
 
 1. **For Existing Hooks**: Contact sponsors to be designated as their provider
 2. **For Custom Hooks**: Build attribution infrastructure for your use case
-3. **Fee Structure**: Negotiate with sponsors (typically 0-10% of rewards). In the case of `AdvertisementConversion.sol` and `CommerceCashback.sol`, it will be 0% for now.
+3. **Fee Structure**: Negotiate with sponsors (typically 0-10% of rewards). In the case of `AdvertisementConversion.sol` and `CashbackRewards.sol`, it will be 0% for now.
+
+## Attribution Flow
+
+The Flywheel protocol supports two payout models depending on the hook implementation:
+
+### Immediate Payout Model (AdvertisementConversion)
+
+1. Attribution provider calls `flywheel.reward(campaign, token, attributionData)`
+2. Hook validates attribution data and sender permissions
+3. Hook returns array of payouts and attribution fee
+4. Flywheel immediately transfers tokens to recipients
+5. Attribution provider fees are accumulated for later collection
+
+### Allocate/Distribute Model (CashbackRewards, SimpleRewards)
+
+1. Attribution provider calls `flywheel.allocate(campaign, token, attributionData)`
+2. Hook validates and returns payouts to be allocated (not immediately sent)
+3. Payouts are accumulated in the Flywheel contract
+4. Recipients call `flywheel.distribute()` to claim their allocated rewards
+5. `flywheel.deallocate()` can reverse allocations before distribution
+
+### Gas Optimization
+
+- TokenStore uses clone pattern (not full deployment) saving ~90% deployment gas
+- Batch attribution submissions supported via arrays
+- Pull-based payout distribution prevents reentrancy
 
 ## Use Case Examples
 
@@ -297,24 +360,31 @@ The modular architecture supports diverse incentive programs:
 
 - **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Attribution Provider**: Payment processor or platform itself
-- **Hook**: `CommerceCashback`
+- **Hook**: `CashbackRewards`
 - **Flow**: Users make purchases → Payment confirmed → Payouts issued → Users receive cashback
 
-### 3. **Creator Rewards**
+### 3. **Simple Reward Distribution**
+
+- **Sponsor**: Any entity wanting to distribute rewards
+- **Attribution Provider**: Backend service or trusted oracle
+- **Hook**: `SimpleRewards`
+- **Flow**: Actions tracked externally → Manager submits payout data → Recipients claim rewards
+
+### 4. **Creator Rewards**
 
 - **Sponsor**: Social platform or DAO
 - **Attribution Provider**: TBD
 - **Hook**: Custom creator rewards hook
 - **Flow**: Creators produce content → Engagement tracked → Attribution verified → Creators earn
 
-### 4. **DeFi Incentives**
+### 5. **DeFi Incentives**
 
 - **Sponsor**: DeFi protocol
 - **Attribution Provider**: TBD but could be onchain indexer or protocol itself
 - **Hook**: Custom DeFi activity hook
 - **Flow**: Users perform actions → Blockchain events indexed → Payouts issued → Users earn
 
-### 5. **Other (Example: Gaming Achievements)**
+### 6. **Other (Example: Gaming Achievements)**
 
 - We created Flywheel in such a way that others can hook into the architecture quite easily
 - **Sponsor**: Game developer or guild
@@ -495,19 +565,22 @@ flywheel.collectFees(campaign, token, feeRecipient);
    - **Actions allowed**: Fund campaign, update metadata
    - **Who can transition to ACTIVE**:
      - **AdvertisementConversion**: Attribution Provider (always), Advertiser (limited)
-     - **CommerceCashback**: Status changes not supported
+     - **CashbackRewards**: Status changes not supported
+     - **SimpleRewards**: Manager-controlled transitions
 
 2. **ACTIVE State**
 
    - **Purpose**: Campaign is live and processing payouts
    - **Payout functions**: All four functions available based on hook implementation
      - **AdvertisementConversion**: Only `reward()` implemented
-     - **CommerceCashback**: `allocate()`, `distribute()`, `deallocate()` implemented
+     - **CashbackRewards**: `reward()`, `allocate()`, `distribute()`, `deallocate()` implemented
+     - **SimpleRewards**: `reward()`, `allocate()`, `distribute()`, `deallocate()` implemented
    - **Who can transition**:
      - **AdvertisementConversion**:
        - Attribution Provider: Can go to ANY state (including back to INACTIVE)
        - Advertiser: Can only go to FINALIZING
-     - **CommerceCashback**: Status changes not supported (campaigns stay ACTIVE)
+     - **CashbackRewards**: Status changes not supported (campaigns stay ACTIVE)
+     - **SimpleRewards**: Manager-controlled transitions
 
 3. **FINALIZING State**
 
@@ -518,14 +591,16 @@ flywheel.collectFees(campaign, token, feeRecipient);
      - **AdvertisementConversion**:
        - Attribution Provider: Can transition immediately
        - Advertiser: Only after attribution deadline passes
-     - **CommerceCashback**: Status changes not supported
+     - **CashbackRewards**: Status changes not supported
+     - **SimpleRewards**: Manager-controlled transitions
 
 4. **FINALIZED State**
    - **Purpose**: Campaign permanently closed
    - **Payout functions**: None available
    - **Fund withdrawal**:
      - **AdvertisementConversion**: Only Advertiser
-     - **CommerceCashback**: Only Manager
+     - **CashbackRewards**: Only Manager
+     - **SimpleRewards**: Only Manager
 
 ### Role Definitions by Hook Type
 
@@ -535,10 +610,15 @@ flywheel.collectFees(campaign, token, feeRecipient);
 - **Attribution Provider**: Authorized to submit conversion data and earn fees
 - **Publishers**: Earn rewards based on conversions (managed via PublisherRegistry)
 
-#### CommerceCashback Campaigns
+#### CashbackRewards Campaigns
 
-- **Manager**: Controls campaign lifecycle and processes payment-based rewards
+- **Manager**: Controls campaign lifecycle and processes payment-based rewards  
 - **Users**: Receive cashback rewards directly (no publishers involved)
+
+#### SimpleRewards Campaigns
+
+- **Manager**: Controls all campaign operations and payout submissions
+- **Recipients**: Receive rewards based on manager-submitted payout data
 
 ## Creating Custom Hooks
 
