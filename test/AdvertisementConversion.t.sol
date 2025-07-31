@@ -872,4 +872,116 @@ contract AdvertisementConversionTest is Test {
         vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
         hook.getConversionConfig(campaign, 99);
     }
+
+    function test_attributionProvider_cannotRevertFromFinalizingToActive() public {
+        // Create campaign and move to ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Advertiser moves to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Attribution provider should NOT be able to revert to ACTIVE
+        vm.prank(attributionProvider);
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    function test_attributionProvider_cannotRevertFromFinalizingToInactive() public {
+        // Create campaign and move to ACTIVE  
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Advertiser moves to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Attribution provider should NOT be able to revert to INACTIVE
+        vm.prank(attributionProvider);
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+    }
+
+    function test_attributionProvider_canTransitionFromFinalizingToFinalized() public {
+        // Create campaign and move to ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Advertiser moves to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Attribution provider CAN transition to FINALIZED (valid transition)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    function test_attributionProvider_canPauseCampaign_advertiserCannotUnpause() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        
+        // Attribution provider can pause campaign (ACTIVE → INACTIVE)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+        
+        // Advertiser CANNOT unpause their own campaign (INACTIVE → ACTIVE)
+        vm.prank(advertiser);
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Campaign remains paused - advertiser is hostage to attribution provider
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+    }
+
+    function test_onlyAttributionProvider_canUnpauseCampaign() public {
+        // Start ACTIVE, attribution provider pauses
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        
+        // Only attribution provider can unpause
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    function test_maliciousPause_campaignKilledForever() public {
+        // Start ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Malicious/uncooperative attribution provider pauses campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        
+        // Advertiser's ONLY escape route is to finalize and withdraw
+        // They can go INACTIVE → FINALIZING (this works)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Wait for deadline to pass
+        vm.warp(block.timestamp + 8 days);
+        
+        // Then finalize (this works)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        
+        // Campaign is now permanently dead - can never be reactivated
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+        
+        // Advertiser can withdraw funds but campaign is killed forever
+        // No way to ever resume the campaign for publishers/users
+    }
 }

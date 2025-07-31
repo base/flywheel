@@ -299,7 +299,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) external override onlyFlywheel {
-        // Provider always allowed, early return
+        // Attribution provider can perform any valid state transition, early return
+        // WARNING: This allows AP to pause campaigns (ACTIVE→INACTIVE). Advertiser can go INACTIVE→FINALIZING→FINALIZED
         if (sender == state[campaign].attributionProvider) return;
 
         // Otherwise only advertiser allowed to update status

@@ -213,6 +213,14 @@ bytes memory hookData = abi.encode(
 - Only attribution provider can submit conversions
 - Only advertiser can withdraw remaining funds (when finalized)
 
+**State Transition Control:**
+
+- **Attribution Provider**: Can perform any valid state transition (including ACTIVE→INACTIVE pause)
+- **Advertiser**: Limited to ACTIVE→FINALIZING and FINALIZING→FINALIZED (after deadline)
+- **Important**: If attribution provider pauses campaign (ACTIVE→INACTIVE), advertiser cannot unpause
+- **Advertiser Recourse**: INACTIVE→FINALIZING→FINALIZED→withdraw funds (campaign permanently ends)
+- **Design Rationale**: Attribution provider has operational control; advertiser has exit rights
+
 ### **CashbackRewards.sol**
 
 E-commerce cashback campaigns where users receive direct rewards for purchases:
