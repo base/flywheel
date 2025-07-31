@@ -7,21 +7,29 @@ import {Flywheel} from "../../src/Flywheel.sol";
 import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 
 contract AllocateTest is CashbackRewardsBase {
-    function test_revertsOnUnauthorizedCaller() public {
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, 100e6);
-        bytes memory hookData = createCashbackHookData(paymentInfo, 10e6);
+    function test_revertsOnUnauthorizedCaller(uint120 paymentAmount, uint120 allocateAmount, address unauthorizedCaller)
+        public
+    {
+        paymentAmount = uint120(bound(paymentAmount, 1e6, 10_000e6)); // 1-10,000 USDC
+        allocateAmount = uint120(bound(allocateAmount, 1, 1000e6)); // 1 wei to 1000 USDC (campaign balance)
+        vm.assume(unauthorizedCaller != manager && unauthorizedCaller != address(0));
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes memory hookData = createCashbackHookData(paymentInfo, allocateAmount);
 
         authorizePayment(paymentInfo);
 
         // Non-manager tries to allocate - should fail
-        vm.prank(buyer);
+        vm.prank(unauthorizedCaller);
         vm.expectRevert(CashbackRewards.Unauthorized.selector);
         flywheel.allocate(cashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnUnauthorizedPayment() public {
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, 100e6);
-        uint120 allocateAmount = 10e6;
+    function test_revertsOnUnauthorizedPayment(uint120 paymentAmount, uint120 allocateAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, 1e6, 10_000e6)); // 1-10,000 USDC
+        allocateAmount = uint120(bound(allocateAmount, 1, 1000e6)); // 1 wei to 1000 USDC (campaign balance)
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
         bytes memory hookData = createCashbackHookData(paymentInfo, allocateAmount);
 
         // Don't authorize payment - should revert with NonexistentPayment
@@ -40,21 +48,27 @@ contract AllocateTest is CashbackRewardsBase {
         flywheel.allocate(cashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnWrongToken() public {
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, 100e6);
-        // Create payment info with USDC but call allocate with different token
-        paymentInfo.token = address(0x1234); // Wrong token
+    function test_revertsOnWrongToken(uint120 paymentAmount, uint120 allocateAmount, address wrongToken) public {
+        paymentAmount = uint120(bound(paymentAmount, 1e6, 10_000e6)); // 1-10,000 USDC
+        allocateAmount = uint120(bound(allocateAmount, 1, 1000e6)); // 1 wei to 1000 USDC
+        vm.assume(wrongToken != address(usdc) && wrongToken != address(0));
 
-        bytes memory hookData = createCashbackHookData(paymentInfo, 10e6);
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        // Create payment info with wrong token but call allocate with USDC
+        paymentInfo.token = wrongToken;
+
+        bytes memory hookData = createCashbackHookData(paymentInfo, allocateAmount);
 
         vm.prank(manager);
         vm.expectRevert(CashbackRewards.InvalidToken.selector);
-        flywheel.allocate(cashbackCampaign, address(usdc), hookData); // Calling with USDC but payment expects 0x1234
+        flywheel.allocate(cashbackCampaign, address(usdc), hookData); // Calling with USDC but payment expects wrongToken
     }
 
-    function test_revertsOnInsufficientFunds() public {
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, 2000e6);
-        uint120 excessiveAllocation = 1001e6; // More than campaign balance (1000 USDC)
+    function test_revertsOnInsufficientFunds(uint120 paymentAmount, uint120 excessiveAllocation) public {
+        paymentAmount = uint120(bound(paymentAmount, 1001e6, 10_000e6)); // Must be > campaign balance for realism
+        excessiveAllocation = uint120(bound(excessiveAllocation, 1001e6, type(uint120).max)); // More than campaign balance (1000 USDC)
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
 
         // Must authorize payment first
         authorizePayment(paymentInfo);
@@ -66,10 +80,12 @@ contract AllocateTest is CashbackRewardsBase {
         flywheel.allocate(cashbackCampaign, address(usdc), hookData);
     }
 
-    function test_successfulAllocation() public {
+    function test_successfulAllocation(uint120 paymentAmount, uint120 allocateAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, 1e6, 10_000e6)); // 1-10,000 USDC
+        allocateAmount = uint120(bound(allocateAmount, 1, 1000e6)); // 1 wei to 1000 USDC (campaign balance)
+
         // Create a payment for testing
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, 100e6);
-        uint120 allocateAmount = 10e6; // 10 USDC allocation
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
 
         // Get initial state
         CashbackRewards.RewardsInfo memory initialRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
@@ -116,9 +132,11 @@ contract AllocateTest is CashbackRewardsBase {
         assertEq(rewards.allocated, maxAllocation, "Should handle allocation of full campaign balance");
     }
 
-    function test_emitsFlywheelEvents() public {
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, 100e6);
-        uint120 allocateAmount = 10e6;
+    function test_emitsFlywheelEvents(uint120 paymentAmount, uint120 allocateAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, 1e6, 10_000e6)); // 1-10,000 USDC
+        allocateAmount = uint120(bound(allocateAmount, 1, 1000e6)); // 1 wei to 1000 USDC (campaign balance)
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
         bytes memory hookData = createCashbackHookData(paymentInfo, allocateAmount);
 
         // Must authorize payment first
