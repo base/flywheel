@@ -75,7 +75,7 @@ Abstract interface that enables:
 - Attribution calculations
 - Metadata management
 
-#### 4. **FlywheelPublisherRegistry.sol** - Publisher Management
+#### 4. **ReferralCodeRegistry.sol** - Publisher & Ref Code Management
 
 - Publisher registration and ref code generation
 - Relevant to `AdvertisementConversion.sol` for Spindl/Base Ads
@@ -211,7 +211,7 @@ bytes memory hookData = abi.encode(
 
 **Validation Rules:**
 
-- Publisher ref code must exist in `FlywheelPublisherRegistry`
+- Publisher ref code must exist in `ReferralCodeRegistry`
 - If allowlist exists, publisher must be approved
 - Conversion config must be active (if specified)
 - Conversion type must match config (onchain/offchain)
@@ -615,7 +615,7 @@ For users familiar with the old FlywheelCampaigns contract:
 | Campaign configs in main contract    | Campaign logic in hooks                                            |
 | Single attribution provider model    | Flexible provider configuration per hook                           |
 
-Publishers registered in the old system remain compatible with the new architecture through the shared `FlywheelPublisherRegistry`.
+Publishers registered in the old system remain compatible with the new architecture through the shared `ReferralCodeRegistry`.
 
 ## Protocol Participants
 

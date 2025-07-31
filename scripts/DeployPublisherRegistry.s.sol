@@ -5,11 +5,11 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {FlywheelPublisherRegistry} from "../src/.sol";
+import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 
-/// @notice Script for deploying the FlywheelPublisherRegistry contract
-contract DeployPublisherRegistry is Script {
-    /// @notice Deploys the FlywheelPublisherRegistry with proxy
+/// @notice Script for deploying the ReferralCodeRegistry contract
+contract DeployReferralCodeRegistry is Script {
+    /// @notice Deploys the ReferralCodeRegistry with proxy
     /// @param owner Address that will own the registry contract
     /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
     function run(address owner, address signerAddress) external returns (address) {
@@ -18,16 +18,16 @@ contract DeployPublisherRegistry is Script {
         vm.startBroadcast();
 
         // Deploy the implementation contract
-        FlywheelPublisherRegistry implementation = new FlywheelPublisherRegistry();
+        ReferralCodeRegistry implementation = new ReferralCodeRegistry();
 
         // Prepare initialization data
-        bytes memory initData = abi.encodeCall(FlywheelPublisherRegistry.initialize, (owner, signerAddress));
+        bytes memory initData = abi.encodeCall(ReferralCodeRegistry.initialize, (owner, signerAddress));
 
         // Deploy the proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
 
-        console.log("FlywheelPublisherRegistry implementation deployed at:", address(implementation));
-        console.log("FlywheelPublisherRegistry proxy deployed at:", address(proxy));
+        console.log("ReferralCodeRegistry implementation deployed at:", address(implementation));
+        console.log("ReferralCodeRegistry proxy deployed at:", address(proxy));
         console.log("Owner:", owner);
         console.log("Signer address:", signerAddress);
 
@@ -36,7 +36,7 @@ contract DeployPublisherRegistry is Script {
         return address(proxy);
     }
 
-    /// @notice Deploys the FlywheelPublisherRegistry without signer
+    /// @notice Deploys the ReferralCodeRegistry without signer
     /// @param owner Address that will own the registry contract
     function run(address owner) external returns (address) {
         return this.run(owner, address(0));

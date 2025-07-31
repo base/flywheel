@@ -50,7 +50,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Publishers earn based on verified conversions
 - Supports both onchain and offchain attribution events
 - Uses **immediate payout model** (`reward` only - no allocate/distribute)
-- Integrates with FlywheelPublisherRegistry for publisher management
+- Integrates with Ref for publisher management
 - Used for Spindl/Base Ads campaigns
 
 **CommerceCashback.sol** - E-commerce cashback campaigns:
@@ -62,9 +62,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Supporting Components
 
-**FlywheelPublisherRegistry.sol** - Publisher management:
+**ReferralCodeRegistry.sol** - Ref code management:
 
-- Publisher registration and ref code generation
+- Ref code registration and ref code generation
 - Payout address management across multiple chains
 - Backward compatible with legacy publishers
 
@@ -116,7 +116,7 @@ The Flywheel protocol supports two payout models depending on the hook implement
   - `Flywheel.sol` - Main protocol
   - `CampaignHooks.sol` - Hook interface
   - `TokenStore.sol` - Campaign treasury
-  - `FlywheelPublisherRegistry.sol` - Publisher management
+  - `ReferralCodeRegistry.sol` - Publisher & Ref code management
   - `hooks/` - Hook implementations
 - `test/` - Foundry tests (use -vv flag for proper verbosity)
 - `lib/` - Dependencies (OpenZeppelin, forge-std, commerce-payments)
