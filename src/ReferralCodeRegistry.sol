@@ -228,11 +228,11 @@ contract ReferralCodeRegistry is Initializable, AccessControlUpgradeable, Ownabl
 
     /// @notice Generates a unique ref code for a referral code
     ///
-    /// @param nonce Nonce value to generate a ref code from
+    /// @param nonceValue Nonce value to generate a ref code from
     ///
     /// @return refCode Referral code for the referral code
-    function computeReferralCode(uint256 nonce) public pure returns (string memory) {
-        bytes32 hash = keccak256(abi.encodePacked(nonce));
+    function computeReferralCode(uint256 nonceValue) public pure returns (string memory) {
+        bytes32 hash = keccak256(abi.encodePacked(nonceValue));
         bytes memory alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
         bytes memory str = new bytes(REF_CODE_LENGTH);
 

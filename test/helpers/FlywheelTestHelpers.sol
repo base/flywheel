@@ -3,16 +3,19 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
-import {FlywheelPublisherRegistry} from "../../src/FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../../src/ReferralCodeRegistry.sol";
 import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {PublisherTestSetup, PublisherSetupHelper} from "./PublisherSetupHelper.sol";
 
 /// @notice Common test helpers for Flywheel protocol testing
-abstract contract FlywheelTestHelpers is Test {
+abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
+    using PublisherSetupHelper for *;
     // Core contracts
+
     Flywheel public flywheel;
-    FlywheelPublisherRegistry public publisherRegistry;
+    ReferralCodeRegistry public referralCodeRegistry;
     DummyERC20 public token;
 
     // Common test addresses
@@ -45,43 +48,27 @@ abstract contract FlywheelTestHelpers is Test {
         token = new DummyERC20(initialHolders);
 
         // Deploy upgradeable PublisherRegistry
-        FlywheelPublisherRegistry impl = new FlywheelPublisherRegistry();
-        bytes memory initData = abi.encodeWithSelector(
-            FlywheelPublisherRegistry.initialize.selector,
-            OWNER,
-            SIGNER
-        );
+        ReferralCodeRegistry impl = new ReferralCodeRegistry();
+        bytes memory initData = abi.encodeWithSelector(ReferralCodeRegistry.initialize.selector, OWNER, SIGNER);
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = FlywheelPublisherRegistry(address(proxy));
+        referralCodeRegistry = ReferralCodeRegistry(address(proxy));
     }
 
-    /// @notice Registers default test publishers
+    /// @notice Registers default test publishers using PublisherSetupHelper
     function _registerDefaultPublishers() internal {
-        vm.startPrank(OWNER);
-        publisherRegistry.registerPublisherCustom(
-            DEFAULT_REF_CODE_1,
-            PUBLISHER_1,
-            "https://example.com/publisher1",
-            PUBLISHER_1_PAYOUT
-        );
-        publisherRegistry.registerPublisherCustom(
-            DEFAULT_REF_CODE_2,
-            PUBLISHER_2,
-            "https://example.com/publisher2",
-            PUBLISHER_2_PAYOUT
-        );
-        vm.stopPrank();
-    }
+        // Create configs for default publishers
+        PublisherSetupHelper.PublisherConfig[] memory configs = new PublisherSetupHelper.PublisherConfig[](2);
 
-    /// @notice Registers a custom publisher with given parameters
-    function _registerPublisher(
-        string memory refCode,
-        address publisher,
-        string memory metadataUrl,
-        address payoutAddress
-    ) internal {
-        vm.prank(OWNER);
-        publisherRegistry.registerPublisherCustom(refCode, publisher, metadataUrl, payoutAddress);
+        configs[0] = PublisherSetupHelper.createPublisherConfig(
+            DEFAULT_REF_CODE_1, PUBLISHER_1, PUBLISHER_1_PAYOUT, "https://example.com/publisher1"
+        );
+
+        configs[1] = PublisherSetupHelper.createPublisherConfig(
+            DEFAULT_REF_CODE_2, PUBLISHER_2, PUBLISHER_2_PAYOUT, "https://example.com/publisher2"
+        );
+
+        // Batch register both publishers
+        setupPublishers(referralCodeRegistry, configs, OWNER);
     }
 
     /// @notice Funds a campaign with tokens
@@ -105,11 +92,7 @@ abstract contract FlywheelTestHelpers is Test {
     }
 
     /// @notice Updates campaign status with given parameters
-    function _updateCampaignStatus(
-        address campaign,
-        Flywheel.CampaignStatus status,
-        address caller
-    ) internal {
+    function _updateCampaignStatus(address campaign, Flywheel.CampaignStatus status, address caller) internal {
         vm.prank(caller);
         flywheel.updateStatus(campaign, status, "");
     }
@@ -137,15 +120,8 @@ abstract contract FlywheelTestHelpers is Test {
     }
 
     /// @notice Asserts fee allocation for attribution provider
-    function _assertFeeAllocation(
-        address campaign,
-        address attributionProvider,
-        uint256 expectedFee
-    ) internal view {
-        assertEq(
-            flywheel.fees(campaign, address(token), attributionProvider),
-            expectedFee
-        );
+    function _assertFeeAllocation(address campaign, address attributionProvider, uint256 expectedFee) internal view {
+        assertEq(flywheel.fees(campaign, address(token), attributionProvider), expectedFee);
     }
 
     /// @notice Calculates fee amount from payout amount and fee basis points

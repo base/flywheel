@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Test, console} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
-import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
+import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";
@@ -20,7 +20,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
         _registerDefaultPublishers();
 
         // Deploy test hook
-        testHook = new AdvertisementConversion(address(flywheel), OWNER, address(publisherRegistry));
+        testHook = new AdvertisementConversion(address(flywheel), OWNER, address(referralCodeRegistry));
     }
 
     // =============================================================

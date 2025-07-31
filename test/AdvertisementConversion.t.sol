@@ -355,8 +355,8 @@ contract AdvertisementConversionTest is Test {
     function test_createCampaign_emitsPublisherAddedToAllowlistEvents() public {
         // Register additional publishers
         vm.startPrank(owner);
-        publisherRegistry.registerPublisherCustom("PUB1", address(0x1001), "https://example.com/pub1", address(0x1001));
-        publisherRegistry.registerPublisherCustom("PUB2", address(0x1002), "https://example.com/pub2", address(0x1002));
+        publisherRegistry.registerCustom("PUB1", address(0x1001), address(0x1001), "https://example.com/pub1");
+        publisherRegistry.registerCustom("PUB2", address(0x1002), address(0x1002), "https://example.com/pub2");
         vm.stopPrank();
 
         // Create empty conversion configs
@@ -405,9 +405,7 @@ contract AdvertisementConversionTest is Test {
 
         // Register a new publisher
         vm.prank(owner);
-        publisherRegistry.registerPublisherCustom(
-            "NEW_PUB", address(0x2001), "https://example.com/newpub", address(0x2001)
-        );
+        publisherRegistry.registerCustom("NEW_PUB", address(0x2001), address(0x2001), "https://example.com/newpub");
 
         // Expect event
         vm.expectEmit(true, false, false, true);
@@ -427,13 +425,13 @@ contract AdvertisementConversionTest is Test {
 
     function test_setAttributionProviderFee_success() public {
         uint16 newFee = 750; // 7.5%
-        
+
         vm.expectEmit(true, false, false, true);
         emit AdvertisementConversion.AttributionProviderFeeUpdated(attributionProvider, 0, newFee); // old, new
-        
+
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(newFee);
-        
+
         assertEq(hook.attributionProviderFees(attributionProvider), newFee);
     }
 
@@ -441,7 +439,7 @@ contract AdvertisementConversionTest is Test {
         // Any address can set their own attribution provider fee
         vm.prank(randomUser);
         hook.setAttributionProviderFee(1000);
-        
+
         assertEq(hook.attributionProviderFees(randomUser), 1000);
     }
 
@@ -454,7 +452,7 @@ contract AdvertisementConversionTest is Test {
     function test_setAttributionProviderFee_maxFeeAllowed() public {
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(10000); // Exactly 100%
-        
+
         assertEq(hook.attributionProviderFees(attributionProvider), 10000);
     }
 
@@ -463,11 +461,10 @@ contract AdvertisementConversionTest is Test {
     // =============================================================
 
     function test_addConversionConfig_success() public {
-        AdvertisementConversion.ConversionConfigInput memory newConfig = 
-            AdvertisementConversion.ConversionConfigInput({
-                isEventOnchain: true,
-                conversionMetadataUrl: "https://example.com/new-config"
-            });
+        AdvertisementConversion.ConversionConfigInput memory newConfig = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: true,
+            conversionMetadataUrl: "https://example.com/new-config"
+        });
 
         vm.expectEmit(true, true, false, true);
         emit AdvertisementConversion.ConversionConfigAdded(
@@ -491,11 +488,10 @@ contract AdvertisementConversionTest is Test {
     }
 
     function test_addConversionConfig_revert_unauthorized() public {
-        AdvertisementConversion.ConversionConfigInput memory newConfig = 
-            AdvertisementConversion.ConversionConfigInput({
-                isEventOnchain: false,
-                conversionMetadataUrl: "https://example.com/unauthorized"
-            });
+        AdvertisementConversion.ConversionConfigInput memory newConfig = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/unauthorized"
+        });
 
         vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
         vm.prank(randomUser);
@@ -622,8 +618,8 @@ contract AdvertisementConversionTest is Test {
     function test_onReward_revert_publisherNotInAllowlist() public {
         // Register a publisher that will NOT be in the allowlist
         vm.prank(owner);
-        publisherRegistry.registerPublisherCustom(
-            "NOT_ALLOWED_PUBLISHER", address(0x9999), "https://notallowed.com", address(0x9999)
+        publisherRegistry.registerCustom(
+            "NOT_ALLOWED_PUBLISHER", address(0x9999), address(0x9999), "https://notallowed.com"
         );
 
         // Create campaign with specific allowlist that DOESN'T include the registered publisher
@@ -692,8 +688,8 @@ contract AdvertisementConversionTest is Test {
     function test_onReward_batchAttributions() public {
         // Register additional publishers
         vm.startPrank(owner);
-        publisherRegistry.registerPublisherCustom("PUB1", address(0x1001), "https://pub1.com", address(0x1001));
-        publisherRegistry.registerPublisherCustom("PUB2", address(0x1002), "https://pub2.com", address(0x1002));
+        publisherRegistry.registerCustom("PUB1", address(0x1001), address(0x1001), "https://pub1.com");
+        publisherRegistry.registerCustom("PUB2", address(0x1002), address(0x1002), "https://pub2.com");
         vm.stopPrank();
 
         // Set attribution provider fee
@@ -702,7 +698,7 @@ contract AdvertisementConversionTest is Test {
 
         // Create batch of attributions
         AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](3);
-        
+
         attributions[0] = AdvertisementConversion.Attribution({
             conversion: AdvertisementConversion.Conversion({
                 eventId: bytes16(uint128(1)),
@@ -752,19 +748,19 @@ contract AdvertisementConversionTest is Test {
 
         // Verify results
         assertEq(payouts.length, 3);
-        
+
         // First attribution: TEST_REF_CODE publisher (randomUser)
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5%
-        
+
         // Second attribution: PUB1 publisher
         assertEq(payouts[1].recipient, address(0x1001));
         assertEq(payouts[1].amount, 190 ether); // 200 - 5%
-        
+
         // Third attribution: Custom recipient
         assertEq(payouts[2].recipient, address(0x2222));
         assertEq(payouts[2].amount, 142.5 ether); // 150 - 5%
-        
+
         // Total fee: 5% of (100 + 200 + 150) = 22.5 ether
         assertEq(fee, 22.5 ether);
     }
@@ -776,11 +772,7 @@ contract AdvertisementConversionTest is Test {
     function test_onUpdateStatus_success() public {
         vm.prank(address(flywheel));
         hook.onUpdateStatus(
-            attributionProvider,
-            campaign,
-            Flywheel.CampaignStatus.INACTIVE,
-            Flywheel.CampaignStatus.ACTIVE,
-            ""
+            attributionProvider, campaign, Flywheel.CampaignStatus.INACTIVE, Flywheel.CampaignStatus.ACTIVE, ""
         );
         // Should not revert - hook allows all status transitions
     }

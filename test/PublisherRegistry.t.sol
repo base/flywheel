@@ -6,8 +6,11 @@ import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol"
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {PublisherTestSetup, PublisherSetupHelper} from "./helpers/PublisherSetupHelper.sol";
 
-contract ReferralCodeRegistryTest is Test {
+contract ReferralCodeRegistryTest is Test, PublisherTestSetup {
+    using PublisherSetupHelper for *;
+
     ReferralCodeRegistry public implementation;
     ReferralCodeRegistry public pubRegistry;
     ERC1967Proxy public proxy;
@@ -108,46 +111,40 @@ contract ReferralCodeRegistryTest is Test {
 
     function test_registerCustom_BySigner() public {
         string memory customRefCode = "custom123";
-        address publisherOwner = address(0x789);
-        string memory metadataUrl = "https://example.com";
-        address defaultPayout = address(0x101);
+        address pubOwner = address(0x789);
+        address payoutAddr = address(0x101);
 
-        vm.startPrank(signer);
+        // Use helper to create config
+        PublisherSetupHelper.PublisherConfig memory config =
+            PublisherSetupHelper.createPublisherConfig(customRefCode, pubOwner, payoutAddr, "https://example.com");
 
-        // Expect the event before calling the function
+        // Expect the event before registration
         vm.expectEmit(true, true, true, true);
         emit ReferralCodeRegistry.ReferralCodeRegistered(
-            customRefCode, publisherOwner, defaultPayout, metadataUrl, true
+            config.refCode, config.owner, config.payoutRecipient, config.metadataUrl, true
         );
 
-        pubRegistry.registerCustom(customRefCode, publisherOwner, defaultPayout, metadataUrl);
-
-        vm.stopPrank();
+        // Setup publisher using helper
+        setupPublisher(pubRegistry, config, signer);
 
         // Verify the publisher was registered
-        assertEq(pubRegistry.getOwner(customRefCode), publisherOwner);
-        assertEq(pubRegistry.getMetadataUrl(customRefCode), metadataUrl);
-        assertEq(pubRegistry.getPayoutRecipient(customRefCode), defaultPayout);
-        assertEq(pubRegistry.isReferralCodeRegistered(customRefCode), true);
+        assertTrue(pubRegistry.isReferralCodeRegistered(config.refCode));
+        assertEq(pubRegistry.getOwner(config.refCode), config.owner);
+        assertEq(pubRegistry.getMetadataUrl(config.refCode), config.metadataUrl);
+        assertEq(pubRegistry.getPayoutRecipient(config.refCode), config.payoutRecipient);
     }
 
     function test_registerCustom_ByOwner() public {
-        string memory customRefCode = "owner123";
-        address publisherOwner = address(0x789);
-        string memory metadataUrl = "https://example.com";
-        address defaultPayout = address(0x101);
-
-        vm.startPrank(owner);
-
-        pubRegistry.registerCustom(customRefCode, publisherOwner, defaultPayout, metadataUrl);
-
-        vm.stopPrank();
+        // Use simplified helper - creates config and registers in one call
+        PublisherSetupHelper.PublisherConfig memory config =
+            setupPublisher(pubRegistry, "owner123", address(0x789), address(0x101), owner);
 
         // Verify the publisher was registered
-        assertEq(pubRegistry.getOwner(customRefCode), publisherOwner);
-        assertEq(pubRegistry.getMetadataUrl(customRefCode), metadataUrl);
-        assertEq(pubRegistry.getPayoutRecipient(customRefCode), defaultPayout);
-        assertEq(pubRegistry.isReferralCodeRegistered(customRefCode), true);
+        assertTrue(pubRegistry.isReferralCodeRegistered(config.refCode));
+        assertEq(pubRegistry.getOwner(config.refCode), config.owner);
+        assertEq(pubRegistry.getPayoutRecipient(config.refCode), config.payoutRecipient);
+        // Default metadata URL is auto-generated
+        assertEq(pubRegistry.getMetadataUrl(config.refCode), "https://publisher.com/owner123");
     }
 
     function test_registerCustom_Unauthorized() public {
@@ -204,11 +201,22 @@ contract ReferralCodeRegistryTest is Test {
     address private optimismPayout = address(1e8);
 
     function registerDefaultPublisher() internal returns (string memory) {
+        // Register using the non-custom method (simulates user registration)
         vm.startPrank(publisherOwner);
         string memory refCode = pubRegistry.register(defaultPayout, publisherMetadataUrl);
         vm.stopPrank();
-
         return refCode;
+    }
+
+    function setupDefaultPublisher() internal returns (PublisherSetupHelper.PublisherConfig memory) {
+        // Alternative using the helper for custom registration
+        return setupPublisher(
+            pubRegistry,
+            "DEFAULT_PUB",
+            publisherOwner,
+            defaultPayout,
+            owner // owner has SIGNER_ROLE
+        );
     }
 
     function test_registerPublisher() public {
@@ -344,27 +352,39 @@ contract ReferralCodeRegistryTest is Test {
     }
 
     function test_registerCustom() public {
-        string memory customRefCode = "custom123";
-        address customOwner = address(0x123);
-        string memory customMetadataUrl = "https://custom.com";
-        address customDefaultPayout = address(0x456);
-
-        vm.startPrank(owner);
-
-        // Expect events before calling the function
-        vm.expectEmit(true, true, true, true);
-        emit ReferralCodeRegistry.ReferralCodeRegistered(
-            customRefCode, customOwner, customDefaultPayout, customMetadataUrl, true
+        // Use helper to create and setup publisher
+        PublisherSetupHelper.PublisherConfig memory config = PublisherSetupHelper.createPublisherConfig(
+            "custom123", address(0x123), address(0x456), "https://custom.com"
         );
 
-        pubRegistry.registerCustom(customRefCode, customOwner, customDefaultPayout, customMetadataUrl);
+        // Expect events before registration
+        vm.expectEmit(true, true, true, true);
+        emit ReferralCodeRegistry.ReferralCodeRegistered(
+            config.refCode, config.owner, config.payoutRecipient, config.metadataUrl, true
+        );
 
-        vm.stopPrank();
+        setupPublisher(pubRegistry, config, owner);
 
-        assertEq(pubRegistry.getOwner(customRefCode), customOwner);
-        assertEq(pubRegistry.getMetadataUrl(customRefCode), customMetadataUrl);
-        assertEq(pubRegistry.getPayoutRecipient(customRefCode), customDefaultPayout);
-        assertEq(pubRegistry.isReferralCodeRegistered(customRefCode), true);
+        // Verify registration
+        assertTrue(pubRegistry.isReferralCodeRegistered(config.refCode));
+        assertEq(pubRegistry.getOwner(config.refCode), config.owner);
+        assertEq(pubRegistry.getMetadataUrl(config.refCode), config.metadataUrl);
+        assertEq(pubRegistry.getPayoutRecipient(config.refCode), config.payoutRecipient);
+    }
+
+    function test_batchRegisterPublishers() public {
+        // Create multiple publishers using helper
+        PublisherSetupHelper.PublisherConfig[] memory configs = createTestPublishers(3);
+
+        // Register all at once
+        setupPublishers(pubRegistry, configs, owner);
+
+        // Verify all were registered
+        for (uint256 i = 0; i < configs.length; i++) {
+            assertTrue(pubRegistry.isReferralCodeRegistered(configs[i].refCode));
+            assertEq(pubRegistry.getOwner(configs[i].refCode), configs[i].owner);
+            assertEq(pubRegistry.getPayoutRecipient(configs[i].refCode), configs[i].payoutRecipient);
+        }
     }
 
     function test_registerCustom_RefCodeTaken() public {

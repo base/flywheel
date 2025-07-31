@@ -20,13 +20,22 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     string public constant OFAC_CLICK_ID = "ofac_sanctioned_funds";
     address public constant BURN_ADDRESS = address(0xdead);
 
-    /// @notice Sets up complete AdvertisementConversion test environment
+    /// @notice Sets up complete AdvertisementConversion test environment with default registry
     function _setupAdvertisementConversionTest() internal {
         _setupFlywheelInfrastructure();
         _registerDefaultPublishers();
 
         // Deploy AdvertisementConversion hook
-        hook = new AdvertisementConversion(address(flywheel), OWNER, address(publisherRegistry));
+        hook = new AdvertisementConversion(address(flywheel), OWNER, address(referralCodeRegistry));
+    }
+
+    /// @notice Sets up complete AdvertisementConversion test environment with custom registry
+    function _setupAdvertisementConversionTest(address publisherRegistryAddress) internal {
+        _setupFlywheelInfrastructure();
+        _registerDefaultPublishers();
+
+        // Deploy AdvertisementConversion hook
+        hook = new AdvertisementConversion(address(flywheel), OWNER, publisherRegistryAddress);
     }
 
     /// @notice Creates basic conversion configs for testing

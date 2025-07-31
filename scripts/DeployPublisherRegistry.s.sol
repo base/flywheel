@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {FlywheelPublisherRegistry} from "../src/FlywheelPublisherRegistry.sol";
+import {FlywheelPublisherRegistry} from "../src/.sol";
 
 /// @notice Script for deploying the FlywheelPublisherRegistry contract
 contract DeployPublisherRegistry is Script {
@@ -14,7 +14,7 @@ contract DeployPublisherRegistry is Script {
     /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
     function run(address owner, address signerAddress) external returns (address) {
         require(owner != address(0), "Owner cannot be zero address");
-        
+
         vm.startBroadcast();
 
         // Deploy the implementation contract
