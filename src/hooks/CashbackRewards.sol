@@ -44,6 +44,9 @@ contract CashbackRewards is CampaignHooks {
     /// @notice Thrown when the token is invalid
     error InvalidToken();
 
+    /// @notice Thrown when the payment does not exist
+    error NonexistentPayment(bytes32 paymentInfoHash);
+
     /// @dev Modifier to check if the sender is the manager of the campaign
     /// @param sender Sender address
     /// @param campaign Campaign address
@@ -94,6 +97,7 @@ contract CashbackRewards is CampaignHooks {
         (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
             _parseHookData(token, hookData);
 
+        _validatePayment(paymentInfoHash);
         rewardsInfo[paymentInfoHash][campaign].distributed += payoutAmount;
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
@@ -110,6 +114,7 @@ contract CashbackRewards is CampaignHooks {
         (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
             _parseHookData(token, hookData);
 
+        _validatePayment(paymentInfoHash);
         rewardsInfo[paymentInfoHash][campaign].allocated += payoutAmount;
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
@@ -176,6 +181,14 @@ contract CashbackRewards is CampaignHooks {
         if (payoutAmount == 0) revert ZeroPayoutAmount();
         if (paymentInfo.token != token) revert InvalidToken();
         paymentInfoHash = escrow.getHash(paymentInfo);
+    }
+
+    /// @notice Validates the payment exists in the escrow
+    /// @dev Checks that the payment has been collected
+    /// @param paymentInfoHash Hash of payment info
+    function _validatePayment(bytes32 paymentInfoHash) internal view {
+        (bool hasCollectedPayment,,) = escrow.paymentState(paymentInfoHash);
+        if (!hasCollectedPayment) revert NonexistentPayment(paymentInfoHash);
     }
 
     /// @notice Creates a Flywheel.Payout array for a given payment and amount
