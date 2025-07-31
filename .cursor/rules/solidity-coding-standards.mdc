@@ -357,7 +357,7 @@ pragma solidity 0.8.29;
 - Implement overattribution protection
 - Use precise fee calculations with basis points
 
-### Publisher Registry
+### ReferralCodeRegistry
 
 - Generate unique identifiers securely
 - Implement chain-specific overrides for multi-chain support
@@ -775,7 +775,7 @@ pragma solidity 0.8.29;
 - Implement overattribution protection
 - Use precise fee calculations with basis points
 
-### Publisher Registry
+### ReferralCodeRegistry
 
 - Generate unique identifiers securely
 - Implement chain-specific overrides for multi-chain support

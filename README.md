@@ -2,6 +2,8 @@
 
 # Flywheel Protocol
 
+TLDR:
+
 - A modular, permissionless protocol for transparent attribution and ERC20 reward distribution
 - Enables any relationship where Users/Publishers drive conversions and get rewarded by Sponsors through various validation mechanisms
 - Flexible hooks system supports diverse campaign types: advertising (AdvertisementConversion), e-commerce cashback (CashbackRewards), and custom rewards (SimpleRewards)
@@ -38,7 +40,7 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 - **Core Flywheel Contract**: Manages campaign lifecycle and payouts
 - **TokenStore**: Each campaign has its own isolated token store
 - **Attribution Hooks**: Pluggable logic for different campaign types
-- **Publisher Registry**: Optional component for publisher-based campaigns
+- **ReferralCodeRegistry**: Optional component for publisher-based campaigns
 - **Participants**: Shows the flow between sponsors and recipients based on hook-specific validation
 
 ## Core Components
@@ -125,7 +127,7 @@ bytes memory hookData = abi.encode(
    - Useful when publisher wants specific address for rewards
    - Attribution fee deducted from `payoutAmount`
 
-2. **Publisher Registry Lookup**
+2. **ReferralCodeRegistry Lookup**
 
    ```solidity
    Conversion memory conversion = Conversion({
@@ -140,7 +142,7 @@ bytes memory hookData = abi.encode(
    ```
 
    - When `payoutRecipient = address(0)`, system looks up publisher's payout address
-   - Uses `publisherRegistry.getPublisherPayoutAddress(refCode, chainId)`
+   - Uses `referralCodeRegistry.getPayoutRecipient(refCode)`
    - Allows publishers to manage payout addresses centrally
    - Supports multi-chain publisher identity
 
@@ -278,32 +280,36 @@ bytes memory hookData = abi.encode(
 Flywheel provides four fundamental payout operations that hooks can implement based on their requirements:
 
 ### **reward()** - Immediate Payout
+
 Transfers tokens directly to recipients immediately. Used for real-time rewards where no holding period is needed.
 
-### **allocate()** - Reserve Future Payout  
+### **allocate()** - Reserve Future Payout
+
 Reserves tokens for recipients without immediate transfer. Creates a "pending" state that can be claimed later or reversed.
 
 ### **distribute()** - Claim Allocated Payout
+
 Allows recipients to claim previously allocated tokens. Converts "pending" allocations to actual token transfers.
 
 ### **deallocate()** - Cancel Allocated Payout
+
 Cancels previously allocated tokens, returning them to the campaign treasury. Only works on unclaimed allocations.
 
 ## Hook Implementation Comparison
 
 Different hooks implement these operations based on their specific use cases:
 
-| **Aspect** | **AdvertisementConversion** | **CashbackRewards** | **SimpleRewards** |
-|------------|----------------------------|-------------------|------------------|
-| **Controller** | Attribution Provider | Manager | Manager |
-| **Use Case** | Publisher performance marketing | E-commerce cashback | Flexible reward distribution |
-| **reward()** | ✅ Immediate publisher payouts | ✅ Direct user cashback | ✅ Direct recipient payouts |
-| **allocate()** | ❌ Not implemented | ✅ Reserve cashback for claims | ✅ Reserve payouts for claims |
-| **distribute()** | ❌ Not implemented | ✅ Users claim cashback | ✅ Recipients claim rewards |
-| **deallocate()** | ❌ Not implemented | ✅ Cancel unclaimed cashback | ✅ Cancel unclaimed rewards |
-| **Fees** | ✅ Attribution provider fees | ❌ No fees | ❌ No fees |
-| **Validation** | Complex (ref codes, configs) | Medium (payment verification) | Minimal (pass-through) |
-| **Publishers** | ✅ Via ReferralCodeRegistry | ❌ Direct to users | ❌ Direct to recipients |
+| **Aspect**       | **AdvertisementConversion**     | **CashbackRewards**            | **SimpleRewards**             |
+| ---------------- | ------------------------------- | ------------------------------ | ----------------------------- |
+| **Controller**   | Attribution Provider            | Manager                        | Manager                       |
+| **Use Case**     | Publisher performance marketing | E-commerce cashback            | Flexible reward distribution  |
+| **reward()**     | ✅ Immediate publisher payouts  | ✅ Direct user cashback        | ✅ Direct recipient payouts   |
+| **allocate()**   | ❌ Not implemented              | ✅ Reserve cashback for claims | ✅ Reserve payouts for claims |
+| **distribute()** | ❌ Not implemented              | ✅ Users claim cashback        | ✅ Recipients claim rewards   |
+| **deallocate()** | ❌ Not implemented              | ✅ Cancel unclaimed cashback   | ✅ Cancel unclaimed rewards   |
+| **Fees**         | ✅ Attribution provider fees    | ❌ No fees                     | ❌ No fees                    |
+| **Validation**   | Complex (ref codes, configs)    | Medium (payment verification)  | Minimal (pass-through)        |
+| **Publishers**   | ✅ Via ReferralCodeRegistry     | ❌ Direct to users             | ❌ Direct to recipients       |
 
 ## Detailed Hook Behaviors
 
@@ -314,7 +320,7 @@ Different hooks implement these operations based on their specific use cases:
 **Validation**: Complex publisher verification, conversion configs, allowlists
 **Fees**: Attribution providers earn percentage-based fees
 
-### CashbackRewards: Manager Model  
+### CashbackRewards: Manager Model
 
 **Who Controls**: Managers (typically payment processors or platforms)
 **Payout Flow**: Full allocate/distribute model for flexible cashback claims
@@ -373,13 +379,13 @@ The modular architecture supports diverse incentive programs:
 - **Hook**: Custom DeFi activity hook
 - **Flow**: Users perform actions → Blockchain events indexed → Payouts issued → Users earn
 
-### 6. **Other (Example: Gaming Achievements)**
+### 6. **Other (Example: Builder Rewards)**
 
 - We created Flywheel in such a way that others can hook into the architecture quite easily
-- **Sponsor**: Game developer or guild
-- **Attribution Provider**: Game servers or decentralized validators
-- **Hook**: Custom gaming hook
-- **Flow**: Players complete quests → Server verifies → Payouts issued → Rewards distributed
+- **Sponsor**: DAO or protocol
+- **Manager**: Development team or DAO governance
+- **Hook**: Custom builder rewards hook
+- **Flow**: Builders complete milestones → Contributions verified → Payouts issued → Rewards distributed
 
 ## Key Improvements
 
@@ -597,7 +603,7 @@ flywheel.collectFees(campaign, token, feeRecipient);
 
 - **Advertiser**: Campaign sponsor who funds the campaign
 - **Attribution Provider**: Authorized to submit conversion data and earn fees
-- **Publishers**: Earn rewards based on conversions (managed via PublisherRegistry)
+- **Publishers**: Earn rewards based on conversions (managed via ReferralCodeRegistry)
 
 #### CashbackRewards Campaigns
 
@@ -682,7 +688,7 @@ contract MyCustomHook is CampaignHooks {
 
 ### Publishers
 
-- Register via PublisherRegistry
+- Register via ReferralCodeRegistry
 - Drive traffic using ref codes
 - Claim accumulated rewards
 - View earnings across campaigns
@@ -723,7 +729,7 @@ The protocol is designed for deployment on Ethereum L2s and can technically be d
 Foundry deployment scripts are available in the `scripts/` directory for deploying all protocol contracts:
 
 - **`DeployFlywheel.s.sol`** - Deploys the core Flywheel contract
-- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable PublisherRegistry with proxy
+- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable ReferralCodeRegistry with proxy
 - **`DeployAdvertisementConversion.s.sol`** - Deploys the AdvertisementConversion hook
 - **`DeployAll.s.sol`** - Orchestrates deployment of all contracts in the correct order
 
@@ -735,7 +741,7 @@ Foundry deployment scripts are available in the `scripts/` directory for deployi
 
 All deployment scripts require an owner address that will have administrative control over the deployed contracts. This address will be able to:
 
-- Upgrade the PublisherRegistry contract (via UUPS proxy)
+- Upgrade the ReferralCodeRegistry contract (via UUPS proxy)
 - Configure protocol parameters
 - Manage contract permissions
 
@@ -768,7 +774,7 @@ source .env
 
 #### Signer Address (Optional)
 
-The PublisherRegistry supports an optional "signer" address that can:
+The ReferralCodeRegistry supports an optional "signer" address that can:
 
 - Register publishers with custom ref codes (instead of auto-generated ones)
 - Register publishers on behalf of others
@@ -807,10 +813,10 @@ forge script scripts/DeployAll.s.sol --sig "run(address,address)" 0x7116F87D6ff2
 # Deploy only Flywheel (no owner parameter needed)
 forge script scripts/DeployFlywheel.s.sol --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 
-# Deploy only PublisherRegistry with owner
+# Deploy only ReferralCodeRegistry with owner
 forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address)" OWNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 
-# Deploy only PublisherRegistry with owner and signer
+# Deploy only ReferralCodeRegistry with owner and signer
 forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" OWNER_ADDRESS SIGNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 ```
 
@@ -819,14 +825,14 @@ forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" 
 The scripts handle dependencies automatically, but the deployment order is:
 
 1. **Flywheel** (independent)
-2. **PublisherRegistry** (independent, upgradeable via UUPS proxy)
-3. **AdvertisementConversion** (requires Flywheel and PublisherRegistry addresses)
+2. **ReferralCodeRegistry** (independent, upgradeable via UUPS proxy)
+3. **AdvertisementConversion** (requires Flywheel and ReferralCodeRegistry addresses)
 
 ### Contract Ownership
 
 The owner address is specified during deployment and will have administrative control over:
 
-- **PublisherRegistry**: Can upgrade the contract via UUPS proxy pattern
+- **ReferralCodeRegistry**: Can upgrade the contract via UUPS proxy pattern
 - **AdvertisementConversion**: Can configure protocol parameters and manage permissions
 
 **Important**: Choose your owner address carefully as it will have significant control over the protocol. Consider using a multisig wallet for production deployments.
@@ -836,6 +842,6 @@ The owner address is specified during deployment and will have administrative co
 After deployment, you'll receive addresses for:
 
 - **Flywheel**: Core protocol contract
-- **PublisherRegistry**: Publisher management (proxy address)
+- **ReferralCodeRegistry**: Publisher management (proxy address)
 - **AdvertisementConversion**: Hook for ad campaigns
 - **TokenStore Implementation**: Template for campaign treasuries (auto-deployed by Flywheel)

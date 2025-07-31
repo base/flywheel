@@ -240,7 +240,7 @@ struct Position {
 - Implement overattribution protection
 - Use precise fee calculations with basis points
 
-#### Publisher Registry
+#### ReferralCodeRegistry
 
 - Generate unique identifiers securely
 - Implement chain-specific overrides for multi-chain support
