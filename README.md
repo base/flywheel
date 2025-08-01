@@ -221,7 +221,7 @@ bytes memory hookData = abi.encode(
 - **Advertiser Recourse**: INACTIVE→FINALIZING→FINALIZED→withdraw funds (campaign permanently ends)
 - **Design Rationale**: Attribution provider has operational control; advertiser has exit rights
 
-### **CashbackRewards.sol**
+### **BuyerRewards.sol**
 
 E-commerce cashback campaigns where users receive direct rewards for purchases:
 
@@ -231,13 +231,14 @@ E-commerce cashback campaigns where users receive direct rewards for purchases:
 - Uses **allocate/distribute model** (supports all payout functions including reward)
 - Integrates with AuthCaptureEscrow for payment verification
 - Tracks rewards per payment with allocation/distribution states
-- Manager-controlled campaign operations
+- Manager-controlled campaign operations with separate owner for fund withdrawal
 
 **Campaign Creation:**
 
 ```solidity
 bytes memory hookData = abi.encode(
-    manager,          // Campaign manager address
+    owner,            // Campaign owner (can withdraw funds)
+    manager,          // Campaign manager (handles operations)
     "https://api.example.com/metadata/..."  // Campaign metadata URI
 );
 ```
@@ -307,7 +308,7 @@ Cancels previously allocated tokens, returning them to the campaign treasury. On
 
 Different hooks implement these operations based on their specific use cases:
 
-| **Aspect**       | **AdvertisementConversion**     | **CashbackRewards**            | **SimpleRewards**             |
+| **Aspect**       | **AdvertisementConversion**     | **BuyerRewards**               | **SimpleRewards**             |
 | ---------------- | ------------------------------- | ------------------------------ | ----------------------------- |
 | **Controller**   | Attribution Provider            | Manager                        | Manager                       |
 | **Use Case**     | Publisher performance marketing | E-commerce cashback            | Flexible reward distribution  |
@@ -328,7 +329,7 @@ Different hooks implement these operations based on their specific use cases:
 **Validation**: Complex publisher verification, conversion configs, allowlists
 **Fees**: Attribution providers earn percentage-based fees
 
-### CashbackRewards: Manager Model
+### BuyerRewards: Manager Model
 
 **Who Controls**: Managers (typically payment processors or platforms)
 **Payout Flow**: Full allocate/distribute model for flexible cashback claims
@@ -561,49 +562,49 @@ flywheel.collectFees(campaign, token, feeRecipient);
 
 ### Detailed State Descriptions
 
-1. **INACTIVE State**
+Campaign states and their permissions vary significantly by hook type. The table below shows who can perform state transitions and what actions are available in each state:
 
-   - **Created by**: Anyone calling `createCampaign()` (this is will be considered Advertiser)
-   - **Purpose**: Initial state after campaign creation
-   - **Actions allowed**: Fund campaign, update metadata
-   - **Who can transition to ACTIVE**:
-     - **AdvertisementConversion**: Attribution Provider (always), Advertiser (limited)
-     - **CashbackRewards**: Status changes not supported
-     - **SimpleRewards**: Manager-controlled transitions
+#### State Transition Permissions by Hook Type
 
-2. **ACTIVE State**
+| State | AdvertisementConversion | BuyerRewards | SimpleRewards |
+|-------|------------------------|--------------|---------------|
+| **INACTIVE → ACTIVE** | Attribution Provider (any time)<br/>Advertiser (any time) | Manager only | Manager only |
+| **ACTIVE → INACTIVE** | Attribution Provider only<br/>⚠️ Advertiser cannot unpause | Manager only | Manager only |
+| **ACTIVE → FINALIZING** | Attribution Provider (any time)<br/>Advertiser (any time) | Manager only | Manager only |
+| **FINALIZING → FINALIZED** | Attribution Provider (any time)<br/>Advertiser (only after deadline) | Manager only | Manager only |
+| **FINALIZING → ACTIVE** | Attribution Provider only | Manager only | Manager only |
 
-   - **Purpose**: Campaign is live and processing payouts
-   - **Payout functions**: All four functions available based on hook implementation
-     - **AdvertisementConversion**: Only `reward()` implemented
-     - **CashbackRewards**: `reward()`, `allocate()`, `distribute()`, `deallocate()` implemented
-     - **SimpleRewards**: `reward()`, `allocate()`, `distribute()`, `deallocate()` implemented
-   - **Who can transition**:
-     - **AdvertisementConversion**:
-       - Attribution Provider: Can go to ANY state (including back to INACTIVE)
-       - Advertiser: Can only go to FINALIZING
-     - **CashbackRewards**: Status changes not supported (campaigns stay ACTIVE)
-     - **SimpleRewards**: Manager-controlled transitions
+#### State-Specific Permissions and Behaviors
 
-3. **FINALIZING State**
+| State | Purpose | Available Payout Functions | Special Behaviors |
+|-------|---------|----------------------------|------------------|
+| **INACTIVE** | Initial/paused state | None | ⚠️ If Attribution Provider pauses (ACTIVE→INACTIVE), Advertiser cannot unpause |
+| **ACTIVE** | Live campaign processing payouts | All functions per hook design | BuyerRewards: Payment must be collected in AuthCaptureEscrow |
+| **FINALIZING** | Grace period before closure | All functions per hook design | AdvertisementConversion: Sets attribution deadline (default 7 days) |
+| **FINALIZED** | Campaign permanently closed | None | Only fund withdrawal allowed |
 
-   - **Purpose**: Grace period for final payouts before campaign closure
-   - **Attribution deadline**: Set when entering this state (configurable, default 7 days)
-   - **Payout functions**: Still available for processing lagging attributions
-   - **Who can transition to FINALIZED**:
-     - **AdvertisementConversion**:
-       - Attribution Provider: Can transition immediately
-       - Advertiser: Only after attribution deadline passes
-     - **CashbackRewards**: Status changes not supported
-     - **SimpleRewards**: Manager-controlled transitions
+#### Payout Function Implementation by Hook
 
-4. **FINALIZED State**
-   - **Purpose**: Campaign permanently closed
-   - **Payout functions**: None available
-   - **Fund withdrawal**:
-     - **AdvertisementConversion**: Only Advertiser
-     - **CashbackRewards**: Only Manager
-     - **SimpleRewards**: Only Manager
+| Function | AdvertisementConversion | BuyerRewards | SimpleRewards |
+|----------|-------------------------|--------------|---------------|
+| **reward()** | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts | ✅ Direct recipient payouts<br/>Simple pass-through |
+| **allocate()** | ❌ Not implemented | ✅ Reserve cashback for claims<br/>Tracks allocated amounts | ✅ Reserve payouts for claims |
+| **distribute()** | ❌ Not implemented | ✅ Claim allocated cashback<br/>Moves from allocated→distributed | ✅ Claim allocated rewards |
+| **deallocate()** | ❌ Not implemented | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds | ✅ Cancel unclaimed rewards |
+
+#### Fund Withdrawal Permissions
+
+| Hook Type | Who Can Withdraw | Required State | Additional Requirements |
+|-----------|------------------|----------------|------------------------|
+| **AdvertisementConversion** | Advertiser only | FINALIZED | Must pass attribution deadline |
+| **BuyerRewards** | Owner only | FINALIZED | No additional requirements |
+| **SimpleRewards** | Manager only | FINALIZED | No additional requirements |
+
+#### Key Design Notes
+
+- **AdvertisementConversion**: Attribution Provider has operational control, Advertiser has exit rights
+- **BuyerRewards**: Owner creates campaign, Manager operates it, payments must be verified via AuthCaptureEscrow
+- **SimpleRewards**: Manager has full control over all operations with minimal validation
 
 ### Role Definitions by Hook Type
 
@@ -613,9 +614,10 @@ flywheel.collectFees(campaign, token, feeRecipient);
 - **Attribution Provider**: Authorized to submit conversion data and earn fees
 - **Publishers**: Earn rewards based on conversions (managed via ReferralCodeRegistry)
 
-#### CashbackRewards Campaigns
+#### BuyerRewards Campaigns
 
-- **Manager**: Controls campaign lifecycle and processes payment-based rewards
+- **Owner**: Campaign sponsor who funds the campaign and can withdraw remaining funds
+- **Manager**: Controls campaign lifecycle and processes payment-based rewards  
 - **Users**: Receive cashback rewards directly (no publishers involved)
 
 #### SimpleRewards Campaigns
