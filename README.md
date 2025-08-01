@@ -306,95 +306,52 @@ Cancels previously allocated tokens, returning them to the campaign treasury. On
 
 ## Hook Implementation Comparison
 
-Different hooks implement these operations based on their specific use cases:
+Comprehensive comparison of hook implementations, including payout functions, access control, and operational characteristics:
 
 | **Aspect**       | **AdvertisementConversion**     | **BuyerRewards**               | **SimpleRewards**             |
 | ---------------- | ------------------------------- | ------------------------------ | ----------------------------- |
 | **Controller**   | Attribution Provider            | Manager                        | Manager                       |
 | **Use Case**     | Publisher performance marketing | E-commerce cashback            | Flexible reward distribution  |
-| **reward()**     | ✅ Immediate publisher payouts  | ✅ Direct user cashback        | ✅ Direct recipient payouts   |
-| **allocate()**   | ❌ Not implemented              | ✅ Reserve cashback for claims | ✅ Reserve payouts for claims |
-| **distribute()** | ❌ Not implemented              | ✅ Users claim cashback        | ✅ Recipients claim rewards   |
-| **deallocate()** | ❌ Not implemented              | ✅ Cancel unclaimed cashback   | ✅ Cancel unclaimed rewards   |
-| **Fees**         | ✅ Attribution provider fees    | ❌ No fees                     | ❌ No fees                    |
 | **Validation**   | Complex (ref codes, configs)    | Medium (payment verification)  | Minimal (pass-through)        |
+| **Fees**         | ✅ Attribution provider fees    | ❌ No fees                     | ❌ No fees                    |
 | **Publishers**   | ✅ Via ReferralCodeRegistry     | ❌ Direct to users             | ❌ Direct to recipients       |
+| **Fund Withdrawal** | Advertiser only (FINALIZED + deadline) | Owner only (FINALIZED) | Manager only (FINALIZED) |
+| **reward()**     | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts | ✅ Direct recipient payouts<br/>Simple pass-through |
+| **allocate()**   | ❌ Not implemented              | ✅ Reserve cashback for claims<br/>Tracks allocated amounts | ✅ Reserve payouts for claims |
+| **distribute()** | ❌ Not implemented              | ✅ Claim allocated cashback<br/>Moves from allocated→distributed | ✅ Claim allocated rewards |
+| **deallocate()** | ❌ Not implemented              | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds | ✅ Cancel unclaimed rewards |
 
-## Detailed Hook Behaviors
-
-### AdvertisementConversion: Attribution Provider Model
-
-**Who Controls**: Attribution providers verify conversions and submit payouts
-**Payout Flow**: Immediate rewards only - no allocation/distribution needed
-**Validation**: Complex publisher verification, conversion configs, allowlists
-**Fees**: Attribution providers earn percentage-based fees
-
-### BuyerRewards: Manager Model
-
-**Who Controls**: Managers (typically payment processors or platforms)
-**Payout Flow**: Full allocate/distribute model for flexible cashback claims
-**Validation**: Payment verification via AuthCaptureEscrow integration
-**Fees**: No fees - direct cashback to users
-
-### SimpleRewards: Manager Model
-
-**Who Controls**: Managers (typically backend services or trusted controllers)  
-**Payout Flow**: Full allocate/distribute model for maximum flexibility
-**Validation**: Minimal - simple pass-through of payout data
-**Fees**: No fees - pure reward distribution
-
-### Gas Optimization
-
-- TokenStore uses clone pattern (not full deployment) saving ~90% deployment gas
-- Batch attribution submissions supported via arrays
-- Pull-based payout distribution prevents reentrancy
 
 ## Use Case Examples
 
 The modular architecture supports diverse incentive programs:
 
-### 1. **Traditional Advertising**
+### Current Hook Implementations
 
+#### **Traditional Advertising** (`AdvertisementConversion`)
 - **Sponsor**: Brand or Advertiser
 - **Attribution Provider**: Spindl or similar analytics service
-- **Hook**: `AdvertisementConversion`
 - **Flow**: Publishers drive traffic → Users convert → Attribution provider verifies → Publishers/users earn
 
-### 2. **E-commerce Cashback**
-
+#### **E-commerce Cashback** (`BuyerRewards`)
 - **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Manager**: Payment processor or platform itself
-- **Hook**: `BuyerRewards`
 - **Flow**: Users make purchases → Payment confirmed → Payouts issued → Users receive cashback
 
-### 3. **Simple Reward Distribution**
-
+#### **Simple Reward Distribution** (`SimpleRewards`)
 - **Sponsor**: Any entity wanting to distribute rewards
 - **Manager**: Backend service or trusted controller
-- **Hook**: `SimpleRewards`
 - **Flow**: Actions tracked externally → Manager submits payout data → Recipients claim rewards
 
-### 4. **Creator Rewards**
+### Future Extension Examples
 
-- **Sponsor**: Social platform or DAO
-- **Attribution Provider**: TBD
-- **Hook**: Custom creator rewards hook
-- **Flow**: Creators produce content → Engagement tracked → Attribution verified → Creators earn
+The permissionless architecture enables anyone to create custom hooks for new use cases:
 
-### 5. **DeFi Incentives**
-
-- **Sponsor**: DeFi protocol
-- **Attribution Provider**: TBD but could be onchain indexer or protocol itself
-- **Hook**: Custom DeFi activity hook
-- **Flow**: Users perform actions → Blockchain events indexed → Payouts issued → Users earn
-
-### 6. **Other (Example: Builder Rewards)**
-
-- We created Flywheel in such a way that others can hook into the architecture quite easily
-- **Sponsor**: DAO or protocol
-- **Manager**: Development team or DAO governance
-- **Hook**: Custom builder rewards hook
-- **Flow**: Builders complete milestones → Contributions verified → Payouts issued → Rewards distributed
+- **Creator Rewards**: Social platforms rewarding content creators based on engagement metrics
+- **DeFi Incentives**: Protocols rewarding users for specific onchain actions (swaps, liquidity provision, etc.)
+- **Builder Rewards**: DAOs rewarding developers for milestone completion or contribution metrics
+- **Gaming Rewards**: Game studios rewarding players for achievements or referrals
+- **Community Governance**: Token-based voting rewards and participation incentives
 
 ## Key Improvements
 
@@ -406,10 +363,10 @@ The modular architecture supports diverse incentive programs:
 
 ### Gas Efficiency
 
-- Clone pattern for TokenStore deployment
-- Batch operations for attribution
+- TokenStore uses clone pattern (not full deployment) saving ~90% deployment gas
+- Batch attribution submissions supported via arrays
+- Pull-based payout distribution prevents reentrancy
 - Optimized storage patterns
-- Significant gas optimization through efficient patterns
 
 ### Flexibility
 
@@ -612,22 +569,6 @@ Each hook type has different access control patterns for state transitions and o
 | **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only | reward(), allocate(), distribute(), deallocate() | Grace period before closure |
 | **FINALIZED**  | None (terminal state) | None | BuyerRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
 
-#### Payout Function Implementation by Hook
-
-| Function         | AdvertisementConversion                                     | BuyerRewards                                                     | SimpleRewards                                       |
-| ---------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------- |
-| **reward()**     | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
-| **allocate()**   | ❌ Not implemented                                          | ✅ Reserve cashback for claims<br/>Tracks allocated amounts      | ✅ Reserve payouts for claims                       |
-| **distribute()** | ❌ Not implemented                                          | ✅ Claim allocated cashback<br/>Moves from allocated→distributed | ✅ Claim allocated rewards                          |
-| **deallocate()** | ❌ Not implemented                                          | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds       | ✅ Cancel unclaimed rewards                         |
-
-#### Fund Withdrawal Permissions
-
-| Hook Type                   | Who Can Withdraw | Required State | Additional Requirements        |
-| --------------------------- | ---------------- | -------------- | ------------------------------ |
-| **AdvertisementConversion** | Advertiser only  | FINALIZED      | Must pass attribution deadline |
-| **BuyerRewards**            | Owner only       | FINALIZED      | No additional requirements     |
-| **SimpleRewards**           | Manager only     | FINALIZED      | No additional requirements     |
 
 #### Key Design Notes
 
