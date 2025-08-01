@@ -132,14 +132,27 @@ import {MyHelper} from './MyHelper.sol';
 - **Test contract names**: `ContractNameTest` or `FunctionNameTest`
 - **Test function names**: `test_functionName_outcome_optionalContext`
 
+**Test Organization Principles:**
+
+**Clear Separation of Concerns**: Core protocol functionality is tested separately from hook-specific behavior to eliminate redundancy and ensure comprehensive coverage.
+
 **Test File Categories:**
 
-- **Regular Tests (`ContractName.t.sol`)**:
-  - Normal functionality tests
-  - State transition validation
-  - Input validation and edge cases
-  - Access control for intended users
-  - Unit-level integration tests
+- **Core Protocol Tests (`Flywheel.t.sol`)**:
+  - Campaign lifecycle management (create, status transitions, finalize)
+  - Core payout functions (allocate, distribute, deallocate, reward) using SimpleRewards for testing
+  - Multi-token support and TokenStore functionality
+  - Fee collection and fund withdrawal mechanisms
+  - Cross-hook state transition validation
+  - Campaign address prediction and uniqueness
+
+- **Hook-Specific Tests (`HookName.t.sol`)**:
+  - Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdvertisementConversion)
+  - Hook-specific access control and authorization
+  - Hook-specific data validation and edge cases
+  - Hook-specific event emissions and state changes
+  - End-to-end workflows unique to each hook type
+  - **Note**: Avoid testing core protocol functionality that is already covered in Flywheel.t.sol
 
 - **Security Tests (`ContractName.security.t.sol`)**:
   - Reentrancy attack scenarios
@@ -149,12 +162,11 @@ import {MyHelper} from './MyHelper.sol';
   - Cross-function attack patterns
   - Vulnerability-specific attack simulations
 
-- **Integration Tests (`integration/` folder)**:
-  - End-to-end workflow testing
-  - Multi-contract interaction scenarios
-  - Gas optimization benchmarks
-  - Cross-system integration validation
-  - Performance and scalability testing
+- **Cross-Hook Integration (`CrossHook.security.t.sol`)**:
+  - Multi-hook interaction scenarios and isolation validation
+  - Cross-campaign security attack vectors
+  - Hook interoperability and data confusion attacks
+  - Economic manipulation across multiple campaign types
 
 ### Contract Structure & Organization
 
