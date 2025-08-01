@@ -590,25 +590,27 @@ flywheel.collectFees(campaign, token, feeRecipient);
 
 Campaign states and their permissions vary significantly by hook type. The table below shows who can perform state transitions and what actions are available in each state:
 
-#### State Transition Permissions by Hook Type
+#### Campaign State Management by Hook Type
 
-| State                              | AdvertisementConversion                                              | BuyerRewards | SimpleRewards |
-| ---------------------------------- | -------------------------------------------------------------------- | ------------ | ------------- |
-| **INACTIVE → ACTIVE**              | Attribution Provider only<br/>❌ Advertiser blocked                  | Manager only | Manager only  |
-| **ACTIVE → INACTIVE (aka PAUSED)** | Attribution Provider only<br/>⚠️ Advertiser cannot unpause           | Manager only | Manager only  |
-| **INACTIVE → FINALIZING**          | Attribution Provider (any time)<br/>✅ Advertiser escape route       | Manager only | Manager only  |
-| **ACTIVE → FINALIZING**            | Attribution Provider (any time)<br/>Advertiser (any time)            | Manager only | Manager only  |
-| **FINALIZING → FINALIZED**         | Attribution Provider (any time)<br/>Advertiser (only after deadline) | Manager only | Manager only  |
-| **FINALIZING → ACTIVE**            | Attribution Provider only                                            | Manager only | Manager only  |
+Each hook type has different access control patterns for state transitions and operations:
 
-#### State-Specific Permissions and Behaviors
+##### AdvertisementConversion Campaigns
 
-| State          | Purpose                          | Available Payout Functions    | Special Behaviors                                                                                                     |
-| -------------- | -------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **INACTIVE**   | Initial/paused state             | None                          | ⚠️ If Attribution Provider pauses (ACTIVE→INACTIVE), Advertiser cannot unpause but can escape via INACTIVE→FINALIZING |
-| **ACTIVE**     | Live campaign processing payouts | All functions per hook design | BuyerRewards: Payment must be collected in AuthCaptureEscrow                                                          |
-| **FINALIZING** | Grace period before closure      | All functions per hook design | AdvertisementConversion: Sets attribution deadline (default 7 days)                                                   |
-| **FINALIZED**  | Campaign permanently closed      | None                          | Only fund withdrawal allowed                                                                                          |
+| State          | Who Can Transition To              | Available Functions           | Special Behaviors                                     |
+| -------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | None | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
+| **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | reward() only | Live campaign processing conversions |
+| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only | Sets attribution deadline (default 7 days) |
+| **FINALIZED**  | None (terminal state) | None | Only Advertiser can withdraw remaining funds |
+
+##### BuyerRewards & SimpleRewards Campaigns
+
+| State          | Who Can Transition                 | Available Functions           | Special Behaviors                                     |
+| -------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Manager only<br/>• FINALIZING: Manager only | None | Initial/paused state |
+| **ACTIVE**     | • INACTIVE: Manager only<br/>• FINALIZING: Manager only | reward(), allocate(), distribute(), deallocate() | BuyerRewards: Payment must be collected in AuthCaptureEscrow |
+| **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only | reward(), allocate(), distribute(), deallocate() | Grace period before closure |
+| **FINALIZED**  | None (terminal state) | None | BuyerRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
 
 #### Payout Function Implementation by Hook
 
