@@ -6,12 +6,16 @@ import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 
-/// @title CashbackRewards
+/// @title BuyerRewards
 ///
-/// @notice Campaign Hooks for cashback rewards controlled by a campaign manager
+/// @notice Campaign Hooks for buyer rewards controlled by a campaign manager
+///
+/// @dev Rewards can be made in any token (supports both cashback and loyalty)
+/// @dev Rewards can be made in any amount (supports %, fixed, and dynamic)
+/// @dev Rewards can be made on any payment (supports platforms, wallets, merchants to reward on custom filtering)
 ///
 /// @author Coinbase
-contract CashbackRewards is CampaignHooks {
+contract BuyerRewards is CampaignHooks {
     /// @notice Tracks rewards info per payment per campaign
     struct RewardsInfo {
         /// @dev Amount of reward allocated for this payment
@@ -54,6 +58,9 @@ contract CashbackRewards is CampaignHooks {
 
     /// @notice Thrown when the token is invalid
     error InvalidToken();
+
+    /// @notice Thrown when the payment has not been collected
+    error PaymentNotCollected();
 
     /// @dev Modifier to check if the sender is the manager of the campaign
     /// @param sender Sender address
@@ -186,10 +193,14 @@ contract CashbackRewards is CampaignHooks {
         view
         returns (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount)
     {
+        // Check payout non-zero
         (paymentInfo, payoutAmount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
         if (payoutAmount == 0) revert ZeroPayoutAmount();
-        if (paymentInfo.token != token) revert InvalidToken();
+
+        // Check payment has been collected
         paymentInfoHash = escrow.getHash(paymentInfo);
+        (bool hasCollectedPayment,,) = escrow.paymentState(paymentInfoHash);
+        if (!hasCollectedPayment) revert PaymentNotCollected();
     }
 
     /// @notice Creates a Flywheel.Payout array for a given payment and amount
