@@ -3,6 +3,8 @@ evm_version = "prague"
 solc_version = "0.8.29"
 sort_imports = true
 via_ir = true
+optimizer = true
+optimizer_runs = 200
 
 [profile.deploy]
 optimizer = true

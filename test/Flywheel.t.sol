@@ -684,6 +684,389 @@ contract FlywheelTest is Test {
     //               COMPREHENSIVE PAYOUT FUNCTION TESTING
     // =============================================================
 
+    function test_feeHandling_inAllocateDistributeOperations() public {
+        // Test fee handling across allocate/distribute operations with BuyerRewards
+        // Deploy BuyerRewards hook that charges no fees but supports full workflow
+        
+        address[] memory holders = new address[](1);
+        holders[0] = advertiser;
+        DummyERC20 feeToken = new DummyERC20(holders);
+        
+        // Transfer tokens for campaign funding
+        vm.prank(advertiser);
+        feeToken.transfer(advertiser, 1000e18);
+        
+        // Since BuyerRewards doesn't support fee operations, test with SimpleRewards
+        SimpleRewards feeHook = new SimpleRewards(address(flywheel));
+        address feeManager = address(0x9100);
+        
+        bytes memory hookData = abi.encode(feeManager);
+        address feeCampaign = flywheel.createCampaign(address(feeHook), 200, hookData);
+        
+        // Fund campaign
+        vm.prank(advertiser);
+        feeToken.transfer(feeCampaign, 500e18);
+        
+        // Activate campaign
+        vm.prank(feeManager);
+        flywheel.updateStatus(feeCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        address recipient = address(0x8100);
+        
+        // Test allocate operation (no fees expected with SimpleRewards)
+        Flywheel.Payout[] memory allocatePayouts = new Flywheel.Payout[](1);
+        allocatePayouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 100e18,
+            extraData: "fee-test-allocation"
+        });
+        
+        vm.prank(feeManager);
+        (Flywheel.Payout[] memory allocateResult, uint256 allocateFee) = 
+            flywheel.allocate(feeCampaign, address(feeToken), abi.encode(allocatePayouts));
+        
+        // Verify no fees charged during allocation (SimpleRewards has no fees)
+        assertEq(allocateFee, 0, "SimpleRewards should not charge allocation fees");
+        assertEq(allocateResult.length, 1);
+        assertEq(allocateResult[0].amount, 100e18);
+        
+        // Test distribute operation
+        vm.prank(feeManager);
+        (Flywheel.Payout[] memory distributeResult, uint256 distributeFee) = 
+            flywheel.distribute(feeCampaign, address(feeToken), abi.encode(allocatePayouts));
+        
+        // Verify no fees charged during distribution
+        assertEq(distributeFee, 0, "SimpleRewards should not charge distribution fees");
+        assertEq(distributeResult.length, 1);
+        assertEq(distributeResult[0].amount, 100e18);
+        
+        // Verify tokens were transferred to recipient
+        assertEq(feeToken.balanceOf(recipient), 100e18);
+    }
+    
+    function test_multiToken_allocateDistribute_isolationTesting() public {
+        // Test TokenStore isolation with multiple tokens and allocate/distribute workflows
+        SimpleRewards isolationHook = new SimpleRewards(address(flywheel));
+        address isolationManager = address(0x9200);
+        
+        bytes memory hookData = abi.encode(isolationManager);
+        address campaign1 = flywheel.createCampaign(address(isolationHook), 300, hookData);
+        address campaign2 = flywheel.createCampaign(address(isolationHook), 301, hookData);
+        
+        // Deploy two different tokens
+        address[] memory holders = new address[](1);
+        holders[0] = isolationManager;
+        DummyERC20 tokenA = new DummyERC20(holders);
+        DummyERC20 tokenB = new DummyERC20(holders);
+        
+        // Fund both campaigns with both tokens
+        vm.startPrank(isolationManager);
+        tokenA.transfer(campaign1, 1000e18);
+        tokenA.transfer(campaign2, 1000e18);
+        tokenB.transfer(campaign1, 500e18);
+        tokenB.transfer(campaign2, 500e18);
+        
+        // Activate both campaigns
+        flywheel.updateStatus(campaign1, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.ACTIVE, "");
+        vm.stopPrank();
+        
+        address recipient1 = address(0x8200);
+        address recipient2 = address(0x8201);
+        
+        // Test cross-campaign isolation during allocate/distribute
+        Flywheel.Payout[] memory payouts1 = new Flywheel.Payout[](1);
+        payouts1[0] = Flywheel.Payout({
+            recipient: recipient1,
+            amount: 200e18,
+            extraData: "campaign1-isolation"
+        });
+        
+        Flywheel.Payout[] memory payouts2 = new Flywheel.Payout[](1);
+        payouts2[0] = Flywheel.Payout({
+            recipient: recipient2,
+            amount: 150e18,
+            extraData: "campaign2-isolation"
+        });
+        
+        // Allocate in both campaigns with both tokens
+        vm.startPrank(isolationManager);
+        flywheel.allocate(campaign1, address(tokenA), abi.encode(payouts1));
+        flywheel.allocate(campaign1, address(tokenB), abi.encode(payouts1));
+        flywheel.allocate(campaign2, address(tokenA), abi.encode(payouts2));
+        flywheel.allocate(campaign2, address(tokenB), abi.encode(payouts2));
+        vm.stopPrank();
+        
+        // Verify no cross-contamination before distribution
+        assertEq(tokenA.balanceOf(recipient1), 0);
+        assertEq(tokenA.balanceOf(recipient2), 0);
+        assertEq(tokenB.balanceOf(recipient1), 0);
+        assertEq(tokenB.balanceOf(recipient2), 0);
+        
+        // Distribute from campaign1 only
+        vm.startPrank(isolationManager);
+        flywheel.distribute(campaign1, address(tokenA), abi.encode(payouts1));
+        flywheel.distribute(campaign1, address(tokenB), abi.encode(payouts1));
+        vm.stopPrank();
+        
+        // Verify only campaign1 distributions occurred
+        assertEq(tokenA.balanceOf(recipient1), 200e18, "Campaign1 recipient should receive tokenA");
+        assertEq(tokenB.balanceOf(recipient1), 200e18, "Campaign1 recipient should receive tokenB");
+        assertEq(tokenA.balanceOf(recipient2), 0, "Campaign2 recipient should not receive tokens yet");
+        assertEq(tokenB.balanceOf(recipient2), 0, "Campaign2 recipient should not receive tokens yet");
+        
+        // Verify campaign balances remain isolated
+        assertEq(tokenA.balanceOf(campaign1), 800e18, "Campaign1 tokenA balance should be reduced");
+        assertEq(tokenB.balanceOf(campaign1), 300e18, "Campaign1 tokenB balance should be reduced");
+        assertEq(tokenA.balanceOf(campaign2), 1000e18, "Campaign2 tokenA balance should be unchanged");
+        assertEq(tokenB.balanceOf(campaign2), 500e18, "Campaign2 tokenB balance should be unchanged");
+        
+        // Now distribute from campaign2
+        vm.startPrank(isolationManager);
+        flywheel.distribute(campaign2, address(tokenA), abi.encode(payouts2));
+        flywheel.distribute(campaign2, address(tokenB), abi.encode(payouts2));
+        vm.stopPrank();
+        
+        // Verify final balances show complete isolation
+        assertEq(tokenA.balanceOf(recipient1), 200e18, "Recipient1 tokenA should remain unchanged");
+        assertEq(tokenB.balanceOf(recipient1), 200e18, "Recipient1 tokenB should remain unchanged");
+        assertEq(tokenA.balanceOf(recipient2), 150e18, "Recipient2 should now receive tokenA");
+        assertEq(tokenB.balanceOf(recipient2), 150e18, "Recipient2 should now receive tokenB");
+    }
+    
+    function test_crossHookStateTransitionBehavior() public {
+        // Test state transition behavior across different hook types
+        
+        // Deploy all three hook types
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address simpleManager = address(0x9300);
+        
+        // Create campaigns with different hooks
+        bytes memory simpleHookData = abi.encode(simpleManager);
+        address simpleCampaign = flywheel.createCampaign(address(simpleHook), 400, simpleHookData);
+        
+        // AdvertisementConversion campaign already exists from setUp()
+        address adCampaign = campaign;
+        
+        // Test state transitions for SimpleRewards (Manager-controlled)
+        vm.startPrank(simpleManager);
+        
+        // Test all valid transitions for SimpleRewards
+        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        
+        // INACTIVE → ACTIVE
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.ACTIVE, "simple-activation");
+        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
+        
+        // ACTIVE → INACTIVE (pause)
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.INACTIVE, "simple-pause");
+        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        
+        // INACTIVE → FINALIZING (skip ACTIVE)
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.FINALIZING, "simple-finalizing");
+        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.FINALIZING));
+        
+        // FINALIZING → FINALIZED (FINALIZING → ACTIVE is not allowed by core Flywheel)
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.FINALIZED, "simple-finalized");
+        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.FINALIZED));
+        
+        vm.stopPrank();
+        
+        // Test AdvertisementConversion state transitions (Attribution Provider controlled)
+        vm.startPrank(attributionProvider);
+        
+        // Ad campaign starts INACTIVE
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        
+        // INACTIVE → ACTIVE
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-activation");
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
+        
+        // ACTIVE → INACTIVE (pause - advertiser cannot reverse this)
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.INACTIVE, "ad-pause");
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        
+        vm.stopPrank();
+        
+        // Test that advertiser cannot unpause (key difference from other hooks)
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector); // Should fail - advertiser cannot reactivate after attribution provider pause
+        vm.prank(advertiser);
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-advertiser-reactivate");
+        
+        // But advertiser can escape via FINALIZING route
+        vm.prank(advertiser);
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.FINALIZING, "ad-advertiser-finalizing");
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Attribution provider can still control from FINALIZING
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.FINALIZED, "ad-finalized");
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.FINALIZED));
+    }
+    
+    function test_stateDependentPayoutFunctionAvailability() public {
+        // Test that payout functions are only available in appropriate states
+        SimpleRewards stateHook = new SimpleRewards(address(flywheel));
+        address stateManager = address(0x9400);
+        
+        bytes memory hookData = abi.encode(stateManager);
+        address stateCampaign = flywheel.createCampaign(address(stateHook), 500, hookData);
+        
+        // Fund campaign
+        vm.prank(advertiser);
+        token.transfer(stateCampaign, 1000e18);
+        
+        address recipient = address(0x8400);
+        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
+        payouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 100e18,
+            extraData: "state-test"
+        });
+        
+        bytes memory payoutData = abi.encode(payouts);
+        
+        // Test INACTIVE state - no payout functions should work
+        assertEq(uint8(flywheel.campaignStatus(stateCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.reward(stateCampaign, address(token), payoutData);
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.allocate(stateCampaign, address(token), payoutData);
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.distribute(stateCampaign, address(token), payoutData);
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.deallocate(stateCampaign, address(token), payoutData);
+        
+        // Activate campaign - all payout functions should work
+        vm.prank(stateManager);
+        flywheel.updateStatus(stateCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Test all payout functions in ACTIVE state
+        vm.startPrank(stateManager);
+        flywheel.reward(stateCampaign, address(token), payoutData);
+        
+        // Test allocate/distribute/deallocate cycle properly
+        flywheel.allocate(stateCampaign, address(token), payoutData);
+        flywheel.distribute(stateCampaign, address(token), payoutData);
+        
+        // Allocate again before deallocate (since distribute consumed the allocation)
+        flywheel.allocate(stateCampaign, address(token), payoutData);
+        flywheel.deallocate(stateCampaign, address(token), payoutData);
+        vm.stopPrank();
+        
+        // Move to FINALIZING - payout functions should still work
+        vm.prank(stateManager);
+        flywheel.updateStatus(stateCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        vm.startPrank(stateManager);
+        flywheel.reward(stateCampaign, address(token), payoutData);
+        
+        // Test allocate/distribute/deallocate cycle properly in FINALIZING state
+        flywheel.allocate(stateCampaign, address(token), payoutData);
+        flywheel.distribute(stateCampaign, address(token), payoutData);
+        
+        // Allocate again before deallocate
+        flywheel.allocate(stateCampaign, address(token), payoutData);
+        flywheel.deallocate(stateCampaign, address(token), payoutData);
+        vm.stopPrank();
+        
+        // Move to FINALIZED - no payout functions should work
+        vm.prank(stateManager);
+        flywheel.updateStatus(stateCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.reward(stateCampaign, address(token), payoutData);
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.allocate(stateCampaign, address(token), payoutData);
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.distribute(stateCampaign, address(token), payoutData);
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(stateManager);
+        flywheel.deallocate(stateCampaign, address(token), payoutData);
+    }
+    
+    function test_tokenStore_clonePatternEfficiency() public {
+        // Test TokenStore clone pattern efficiency and isolation
+        
+        // Deploy multiple campaigns to test clone efficiency
+        SimpleRewards cloneHook = new SimpleRewards(address(flywheel));
+        address cloneManager = address(0x9500);
+        
+        bytes memory hookData = abi.encode(cloneManager);
+        
+        // Create multiple campaigns and measure clone efficiency
+        address[] memory campaigns = new address[](5);
+        for (uint i = 0; i < 5; i++) {
+            campaigns[i] = flywheel.createCampaign(address(cloneHook), 600 + i, hookData);
+            
+            // Verify each campaign has contract code (is a clone)
+            uint256 codeSize;
+            address campaignAddr = campaigns[i];
+            assembly {
+                codeSize := extcodesize(campaignAddr)
+            }
+            assertTrue(codeSize > 0, "Campaign should have contract code from clone");
+            
+            // Verify each campaign address is unique
+            for (uint j = 0; j < i; j++) {
+                assertTrue(campaigns[i] != campaigns[j], "Campaign addresses should be unique");
+            }
+        }
+    }
+    
+    function test_tokenStore_withdrawalPermissionValidation() public {
+        // Test withdrawal permissions are properly validated per hook type
+        
+        // Test with SimpleRewards (Manager withdrawal)
+        SimpleRewards withdrawHook = new SimpleRewards(address(flywheel));
+        address withdrawManager = address(0x9600);
+        
+        bytes memory hookData = abi.encode(withdrawManager);
+        address withdrawCampaign = flywheel.createCampaign(address(withdrawHook), 700, hookData);
+        
+        // Fund campaign
+        vm.prank(advertiser);
+        token.transfer(withdrawCampaign, 500e18);
+        
+        // Finalize campaign
+        vm.startPrank(withdrawManager);
+        flywheel.updateStatus(withdrawCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(withdrawCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        flywheel.updateStatus(withdrawCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        vm.stopPrank();
+        
+        uint256 campaignBalance = token.balanceOf(withdrawCampaign);
+        assertEq(campaignBalance, 500e18, "Campaign should have funded balance");
+        
+        // Test unauthorized withdrawal fails
+        vm.expectRevert();
+        vm.prank(advertiser); // Not the manager
+        flywheel.withdrawFunds(withdrawCampaign, address(token), campaignBalance, "");
+        
+        // Test authorized manager withdrawal succeeds
+        uint256 managerBalanceBefore = token.balanceOf(withdrawManager);
+        vm.prank(withdrawManager);
+        flywheel.withdrawFunds(withdrawCampaign, address(token), campaignBalance, "");
+        
+        uint256 managerBalanceAfter = token.balanceOf(withdrawManager);
+        assertEq(managerBalanceAfter - managerBalanceBefore, campaignBalance, "Manager should receive withdrawal");
+        assertEq(token.balanceOf(withdrawCampaign), 0, "Campaign balance should be zero after withdrawal");
+    }
+
     function test_distribute_coreFlywheelFunctionality() public {
         // Deploy SimpleRewards hook that supports all payout functions
         SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
