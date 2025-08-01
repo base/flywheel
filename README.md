@@ -308,19 +308,18 @@ Allows recipients to claim previously allocated tokens. Converts "pending" alloc
 
 Comprehensive comparison of hook implementations, including payout functions, access control, and operational characteristics:
 
-| **Aspect**       | **AdvertisementConversion**     | **BuyerRewards**               | **SimpleRewards**             |
-| ---------------- | ------------------------------- | ------------------------------ | ----------------------------- |
-| **Controller**   | Attribution Provider            | Manager                        | Manager                       |
-| **Use Case**     | Publisher performance marketing | E-commerce cashback            | Flexible reward distribution  |
-| **Validation**   | Complex (ref codes, configs)    | Medium (payment verification)  | Minimal (pass-through)        |
-| **Fees**         | ✅ Attribution provider fees    | ❌ No fees                     | ❌ No fees                    |
-| **Publishers**   | ✅ Via ReferralCodeRegistry     | ❌ Direct to users             | ❌ Direct to recipients       |
-| **Fund Withdrawal** | Advertiser only (FINALIZED + deadline) | Owner only (FINALIZED) | Manager only (FINALIZED) |
-| **reward()**     | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts | ✅ Direct recipient payouts<br/>Simple pass-through |
-| **allocate()**   | ❌ Not implemented              | ✅ Reserve cashback for claims<br/>Tracks allocated amounts | ✅ Reserve payouts for claims |
-| **distribute()** | ❌ Not implemented              | ✅ Claim allocated cashback<br/>Moves from allocated→distributed | ✅ Claim allocated rewards |
-| **deallocate()** | ❌ Not implemented              | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds | ✅ Cancel unclaimed rewards |
-
+| **Aspect**          | **AdvertisementConversion**                                 | **BuyerRewards**                                                 | **SimpleRewards**                                   |
+| ------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------- |
+| **Controller**      | Attribution Provider                                        | Manager                                                          | Manager                                             |
+| **Use Case**        | Publisher performance marketing                             | E-commerce cashback                                              | Flexible reward distribution                        |
+| **Validation**      | Complex (ref codes, configs)                                | Medium (payment verification)                                    | Minimal (pass-through)                              |
+| **Fees**            | ✅ Attribution provider fees                                | ❌ No fees                                                       | ❌ No fees                                          |
+| **Publishers**      | ✅ Via ReferralCodeRegistry                                 | ❌ Direct to users                                               | ❌ Direct to recipients                             |
+| **Fund Withdrawal** | Advertiser only (FINALIZED + deadline)                      | Owner only (FINALIZED)                                           | Manager only (FINALIZED)                            |
+| **reward()**        | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
+| **allocate()**      | ❌ Not implemented                                          | ✅ Reserve cashback for claims<br/>Tracks allocated amounts      | ✅ Reserve payouts for claims                       |
+| **distribute()**    | ❌ Not implemented                                          | ✅ Claim allocated cashback<br/>Moves from allocated→distributed | ✅ Claim allocated rewards                          |
+| **deallocate()**    | ❌ Not implemented                                          | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds       | ✅ Cancel unclaimed rewards                         |
 
 ## Use Case Examples
 
@@ -329,16 +328,19 @@ The modular architecture supports diverse incentive programs:
 ### Current Hook Implementations
 
 #### **Traditional Advertising** (`AdvertisementConversion`)
+
 - **Sponsor**: Brand or Advertiser
 - **Attribution Provider**: Spindl or similar analytics service
 - **Flow**: Publishers drive traffic → Users convert → Attribution provider verifies → Publishers/users earn
 
 #### **E-commerce Cashback** (`BuyerRewards`)
+
 - **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Manager**: Payment processor or platform itself
 - **Flow**: Users make purchases → Payment confirmed → Payouts issued → Users receive cashback
 
 #### **Simple Reward Distribution** (`SimpleRewards`)
+
 - **Sponsor**: Any entity wanting to distribute rewards
 - **Manager**: Backend service or trusted controller
 - **Flow**: Actions tracked externally → Manager submits payout data → Recipients claim rewards
@@ -411,18 +413,34 @@ forge test --match-test testName -vvv
 forge test --gas-report
 
 # Coverage
-forge coverage --ir-minimum
+forge coverage --ir-minimum --report lcov
+
+# Get HTML report
+genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category
+
+
 ```
 
 #### Test Organization
 
-**Regular Tests (`ContractName.t.sol`)**:
+**Clear Separation of Concerns**: Core protocol functionality is tested separately from hook-specific behavior to eliminate redundancy and ensure comprehensive coverage.
 
-- Normal functionality and unit tests
-- State transition validation for intended behavior
-- Input validation and edge cases
-- Access control for authorized users
-- Unit-level integration tests
+**Core Protocol Tests (`Flywheel.t.sol`)**:
+
+- Campaign lifecycle management (create, status transitions, finalize)
+- Core payout functions (allocate, distribute, deallocate, reward) using SimpleRewards for testing
+- Multi-token support and TokenStore functionality
+- Fee collection and fund withdrawal mechanisms
+- Cross-hook state transition validation
+- Campaign address prediction and uniqueness
+
+**Hook-Specific Tests (`HookName.t.sol`)**:
+
+- Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdvertisementConversion)
+- Hook-specific access control and authorization
+- Hook-specific data validation and edge cases
+- Hook-specific event emissions and state changes
+- End-to-end workflows unique to each hook type
 
 **Security Tests (`ContractName.security.t.sol`)**:
 
@@ -432,11 +450,12 @@ forge coverage --ir-minimum
 - Cross-function attack patterns
 - Vulnerability-specific testing
 
-**Integration Tests (`integration/` folder)**:
+**Cross-Hook Integration (`CrossHook.security.t.sol`)**:
 
-- End-to-end workflow testing across multiple contracts
-- Multi-contract interaction scenarios
-- Gas optimization benchmarks and performance testing
+- Multi-hook interaction scenarios and isolation validation
+- Cross-campaign security attack vectors
+- Hook interoperability and data confusion attacks
+- Economic manipulation across multiple campaign types
 - Cross-system integration validation
 - Scalability and stress testing
 
@@ -553,22 +572,21 @@ Each hook type has different access control patterns for state transitions and o
 
 ##### AdvertisementConversion Campaigns
 
-| State          | Who Can Transition To              | Available Functions           | Special Behaviors                                     |
-| -------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | None | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
-| **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | reward() only | Live campaign processing conversions |
-| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only | Sets attribution deadline (default 7 days) |
-| **FINALIZED**  | None (terminal state) | None | Only Advertiser can withdraw remaining funds |
+| State          | Who Can Transition To                                                                                             | Available Functions | Special Behaviors                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
+| **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                        | reward() only       | Live campaign processing conversions                                                                |
+| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline (default 7 days)                                                          |
+| **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
 
 ##### BuyerRewards & SimpleRewards Campaigns
 
-| State          | Who Can Transition                 | Available Functions           | Special Behaviors                                     |
-| -------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Manager only<br/>• FINALIZING: Manager only | None | Initial/paused state |
-| **ACTIVE**     | • INACTIVE: Manager only<br/>• FINALIZING: Manager only | reward(), allocate(), deallocate(), distribute() | BuyerRewards: Payment must be collected in AuthCaptureEscrow |
-| **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only | reward(), allocate(), deallocate(), distribute() | Grace period before closure |
-| **FINALIZED**  | None (terminal state) | None | BuyerRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
-
+| State          | Who Can Transition                                      | Available Functions                              | Special Behaviors                                                              |
+| -------------- | ------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| **INACTIVE**   | • ACTIVE: Manager only<br/>• FINALIZING: Manager only   | None                                             | Initial/paused state                                                           |
+| **ACTIVE**     | • INACTIVE: Manager only<br/>• FINALIZING: Manager only | reward(), allocate(), deallocate(), distribute() | BuyerRewards: Payment must be collected in AuthCaptureEscrow                   |
+| **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only    | reward(), allocate(), deallocate(), distribute() | Grace period before closure                                                    |
+| **FINALIZED**  | None (terminal state)                                   | None                                             | BuyerRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
 
 #### Key Design Notes
 

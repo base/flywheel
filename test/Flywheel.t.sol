@@ -352,74 +352,98 @@ contract FlywheelTest is Test {
     // =============================================================
 
     function test_allocateAndDistribute() public {
-        // Note: AdvertisementConversion hook doesn't support allocate/distribute
-        // This test demonstrates that the hook properly rejects unsupported operations
-        address payoutRecipient = address(0x1333);
-
-        // Activate campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Fund campaign
+        // Test core allocate/distribute functionality using SimpleRewards
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address manager = address(0x1333);
+        
+        // Create SimpleRewards campaign
+        bytes memory hookData = abi.encode(manager);
+        address simpleCampaign = flywheel.createCampaign(address(simpleHook), 100, hookData);
+        
+        // Fund and activate campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(simpleCampaign, INITIAL_BALANCE);
+        
+        vm.prank(manager);
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        // Create attribution data for allocation
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
-                eventId: bytes16(uint128(0x11111111111111112222222222222222)),
-                clickId: "allocate_test",
-                conversionConfigId: 1,
-                publisherRefCode: "",
-                timestamp: uint32(block.timestamp),
-                payoutRecipient: payoutRecipient,
-                payoutAmount: 150e18
-            }),
-            logBytes: ""
+        address recipient = address(0x1444);
+        
+        // Test allocate operation
+        Flywheel.Payout[] memory allocatePayouts = new Flywheel.Payout[](1);
+        allocatePayouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 150e18,
+            extraData: "allocate-test"
         });
-
-        bytes memory attributionData = abi.encode(attributions);
-
-        // AdvertisementConversion hook doesn't support allocate - should revert
-        vm.expectRevert(); // Unsupported operation
-        vm.prank(attributionProvider);
-        flywheel.allocate(campaign, address(token), attributionData);
+        
+        vm.prank(manager);
+        (Flywheel.Payout[] memory allocateResult, uint256 allocateFee) = 
+            flywheel.allocate(simpleCampaign, address(token), abi.encode(allocatePayouts));
+        
+        // Verify allocation results
+        assertEq(allocateResult.length, 1);
+        assertEq(allocateResult[0].amount, 150e18);
+        assertEq(allocateFee, 0); // SimpleRewards charges no fees
+        
+        // Verify tokens not transferred yet (allocation phase)
+        assertEq(token.balanceOf(recipient), 0);
+        
+        // Test distribute operation
+        vm.prank(manager);
+        (Flywheel.Payout[] memory distributeResult, uint256 distributeFee) = 
+            flywheel.distribute(simpleCampaign, address(token), abi.encode(allocatePayouts));
+        
+        // Verify distribution results
+        assertEq(distributeResult.length, 1);
+        assertEq(distributeResult[0].amount, 150e18);
+        assertEq(distributeFee, 0); // SimpleRewards charges no fees
+        
+        // Verify tokens were transferred
+        assertEq(token.balanceOf(recipient), 150e18);
     }
 
     function test_deallocate() public {
-        // Note: AdvertisementConversion hook doesn't support deallocate
-        // This test demonstrates that the hook properly rejects unsupported operations
-        address payoutRecipient = address(0x1444);
-
-        // Activate campaign and fund it
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
+        // Test core deallocate functionality using SimpleRewards
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address manager = address(0x1555);
+        
+        // Create SimpleRewards campaign
+        bytes memory hookData = abi.encode(manager);
+        address simpleCampaign = flywheel.createCampaign(address(simpleHook), 101, hookData);
+        
+        // Fund and activate campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(simpleCampaign, INITIAL_BALANCE);
+        
+        vm.prank(manager);
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        // Create attribution data
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
-                eventId: bytes16(uint128(0x33333333333333334444444444444444)),
-                clickId: "deallocate_test",
-                conversionConfigId: 1,
-                publisherRefCode: "",
-                timestamp: uint32(block.timestamp),
-                payoutRecipient: payoutRecipient,
-                payoutAmount: 100e18
-            }),
-            logBytes: ""
+        address recipient = address(0x1666);
+        
+        // First allocate tokens
+        Flywheel.Payout[] memory allocatePayouts = new Flywheel.Payout[](1);
+        allocatePayouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 100e18,
+            extraData: "deallocate-test"
         });
-
-        bytes memory attributionData = abi.encode(attributions);
-
-        // AdvertisementConversion hook doesn't support deallocate - should revert
-        vm.expectRevert(); // Unsupported operation
-        vm.prank(attributionProvider);
-        flywheel.deallocate(campaign, address(token), attributionData);
+        
+        vm.prank(manager);
+        flywheel.allocate(simpleCampaign, address(token), abi.encode(allocatePayouts));
+        
+        // Verify allocation exists
+        assertEq(flywheel.allocations(simpleCampaign, address(token), recipient), 100e18);
+        
+        // Test deallocate operation
+        vm.prank(manager);
+        flywheel.deallocate(simpleCampaign, address(token), abi.encode(allocatePayouts));
+        
+        // Verify allocation was removed
+        assertEq(flywheel.allocations(simpleCampaign, address(token), recipient), 0);
+        
+        // Verify no tokens were transferred to recipient
+        assertEq(token.balanceOf(recipient), 0);
     }
 
     // =============================================================

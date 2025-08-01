@@ -45,7 +45,7 @@
 - ~~**Missing Coverage**~~ **✅ ALL IMPLEMENTED**:
   - ✅ Basic campaign creation and setup
   - ✅ Payment verification integration with AuthCaptureEscrow
-  - ✅ All payout functions: `reward()`, `allocate()`, `distribute()`, `deallocate()`
+  - ✅ All payout functions: `reward()`, `allocate()`, `deallocate()`, `distribute()`
   - ✅ Owner vs Manager permission differentiation
   - ✅ PaymentInfo validation and tracking
   - ✅ RewardsInfo state management (allocated/distributed tracking)
@@ -64,7 +64,7 @@
 - ~~**Status**: NO tests exist for this hook~~ **✅ COMPLETED: Comprehensive test suite with 15 test functions**
 - ~~**Missing Coverage**~~ **✅ ALL IMPLEMENTED**:
   - ✅ Basic campaign creation and manager setup
-  - ✅ All payout functions: `reward()`, `allocate()`, `distribute()`, `deallocate()`
+  - ✅ All payout functions: `reward()`, `allocate()`, `deallocate()`, `distribute()`
   - ✅ Manager-only access control validation
   - ✅ Simple pass-through payout validation
   - ✅ Integration with core Flywheel functions
@@ -116,7 +116,7 @@
 
 **Key Testing Enhancements:**
 - Comprehensive `distribute()` function testing with multi-token scenarios
-- Complex allocate→distribute→deallocate workflows with proper state management
+- Complex allocate→deallocate→distribute workflows with proper state management
 - Cross-hook state transition validation showing permission differences
 - TokenStore clone pattern efficiency validation
 - Multi-token campaign isolation testing

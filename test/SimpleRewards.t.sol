@@ -37,11 +37,8 @@ contract SimpleRewardsTest is Test {
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
     }
 
-    function test_createCampaign() public {
-        // Verify campaign was created correctly
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
-        assertEq(hook.managers(campaign), manager);
-    }
+    // NOTE: Core campaign creation is tested in Flywheel.t.sol
+    // This focuses on SimpleRewards-specific campaign setup
 
     function test_reward_success() public {
         // Fund campaign
@@ -76,87 +73,10 @@ contract SimpleRewardsTest is Test {
         assertEq(token.balanceOf(recipient2), PAYOUT_AMOUNT / 2);
     }
 
-    function test_allocate_success() public {
-        // Fund and activate campaign
-        vm.prank(manager);
-        token.transfer(campaign, INITIAL_TOKEN_BALANCE);
+    // NOTE: Core allocate/distribute/deallocate functionality is tested in Flywheel.t.sol
+    // This hook focuses on SimpleRewards-specific behavior
 
-        vm.prank(manager);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        // Create payout data
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
-            recipient: recipient1,
-            amount: PAYOUT_AMOUNT,
-            extraData: ""
-        });
-
-        bytes memory hookData = abi.encode(payouts);
-
-        // Allocate payout
-        vm.prank(manager);
-        flywheel.allocate(campaign, address(token), hookData);
-
-        // Verify no tokens transferred yet (allocation only)
-        assertEq(token.balanceOf(recipient1), 0);
-        
-        // Verify allocation was recorded in core Flywheel state
-        assertEq(flywheel.allocations(campaign, address(token), recipient1), PAYOUT_AMOUNT);
-        
-        // Note: SimpleRewards doesn't track allocations internally like BuyerRewards
-        // It just passes through the payout data to the core Flywheel
-    }
-
-    function test_distribute_success() public {
-        // First allocate
-        test_allocate_success();
-
-        // Create same payout data for distribution
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
-            recipient: recipient1,
-            amount: PAYOUT_AMOUNT,
-            extraData: ""
-        });
-
-        bytes memory hookData = abi.encode(payouts);
-
-        // Distribute the allocated amount
-        vm.prank(manager);
-        flywheel.distribute(campaign, address(token), hookData);
-
-        // Verify recipient received tokens
-        assertEq(token.balanceOf(recipient1), PAYOUT_AMOUNT);
-        
-        // Verify allocation was removed from core Flywheel state after distribution
-        assertEq(flywheel.allocations(campaign, address(token), recipient1), 0);
-    }
-
-    function test_deallocate_success() public {
-        // First allocate
-        test_allocate_success();
-
-        // Create payout data for deallocation
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
-            recipient: recipient1,
-            amount: PAYOUT_AMOUNT,
-            extraData: ""
-        });
-
-        bytes memory hookData = abi.encode(payouts);
-
-        // Deallocate the amount
-        vm.prank(manager);
-        flywheel.deallocate(campaign, address(token), hookData);
-
-        // Verify no tokens transferred to recipient
-        assertEq(token.balanceOf(recipient1), 0);
-        
-        // Verify allocation state was actually updated (decreased to zero)
-        assertEq(flywheel.allocations(campaign, address(token), recipient1), 0);
-    }
 
     function test_onlyManager_canCallPayoutFunctions() public {
         // Fund and activate campaign
