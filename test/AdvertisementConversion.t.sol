@@ -1088,4 +1088,84 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
     }
+
+    function test_updateAttributionDeadlineDuration_success() public {
+        uint48 newDuration = 7 days;
+        uint48 oldDuration = hook.attributionDeadlineDuration();
+
+        vm.expectEmit(true, true, true, true);
+        emit AdvertisementConversion.AttributionDeadlineDurationUpdated(oldDuration, newDuration);
+
+        vm.prank(owner);
+        hook.updateAttributionDeadlineDuration(newDuration);
+
+        assertEq(hook.attributionDeadlineDuration(), newDuration);
+    }
+
+    function test_updateAttributionDeadlineDuration_revert_unauthorized() public {
+        uint48 newDuration = 7 days;
+
+        vm.expectRevert();
+        vm.prank(randomUser);
+        hook.updateAttributionDeadlineDuration(newDuration);
+    }
+
+    function test_updateAttributionDeadlineDuration_revert_exceedsMaxDuration() public {
+        uint48 invalidDuration = hook.MAX_ATTRIBUTION_DEADLINE_DURATION() + 1;
+
+        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDuration));
+        vm.prank(owner);
+        hook.updateAttributionDeadlineDuration(invalidDuration);
+    }
+
+    function test_updateAttributionDeadlineDuration_maxDurationAllowed() public {
+        uint48 maxDuration = hook.MAX_ATTRIBUTION_DEADLINE_DURATION();
+        uint48 oldDuration = hook.attributionDeadlineDuration();
+
+        vm.expectEmit(true, true, true, true);
+        emit AdvertisementConversion.AttributionDeadlineDurationUpdated(oldDuration, maxDuration);
+
+        vm.prank(owner);
+        hook.updateAttributionDeadlineDuration(maxDuration);
+
+        assertEq(hook.attributionDeadlineDuration(), maxDuration);
+    }
+
+    function test_hasPublisherAllowlist_noAllowlist() public {
+        assertEq(hook.hasPublisherAllowlist(campaign), false);
+    }
+
+    function test_hasPublisherAllowlist_withAllowlist() public {
+        // Create campaign with allowlist using ref codes
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "TEST_REF_CODE";
+
+        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/metadata"
+        });
+
+        bytes memory hookData = abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        
+        address campaignWithAllowlist = flywheel.createCampaign(address(hook), 2, hookData);
+
+        assertEq(hook.hasPublisherAllowlist(campaignWithAllowlist), true);
+    }
+
+    function test_onUpdateMetadata_success() public {
+        bytes memory hookData = abi.encode("test data");
+
+        // Should succeed when called by advertiser
+        vm.prank(address(flywheel));
+        hook.onUpdateMetadata(advertiser, campaign, hookData);
+    }
+
+    function test_onUpdateMetadata_revert_unauthorized() public {
+        bytes memory hookData = abi.encode("test data");
+
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(address(flywheel));
+        hook.onUpdateMetadata(randomUser, campaign, hookData);
+    }
 }
