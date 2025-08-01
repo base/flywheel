@@ -247,8 +247,8 @@ bytes memory hookData = abi.encode(
 
 - `reward()` - Immediate payout to users
 - `allocate()` - Reserve rewards for future distribution
-- `distribute()` - Distribute previously allocated rewards
 - `deallocate()` - Cancel allocated rewards
+- `distribute()` - Distribute previously allocated rewards
 
 ### **SimpleRewards.sol**
 
@@ -281,8 +281,8 @@ bytes memory hookData = abi.encode(
 
 - `reward()` - Immediate payout to recipients
 - `allocate()` - Reserve payouts for future distribution
-- `distribute()` - Distribute previously allocated payouts
 - `deallocate()` - Cancel allocated payouts
+- `distribute()` - Distribute previously allocated payouts
 
 ## Core Payout Operations
 
@@ -296,13 +296,13 @@ Transfers tokens directly to recipients immediately. Used for real-time rewards 
 
 Reserves tokens for recipients without immediate transfer. Creates a "pending" state that can be claimed later or reversed.
 
-### **distribute()** - Claim Allocated Payout
-
-Allows recipients to claim previously allocated tokens. Converts "pending" allocations to actual token transfers.
-
 ### **deallocate()** - Cancel Allocated Payout
 
 Cancels previously allocated tokens, returning them to the campaign treasury. Only works on unclaimed allocations.
+
+### **distribute()** - Claim Allocated Payout
+
+Allows recipients to claim previously allocated tokens. Converts "pending" allocations to actual token transfers.
 
 ## Hook Implementation Comparison
 
@@ -499,19 +499,6 @@ bytes memory hookData = abi.encode(
 flywheel.allocate(campaign, token, hookData);
 ```
 
-#### Distribute Allocated Payouts
-
-```solidity
-// Distribute previously allocated payouts
-bytes memory hookData = abi.encode(
-    recipients,
-    amounts,
-    // hook-specific data
-);
-
-flywheel.distribute(campaign, token, hookData);
-```
-
 #### Deallocate Payouts
 
 ```solidity
@@ -523,6 +510,19 @@ bytes memory hookData = abi.encode(
 );
 
 flywheel.deallocate(campaign, token, hookData);
+```
+
+#### Distribute Allocated Payouts
+
+```solidity
+// Distribute previously allocated payouts
+bytes memory hookData = abi.encode(
+    recipients,
+    amounts,
+    // hook-specific data
+);
+
+flywheel.distribute(campaign, token, hookData);
 ```
 
 ### Collecting Fees
@@ -539,8 +539,8 @@ flywheel.collectFees(campaign, token, feeRecipient);
 | State          | Who Can Update To          | Next Valid States    | Payout Functions Available                       |
 | -------------- | -------------------------- | -------------------- | ------------------------------------------------ |
 | **INACTIVE**   | Anyone (campaign creation) | ACTIVE               | None                                             |
-| **ACTIVE**     | Hook-dependent             | INACTIVE, FINALIZING | reward(), allocate(), distribute(), deallocate() |
-| **FINALIZING** | Hook-dependent             | FINALIZED            | reward(), allocate(), distribute(), deallocate() |
+| **ACTIVE**     | Hook-dependent             | INACTIVE, FINALIZING | reward(), allocate(), deallocate(), distribute() |
+| **FINALIZING** | Hook-dependent             | FINALIZED            | reward(), allocate(), deallocate(), distribute() |
 | **FINALIZED**  | None (terminal state)      | None                 | None                                             |
 
 ### Detailed State Descriptions
@@ -565,8 +565,8 @@ Each hook type has different access control patterns for state transitions and o
 | State          | Who Can Transition                 | Available Functions           | Special Behaviors                                     |
 | -------------- | ---------------------------------- | ----------------------------- | ----------------------------------------------------- |
 | **INACTIVE**   | • ACTIVE: Manager only<br/>• FINALIZING: Manager only | None | Initial/paused state |
-| **ACTIVE**     | • INACTIVE: Manager only<br/>• FINALIZING: Manager only | reward(), allocate(), distribute(), deallocate() | BuyerRewards: Payment must be collected in AuthCaptureEscrow |
-| **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only | reward(), allocate(), distribute(), deallocate() | Grace period before closure |
+| **ACTIVE**     | • INACTIVE: Manager only<br/>• FINALIZING: Manager only | reward(), allocate(), deallocate(), distribute() | BuyerRewards: Payment must be collected in AuthCaptureEscrow |
+| **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only | reward(), allocate(), deallocate(), distribute() | Grace period before closure |
 | **FINALIZED**  | None (terminal state) | None | BuyerRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
 
 
