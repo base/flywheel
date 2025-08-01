@@ -1026,14 +1026,24 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
         
-        // Reset to ACTIVE for next test
+        // Create a second campaign to test ACTIVE → INACTIVE restriction
+        // (Cannot reset from FINALIZING back to ACTIVE due to core Flywheel state machine)
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](0);
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData2 =
+            abi.encode(attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs);
+        
+        address campaign2 = flywheel.createCampaign(address(hook), 999, hookData2);
+        
+        // Activate the second campaign
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.ACTIVE, "");
         
         // Advertiser CANNOT do ACTIVE → INACTIVE
         vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
         vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.INACTIVE, "");
     }
 
     /// @notice Test Attribution Provider has full state transition control
