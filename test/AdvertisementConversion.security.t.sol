@@ -74,6 +74,7 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
         hook.addAllowedPublisherRefCode(campaign, "MALICIOUS_REF");
     }
 
+
     /// @notice Test privilege escalation attempts
     function test_security_privilegeEscalation() public {
         address campaign = _createBasicCampaign(1);

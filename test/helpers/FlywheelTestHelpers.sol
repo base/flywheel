@@ -92,7 +92,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
     }
 
     /// @notice Updates campaign status with given parameters
-    function _updateCampaignStatus(address campaign, Flywheel.CampaignStatus status, address caller) internal {
+    function _updateStatus(address campaign, Flywheel.CampaignStatus status, address caller) internal {
         vm.prank(caller);
         flywheel.updateStatus(campaign, status, "");
     }

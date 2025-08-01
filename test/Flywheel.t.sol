@@ -6,6 +6,7 @@ import {Flywheel} from "../src/Flywheel.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {TokenStore} from "../src/TokenStore.sol";
 import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -677,5 +678,304 @@ contract FlywheelTest is Test {
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    // =============================================================
+    //               COMPREHENSIVE PAYOUT FUNCTION TESTING
+    // =============================================================
+
+    function test_distribute_coreFlywheelFunctionality() public {
+        // Deploy SimpleRewards hook that supports all payout functions
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address manager = address(0x9000);
+        
+        // Create campaign with SimpleRewards hook
+        bytes memory hookData = abi.encode(manager);
+        address simpleCampaign = flywheel.createCampaign(address(simpleHook), 100, hookData);
+        
+        // Deploy second token for multi-token testing
+        address[] memory holders = new address[](1);
+        holders[0] = manager;
+        DummyERC20 token2 = new DummyERC20(holders);
+        
+        // Transfer tokens to manager for funding campaign
+        vm.prank(advertiser);
+        token.transfer(manager, 2000e18);
+        
+        // Fund campaign with both tokens
+        vm.startPrank(manager);
+        token.transfer(simpleCampaign, 1000e18);
+        token2.transfer(simpleCampaign, 1000e6); // Different decimals (6 vs 18)
+        
+        // Activate campaign
+        flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        vm.stopPrank();
+        
+        // Test distribute() function with first token
+        address recipient1 = address(0x8001);
+        address recipient2 = address(0x8002);
+        
+        // Create payout data for allocation
+        Flywheel.Payout[] memory allocatePayouts = new Flywheel.Payout[](2);
+        allocatePayouts[0] = Flywheel.Payout({
+            recipient: recipient1,
+            amount: 100e18,
+            extraData: "allocation-1"
+        });
+        allocatePayouts[1] = Flywheel.Payout({
+            recipient: recipient2,
+            amount: 150e18,
+            extraData: "allocation-2"
+        });
+        
+        // Step 1: Allocate tokens (reserve for future distribution)
+        vm.prank(manager);
+        flywheel.allocate(simpleCampaign, address(token), abi.encode(allocatePayouts));
+        
+        // Verify tokens not transferred yet
+        assertEq(token.balanceOf(recipient1), 0);
+        assertEq(token.balanceOf(recipient2), 0);
+        
+        // Step 2: Test distribute() - the core missing functionality
+        Flywheel.Payout[] memory distributePayouts = new Flywheel.Payout[](2);
+        distributePayouts[0] = Flywheel.Payout({
+            recipient: recipient1,
+            amount: 100e18,
+            extraData: "distribution-1"
+        });
+        distributePayouts[1] = Flywheel.Payout({
+            recipient: recipient2,
+            amount: 150e18,
+            extraData: "distribution-2"
+        });
+        
+        vm.prank(manager);
+        (Flywheel.Payout[] memory payouts, uint256 fee) = 
+            flywheel.distribute(simpleCampaign, address(token), abi.encode(distributePayouts));
+        
+        // Verify distribute() results
+        assertEq(payouts.length, 2);
+        assertEq(payouts[0].recipient, recipient1);
+        assertEq(payouts[0].amount, 100e18);
+        assertEq(payouts[1].recipient, recipient2);
+        assertEq(payouts[1].amount, 150e18);
+        assertEq(fee, 0); // SimpleRewards has no fees
+        
+        // Verify tokens were transferred
+        assertEq(token.balanceOf(recipient1), 100e18);
+        assertEq(token.balanceOf(recipient2), 150e18);
+    }
+
+    function test_multiToken_allocateDistributeWorkflow() public {
+        // Deploy SimpleRewards hook for multi-token testing
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address manager = address(0x9001);
+        
+        // Create campaign
+        bytes memory hookData = abi.encode(manager);
+        address multiTokenCampaign = flywheel.createCampaign(address(simpleHook), 101, hookData);
+        
+        // Deploy additional tokens with different decimals
+        address[] memory holders = new address[](1);
+        holders[0] = manager;
+        DummyERC20 usdc = new DummyERC20(holders); // 6 decimals
+        DummyERC20 weth = new DummyERC20(holders); // 18 decimals (from DummyERC20 default)
+        
+        // Transfer tokens to manager for funding campaign
+        vm.prank(advertiser);
+        token.transfer(manager, 1000e18);
+        
+        // Fund campaign with multiple tokens
+        vm.startPrank(manager);
+        token.transfer(multiTokenCampaign, 1000e18);
+        usdc.transfer(multiTokenCampaign, 1000e6);
+        weth.transfer(multiTokenCampaign, 5e18);
+        
+        flywheel.updateStatus(multiTokenCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        vm.stopPrank();
+        
+        address recipient = address(0x8003);
+        
+        // Test allocate/distribute workflow across multiple tokens
+        
+        // Token 1: Original token (18 decimals)
+        Flywheel.Payout[] memory tokenPayouts = new Flywheel.Payout[](1);
+        tokenPayouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 200e18,
+            extraData: "token-allocation"
+        });
+        
+        vm.prank(manager);
+        flywheel.allocate(multiTokenCampaign, address(token), abi.encode(tokenPayouts));
+        
+        // Token 2: USDC (6 decimals)
+        Flywheel.Payout[] memory usdcPayouts = new Flywheel.Payout[](1);
+        usdcPayouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 100e6,
+            extraData: "usdc-allocation"
+        });
+        
+        vm.prank(manager);
+        flywheel.allocate(multiTokenCampaign, address(usdc), abi.encode(usdcPayouts));
+        
+        // Token 3: WETH (18 decimals)
+        Flywheel.Payout[] memory wethPayouts = new Flywheel.Payout[](1);
+        wethPayouts[0] = Flywheel.Payout({
+            recipient: recipient,
+            amount: 1e18,
+            extraData: "weth-allocation"
+        });
+        
+        vm.prank(manager);
+        flywheel.allocate(multiTokenCampaign, address(weth), abi.encode(wethPayouts));
+        
+        // Verify no tokens transferred yet (allocation phase)
+        assertEq(token.balanceOf(recipient), 0);
+        assertEq(usdc.balanceOf(recipient), 0);
+        assertEq(weth.balanceOf(recipient), 0);
+        
+        // Now distribute each token allocation
+        vm.prank(manager);
+        flywheel.distribute(multiTokenCampaign, address(token), abi.encode(tokenPayouts));
+        
+        vm.prank(manager);
+        flywheel.distribute(multiTokenCampaign, address(usdc), abi.encode(usdcPayouts));
+        
+        vm.prank(manager);
+        flywheel.distribute(multiTokenCampaign, address(weth), abi.encode(wethPayouts));
+        
+        // Verify all tokens were distributed correctly
+        assertEq(token.balanceOf(recipient), 200e18);
+        assertEq(usdc.balanceOf(recipient), 100e6);
+        assertEq(weth.balanceOf(recipient), 1e18);
+        
+        // Verify campaign balances reduced
+        assertEq(token.balanceOf(multiTokenCampaign), 800e18);
+        assertEq(usdc.balanceOf(multiTokenCampaign), 900e6);
+        assertEq(weth.balanceOf(multiTokenCampaign), 4e18);
+    }
+
+    function test_allocateDistribute_complexWorkflows() public {
+        // Test complex allocate→distribute workflows with partial distributions
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address manager = address(0x9002);
+        
+        bytes memory hookData = abi.encode(manager);
+        address complexCampaign = flywheel.createCampaign(address(simpleHook), 102, hookData);
+        
+        // Transfer tokens to manager for funding campaign
+        vm.prank(advertiser);
+        token.transfer(manager, 1000e18);
+        
+        // Fund and activate campaign
+        vm.startPrank(manager);
+        token.transfer(complexCampaign, 1000e18);
+        flywheel.updateStatus(complexCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        vm.stopPrank();
+        
+        address recipient1 = address(0x8004);
+        address recipient2 = address(0x8005);
+        address recipient3 = address(0x8006);
+        
+        // Phase 1: Large allocation
+        Flywheel.Payout[] memory largeAllocation = new Flywheel.Payout[](3);
+        largeAllocation[0] = Flywheel.Payout({recipient: recipient1, amount: 100e18, extraData: ""});
+        largeAllocation[1] = Flywheel.Payout({recipient: recipient2, amount: 200e18, extraData: ""});
+        largeAllocation[2] = Flywheel.Payout({recipient: recipient3, amount: 300e18, extraData: ""});
+        
+        vm.prank(manager);
+        flywheel.allocate(complexCampaign, address(token), abi.encode(largeAllocation));
+        
+        // Phase 2: Partial distribution (only first two recipients)
+        Flywheel.Payout[] memory partialDistribution = new Flywheel.Payout[](2);
+        partialDistribution[0] = Flywheel.Payout({recipient: recipient1, amount: 100e18, extraData: ""});
+        partialDistribution[1] = Flywheel.Payout({recipient: recipient2, amount: 200e18, extraData: ""});
+        
+        vm.prank(manager);
+        flywheel.distribute(complexCampaign, address(token), abi.encode(partialDistribution));
+        
+        // Verify partial distribution
+        assertEq(token.balanceOf(recipient1), 100e18);
+        assertEq(token.balanceOf(recipient2), 200e18);
+        assertEq(token.balanceOf(recipient3), 0); // Not distributed yet
+        
+        // Phase 3: Distribute remaining allocation to third recipient
+        Flywheel.Payout[] memory remainingDistribution = new Flywheel.Payout[](1);
+        remainingDistribution[0] = Flywheel.Payout({recipient: recipient3, amount: 300e18, extraData: ""});
+        
+        vm.prank(manager);
+        flywheel.distribute(complexCampaign, address(token), abi.encode(remainingDistribution));
+        
+        // Verify complete distribution
+        assertEq(token.balanceOf(recipient1), 100e18);
+        assertEq(token.balanceOf(recipient2), 200e18);
+        assertEq(token.balanceOf(recipient3), 300e18);
+        
+        // Verify campaign balance
+        assertEq(token.balanceOf(complexCampaign), 400e18); // 1000 - 600 distributed
+    }
+
+    function test_distribute_errorConditions() public {
+        // Test error conditions specific to distribute function in core Flywheel
+        SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
+        address manager = address(0x9003);
+        
+        bytes memory hookData = abi.encode(manager);
+        address errorCampaign = flywheel.createCampaign(address(simpleHook), 103, hookData);
+        
+        // Transfer tokens to manager for funding campaign
+        vm.prank(advertiser);
+        token.transfer(manager, 500e18);
+        
+        // Fund campaign
+        vm.prank(manager);
+        token.transfer(errorCampaign, 500e18);
+        
+        // Test 1: Cannot distribute on INACTIVE campaign
+        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
+        payouts[0] = Flywheel.Payout({recipient: address(0x8007), amount: 100e18, extraData: ""});
+        
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(manager);
+        flywheel.distribute(errorCampaign, address(token), abi.encode(payouts));
+        
+        // Activate campaign for further tests
+        vm.prank(manager);
+        flywheel.updateStatus(errorCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Test 2: Successful allocate and distribute in ACTIVE state
+        // First allocate
+        vm.prank(manager);
+        flywheel.allocate(errorCampaign, address(token), abi.encode(payouts));
+        
+        // Then distribute
+        vm.prank(manager);
+        flywheel.distribute(errorCampaign, address(token), abi.encode(payouts));
+        assertEq(token.balanceOf(address(0x8007)), 100e18);
+        
+        // Test 3: Distribute in FINALIZING state (should work)
+        vm.prank(manager);
+        flywheel.updateStatus(errorCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Allocate first for FINALIZING state test
+        payouts[0].recipient = address(0x8008);
+        vm.prank(manager);
+        flywheel.allocate(errorCampaign, address(token), abi.encode(payouts));
+        
+        // Then distribute
+        vm.prank(manager);
+        flywheel.distribute(errorCampaign, address(token), abi.encode(payouts));
+        assertEq(token.balanceOf(address(0x8008)), 100e18);
+        
+        // Test 4: Cannot distribute on FINALIZED campaign
+        vm.prank(manager);
+        flywheel.updateStatus(errorCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        
+        payouts[0].recipient = address(0x8009);
+        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
+        vm.prank(manager);
+        flywheel.distribute(errorCampaign, address(token), abi.encode(payouts));
     }
 }
