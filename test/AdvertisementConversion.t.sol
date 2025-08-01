@@ -984,4 +984,98 @@ contract AdvertisementConversionTest is Test {
         // Advertiser can withdraw funds but campaign is killed forever
         // No way to ever resume the campaign for publishers/users
     }
+
+    // =============================================================
+    //                    STATE TRANSITION PERMISSIONS
+    // =============================================================
+
+    /// @notice Test that Advertiser CANNOT transition INACTIVE → ACTIVE
+    function test_advertiserCannotActivateCampaign() public {
+        // Verify campaign starts INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+        
+        // Advertiser should NOT be able to activate campaign - should revert
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Campaign should still be INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+    }
+
+    /// @notice Test that only Attribution Provider can activate campaigns
+    function test_onlyAttributionProviderCanActivate() public {
+        // Verify campaign starts INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+        
+        // Attribution Provider CAN activate
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    /// @notice Test Advertiser can only do ACTIVE → FINALIZING, not other transitions
+    function test_advertiserLimitedStateTransitions() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Advertiser CAN do ACTIVE → FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Reset to ACTIVE for next test
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Advertiser CANNOT do ACTIVE → INACTIVE
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+    }
+
+    /// @notice Test Attribution Provider has full state transition control
+    function test_attributionProviderFullControl() public {
+        // Attribution Provider can do INACTIVE → ACTIVE
+        vm.startPrank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        
+        // Attribution Provider can do ACTIVE → INACTIVE (pause)
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+        
+        // Attribution Provider can do INACTIVE → FINALIZING
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Attribution Provider can do FINALIZING → FINALIZED (no deadline wait)
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+        
+        vm.stopPrank();
+    }
+
+    /// @notice Test Advertiser CAN do INACTIVE → FINALIZING (escape route from pause)
+    function test_advertiserCanEscapeInactiveCampaign() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // Attribution Provider pauses campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        
+        // Advertiser CANNOT unpause (INACTIVE → ACTIVE)
+        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        // But Advertiser CAN escape via INACTIVE → FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+    }
 }

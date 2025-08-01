@@ -5,15 +5,17 @@
 Use the exact contract name as defined in the Solidity files:
 
 ### ✅ Correct Terms
+
 - **ReferralCodeRegistry** - The contract for managing publisher referral codes and payout addresses
 - **AdvertisementConversion** - Hook for performance marketing campaigns
-- **CashbackRewards** - Hook for e-commerce cashback campaigns  
+- **BuyerRewards** - Hook for e-commerce cashback campaigns
 - **SimpleRewards** - Hook for basic reward distribution
 
 ### ❌ Avoid These Terms
+
 - ~~Publisher Registry~~ → Use **ReferralCodeRegistry**
-- ~~PublisherRegistry~~ → Use **ReferralCodeRegistry** 
-- ~~CommerceCashback~~ → Use **CashbackRewards**
+- ~~PublisherRegistry~~ → Use **ReferralCodeRegistry**
+- ~~CommerceCashback~~ → Use **BuyerRewards**
 - ~~FlywheelCampaigns~~ → Deprecated, no longer exists
 - ~~Monolithic~~ → Remove references to old architecture
 

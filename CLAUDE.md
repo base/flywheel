@@ -132,6 +132,30 @@ import {MyHelper} from './MyHelper.sol';
 - **Test contract names**: `ContractNameTest` or `FunctionNameTest`
 - **Test function names**: `test_functionName_outcome_optionalContext`
 
+**Test File Categories:**
+
+- **Regular Tests (`ContractName.t.sol`)**:
+  - Normal functionality tests
+  - State transition validation
+  - Input validation and edge cases
+  - Access control for intended users
+  - Unit-level integration tests
+
+- **Security Tests (`ContractName.security.t.sol`)**:
+  - Reentrancy attack scenarios
+  - Privilege escalation attempts
+  - Economic attack vectors (flash loans, manipulation)
+  - Unauthorized access by malicious actors
+  - Cross-function attack patterns
+  - Vulnerability-specific attack simulations
+
+- **Integration Tests (`integration/` folder)**:
+  - End-to-end workflow testing
+  - Multi-contract interaction scenarios
+  - Gas optimization benchmarks
+  - Cross-system integration validation
+  - Performance and scalability testing
+
 ### Contract Structure & Organization
 
 #### File Header
