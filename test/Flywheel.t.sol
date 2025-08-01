@@ -3,18 +3,18 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../src/ReferralCodes.sol";
 import {TokenStore} from "../src/TokenStore.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract FlywheelTest is Test {
-    Flywheel public flywheel;
-    ReferralCodeRegistry public publisherRegistry;
+import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";
+
+contract FlywheelTest is FlywheelTestHelpers {
+    ReferralCodes public publisherRegistry;
     AdConversion public hook;
-    DummyERC20 public token;
 
     address public advertiser = address(0x1);
     address public attributionProvider = address(0x2);
@@ -41,23 +41,24 @@ contract FlywheelTest is Test {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        ReferralCodeRegistry impl = new ReferralCodeRegistry();
+        ReferralCodes impl = new ReferralCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodeRegistry.initialize.selector,
+            ReferralCodes.initialize.selector,
             owner,
-            address(0x999) // signer address
+            address(0x999), // signer address
+            "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = ReferralCodeRegistry(address(proxy));
+        publisherRegistry = ReferralCodes(address(proxy));
 
         // Register publishers with ref codes
         vm.startPrank(owner);
 
         // Register publisher1 with ref code "PUBLISHER_1"
-        publisherRegistry.registerCustom("PUBLISHER_1", publisher1, publisher1Payout, "https://example.com/publisher1");
+        publisherRegistry.register("code1", publisher1, publisher1Payout);
 
         // Register publisher2 with ref code "PUBLISHER_2"
-        publisherRegistry.registerCustom("PUBLISHER_2", publisher2, publisher2Payout, "https://example.com/publisher2");
+        publisherRegistry.register("code2", publisher2, publisher2Payout);
         vm.stopPrank();
 
         // Deploy hook
@@ -136,7 +137,7 @@ contract FlywheelTest is Test {
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_123",
             conversionConfigId: 1,
-            publisherRefCode: "PUBLISHER_1",
+            publisherRefCode: "code1",
             timestamp: uint32(block.timestamp),
             payoutRecipient: address(0),
             payoutAmount: 100e18
@@ -188,7 +189,7 @@ contract FlywheelTest is Test {
             eventId: bytes16(0xabcdef1234567890abcdef1234567890),
             clickId: "click_456",
             conversionConfigId: 2,
-            publisherRefCode: "PUBLISHER_2",
+            publisherRefCode: "code2",
             timestamp: uint32(block.timestamp),
             payoutRecipient: address(0),
             payoutAmount: 200 * 10 ** 18

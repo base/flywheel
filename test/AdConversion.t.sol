@@ -3,14 +3,16 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../src/ReferralCodes.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract AdConversionTest is Test {
+import {PublisherTestSetup, PublisherSetupHelper} from "./helpers/PublisherSetupHelper.sol";
+
+contract AdConversionTest is PublisherTestSetup {
     Flywheel public flywheel;
-    ReferralCodeRegistry public publisherRegistry;
+    ReferralCodes public publisherRegistry;
     AdConversion public hook;
     DummyERC20 public token;
 
@@ -25,15 +27,16 @@ contract AdConversionTest is Test {
         // Deploy contracts
         flywheel = new Flywheel();
 
-        // Deploy ReferralCodeRegistry as upgradeable proxy
-        ReferralCodeRegistry implementation = new ReferralCodeRegistry();
+        // Deploy ReferralCodes as upgradeable proxy
+        ReferralCodes implementation = new ReferralCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodeRegistry.initialize.selector,
+            ReferralCodes.initialize.selector,
             owner,
-            address(0x999) // signer address
+            address(0x999), // signer address
+            "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        publisherRegistry = ReferralCodeRegistry(address(proxy));
+        publisherRegistry = ReferralCodes(address(proxy));
 
         hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
@@ -44,12 +47,7 @@ contract AdConversionTest is Test {
 
         // Register randomUser as a publisher with ref code
         vm.prank(owner);
-        publisherRegistry.registerCustom(
-            "TEST_REF_CODE",
-            randomUser,
-            randomUser, // default payout address
-            "https://example.com/publisher"
-        );
+        publisherRegistry.register("random", randomUser, randomUser);
 
         // Create a campaign with conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
@@ -123,6 +121,9 @@ contract AdConversionTest is Test {
     }
 
     function test_onReward_valid_onchainConversion() public {
+        vm.prank(owner);
+        publisherRegistry.register("code1", randomUser, randomUser);
+
         // Set attribution provider fee
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(1000); // 10%
@@ -134,7 +135,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // ONCHAIN config (1-indexed)
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -157,6 +158,9 @@ contract AdConversionTest is Test {
     }
 
     function test_onReward_valid_offchainConversion() public {
+        vm.prank(owner);
+        publisherRegistry.register("code1", randomUser, randomUser);
+
         // Set attribution provider fee
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(1000); // 10%
@@ -168,7 +172,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2, // OFFCHAIN config (1-indexed)
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -351,8 +355,8 @@ contract AdConversionTest is Test {
     function test_createCampaign_emitsPublisherAddedToAllowlistEvents() public {
         // Register additional publishers
         vm.startPrank(owner);
-        publisherRegistry.registerCustom("PUB1", address(0x1001), address(0x1001), "https://example.com/pub1");
-        publisherRegistry.registerCustom("PUB2", address(0x1002), address(0x1002), "https://example.com/pub2");
+        publisherRegistry.register("code1", address(0x1001), address(0x1001));
+        publisherRegistry.register("code2", address(0x1002), address(0x1002));
         vm.stopPrank();
 
         // Create empty conversion configs
@@ -360,9 +364,9 @@ contract AdConversionTest is Test {
 
         // Create allowlist
         string[] memory allowedRefCodes = new string[](3);
-        allowedRefCodes[0] = "PUB1";
-        allowedRefCodes[1] = "PUB2";
-        allowedRefCodes[2] = "TEST_REF_CODE";
+        allowedRefCodes[0] = "code1";
+        allowedRefCodes[1] = "code2";
+        allowedRefCodes[2] = "code3";
 
         bytes memory hookData = abi.encode(
             attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
@@ -373,13 +377,13 @@ contract AdConversionTest is Test {
 
         // Expect events for each publisher
         vm.expectEmit(true, false, false, true);
-        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB1");
+        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "code1");
 
         vm.expectEmit(true, false, false, true);
-        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB2");
+        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "code2");
 
         vm.expectEmit(true, false, false, true);
-        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "TEST_REF_CODE");
+        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "code3");
 
         // Create campaign
         address newCampaign = flywheel.createCampaign(address(hook), 3, hookData);
@@ -397,7 +401,7 @@ contract AdConversionTest is Test {
 
         // Create allowlist
         string[] memory allowedRefCodes = new string[](1);
-        allowedRefCodes[0] = "TEST_REF_CODE";
+        allowedRefCodes[0] = "code1";
 
         uint48 attributionDeadline = 7 days;
         string memory uri = "https://example.com/new-campaign";
@@ -432,18 +436,18 @@ contract AdConversionTest is Test {
 
         // Register a new publisher
         vm.prank(owner);
-        publisherRegistry.registerCustom("NEW_PUB", address(0x2001), address(0x2001), "https://example.com/newpub");
+        publisherRegistry.register("code1", address(0x2001), address(0x2001));
 
         // Expect event
         vm.expectEmit(true, false, false, true);
-        emit AdConversion.PublisherAddedToAllowlist(allowlistCampaign, "NEW_PUB");
+        emit AdConversion.PublisherAddedToAllowlist(allowlistCampaign, "code1");
 
         // Add publisher to allowlist
         vm.prank(advertiser);
-        hook.addAllowedPublisherRefCode(allowlistCampaign, "NEW_PUB");
+        hook.addAllowedPublisherRefCode(allowlistCampaign, "code1");
 
         // Verify it was added
-        assertTrue(hook.isPublisherAllowed(allowlistCampaign, "NEW_PUB"));
+        assertTrue(hook.isPublisherAllowed(allowlistCampaign, "code1"));
     }
 
     // =============================================================
@@ -558,10 +562,9 @@ contract AdConversionTest is Test {
     // Note: There's no removeAllowedPublisherRefCode function - publishers cannot be removed once added
     // This is by design to prevent accidental removal of authorized publishers
 
-    function test_isPublisherAllowed_noAllowlist() public {
+    function test_isPublisherAllowed_noAllowlist(uint16 codeNum) public {
         // Campaign with empty allowlist should allow all publishers
-        assertTrue(hook.isPublisherAllowed(campaign, "ANY_REF_CODE"));
-        assertTrue(hook.isPublisherAllowed(campaign, "NONEXISTENT_CODE"));
+        assertTrue(hook.isPublisherAllowed(campaign, generateCode(codeNum)));
     }
 
     // =============================================================
@@ -575,7 +578,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -591,13 +594,16 @@ contract AdConversionTest is Test {
     }
 
     function test_onReward_revert_invalidConversionConfigId() public {
+        vm.prank(owner);
+        publisherRegistry.register("code1", address(0x1001), address(0x1001));
+
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
         attributions[0] = AdConversion.Attribution({
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 99, // Invalid config ID
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -617,13 +623,16 @@ contract AdConversionTest is Test {
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 1);
 
+        vm.prank(owner);
+        publisherRegistry.register("code1", address(0x1001), address(0x1001));
+
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
         attributions[0] = AdConversion.Attribution({
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // Disabled config
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -641,9 +650,7 @@ contract AdConversionTest is Test {
     function test_onReward_revert_publisherNotInAllowlist() public {
         // Register a publisher that will NOT be in the allowlist
         vm.prank(owner);
-        publisherRegistry.registerCustom(
-            "NOT_ALLOWED_PUBLISHER", address(0x9999), address(0x9999), "https://notallowed.com"
-        );
+        publisherRegistry.register("notonallowlist", address(0x9999), address(0x9999));
 
         // Create campaign with specific allowlist that DOESN'T include the registered publisher
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
@@ -653,7 +660,7 @@ contract AdConversionTest is Test {
         });
 
         string[] memory allowedRefCodes = new string[](1);
-        allowedRefCodes[0] = "TEST_REF_CODE"; // Only TEST_REF_CODE is allowed
+        allowedRefCodes[0] = "code1"; // Only code1 is allowed
 
         bytes memory hookData = abi.encode(
             attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
@@ -667,7 +674,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
-                publisherRefCode: "NOT_ALLOWED_PUBLISHER", // Registered but not in allowlist
+                publisherRefCode: "notonallowlist", // Registered but not in allowlist
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -689,7 +696,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2,
-                publisherRefCode: "NONEXISTENT_PUBLISHER",
+                publisherRefCode: "code2",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -711,8 +718,8 @@ contract AdConversionTest is Test {
     function test_onReward_batchAttributions() public {
         // Register additional publishers
         vm.startPrank(owner);
-        publisherRegistry.registerCustom("PUB1", address(0x1001), address(0x1001), "https://pub1.com");
-        publisherRegistry.registerCustom("PUB2", address(0x1002), address(0x1002), "https://pub2.com");
+        publisherRegistry.register("code1", address(0x1001), address(0x1001));
+        publisherRegistry.register("code2", address(0x1002), address(0x1002));
         vm.stopPrank();
 
         // Set attribution provider fee
@@ -727,7 +734,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click1",
                 conversionConfigId: 1,
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "random",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -740,7 +747,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(2)),
                 clickId: "click2",
                 conversionConfigId: 2,
-                publisherRefCode: "PUB1",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 200 ether
@@ -753,7 +760,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(3)),
                 clickId: "click3",
                 conversionConfigId: 2,
-                publisherRefCode: "PUB2",
+                publisherRefCode: "code2",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x2222), // Custom recipient
                 payoutAmount: 150 ether
@@ -770,11 +777,11 @@ contract AdConversionTest is Test {
         // Verify results
         assertEq(payouts.length, 3);
 
-        // First attribution: TEST_REF_CODE publisher (randomUser)
+        // First attribution: "code3" publisher (randomUser)
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5%
 
-        // Second attribution: PUB1 publisher
+        // Second attribution: "code1" publisher
         assertEq(payouts[1].recipient, address(0x1001));
         assertEq(payouts[1].amount, 190 ether); // 200 - 5%
 
@@ -821,7 +828,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -843,7 +850,7 @@ contract AdConversionTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
-                publisherRefCode: "TEST_REF_CODE",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether

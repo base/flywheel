@@ -3,7 +3,7 @@ pragma solidity 0.8.29;
 
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
-import {ReferralCodeRegistry} from "../ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../ReferralCodes.sol";
 
 /// @title AdConversion
 ///
@@ -88,7 +88,7 @@ contract AdConversion is CampaignHooks {
     uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
 
     /// @notice Address of the publisher registry contract
-    ReferralCodeRegistry public immutable publisherRegistry;
+    ReferralCodes public immutable publisherRegistry;
 
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
@@ -198,7 +198,7 @@ contract AdConversion is CampaignHooks {
     /// @param referralCodeRegistry_ Address of the publisher registry contract
     constructor(address protocol_, address owner_, address referralCodeRegistry_) CampaignHooks(protocol_) {
         if (referralCodeRegistry_ == address(0)) revert ZeroAddress();
-        publisherRegistry = ReferralCodeRegistry(referralCodeRegistry_);
+        publisherRegistry = ReferralCodes(referralCodeRegistry_);
     }
 
     /// @notice Sets the fee for an attribution provider
@@ -332,13 +332,13 @@ contract AdConversion is CampaignHooks {
         for (uint256 i = 0; i < attributions.length; i++) {
             // Validate publisher ref code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
-            if (bytes(publisherRefCode).length > 0 && !publisherRegistry.isReferralCodeRegistered(publisherRefCode)) {
+            if (bytes(publisherRefCode).length != 0 && !publisherRegistry.isRegistered(publisherRefCode)) {
                 revert InvalidPublisherRefCode();
             }
 
             // Check if publisher is in allowlist (if allowlist exists)
             if (state[campaign].hasAllowlist) {
-                if (bytes(publisherRefCode).length > 0 && !allowedPublishers[campaign][publisherRefCode]) {
+                if (bytes(publisherRefCode).length != 0 && !allowedPublishers[campaign][publisherRefCode]) {
                     revert PublisherNotAllowed();
                 }
             }
@@ -364,7 +364,7 @@ contract AdConversion is CampaignHooks {
 
             // If the recipient is the zero address, we use the publisher registry to get the payout address
             if (payoutAddress == address(0)) {
-                payoutAddress = publisherRegistry.getPayoutRecipient(publisherRefCode);
+                payoutAddress = publisherRegistry.payoutAddress(publisherRefCode);
                 attributions[i].conversion.payoutRecipient = payoutAddress;
             }
 
@@ -427,10 +427,8 @@ contract AdConversion is CampaignHooks {
     function addAllowedPublisherRefCode(address campaign, string memory refCode) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
-        if (bytes(refCode).length == 0) revert InvalidPublisherRefCode();
-
         // Validate publisher exists in registry
-        if (!publisherRegistry.isReferralCodeRegistered(refCode)) {
+        if (!publisherRegistry.isRegistered(refCode)) {
             revert InvalidPublisherRefCode();
         }
 

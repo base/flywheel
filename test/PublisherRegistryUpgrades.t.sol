@@ -1,32 +1,32 @@
 pragma solidity 0.8.29;
 
 import "forge-std/Test.sol";
-import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../src/ReferralCodes.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {ReferralCodeRegistryV2} from "./mocks/DummyUpgrades.sol";
+import {ReferralCodesV2} from "./mocks/DummyUpgrades.sol";
 
 contract PublisherRegistryUpgradesTest is Test {
-    ReferralCodeRegistry public implementation;
-    ReferralCodeRegistry public pubRegistry;
+    ReferralCodes public implementation;
+    ReferralCodes public pubRegistry;
     ERC1967Proxy public proxy;
-    ReferralCodeRegistryV2 public implementationV2;
+    ReferralCodesV2 public implementationV2;
     address private owner = address(this);
 
     function setUp() public {
         vm.startPrank(owner);
 
         // Deploy implementation
-        implementation = new ReferralCodeRegistry();
+        implementation = new ReferralCodes();
 
         // Deploy proxy
-        bytes memory initData = abi.encodeWithSelector(ReferralCodeRegistry.initialize.selector, owner, address(0));
+        bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, owner, address(0), "");
         proxy = new ERC1967Proxy(address(implementation), initData);
 
         // Create interface to proxy
-        pubRegistry = ReferralCodeRegistry(address(proxy));
+        pubRegistry = ReferralCodes(address(proxy));
 
         // Deploy V2 implementation
-        implementationV2 = new ReferralCodeRegistryV2();
+        implementationV2 = new ReferralCodesV2();
 
         vm.stopPrank();
     }
@@ -38,7 +38,7 @@ contract PublisherRegistryUpgradesTest is Test {
         vm.stopPrank();
 
         // Test V2 functionality
-        ReferralCodeRegistryV2 registryV2 = ReferralCodeRegistryV2(address(proxy));
+        ReferralCodesV2 registryV2 = ReferralCodesV2(address(proxy));
         assertEq(registryV2.version(), "V2");
 
         // Verify state is preserved

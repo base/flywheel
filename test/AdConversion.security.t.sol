@@ -71,7 +71,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         // Test unauthorized addAllowedPublisherRefCode
         vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(maliciousUser);
-        hook.addAllowedPublisherRefCode(campaign, "MALICIOUS_REF");
+        hook.addAllowedPublisherRefCode(campaign, "code1");
     }
 
     /// @notice Test privilege escalation attempts
@@ -195,7 +195,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
                 eventId: bytes16(type(uint128).max),
                 clickId: string(new bytes(1024)), // Very long click ID
                 conversionConfigId: type(uint8).max,
-                publisherRefCode: string(new bytes(1024)), // Very long ref code
+                publisherRefCode: "code1",
                 timestamp: type(uint32).max,
                 payoutRecipient: address(type(uint160).max),
                 payoutAmount: type(uint256).max
@@ -214,12 +214,12 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
     /// @notice Test allowlist bypass attempts
     function test_security_allowlistBypass() public {
-        string[] memory allowedRefs = new string[](1);
-        allowedRefs[0] = "ALLOWED_REF";
-        address allowlistCampaign = _createCampaignWithAllowlist(2, allowedRefs);
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "code1";
+        address allowlistCampaign = _createCampaignWithAllowlist(2, allowedRefCodes);
 
         // Register the allowed publisher
-        setupPublisher(referralCodeRegistry, "ALLOWED_REF", address(0x1001), address(0x1001), OWNER);
+        setupPublisher(referralCodeRegistry, "code1", address(0x1001), address(0x1001), OWNER);
 
         AllowlistBypassAttacker bypassAttacker = new AllowlistBypassAttacker(address(hook), allowlistCampaign);
 

@@ -6,15 +6,17 @@ import {console2} from "forge-std/console2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
-import {ReferralCodeRegistry} from "../../src/ReferralCodeRegistry.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
+import {ReferralCodes} from "../../src/ReferralCodes.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 import {TokenStore} from "../../src/TokenStore.sol";
 
-contract AdFlowTest is Test {
+import {PublisherTestSetup, PublisherSetupHelper} from "../helpers/PublisherSetupHelper.sol";
+
+contract AdFlowTest is PublisherTestSetup {
     // Contracts
     Flywheel public flywheel;
-    ReferralCodeRegistry public publisherRegistry;
+    ReferralCodes public publisherRegistry;
     AdConversion public adHook;
     DummyERC20 public usdc;
 
@@ -34,8 +36,8 @@ contract AdFlowTest is Test {
     uint16 public constant ATTRIBUTION_FEE_BPS = 500; // 5%
 
     // Publisher ref codes
-    string public pub1RefCode;
-    string public pub2RefCode;
+    string public constant pub1RefCode = "ref1";
+    string public constant pub2RefCode = "ref2";
 
     function setUp() public {
         // Deploy token with initial balances
@@ -48,14 +50,15 @@ contract AdFlowTest is Test {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        ReferralCodeRegistry impl = new ReferralCodeRegistry();
+        ReferralCodes impl = new ReferralCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodeRegistry.initialize.selector,
+            ReferralCodes.initialize.selector,
             owner,
-            signer // signer address
+            signer, // signer address
+            "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = ReferralCodeRegistry(address(proxy));
+        publisherRegistry = ReferralCodes(address(proxy));
 
         // Deploy ad conversion hook
         adHook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
@@ -77,16 +80,14 @@ contract AdFlowTest is Test {
 
     function _registerPublishers() internal {
         vm.prank(owner);
-        publisherRegistry.registerCustom("pub1_ref_code", publisher1, publisher1, "https://publisher1.com/metadata");
-        pub1RefCode = "pub1_ref_code";
+        publisherRegistry.register(pub1RefCode, publisher1, publisher1);
 
         // Register publisher 2 with different chain overrides
         vm.prank(owner);
-        publisherRegistry.registerCustom("pub2_ref_code", publisher2, publisher2, "https://publisher2.com/metadata");
-        pub2RefCode = "pub2_ref_code";
+        publisherRegistry.register(pub2RefCode, publisher2, publisher2);
 
-        console2.log("Publisher 1 ref code:", pub1RefCode);
-        console2.log("Publisher 2 ref code:", pub2RefCode);
+        console2.log("Publisher 1 ref code:", string(abi.encodePacked(pub1RefCode)));
+        console2.log("Publisher 2 ref code:", string(abi.encodePacked(pub2RefCode)));
     }
 
     function _createCampaign() internal {

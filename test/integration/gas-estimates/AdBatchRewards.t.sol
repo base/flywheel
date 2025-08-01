@@ -3,14 +3,16 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
-import {ReferralCodeRegistry} from "../../../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../../../src/ReferralCodes.sol";
 import {AdConversion} from "../../../src/hooks/AdConversion.sol";
 import {DummyERC20} from "../../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract AdBatchRewardsTest is Test {
+import {PublisherTestSetup, PublisherSetupHelper} from "../../helpers/PublisherSetupHelper.sol";
+
+contract AdBatchRewardsTest is PublisherTestSetup {
     Flywheel public flywheel;
-    ReferralCodeRegistry public publisherRegistry;
+    ReferralCodes public publisherRegistry;
     AdConversion public hook;
     DummyERC20 public token;
 
@@ -25,7 +27,7 @@ contract AdBatchRewardsTest is Test {
     uint256 public constant CAMPAIGN_FUNDING = 10000 * 1e6; // 10,000 tokens (6 decimals)
     uint256 public constant PAYOUT_PER_EVENT = 10 * 1e6; // 10 tokens per event
     uint16 public constant ATTRIBUTION_FEE_BPS = 500; // 5% fee in basis points
-    string public constant PUBLISHER_REF_CODE = "tba_ref_code";
+    string public constant PUBLISHER_REF_CODE = "ref1";
     string public constant PUBLISHER_METADATA_URL = "https://tba.publisher.com";
     string public constant CAMPAIGN_METADATA_URL = "https://example.com/campaign";
 
@@ -42,15 +44,16 @@ contract AdBatchRewardsTest is Test {
         // Deploy contracts
         flywheel = new Flywheel();
 
-        // Deploy ReferralCodeRegistry as upgradeable proxy
-        ReferralCodeRegistry implementation = new ReferralCodeRegistry();
+        // Deploy ReferralCodes as upgradeable proxy
+        ReferralCodes implementation = new ReferralCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodeRegistry.initialize.selector,
+            ReferralCodes.initialize.selector,
             owner,
-            address(0x999) // signer address
+            address(0x999), // signer address
+            "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        publisherRegistry = ReferralCodeRegistry(address(proxy));
+        publisherRegistry = ReferralCodes(address(proxy));
 
         hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
@@ -89,7 +92,7 @@ contract AdBatchRewardsTest is Test {
 
         // Register publisher
         vm.prank(owner);
-        publisherRegistry.registerCustom(PUBLISHER_REF_CODE, publisherTba, publisherTba, PUBLISHER_METADATA_URL);
+        publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
     }
 
     function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint8 configId, uint256 txHashSeed)
@@ -246,12 +249,7 @@ contract AdBatchRewardsTest is Test {
 
             // Register each publisher
             vm.prank(owner);
-            publisherRegistry.registerCustom(
-                string(abi.encodePacked("pub_", vm.toString(i))),
-                publishers[i],
-                publishers[i],
-                string(abi.encodePacked("https://publisher", vm.toString(i), ".com"))
-            );
+            publisherRegistry.register(generateCode(i), publishers[i], publishers[i]);
         }
 
         // Create a new campaign that allows all publishers (empty allowedRefCodes = allow all)
@@ -263,7 +261,7 @@ contract AdBatchRewardsTest is Test {
         configs[2] =
             AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
 
-        string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
+        bytes32[] memory allowedRefCodes = new bytes32[](0); // Empty = allow all publishers
 
         bytes memory newHookData =
             abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
@@ -283,8 +281,7 @@ contract AdBatchRewardsTest is Test {
         for (uint256 i = 0; i < numEvents; i++) {
             uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
             uint256 publisherIndex = i % numPublishers; // Distribute evenly across publishers
-            string memory refCode =
-                publisherIndex == 0 ? PUBLISHER_REF_CODE : string(abi.encodePacked("pub_", vm.toString(publisherIndex)));
+            string memory refCode = publisherIndex == 0 ? PUBLISHER_REF_CODE : generateCode(publisherIndex);
 
             attributions[i] = AdConversion.Attribution({
                 conversion: AdConversion.Conversion({
