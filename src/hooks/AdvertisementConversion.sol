@@ -139,6 +139,21 @@ contract AdvertisementConversion is CampaignHooks {
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string refCode);
 
+    /// @notice Emitted when an advertisement campaign is created
+    ///
+    /// @param campaign Address of the campaign
+    /// @param attributionProvider Address of the attribution provider
+    /// @param advertiser Address of the advertiser
+    /// @param uri Campaign URI
+    /// @param attributionDeadlineDuration Duration for attribution deadline in seconds
+    event AdvertisementCampaignCreated(
+        address indexed campaign,
+        address attributionProvider,
+        address advertiser,
+        string uri,
+        uint48 attributionDeadlineDuration
+    );
+
     /// @notice Emitted when an attribution provider updates their fee
     ///
     /// @param attributionProvider The attribution provider address
@@ -172,7 +187,7 @@ contract AdvertisementConversion is CampaignHooks {
     /// @notice Error thrown when trying to add too many conversion configs
     error TooManyConversionConfigs();
 
-    /// @notice Error thrown when attribution deadline duration is invalid (must be non-zero and in days precision)
+    /// @notice Error thrown when attribution deadline duration is invalid (if non-zero, must be in days precision)
     ///
     /// @param duration The invalid duration
     error InvalidAttributionDeadlineDuration(uint48 duration);
@@ -215,8 +230,8 @@ contract AdvertisementConversion is CampaignHooks {
             uint48 campaignAttributionDeadlineDuration
         ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48));
 
-        // Validate attribution deadline duration (must be non-zero and in days precision)
-        if (campaignAttributionDeadlineDuration == 0 || campaignAttributionDeadlineDuration % 1 days != 0) {
+        // Validate attribution deadline duration (if non-zero, must be in days precision)
+        if (campaignAttributionDeadlineDuration % 1 days != 0) {
             revert InvalidAttributionDeadlineDuration(campaignAttributionDeadlineDuration);
         }
 
@@ -253,6 +268,11 @@ contract AdvertisementConversion is CampaignHooks {
             conversionConfigs[campaign][configId] = activeConfig;
             emit ConversionConfigAdded(campaign, configId, activeConfig);
         }
+
+        // Emit campaign creation event with all decoded data
+        emit AdvertisementCampaignCreated(
+            campaign, attributionProvider, advertiser, uri, campaignAttributionDeadlineDuration
+        );
     }
 
     /// @inheritdoc CampaignHooks

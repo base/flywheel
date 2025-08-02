@@ -394,6 +394,40 @@ contract AdvertisementConversionTest is Test {
         assertEq(newCampaign, expectedCampaign);
     }
 
+    function test_createCampaign_emitsAdCampaignCreatedEvent() public {
+        // Create conversion configs
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: true,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        // Create allowlist
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "TEST_REF_CODE";
+
+        uint48 attributionDeadline = 7 days;
+        string memory uri = "https://example.com/new-campaign";
+
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, allowedRefCodes, configs, attributionDeadline);
+
+        // Calculate expected campaign address
+        address expectedCampaign = flywheel.campaignAddress(4, hookData);
+
+        // Expect the campaign creation event
+        vm.expectEmit(true, false, false, true);
+        emit AdvertisementConversion.AdvertisementCampaignCreated(
+            expectedCampaign, attributionProvider, advertiser, uri, attributionDeadline
+        );
+
+        // Create campaign
+        address newCampaign = flywheel.createCampaign(address(hook), 4, hookData);
+
+        assertEq(newCampaign, expectedCampaign);
+    }
+
     function test_addAllowedPublisherRefCode_emitsEvent() public {
         // First create a campaign with allowlist enabled
         AdvertisementConversion.ConversionConfigInput[] memory configs =
@@ -1117,8 +1151,8 @@ contract AdvertisementConversionTest is Test {
         assertEq(storedDuration, customDeadline);
     }
 
-    function test_campaignCreation_revert_zeroDeadlineInvalid() public {
-        // Create campaign with 0 (invalid) attribution deadline
+    function test_campaignCreation_zeroDeadlineAllowed() public {
+        // Create campaign with 0 attribution deadline (instant finalization allowed)
         AdvertisementConversion.ConversionConfigInput[] memory configs =
             new AdvertisementConversion.ConversionConfigInput[](1);
         configs[0] = AdvertisementConversion.ConversionConfigInput({
@@ -1133,13 +1167,14 @@ contract AdvertisementConversionTest is Test {
             "https://example.com/campaign",
             allowedRefCodes,
             configs,
-            uint48(0) // Invalid - must be between 1 and 30 days
+            uint48(0) // Valid - allows instant finalization
         );
 
-        vm.expectRevert(
-            abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, uint48(0))
-        );
-        flywheel.createCampaign(address(hook), 998, hookData);
+        address zeroCampaign = flywheel.createCampaign(address(hook), 998, hookData);
+
+        // Verify zero deadline is stored correctly
+        (,,,, uint48 storedDuration) = hook.state(zeroCampaign);
+        assertEq(storedDuration, 0);
     }
 
     function test_campaignCreation_revert_invalidPrecision() public {
@@ -1334,6 +1369,43 @@ contract AdvertisementConversionTest is Test {
         // Check that attribution deadline uses 1 day
         (,,, uint48 deadline,) = hook.state(minCampaign);
         assertEq(deadline, beforeFinalize + 1 days);
+    }
+
+    function test_finalization_instantWithZeroDeadline() public {
+        // Create campaign with 0 deadline (instant finalization)
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(0) // Zero deadline for instant finalization
+        );
+
+        address instantCampaign = flywheel.createCampaign(address(hook), 992, hookData);
+
+        // Activate
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Move to finalizing
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // With zero deadline, advertiser can finalize immediately
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Verify campaign is finalized
+        assertEq(uint256(flywheel.campaignStatus(instantCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
     function test_onUpdateMetadata_success() public {

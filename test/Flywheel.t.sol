@@ -1334,4 +1334,79 @@ contract FlywheelTest is Test {
         vm.prank(manager);
         flywheel.distribute(errorCampaign, address(token), abi.encode(payouts));
     }
+
+    // =============================================================
+    //                    EVENT LOGGING TESTS
+    // =============================================================
+
+    function test_createCampaign_emitsCampaignCreatedEvent() public {
+        string[] memory allowedRefs = new string[](0);
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](0);
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/test-campaign", allowedRefs, configs, 7 days
+        );
+
+        address expectedCampaign = flywheel.campaignAddress(999, hookData);
+
+        // Expect the Flywheel CampaignCreated event
+        vm.expectEmit(true, false, false, true);
+        emit Flywheel.CampaignCreated(expectedCampaign, address(hook));
+
+        // Create campaign
+        address newCampaign = flywheel.createCampaign(address(hook), 999, hookData);
+        assertEq(newCampaign, expectedCampaign);
+    }
+
+    function test_updateStatus_emitsCampaignStatusUpdatedEvent() public {
+        // Expect the status update event
+        vm.expectEmit(true, false, false, true);
+        emit Flywheel.CampaignStatusUpdated(
+            campaign, attributionProvider, Flywheel.CampaignStatus.INACTIVE, Flywheel.CampaignStatus.ACTIVE
+        );
+
+        // Update status to ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    function test_reward_emitsPayoutRewardedEvent() public {
+        // Activate campaign first
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Set attribution fee
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+
+        // Fund campaign by transferring tokens directly to the TokenStore
+        vm.prank(advertiser);
+        token.transfer(campaign, INITIAL_BALANCE);
+
+        // Create attribution
+        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        attributions[0] = AdvertisementConversion.Attribution({
+            conversion: AdvertisementConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                conversionConfigId: 0,
+                publisherRefCode: "PUBLISHER_1",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100e18
+            }),
+            logBytes: ""
+        });
+
+        bytes memory attributionData = abi.encode(attributions);
+
+        // Expect the payout rewarded event
+        vm.expectEmit(true, false, false, true);
+        emit Flywheel.PayoutRewarded(campaign, address(token), publisher1Payout, 95e18, ""); // Amount minus 5% fee
+
+        // Process attribution with reward
+        vm.prank(attributionProvider);
+        flywheel.reward(campaign, address(token), attributionData);
+    }
 }

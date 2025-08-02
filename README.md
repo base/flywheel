@@ -94,6 +94,7 @@ Traditional performance marketing campaigns where publishers drive conversions a
 - Configurable conversion configs with metadata
 - Publisher allowlists for restricted campaigns
 - Attribution fee collection for providers
+- Attribution deadline duration must be in days precision (0 days for instant finalization, or multiples of 1 day)
 
 **Campaign Creation:**
 
@@ -103,7 +104,8 @@ bytes memory hookData = abi.encode(
     advertiser,            // Campaign sponsor
     "https://api.spindl.xyz/metadata/...",    // Campaign metadata URI
     allowedRefCodes,       // Publisher allowlist (empty = no restrictions)
-    conversionConfigs      // Array of ConversionConfig structs
+    conversionConfigs,     // Array of ConversionConfig structs
+    attributionDeadlineDuration  // Duration for attribution finalization (must be in days precision: 0, 1 day, 2 days, etc.)
 );
 ```
 
@@ -203,6 +205,28 @@ bytes memory hookData = abi.encode(
    - Attribution providers earn fees for verification work
    - Fee deducted from publisher payout, not campaign funds
    - Currently set to 0% for Base/Spindl campaigns
+
+7. **Attribution Deadline Duration**
+
+   ```solidity
+   // Instant finalization (no delay between FINALIZING and FINALIZED)
+   uint48 attributionDeadlineDuration = 0;
+
+   // 7-day attribution window
+   uint48 attributionDeadlineDuration = 7 days;
+
+   // 30-day attribution window
+   uint48 attributionDeadlineDuration = 30 days;
+
+   // Invalid: Not in days precision
+   // uint48 attributionDeadlineDuration = 3 hours;  // ❌ Reverts
+   // uint48 attributionDeadlineDuration = 2 days + 5 hours;  // ❌ Reverts
+   ```
+
+   - Must be in days precision (0, 1 day, 2 days, etc.)
+   - 0 means instant finalization when entering FINALIZING state
+   - Non-zero values create a waiting period before advertiser can finalize
+   - Prevents UI complexity from inconsistent time formats
 
 **Validation Rules:**
 
@@ -416,7 +440,7 @@ forge test --gas-report
 forge coverage --ir-minimum --report lcov
 
 # Get HTML report
-genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category
+genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category,corrupt,inconsistent
 
 
 ```
@@ -576,7 +600,7 @@ Each hook type has different access control patterns for state transitions and o
 | -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
 | **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
 | **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                        | reward() only       | Live campaign processing conversions                                                                |
-| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline (default 7 days)                                                          |
+| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline based on campaign's configured duration                                   |
 | **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
 
 ##### BuyerRewards & SimpleRewards Campaigns
