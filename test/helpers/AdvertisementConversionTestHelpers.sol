@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
 import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";

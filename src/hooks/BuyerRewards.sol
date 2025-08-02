@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
