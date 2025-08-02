@@ -3,7 +3,7 @@ pragma solidity 0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -13,14 +13,14 @@ import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";
 /// @notice Security-focused testing with attack scenarios and vulnerability analysis
 /// @dev Implements comprehensive security testing patterns from MCP guidelines
 contract FlywheelSecurityTest is FlywheelTestHelpers {
-    AdvertisementConversion public testHook;
+    AdConversion public testHook;
 
     function setUp() public {
         _setupFlywheelInfrastructure();
         _registerDefaultPublishers();
 
         // Deploy test hook
-        testHook = new AdvertisementConversion(address(flywheel), OWNER, address(referralCodeRegistry));
+        testHook = new AdConversion(address(flywheel), OWNER, address(referralCodeRegistry));
     }
 
     // =============================================================
@@ -280,16 +280,17 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
                 ADVERTISER,
                 "test-uri-1",
                 new string[](0),
-                new AdvertisementConversion.ConversionConfigInput[](0)
+                new AdConversion.ConversionConfigInput[](0),
+                7 days
             )
         );
     }
 
     function _createBasicAttribution() internal view returns (bytes memory) {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "test_click",
                 conversionConfigId: 1,
@@ -305,10 +306,10 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
     }
 
     function _createMassiveAttribution() internal view returns (bytes memory) {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(999999)),
                 clickId: "massive_attack",
                 conversionConfigId: 1,

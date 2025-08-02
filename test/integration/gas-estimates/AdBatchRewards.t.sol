@@ -4,14 +4,14 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {ReferralCodeRegistry} from "../../../src/ReferralCodeRegistry.sol";
-import {AdvertisementConversion} from "../../../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../../../src/hooks/AdConversion.sol";
 import {DummyERC20} from "../../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AdBatchRewardsTest is Test {
     Flywheel public flywheel;
     ReferralCodeRegistry public publisherRegistry;
-    AdvertisementConversion public hook;
+    AdConversion public hook;
     DummyERC20 public token;
 
     address public owner = address(0x1);
@@ -52,7 +52,7 @@ contract AdBatchRewardsTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         publisherRegistry = ReferralCodeRegistry(address(proxy));
 
-        hook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
+        hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
         // Deploy token and fund test account
         address[] memory initialHolders = new address[](1);
@@ -60,26 +60,19 @@ contract AdBatchRewardsTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create campaign with 3 conversion configs (2 onchain, 1 offchain)
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](3);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: ONCHAIN_CONFIG_1_URL
-        });
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: ONCHAIN_CONFIG_2_URL
-        });
-        configs[2] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL
-        });
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](3);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_1_URL});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_2_URL});
+        configs[2] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
 
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
 
         bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
 
@@ -102,7 +95,7 @@ contract AdBatchRewardsTest is Test {
     function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint8 configId, uint256 txHashSeed)
         internal
         view
-        returns (AdvertisementConversion.Attribution memory)
+        returns (AdConversion.Attribution memory)
     {
         bool isOffchain = (configId == 3);
 
@@ -110,8 +103,8 @@ contract AdBatchRewardsTest is Test {
         bytes32 hash = keccak256(abi.encode(eventId, block.timestamp));
         string memory clickId = string(abi.encodePacked(clickIdPrefix, vm.toString(uint256(hash))));
 
-        return AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        return AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
                 conversionConfigId: configId,
@@ -123,7 +116,7 @@ contract AdBatchRewardsTest is Test {
             logBytes: isOffchain
                 ? bytes("")
                 : abi.encode(
-                    AdvertisementConversion.Log({
+                    AdConversion.Log({
                         chainId: block.chainid,
                         transactionHash: bytes32(uint256(txHashSeed)),
                         index: uint256(eventId)
@@ -139,15 +132,15 @@ contract AdBatchRewardsTest is Test {
         uint256 txHashSeed,
         address recipient,
         string memory refCode
-    ) internal view returns (AdvertisementConversion.Attribution memory) {
+    ) internal view returns (AdConversion.Attribution memory) {
         bool isOffchain = (configId == 3);
 
         // Generate realistic UUID-like clickId (32 hex chars, no dashes)
         bytes32 hash = keccak256(abi.encode(eventId, txHashSeed));
         string memory clickId = string(abi.encodePacked(clickIdPrefix, "0x", _toHexString(uint256(hash))));
 
-        return AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        return AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
                 conversionConfigId: configId,
@@ -159,7 +152,7 @@ contract AdBatchRewardsTest is Test {
             logBytes: isOffchain
                 ? bytes("")
                 : abi.encode(
-                    AdvertisementConversion.Log({
+                    AdConversion.Log({
                         chainId: 1, // Use fixed chainId for consistency
                         transactionHash: bytes32(uint256(txHashSeed)),
                         index: uint256(eventId)
@@ -193,7 +186,7 @@ contract AdBatchRewardsTest is Test {
     function test_batchRewards_1000Events() public {
         uint256 numEvents = 1000;
         // Create 1000 attribution events cycling through all configs
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](numEvents);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](numEvents);
 
         for (uint256 i = 0; i < numEvents; i++) {
             uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
@@ -262,25 +255,18 @@ contract AdBatchRewardsTest is Test {
         }
 
         // Create a new campaign that allows all publishers (empty allowedRefCodes = allow all)
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](3);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: ONCHAIN_CONFIG_1_URL
-        });
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: ONCHAIN_CONFIG_2_URL
-        });
-        configs[2] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL
-        });
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](3);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_1_URL});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_2_URL});
+        configs[2] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
 
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 
         bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
 
         address multiPublisherCampaign = flywheel.createCampaign(address(hook), 2, newHookData);
 
@@ -292,7 +278,7 @@ contract AdBatchRewardsTest is Test {
         flywheel.updateStatus(multiPublisherCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Create 1000 attribution events distributed across 10 publishers (100 each)
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](numEvents);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](numEvents);
 
         for (uint256 i = 0; i < numEvents; i++) {
             uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
@@ -300,8 +286,8 @@ contract AdBatchRewardsTest is Test {
             string memory refCode =
                 publisherIndex == 0 ? PUBLISHER_REF_CODE : string(abi.encodePacked("pub_", vm.toString(publisherIndex)));
 
-            attributions[i] = AdvertisementConversion.Attribution({
-                conversion: AdvertisementConversion.Conversion({
+            attributions[i] = AdConversion.Attribution({
+                conversion: AdConversion.Conversion({
                     eventId: bytes16(uint128(i + 1)),
                     clickId: string(abi.encodePacked("click_", vm.toString(i))),
                     conversionConfigId: configId,
@@ -313,11 +299,7 @@ contract AdBatchRewardsTest is Test {
                 logBytes: configId == 3
                     ? bytes("")
                     : abi.encode(
-                        AdvertisementConversion.Log({
-                            chainId: block.chainid,
-                            transactionHash: bytes32(uint256(i + 1)),
-                            index: uint256(i)
-                        })
+                        AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(i + 1)), index: uint256(i)})
                     )
             });
         }
@@ -369,25 +351,18 @@ contract AdBatchRewardsTest is Test {
         uint256 numEvents = 1000;
 
         // Create a new campaign that allows all publishers
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](3);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: ONCHAIN_CONFIG_1_URL
-        });
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: ONCHAIN_CONFIG_2_URL
-        });
-        configs[2] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL
-        });
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](3);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_1_URL});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_2_URL});
+        configs[2] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
 
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 
         bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
 
         address userCampaign = flywheel.createCampaign(address(hook), 3, newHookData);
 
@@ -399,7 +374,7 @@ contract AdBatchRewardsTest is Test {
         flywheel.updateStatus(userCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Create 1000 attribution events with unique user recipients (recipient type = 2)
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](numEvents);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](numEvents);
         address[] memory uniqueUsers = new address[](numEvents);
 
         for (uint256 i = 0; i < numEvents; i++) {

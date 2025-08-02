@@ -6,7 +6,7 @@ TLDR:
 
 - A modular, permissionless protocol for transparent attribution and ERC20 reward distribution
 - Enables any relationship where Users/Publishers drive conversions and get rewarded by Sponsors through various validation mechanisms
-- Flexible hooks system supports diverse campaign types: advertising (AdvertisementConversion), e-commerce cashback (BuyerRewards), and custom rewards (SimpleRewards)
+- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (BuyerRewards), and custom rewards (SimpleRewards)
 - Permissionless architecture allows third parties to create custom hooks for any use case
 - Each hook can customize payout models, fee structures, and attribution logic while leveraging the core Flywheel infrastructure for secure token management
 
@@ -15,8 +15,8 @@ TLDR:
 Flywheel Protocol creates a decentralized incentive ecosystem where:
 
 - **Sponsors** create campaigns and fund them with tokens (advertisers, platforms, DAOs, etc.)
-- **Publishers (Optional)** drive traffic and earn rewards based on performance (only in AdvertisementConversion campaigns)
-- **Attribution Providers** track conversions and submit verified data that triggers payouts to earn fees (only in AdvertisementConversion campaigns)
+- **Publishers (Optional)** drive traffic and earn rewards based on performance (only in AdConversion campaigns)
+- **Attribution Providers** track conversions and submit verified data that triggers payouts to earn fees (only in AdConversion campaigns)
 - **Managers** control campaign operations and submit payout data (in BuyerRewards and SimpleRewards campaigns)
 - **Users** can receive incentives for completing desired actions across all campaign types
 
@@ -28,7 +28,7 @@ The protocol uses a modular architecture with hooks, allowing for diverse campai
 
 - Modular design with hooks for extensibility
 - Core `Flywheel.sol` protocol handles only essential functions
-- Campaign-specific logic isolated in hook contracts (i.e. `AdvertisementConversion.sol` and `BuyerRewards.sol` that are derived from `CampaignHooks.sol`)
+- Campaign-specific logic isolated in hook contracts (i.e. `AdConversion.sol` and `BuyerRewards.sol` that are derived from `CampaignHooks.sol`)
 - Clean separation between protocol and implementation
 
 ## Architecture Diagram
@@ -73,7 +73,7 @@ Abstract interface that enables:
 #### 4. **ReferralCodeRegistry.sol** - Publisher & Ref Code Management
 
 - Publisher registration and ref code generation
-- Relevant to `AdvertisementConversion.sol` for Spindl/Base Ads
+- Relevant to `AdConversion.sol` for Spindl/Base Ads
 - Payout address management
 - Multi-chain publisher identity
 - Backward compatible with existing publishers
@@ -81,9 +81,9 @@ Abstract interface that enables:
 ## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
-- for v1, we ship `AdvertisementConversion.sol`, `BuyerRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
+- for v1, we ship `AdConversion.sol`, `BuyerRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
 
-### **AdvertisementConversion.sol**
+### **AdConversion.sol**
 
 Traditional performance marketing campaigns where publishers drive conversions and earn rewards.
 
@@ -94,6 +94,7 @@ Traditional performance marketing campaigns where publishers drive conversions a
 - Configurable conversion configs with metadata
 - Publisher allowlists for restricted campaigns
 - Attribution fee collection for providers
+- Attribution deadline duration must be in days precision (0 days for instant finalization, or multiples of 1 day)
 
 **Campaign Creation:**
 
@@ -103,7 +104,8 @@ bytes memory hookData = abi.encode(
     advertiser,            // Campaign sponsor
     "https://api.spindl.xyz/metadata/...",    // Campaign metadata URI
     allowedRefCodes,       // Publisher allowlist (empty = no restrictions)
-    conversionConfigs      // Array of ConversionConfig structs
+    conversionConfigs,     // Array of ConversionConfig structs
+    attributionWindow  // Duration for attribution finalization (must be in days precision: 0, 1 day, 2 days, etc.)
 );
 ```
 
@@ -203,6 +205,28 @@ bytes memory hookData = abi.encode(
    - Attribution providers earn fees for verification work
    - Fee deducted from publisher payout, not campaign funds
    - Currently set to 0% for Base/Spindl campaigns
+
+7. **Attribution Deadline Duration**
+
+   ```solidity
+   // Instant finalization (no delay between FINALIZING and FINALIZED)
+   uint48 attributionWindow = 0;
+
+   // 7-day attribution window
+   uint48 attributionWindow = 7 days;
+
+   // 30-day attribution window
+   uint48 attributionWindow = 30 days;
+
+   // Invalid: Not in days precision
+   // uint48 attributionWindow = 3 hours;  // ❌ Reverts
+   // uint48 attributionWindow = 2 days + 5 hours;  // ❌ Reverts
+   ```
+
+   - Must be in days precision (0, 1 day, 2 days, etc.)
+   - 0 means instant finalization when entering FINALIZING state
+   - Non-zero values create a waiting period before advertiser can finalize
+   - Prevents UI complexity from inconsistent time formats
 
 **Validation Rules:**
 
@@ -308,7 +332,7 @@ Allows recipients to claim previously allocated tokens. Converts "pending" alloc
 
 Comprehensive comparison of hook implementations, including payout functions, access control, and operational characteristics:
 
-| **Aspect**          | **AdvertisementConversion**                                 | **BuyerRewards**                                                 | **SimpleRewards**                                   |
+| **Aspect**          | **AdConversion**                                            | **BuyerRewards**                                                 | **SimpleRewards**                                   |
 | ------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------- |
 | **Controller**      | Attribution Provider                                        | Manager                                                          | Manager                                             |
 | **Use Case**        | Publisher performance marketing                             | E-commerce cashback                                              | Flexible reward distribution                        |
@@ -327,7 +351,7 @@ The modular architecture supports diverse incentive programs:
 
 ### Current Hook Implementations
 
-#### **Traditional Advertising** (`AdvertisementConversion`)
+#### **Traditional Advertising** (`AdConversion`)
 
 - **Sponsor**: Brand or Advertiser
 - **Attribution Provider**: Spindl or similar analytics service
@@ -416,7 +440,7 @@ forge test --gas-report
 forge coverage --ir-minimum --report lcov
 
 # Get HTML report
-genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category
+genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --ignore-errors missing,missing,category,corrupt,inconsistent
 
 
 ```
@@ -436,7 +460,7 @@ genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --i
 
 **Hook-Specific Tests (`HookName.t.sol`)**:
 
-- Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdvertisementConversion)
+- Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdConversion)
 - Hook-specific access control and authorization
 - Hook-specific data validation and edge cases
 - Hook-specific event emissions and state changes
@@ -465,7 +489,7 @@ genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --i
 
 ```solidity
 // Deploy hook contract (or use existing)
-AdvertisementConversion hook = new AdvertisementConversion(flywheel);
+AdConversion hook = new AdConversion(flywheel);
 
 // Prepare campaign data
 bytes memory hookData = abi.encode(
@@ -570,13 +594,13 @@ Campaign states and their permissions vary significantly by hook type. The table
 
 Each hook type has different access control patterns for state transitions and operations:
 
-##### AdvertisementConversion Campaigns
+##### AdConversion Campaigns
 
 | State          | Who Can Transition To                                                                                             | Available Functions | Special Behaviors                                                                                   |
 | -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
 | **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
 | **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                        | reward() only       | Live campaign processing conversions                                                                |
-| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline (default 7 days)                                                          |
+| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline based on campaign's configured duration                                   |
 | **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
 
 ##### BuyerRewards & SimpleRewards Campaigns
@@ -590,13 +614,13 @@ Each hook type has different access control patterns for state transitions and o
 
 #### Key Design Notes
 
-- **AdvertisementConversion**: Attribution Provider has operational control, Advertiser has exit rights
+- **AdConversion**: Attribution Provider has operational control, Advertiser has exit rights
 - **BuyerRewards**: Owner creates campaign, Manager operates it, payments must be verified via AuthCaptureEscrow
 - **SimpleRewards**: Manager has full control over all operations with minimal validation
 
 ### Role Definitions by Hook Type
 
-#### AdvertisementConversion Campaigns
+#### AdConversion Campaigns
 
 - **Advertiser**: Campaign sponsor who funds the campaign
 - **Attribution Provider**: Authorized to submit conversion data and earn fees
@@ -680,7 +704,7 @@ contract MyCustomHook is CampaignHooks {
 
 - Fund campaigns (advertisers, platforms, DAOs, protocols)
 - Configure campaign rules via hooks
-- Set trusted controllers (attribution providers for AdvertisementConversion, managers for other hooks)
+- Set trusted controllers (attribution providers for AdConversion, managers for other hooks)
 - Monitor campaign performance
 - Withdraw unused funds
 
@@ -728,7 +752,7 @@ Foundry deployment scripts are available in the `scripts/` directory for deployi
 
 - **`DeployFlywheel.s.sol`** - Deploys the core Flywheel contract
 - **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable ReferralCodeRegistry with proxy
-- **`DeployAdvertisementConversion.s.sol`** - Deploys the AdvertisementConversion hook
+- **`DeployAdConversion.s.sol`** - Deploys the AdConversion hook
 - **`DeployAll.s.sol`** - Orchestrates deployment of all contracts in the correct order
 
 ### Deployment Configuration
@@ -824,14 +848,14 @@ The scripts handle dependencies automatically, but the deployment order is:
 
 1. **Flywheel** (independent)
 2. **ReferralCodeRegistry** (independent, upgradeable via UUPS proxy)
-3. **AdvertisementConversion** (requires Flywheel and ReferralCodeRegistry addresses)
+3. **AdConversion** (requires Flywheel and ReferralCodeRegistry addresses)
 
 ### Contract Ownership
 
 The owner address is specified during deployment and will have administrative control over:
 
 - **ReferralCodeRegistry**: Can upgrade the contract via UUPS proxy pattern
-- **AdvertisementConversion**: Can configure protocol parameters and manage permissions
+- **AdConversion**: Can configure protocol parameters and manage permissions
 
 **Important**: Choose your owner address carefully as it will have significant control over the protocol. Consider using a multisig wallet for production deployments.
 
@@ -841,5 +865,5 @@ After deployment, you'll receive addresses for:
 
 - **Flywheel**: Core protocol contract
 - **ReferralCodeRegistry**: Publisher management (proxy address)
-- **AdvertisementConversion**: Hook for ad campaigns
+- **AdConversion**: Hook for ad campaigns
 - **TokenStore Implementation**: Template for campaign treasuries (auto-deployed by Flywheel)

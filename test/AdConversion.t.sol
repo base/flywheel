@@ -4,14 +4,14 @@ pragma solidity 0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract AdvertisementConversionTest is Test {
+contract AdConversionTest is Test {
     Flywheel public flywheel;
     ReferralCodeRegistry public publisherRegistry;
-    AdvertisementConversion public hook;
+    AdConversion public hook;
     DummyERC20 public token;
 
     address public owner = address(0x1);
@@ -35,7 +35,7 @@ contract AdvertisementConversionTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         publisherRegistry = ReferralCodeRegistry(address(proxy));
 
-        hook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
+        hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
         // Deploy token with initial holders
         address[] memory initialHolders = new address[](1);
@@ -52,21 +52,21 @@ contract AdvertisementConversionTest is Test {
         );
 
         // Create a campaign with conversion configs
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](2);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/config0"
         });
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
+        configs[1] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config1"
         });
 
         string[] memory allowedRefCodes = new string[](0);
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
     }
@@ -77,7 +77,7 @@ contract AdvertisementConversionTest is Test {
         hook.updateConversionConfigMetadata(campaign, 1);
 
         // Verify the metadata URL hasn't changed
-        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
+        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
         assertEq(config.conversionMetadataUrl, "https://example.com/config0");
     }
 
@@ -87,14 +87,14 @@ contract AdvertisementConversionTest is Test {
         hook.updateConversionConfigMetadata(campaign, 2);
 
         // Verify the metadata URL hasn't changed
-        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 2);
+        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 2);
         assertEq(config.conversionMetadataUrl, "https://example.com/config1");
     }
 
     function test_updateConversionConfigMetadata_emitsEvent() public {
         // Expect the event
         vm.expectEmit(true, true, false, true);
-        emit AdvertisementConversion.ConversionConfigMetadataUpdated(campaign, 1);
+        emit AdConversion.ConversionConfigMetadataUpdated(campaign, 1);
 
         // Update as advertiser
         vm.prank(advertiser);
@@ -103,21 +103,21 @@ contract AdvertisementConversionTest is Test {
 
     function test_updateConversionConfigMetadata_revert_unauthorized() public {
         // Try to update as random user
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(randomUser);
         hook.updateConversionConfigMetadata(campaign, 1);
     }
 
     function test_updateConversionConfigMetadata_revert_invalidConfigId() public {
         // Try to update metadata for non-existent config ID (3, when we only have 2 configs)
-        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         vm.prank(advertiser);
         hook.updateConversionConfigMetadata(campaign, 3);
     }
 
     function test_updateConversionConfigMetadata_revert_zeroConfigId() public {
         // Try to update metadata for config ID 0 (invalid in 1-indexed system)
-        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         vm.prank(advertiser);
         hook.updateConversionConfigMetadata(campaign, 0);
     }
@@ -128,9 +128,9 @@ contract AdvertisementConversionTest is Test {
         hook.setAttributionProviderFee(1000); // 10%
 
         // Create attribution with logBytes for ONCHAIN config
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // ONCHAIN config (1-indexed)
@@ -139,9 +139,7 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            )
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -164,9 +162,9 @@ contract AdvertisementConversionTest is Test {
         hook.setAttributionProviderFee(1000); // 10%
 
         // Create attribution without logBytes for OFFCHAIN config
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2, // OFFCHAIN config (1-indexed)
@@ -194,9 +192,9 @@ contract AdvertisementConversionTest is Test {
 
     function test_onReward_revert_onchainConversionWithoutLogBytes() public {
         // Create attribution without logBytes for ONCHAIN config (invalid)
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // ONCHAIN config (1-indexed)
@@ -211,16 +209,16 @@ contract AdvertisementConversionTest is Test {
         bytes memory hookData = abi.encode(attributions);
 
         // Expect revert
-        vm.expectRevert(AdvertisementConversion.InvalidConversionType.selector);
+        vm.expectRevert(AdConversion.InvalidConversionType.selector);
         vm.prank(address(flywheel));
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
 
     function test_onReward_revert_offchainConversionWithLogBytes() public {
         // Create attribution with logBytes for OFFCHAIN config (invalid)
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2, // OFFCHAIN config (1-indexed)
@@ -229,15 +227,13 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            ) // logBytes for OFFCHAIN is invalid
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})) // logBytes for OFFCHAIN is invalid
         });
 
         bytes memory hookData = abi.encode(attributions);
 
         // Expect revert
-        vm.expectRevert(AdvertisementConversion.InvalidConversionType.selector);
+        vm.expectRevert(AdConversion.InvalidConversionType.selector);
         vm.prank(address(flywheel));
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
@@ -259,9 +255,9 @@ contract AdvertisementConversionTest is Test {
         hook.setAttributionProviderFee(0); // No fee for burn transaction
 
         // Attribution provider re-routes the sanctioned funds to burn address
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(999)), // Unique ID for OFAC re-routing
                 clickId: "ofac_sanctioned_funds",
                 conversionConfigId: 0, // No config - unregistered conversion
@@ -277,9 +273,9 @@ contract AdvertisementConversionTest is Test {
 
         // Expect the event to be emitted
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.OffchainConversionProcessed(
+        emit AdConversion.OffchainConversionProcessed(
             campaign,
-            AdvertisementConversion.Conversion({
+            AdConversion.Conversion({
                 eventId: bytes16(uint128(999)),
                 clickId: "ofac_sanctioned_funds",
                 conversionConfigId: 0,
@@ -304,31 +300,31 @@ contract AdvertisementConversionTest is Test {
 
     function test_createCampaign_emitsConversionConfigAddedEvents() public {
         // Create conversion configs
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](2);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/config0"
         });
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
+        configs[1] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config1"
         });
 
         string[] memory allowedRefCodes = new string[](0);
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         // Calculate expected campaign address
         address expectedCampaign = flywheel.campaignAddress(2, hookData);
 
         // Expect events for each config (with isActive: true added automatically)
         vm.expectEmit(true, true, false, true);
-        emit AdvertisementConversion.ConversionConfigAdded(
+        emit AdConversion.ConversionConfigAdded(
             expectedCampaign,
             1,
-            AdvertisementConversion.ConversionConfig({
+            AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: true,
                 conversionMetadataUrl: "https://example.com/config0"
@@ -336,10 +332,10 @@ contract AdvertisementConversionTest is Test {
         );
 
         vm.expectEmit(true, true, false, true);
-        emit AdvertisementConversion.ConversionConfigAdded(
+        emit AdConversion.ConversionConfigAdded(
             expectedCampaign,
             2,
-            AdvertisementConversion.ConversionConfig({
+            AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: false,
                 conversionMetadataUrl: "https://example.com/config1"
@@ -360,8 +356,7 @@ contract AdvertisementConversionTest is Test {
         vm.stopPrank();
 
         // Create empty conversion configs
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](0);
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
 
         // Create allowlist
         string[] memory allowedRefCodes = new string[](3);
@@ -369,21 +364,22 @@ contract AdvertisementConversionTest is Test {
         allowedRefCodes[1] = "PUB2";
         allowedRefCodes[2] = "TEST_REF_CODE";
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         // Calculate expected campaign address
         address expectedCampaign = flywheel.campaignAddress(3, hookData);
 
         // Expect events for each publisher
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB1");
+        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB1");
 
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB2");
+        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "PUB2");
 
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.PublisherAddedToAllowlist(expectedCampaign, "TEST_REF_CODE");
+        emit AdConversion.PublisherAddedToAllowlist(expectedCampaign, "TEST_REF_CODE");
 
         // Create campaign
         address newCampaign = flywheel.createCampaign(address(hook), 3, hookData);
@@ -391,15 +387,46 @@ contract AdvertisementConversionTest is Test {
         assertEq(newCampaign, expectedCampaign);
     }
 
-    function test_addAllowedPublisherRefCode_emitsEvent() public {
-        // First create a campaign with allowlist enabled
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](0);
+    function test_createCampaign_emitsAdCampaignCreatedEvent() public {
+        // Create conversion configs
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: true,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        // Create allowlist
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "TEST_REF_CODE";
 
+        uint48 attributionDeadline = 7 days;
+        string memory uri = "https://example.com/new-campaign";
+
         bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, uri, allowedRefCodes, configs, attributionDeadline);
+
+        // Calculate expected campaign address
+        address expectedCampaign = flywheel.campaignAddress(4, hookData);
+
+        // Expect the campaign creation event
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.AdCampaignCreated(expectedCampaign, attributionProvider, advertiser, uri, attributionDeadline);
+
+        // Create campaign
+        address newCampaign = flywheel.createCampaign(address(hook), 4, hookData);
+
+        assertEq(newCampaign, expectedCampaign);
+    }
+
+    function test_addAllowedPublisherRefCode_emitsEvent() public {
+        // First create a campaign with allowlist enabled
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "TEST_REF_CODE";
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         address allowlistCampaign = flywheel.createCampaign(address(hook), 4, hookData);
 
@@ -409,7 +436,7 @@ contract AdvertisementConversionTest is Test {
 
         // Expect event
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.PublisherAddedToAllowlist(allowlistCampaign, "NEW_PUB");
+        emit AdConversion.PublisherAddedToAllowlist(allowlistCampaign, "NEW_PUB");
 
         // Add publisher to allowlist
         vm.prank(advertiser);
@@ -427,7 +454,7 @@ contract AdvertisementConversionTest is Test {
         uint16 newFee = 750; // 7.5%
 
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.AttributionProviderFeeUpdated(attributionProvider, 0, newFee); // old, new
+        emit AdConversion.AttributionProviderFeeUpdated(attributionProvider, 0, newFee); // old, new
 
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(newFee);
@@ -444,7 +471,7 @@ contract AdvertisementConversionTest is Test {
     }
 
     function test_setAttributionProviderFee_revert_feeTooHigh() public {
-        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidFeeBps.selector, 10001));
+        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidFeeBps.selector, 10001));
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(10001); // > 100%
     }
@@ -461,16 +488,16 @@ contract AdvertisementConversionTest is Test {
     // =============================================================
 
     function test_addConversionConfig_success() public {
-        AdvertisementConversion.ConversionConfigInput memory newConfig = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/new-config"
         });
 
         vm.expectEmit(true, true, false, true);
-        emit AdvertisementConversion.ConversionConfigAdded(
+        emit AdConversion.ConversionConfigAdded(
             campaign,
             3, // Next ID
-            AdvertisementConversion.ConversionConfig({
+            AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: true,
                 conversionMetadataUrl: "https://example.com/new-config"
@@ -481,42 +508,42 @@ contract AdvertisementConversionTest is Test {
         hook.addConversionConfig(campaign, newConfig);
 
         // Verify config was added
-        AdvertisementConversion.ConversionConfig memory retrievedConfig = hook.getConversionConfig(campaign, 3);
+        AdConversion.ConversionConfig memory retrievedConfig = hook.getConversionConfig(campaign, 3);
         assertTrue(retrievedConfig.isActive);
         assertTrue(retrievedConfig.isEventOnchain);
         assertEq(retrievedConfig.conversionMetadataUrl, "https://example.com/new-config");
     }
 
     function test_addConversionConfig_revert_unauthorized() public {
-        AdvertisementConversion.ConversionConfigInput memory newConfig = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/unauthorized"
         });
 
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(randomUser);
         hook.addConversionConfig(campaign, newConfig);
     }
 
     function test_disableConversionConfig_success() public {
         vm.expectEmit(true, true, false, true);
-        emit AdvertisementConversion.ConversionConfigStatusChanged(campaign, 1, false);
+        emit AdConversion.ConversionConfigStatusChanged(campaign, 1, false);
 
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 1);
 
-        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
+        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
         assertFalse(config.isActive);
     }
 
     function test_disableConversionConfig_revert_unauthorized() public {
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(randomUser);
         hook.disableConversionConfig(campaign, 1);
     }
 
     function test_disableConversionConfig_revert_invalidId() public {
-        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 99); // uint8 max is 255
     }
@@ -542,9 +569,9 @@ contract AdvertisementConversionTest is Test {
     // =============================================================
 
     function test_onReward_revert_unauthorizedAttributionProvider() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
@@ -553,22 +580,20 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            )
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
         });
 
         bytes memory hookData = abi.encode(attributions);
 
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(address(flywheel)); // Called from flywheel but with wrong attribution provider
         hook.onReward(randomUser, campaign, address(token), hookData); // randomUser not the campaign's attribution provider
     }
 
     function test_onReward_revert_invalidConversionConfigId() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 99, // Invalid config ID
@@ -582,7 +607,7 @@ contract AdvertisementConversionTest is Test {
 
         bytes memory hookData = abi.encode(attributions);
 
-        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         vm.prank(address(flywheel));
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
@@ -592,9 +617,9 @@ contract AdvertisementConversionTest is Test {
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 1);
 
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1, // Disabled config
@@ -603,14 +628,12 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            )
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
         });
 
         bytes memory hookData = abi.encode(attributions);
 
-        vm.expectRevert(AdvertisementConversion.ConversionConfigDisabled.selector);
+        vm.expectRevert(AdConversion.ConversionConfigDisabled.selector);
         vm.prank(address(flywheel));
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
@@ -623,9 +646,8 @@ contract AdvertisementConversionTest is Test {
         );
 
         // Create campaign with specific allowlist that DOESN'T include the registered publisher
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](1);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config"
         });
@@ -633,14 +655,15 @@ contract AdvertisementConversionTest is Test {
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "TEST_REF_CODE"; // Only TEST_REF_CODE is allowed
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         address restrictedCampaign = flywheel.createCampaign(address(hook), 5, hookData);
 
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
@@ -654,15 +677,15 @@ contract AdvertisementConversionTest is Test {
 
         bytes memory rewardData = abi.encode(attributions);
 
-        vm.expectRevert(AdvertisementConversion.PublisherNotAllowed.selector);
+        vm.expectRevert(AdConversion.PublisherNotAllowed.selector);
         vm.prank(address(flywheel));
         hook.onReward(attributionProvider, restrictedCampaign, address(token), rewardData);
     }
 
     function test_onReward_revert_publisherNotRegistered() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 2,
@@ -676,7 +699,7 @@ contract AdvertisementConversionTest is Test {
 
         bytes memory hookData = abi.encode(attributions);
 
-        vm.expectRevert(AdvertisementConversion.InvalidPublisherRefCode.selector);
+        vm.expectRevert(AdConversion.InvalidPublisherRefCode.selector);
         vm.prank(address(flywheel));
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
@@ -697,10 +720,10 @@ contract AdvertisementConversionTest is Test {
         hook.setAttributionProviderFee(500); // 5%
 
         // Create batch of attributions
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](3);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](3);
 
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click1",
                 conversionConfigId: 1,
@@ -709,13 +732,11 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            )
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
         });
 
-        attributions[1] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[1] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(2)),
                 clickId: "click2",
                 conversionConfigId: 2,
@@ -727,8 +748,8 @@ contract AdvertisementConversionTest is Test {
             logBytes: ""
         });
 
-        attributions[2] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[2] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(3)),
                 clickId: "click3",
                 conversionConfigId: 2,
@@ -778,7 +799,7 @@ contract AdvertisementConversionTest is Test {
     }
 
     function test_onUpdateStatus_revert_unauthorized() public {
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(address(flywheel)); // Called from flywheel but with wrong sender
         hook.onUpdateStatus(
             randomUser, // randomUser is not the campaign's attribution provider
@@ -794,9 +815,9 @@ contract AdvertisementConversionTest is Test {
     // =============================================================
 
     function test_onAllocate_revert_unsupported() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
@@ -805,9 +826,7 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            )
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -818,9 +837,9 @@ contract AdvertisementConversionTest is Test {
     }
 
     function test_onDeallocate_revert_unsupported() public {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
@@ -829,9 +848,7 @@ contract AdvertisementConversionTest is Test {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(
-                AdvertisementConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
-            )
+            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -857,19 +874,19 @@ contract AdvertisementConversionTest is Test {
     }
 
     function test_getConversionConfig_returnsCorrectConfig() public {
-        AdvertisementConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
+        AdConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
         assertTrue(config1.isActive);
         assertTrue(config1.isEventOnchain);
         assertEq(config1.conversionMetadataUrl, "https://example.com/config0");
 
-        AdvertisementConversion.ConversionConfig memory config2 = hook.getConversionConfig(campaign, 2);
+        AdConversion.ConversionConfig memory config2 = hook.getConversionConfig(campaign, 2);
         assertTrue(config2.isActive);
         assertFalse(config2.isEventOnchain);
         assertEq(config2.conversionMetadataUrl, "https://example.com/config1");
     }
 
     function test_getConversionConfig_revert_invalidId() public {
-        vm.expectRevert(AdvertisementConversion.InvalidConversionConfigId.selector);
+        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         hook.getConversionConfig(campaign, 99);
     }
 
@@ -936,7 +953,7 @@ contract AdvertisementConversionTest is Test {
 
         // Advertiser CANNOT unpause their own campaign (INACTIVE → ACTIVE)
         vm.prank(advertiser);
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Campaign remains paused - advertiser is hostage to attribution provider
@@ -995,7 +1012,7 @@ contract AdvertisementConversionTest is Test {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
 
         // Advertiser should NOT be able to activate campaign - should revert
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(advertiser);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
@@ -1028,11 +1045,11 @@ contract AdvertisementConversionTest is Test {
 
         // Create a second campaign to test ACTIVE → INACTIVE restriction
         // (Cannot reset from FINALIZING back to ACTIVE due to core Flywheel state machine)
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](0);
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
         string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData2 =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs);
+        bytes memory hookData2 = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs, 7 days
+        );
 
         address campaign2 = flywheel.createCampaign(address(hook), 999, hookData2);
 
@@ -1041,7 +1058,7 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Advertiser CANNOT do ACTIVE → INACTIVE
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(advertiser);
         flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.INACTIVE, "");
     }
@@ -1079,7 +1096,7 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
 
         // Advertiser CANNOT unpause (INACTIVE → ACTIVE)
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(advertiser);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
@@ -1089,48 +1106,127 @@ contract AdvertisementConversionTest is Test {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
     }
 
-    function test_updateAttributionDeadlineDuration_success() public {
-        uint48 newDuration = 7 days;
-        uint48 oldDuration = hook.attributionDeadlineDuration();
+    function test_campaignCreation_customAttributionDeadline() public {
+        // Create campaign with 14-day attribution deadline
+        uint48 customDeadline = 14 days;
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
 
-        vm.expectEmit(true, true, true, true);
-        emit AdvertisementConversion.AttributionDeadlineDurationUpdated(oldDuration, newDuration);
-
-        vm.prank(owner);
-        hook.updateAttributionDeadlineDuration(newDuration);
-
-        assertEq(hook.attributionDeadlineDuration(), newDuration);
-    }
-
-    function test_updateAttributionDeadlineDuration_revert_unauthorized() public {
-        uint48 newDuration = 7 days;
-
-        vm.expectRevert();
-        vm.prank(randomUser);
-        hook.updateAttributionDeadlineDuration(newDuration);
-    }
-
-    function test_updateAttributionDeadlineDuration_revert_exceedsMaxDuration() public {
-        uint48 invalidDuration = hook.MAX_ATTRIBUTION_DEADLINE_DURATION() + 1;
-
-        vm.expectRevert(
-            abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDuration)
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, customDeadline
         );
-        vm.prank(owner);
-        hook.updateAttributionDeadlineDuration(invalidDuration);
+
+        address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
+
+        // Get campaign state to verify custom attribution window duration
+        (,,, uint48 storedDuration,) = hook.state(customCampaign);
+        assertEq(storedDuration, customDeadline);
     }
 
-    function test_updateAttributionDeadlineDuration_maxDurationAllowed() public {
-        uint48 maxDuration = hook.MAX_ATTRIBUTION_DEADLINE_DURATION();
-        uint48 oldDuration = hook.attributionDeadlineDuration();
+    function test_campaignCreation_zeroDeadlineAllowed() public {
+        // Create campaign with 0 attribution deadline (instant finalization allowed)
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
 
-        vm.expectEmit(true, true, true, true);
-        emit AdvertisementConversion.AttributionDeadlineDurationUpdated(oldDuration, maxDuration);
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(0) // Valid - allows instant finalization
+        );
 
-        vm.prank(owner);
-        hook.updateAttributionDeadlineDuration(maxDuration);
+        address zeroCampaign = flywheel.createCampaign(address(hook), 998, hookData);
 
-        assertEq(hook.attributionDeadlineDuration(), maxDuration);
+        // Verify zero deadline is stored correctly
+        (,,, uint48 storedDuration,) = hook.state(zeroCampaign);
+        assertEq(storedDuration, 0);
+    }
+
+    function test_campaignCreation_revert_invalidPrecision() public {
+        // Try to create with 1.5 days (not days precision)
+        uint48 invalidDeadline = 1 days + 12 hours;
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, invalidDeadline
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidattributionWindow.selector, invalidDeadline));
+        flywheel.createCampaign(address(hook), 997, hookData);
+    }
+
+    function test_campaignCreation_revert_hoursMinutesPrecision() public {
+        // Test various invalid durations that are not in days precision
+        uint48[] memory invalidDurations = new uint48[](4);
+        invalidDurations[0] = 2 hours; // Just hours
+        invalidDurations[1] = 3 days + 5 hours; // Days with hours
+        invalidDurations[2] = 7 days + 30 minutes; // Days with minutes
+        invalidDurations[3] = 10 days + 45 seconds; // Days with seconds
+
+        for (uint256 i = 0; i < invalidDurations.length; i++) {
+            AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+            configs[0] = AdConversion.ConversionConfigInput({
+                isEventOnchain: false,
+                conversionMetadataUrl: "https://example.com/config"
+            });
+
+            string[] memory allowedRefCodes = new string[](0);
+            bytes memory hookData = abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                allowedRefCodes,
+                configs,
+                invalidDurations[i]
+            );
+
+            vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidattributionWindow.selector, invalidDurations[i]));
+            flywheel.createCampaign(address(hook), 996 - i, hookData);
+        }
+    }
+
+    function test_finalization_usesPerCampaignDeadline() public {
+        // Create campaign with 21-day attribution deadline
+        uint48 customDeadline = 21 days;
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, customDeadline
+        );
+
+        address customCampaign = flywheel.createCampaign(address(hook), 996, hookData);
+
+        // Activate and then finalize
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        uint256 beforeFinalize = block.timestamp;
+        vm.prank(advertiser);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Check that attribution deadline uses custom duration
+        (,,,, uint48 deadline) = hook.state(customCampaign);
+        assertEq(deadline, beforeFinalize + customDeadline);
     }
 
     function test_hasPublisherAllowlist_noAllowlist() public {
@@ -1142,19 +1238,135 @@ contract AdvertisementConversionTest is Test {
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "TEST_REF_CODE";
 
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](1);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/metadata"
         });
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         address campaignWithAllowlist = flywheel.createCampaign(address(hook), 2, hookData);
 
         assertEq(hook.hasPublisherAllowlist(campaignWithAllowlist), true);
+    }
+
+    function test_campaignCreation_oneDayDeadlineAllowed() public {
+        // Create campaign with 1 day (minimum) attribution deadline
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(1 days) // Minimum allowed value
+        );
+
+        address minCampaign = flywheel.createCampaign(address(hook), 995, hookData);
+
+        // Should use 1 day
+        (,,, uint48 storedDuration,) = hook.state(minCampaign);
+        assertEq(storedDuration, 1 days);
+    }
+
+    function test_campaignCreation_largeDeadlineAllowed() public {
+        // Create campaign with 365-day attribution deadline (now allowed since no max)
+        uint48 largeDeadline = 365 days;
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, largeDeadline
+        );
+
+        address largeCampaign = flywheel.createCampaign(address(hook), 994, hookData);
+
+        // Should use the large deadline
+        (,,, uint48 storedDuration,) = hook.state(largeCampaign);
+        assertEq(storedDuration, largeDeadline);
+        assertEq(storedDuration, 365 days); // Verify it's actually 365 days
+    }
+
+    function test_finalization_usesMinimumDeadline() public {
+        // Create campaign with 1 day deadline (minimum)
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(1 days) // Minimum deadline
+        );
+
+        address minCampaign = flywheel.createCampaign(address(hook), 993, hookData);
+
+        // Activate and then finalize
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        uint256 beforeFinalize = block.timestamp;
+        vm.prank(advertiser);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Check that attribution deadline uses 1 day
+        (,,,, uint48 deadline) = hook.state(minCampaign);
+        assertEq(deadline, beforeFinalize + 1 days);
+    }
+
+    function test_finalization_instantWithZeroDeadline() public {
+        // Create campaign with 0 deadline (instant finalization)
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(0) // Zero deadline for instant finalization
+        );
+
+        address instantCampaign = flywheel.createCampaign(address(hook), 992, hookData);
+
+        // Activate
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Move to finalizing
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // With zero deadline, advertiser can finalize immediately
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Verify campaign is finalized
+        assertEq(uint256(flywheel.campaignStatus(instantCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
     function test_onUpdateMetadata_success() public {
@@ -1168,7 +1380,7 @@ contract AdvertisementConversionTest is Test {
     function test_onUpdateMetadata_revert_unauthorized() public {
         bytes memory hookData = abi.encode("test data");
 
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(address(flywheel));
         hook.onUpdateMetadata(randomUser, campaign, hookData);
     }
