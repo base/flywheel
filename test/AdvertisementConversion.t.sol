@@ -1089,48 +1089,100 @@ contract AdvertisementConversionTest is Test {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
     }
 
-    function test_updateAttributionDeadlineDuration_success() public {
-        uint48 newDuration = 7 days;
-        uint48 oldDuration = hook.attributionDeadlineDuration();
 
-        vm.expectEmit(true, true, true, true);
-        emit AdvertisementConversion.AttributionDeadlineDurationUpdated(oldDuration, newDuration);
+    function test_campaignCreation_customAttributionDeadline() public {
+        // Create campaign with 14-day attribution deadline
+        uint48 customDeadline = 14 days;
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
 
-        vm.prank(owner);
-        hook.updateAttributionDeadlineDuration(newDuration);
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, customDeadline
+        );
 
-        assertEq(hook.attributionDeadlineDuration(), newDuration);
+        address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
+
+        // Get campaign state to verify custom deadline duration
+        (,,, uint48 storedDuration,) = hook.state(customCampaign);
+        assertEq(storedDuration, customDeadline);
     }
 
-    function test_updateAttributionDeadlineDuration_revert_unauthorized() public {
-        uint48 newDuration = 7 days;
+    function test_campaignCreation_revert_zeroDeadlineInvalid() public {
+        // Create campaign with 0 (invalid) attribution deadline
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
 
-        vm.expectRevert();
-        vm.prank(randomUser);
-        hook.updateAttributionDeadlineDuration(newDuration);
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(0) // Invalid - must be between 1 and 30 days
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, uint48(0)));
+        flywheel.createCampaign(address(hook), 998, hookData);
     }
 
-    function test_updateAttributionDeadlineDuration_revert_exceedsMaxDuration() public {
-        uint48 invalidDuration = hook.MAX_ATTRIBUTION_DEADLINE_DURATION() + 1;
+    function test_campaignCreation_revert_exceedsMaxAttributionDeadline() public {
+        uint48 invalidDeadline = hook.MAX_ATTRIBUTION_DEADLINE_DURATION() + 1;
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, invalidDeadline
+        );
 
         vm.expectRevert(
-            abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDuration)
+            abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDeadline)
         );
-        vm.prank(owner);
-        hook.updateAttributionDeadlineDuration(invalidDuration);
+        flywheel.createCampaign(address(hook), 997, hookData);
     }
 
-    function test_updateAttributionDeadlineDuration_maxDurationAllowed() public {
-        uint48 maxDuration = hook.MAX_ATTRIBUTION_DEADLINE_DURATION();
-        uint48 oldDuration = hook.attributionDeadlineDuration();
+    function test_finalization_usesPerCampaignDeadline() public {
+        // Create campaign with 21-day attribution deadline
+        uint48 customDeadline = 21 days;
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
 
-        vm.expectEmit(true, true, true, true);
-        emit AdvertisementConversion.AttributionDeadlineDurationUpdated(oldDuration, maxDuration);
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, customDeadline
+        );
 
-        vm.prank(owner);
-        hook.updateAttributionDeadlineDuration(maxDuration);
+        address customCampaign = flywheel.createCampaign(address(hook), 996, hookData);
 
-        assertEq(hook.attributionDeadlineDuration(), maxDuration);
+        // Activate and then finalize
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        uint256 beforeFinalize = block.timestamp;
+        vm.prank(advertiser);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Check that attribution deadline uses custom duration
+        (,, uint48 deadline,,) = hook.state(customCampaign);
+        assertEq(deadline, beforeFinalize + customDeadline);
     }
 
     function test_hasPublisherAllowlist_noAllowlist() public {
@@ -1150,11 +1202,96 @@ contract AdvertisementConversionTest is Test {
         });
 
         bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days);
 
         address campaignWithAllowlist = flywheel.createCampaign(address(hook), 2, hookData);
 
         assertEq(hook.hasPublisherAllowlist(campaignWithAllowlist), true);
+    }
+
+    function test_campaignCreation_oneDayDeadlineAllowed() public {
+        // Create campaign with 1 day (minimum) attribution deadline
+        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, 
+            advertiser, 
+            "https://example.com/campaign", 
+            allowedRefCodes, 
+            configs, 
+            uint48(1 days) // Minimum allowed value
+        );
+
+        address minCampaign = flywheel.createCampaign(address(hook), 995, hookData);
+        
+        // Should use 1 day
+        (,,, uint48 storedDuration,) = hook.state(minCampaign);
+        assertEq(storedDuration, 1 days);
+    }
+
+    function test_campaignCreation_maxDeadlineAllowed() public {
+        // Create campaign with maximum 30-day attribution deadline
+        uint48 maxDeadline = hook.MAX_ATTRIBUTION_DEADLINE_DURATION(); // 30 days
+        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, 
+            advertiser, 
+            "https://example.com/campaign", 
+            allowedRefCodes, 
+            configs, 
+            maxDeadline
+        );
+
+        address maxCampaign = flywheel.createCampaign(address(hook), 994, hookData);
+        
+        // Should use the maximum deadline
+        (,,, uint48 storedDuration,) = hook.state(maxCampaign);
+        assertEq(storedDuration, maxDeadline);
+        assertEq(storedDuration, 30 days); // Verify it's actually 30 days
+    }
+
+    function test_finalization_usesMinimumDeadline() public {
+        // Create campaign with 1 day deadline (minimum)
+        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+        configs[0] = AdvertisementConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            conversionMetadataUrl: "https://example.com/config"
+        });
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, 
+            advertiser, 
+            "https://example.com/campaign", 
+            allowedRefCodes, 
+            configs, 
+            uint48(1 days) // Minimum deadline
+        );
+
+        address minCampaign = flywheel.createCampaign(address(hook), 993, hookData);
+        
+        // Activate and then finalize
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        uint256 beforeFinalize = block.timestamp;
+        vm.prank(advertiser);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Check that attribution deadline uses 1 day
+        (, , uint48 deadline,,) = hook.state(minCampaign);
+        assertEq(deadline, beforeFinalize + 1 days);
     }
 
     function test_onUpdateMetadata_success() public {

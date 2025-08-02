@@ -77,6 +77,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         address advertiser;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
+        /// @dev Duration for attribution deadline specific to this campaign
+        uint48 attributionDeadlineDuration;
         /// @dev Whether this campaign has a publisher allowlist
         bool hasAllowlist;
     }
@@ -93,8 +95,6 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Address of the publisher registry contract
     ReferralCodeRegistry public immutable publisherRegistry;
 
-    /// @notice Attribution deadline duration (configurable by owner)
-    uint48 public attributionDeadlineDuration;
 
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
@@ -145,11 +145,6 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string refCode);
 
-    /// @notice Emitted when attribution deadline duration is updated
-    ///
-    /// @param oldDuration The previous duration
-    /// @param newDuration The new duration
-    event AttributionDeadlineDurationUpdated(uint48 oldDuration, uint48 newDuration);
 
     /// @notice Emitted when an attribution provider updates their fee
     ///
@@ -202,25 +197,9 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
         Ownable(owner_)
     {
         if (publisherRegistry_ == address(0)) revert ZeroAddress();
-        attributionDeadlineDuration = 7 days; // Set default to 7 days
         publisherRegistry = ReferralCodeRegistry(publisherRegistry_);
     }
 
-    /// @notice Updates the attribution deadline duration
-    ///
-    /// @param newDuration The new attribution deadline duration (0 to 30 days)
-    ///
-    /// @dev Only the contract owner can call this function
-    function updateAttributionDeadlineDuration(uint48 newDuration) external onlyOwner {
-        if (newDuration > MAX_ATTRIBUTION_DEADLINE_DURATION) {
-            revert InvalidAttributionDeadlineDuration(newDuration);
-        }
-
-        uint48 oldDuration = attributionDeadlineDuration;
-        attributionDeadlineDuration = newDuration;
-
-        emit AttributionDeadlineDurationUpdated(oldDuration, newDuration);
-    }
 
     /// @notice Sets the fee for an attribution provider
     ///
@@ -243,8 +222,14 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             address advertiser,
             string memory uri,
             string[] memory allowedRefCodes,
-            ConversionConfigInput[] memory configs
-        ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[]));
+            ConversionConfigInput[] memory configs,
+            uint48 campaignAttributionDeadlineDuration
+        ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48));
+
+        // Validate attribution deadline duration (must be between 1 and 30 days)
+        if (campaignAttributionDeadlineDuration == 0 || campaignAttributionDeadlineDuration > MAX_ATTRIBUTION_DEADLINE_DURATION) {
+            revert InvalidAttributionDeadlineDuration(campaignAttributionDeadlineDuration);
+        }
 
         bool hasAllowlist = allowedRefCodes.length > 0;
 
@@ -253,6 +238,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             attributionProvider: attributionProvider,
             advertiser: advertiser,
             attributionDeadline: 0,
+            attributionDeadlineDuration: campaignAttributionDeadlineDuration,
             hasAllowlist: hasAllowlist
         });
         campaignURI[campaign] = uri;
@@ -308,7 +294,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
         // Advertiser always allowed to start finalization delay
         if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
-            state[campaign].attributionDeadline = uint48(block.timestamp) + attributionDeadlineDuration;
+            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionDeadlineDuration;
             emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
             return;
         }

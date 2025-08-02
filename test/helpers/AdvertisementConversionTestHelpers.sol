@@ -62,21 +62,50 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
 
     /// @notice Creates a campaign with basic conversion configs
     function _createBasicCampaign(uint256 nonce) internal returns (address) {
+        return _createBasicCampaignWithDeadline(nonce, 7 days); // Use 7 days as standard default
+    }
+
+    /// @notice Creates a campaign with basic conversion configs and custom attribution deadline
+    function _createBasicCampaignWithDeadline(uint256 nonce, uint48 attributionDeadlineDuration)
+        internal
+        returns (address)
+    {
         AdvertisementConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
         string[] memory allowedRefCodes = new string[](0);
 
-        bytes memory hookData =
-            abi.encode(ATTRIBUTION_PROVIDER, ADVERTISER, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            ATTRIBUTION_PROVIDER,
+            ADVERTISER,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            attributionDeadlineDuration
+        );
 
         return flywheel.createCampaign(address(hook), nonce, hookData);
     }
 
     /// @notice Creates a campaign with allowlist enabled
     function _createCampaignWithAllowlist(uint256 nonce, string[] memory allowedRefCodes) internal returns (address) {
+        return _createCampaignWithAllowlistAndDeadline(nonce, allowedRefCodes, 7 days); // Use 7 days as standard default
+    }
+
+    /// @notice Creates a campaign with allowlist enabled and custom attribution deadline
+    function _createCampaignWithAllowlistAndDeadline(
+        uint256 nonce,
+        string[] memory allowedRefCodes,
+        uint48 attributionDeadlineDuration
+    ) internal returns (address) {
         AdvertisementConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
 
-        bytes memory hookData =
-            abi.encode(ATTRIBUTION_PROVIDER, ADVERTISER, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            ATTRIBUTION_PROVIDER,
+            ADVERTISER,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            attributionDeadlineDuration
+        );
 
         return flywheel.createCampaign(address(hook), nonce, hookData);
     }
