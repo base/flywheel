@@ -105,7 +105,7 @@ bytes memory hookData = abi.encode(
     "https://api.spindl.xyz/metadata/...",    // Campaign metadata URI
     allowedRefCodes,       // Publisher allowlist (empty = no restrictions)
     conversionConfigs,     // Array of ConversionConfig structs
-    attributionDeadlineDuration  // Duration for attribution finalization (must be in days precision: 0, 1 day, 2 days, etc.)
+    attributionWindow  // Duration for attribution finalization (must be in days precision: 0, 1 day, 2 days, etc.)
 );
 ```
 
@@ -210,17 +210,17 @@ bytes memory hookData = abi.encode(
 
    ```solidity
    // Instant finalization (no delay between FINALIZING and FINALIZED)
-   uint48 attributionDeadlineDuration = 0;
+   uint48 attributionWindow = 0;
 
    // 7-day attribution window
-   uint48 attributionDeadlineDuration = 7 days;
+   uint48 attributionWindow = 7 days;
 
    // 30-day attribution window
-   uint48 attributionDeadlineDuration = 30 days;
+   uint48 attributionWindow = 30 days;
 
    // Invalid: Not in days precision
-   // uint48 attributionDeadlineDuration = 3 hours;  // ❌ Reverts
-   // uint48 attributionDeadlineDuration = 2 days + 5 hours;  // ❌ Reverts
+   // uint48 attributionWindow = 3 hours;  // ❌ Reverts
+   // uint48 attributionWindow = 2 days + 5 hours;  // ❌ Reverts
    ```
 
    - Must be in days precision (0, 1 day, 2 days, etc.)

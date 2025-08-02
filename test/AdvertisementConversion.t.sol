@@ -1146,8 +1146,8 @@ contract AdvertisementConversionTest is Test {
 
         address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
 
-        // Get campaign state to verify custom deadline duration
-        (,,,, uint48 storedDuration) = hook.state(customCampaign);
+        // Get campaign state to verify custom attribution window duration
+        (,,, uint48 storedDuration,) = hook.state(customCampaign);
         assertEq(storedDuration, customDeadline);
     }
 
@@ -1173,7 +1173,7 @@ contract AdvertisementConversionTest is Test {
         address zeroCampaign = flywheel.createCampaign(address(hook), 998, hookData);
 
         // Verify zero deadline is stored correctly
-        (,,,, uint48 storedDuration) = hook.state(zeroCampaign);
+        (,,, uint48 storedDuration,) = hook.state(zeroCampaign);
         assertEq(storedDuration, 0);
     }
 
@@ -1193,7 +1193,7 @@ contract AdvertisementConversionTest is Test {
         );
 
         vm.expectRevert(
-            abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDeadline)
+            abi.encodeWithSelector(AdvertisementConversion.InvalidattributionWindow.selector, invalidDeadline)
         );
         flywheel.createCampaign(address(hook), 997, hookData);
     }
@@ -1225,9 +1225,7 @@ contract AdvertisementConversionTest is Test {
             );
 
             vm.expectRevert(
-                abi.encodeWithSelector(
-                    AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDurations[i]
-                )
+                abi.encodeWithSelector(AdvertisementConversion.InvalidattributionWindow.selector, invalidDurations[i])
             );
             flywheel.createCampaign(address(hook), 996 - i, hookData);
         }
@@ -1259,7 +1257,7 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         // Check that attribution deadline uses custom duration
-        (,,, uint48 deadline,) = hook.state(customCampaign);
+        (,,,, uint48 deadline) = hook.state(customCampaign);
         assertEq(deadline, beforeFinalize + customDeadline);
     }
 
@@ -1310,7 +1308,7 @@ contract AdvertisementConversionTest is Test {
         address minCampaign = flywheel.createCampaign(address(hook), 995, hookData);
 
         // Should use 1 day
-        (,,,, uint48 storedDuration) = hook.state(minCampaign);
+        (,,, uint48 storedDuration,) = hook.state(minCampaign);
         assertEq(storedDuration, 1 days);
     }
 
@@ -1332,7 +1330,7 @@ contract AdvertisementConversionTest is Test {
         address largeCampaign = flywheel.createCampaign(address(hook), 994, hookData);
 
         // Should use the large deadline
-        (,,,, uint48 storedDuration) = hook.state(largeCampaign);
+        (,,, uint48 storedDuration,) = hook.state(largeCampaign);
         assertEq(storedDuration, largeDeadline);
         assertEq(storedDuration, 365 days); // Verify it's actually 365 days
     }
@@ -1367,7 +1365,7 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         // Check that attribution deadline uses 1 day
-        (,,, uint48 deadline,) = hook.state(minCampaign);
+        (,,,, uint48 deadline) = hook.state(minCampaign);
         assertEq(deadline, beforeFinalize + 1 days);
     }
 

@@ -66,10 +66,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     }
 
     /// @notice Creates a campaign with basic conversion configs and custom attribution deadline
-    function _createBasicCampaignWithDeadline(uint256 nonce, uint48 attributionDeadlineDuration)
-        internal
-        returns (address)
-    {
+    function _createBasicCampaignWithDeadline(uint256 nonce, uint48 attributionWindow) internal returns (address) {
         AdvertisementConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
         string[] memory allowedRefCodes = new string[](0);
 
@@ -79,7 +76,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
             "https://example.com/campaign",
             allowedRefCodes,
             configs,
-            attributionDeadlineDuration
+            attributionWindow
         );
 
         return flywheel.createCampaign(address(hook), nonce, hookData);
@@ -94,7 +91,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     function _createCampaignWithAllowlistAndDeadline(
         uint256 nonce,
         string[] memory allowedRefCodes,
-        uint48 attributionDeadlineDuration
+        uint48 attributionWindow
     ) internal returns (address) {
         AdvertisementConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
 
@@ -104,7 +101,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
             "https://example.com/campaign",
             allowedRefCodes,
             configs,
-            attributionDeadlineDuration
+            attributionWindow
         );
 
         return flywheel.createCampaign(address(hook), nonce, hookData);

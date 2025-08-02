@@ -75,10 +75,10 @@ contract AdvertisementConversion is CampaignHooks {
         bool hasAllowlist;
         /// @dev Address of the attribution provider
         address attributionProvider;
+        /// @dev Duration for attribution deadline specific to this campaign
+        uint48 attributionWindow;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
-        /// @dev Duration for attribution deadline specific to this campaign
-        uint48 attributionDeadlineDuration;
     }
 
     /// @notice Maximum basis points
@@ -145,13 +145,9 @@ contract AdvertisementConversion is CampaignHooks {
     /// @param attributionProvider Address of the attribution provider
     /// @param advertiser Address of the advertiser
     /// @param uri Campaign URI
-    /// @param attributionDeadlineDuration Duration for attribution deadline in seconds
+    /// @param attributionWindow Duration for attribution deadline in seconds
     event AdvertisementCampaignCreated(
-        address indexed campaign,
-        address attributionProvider,
-        address advertiser,
-        string uri,
-        uint48 attributionDeadlineDuration
+        address indexed campaign, address attributionProvider, address advertiser, string uri, uint48 attributionWindow
     );
 
     /// @notice Emitted when an attribution provider updates their fee
@@ -190,7 +186,7 @@ contract AdvertisementConversion is CampaignHooks {
     /// @notice Error thrown when attribution deadline duration is invalid (if non-zero, must be in days precision)
     ///
     /// @param duration The invalid duration
-    error InvalidAttributionDeadlineDuration(uint48 duration);
+    error InvalidattributionWindow(uint48 duration);
 
     /// @notice Error thrown when an invalid address is provided
     error ZeroAddress();
@@ -227,12 +223,12 @@ contract AdvertisementConversion is CampaignHooks {
             string memory uri,
             string[] memory allowedRefCodes,
             ConversionConfigInput[] memory configs,
-            uint48 campaignAttributionDeadlineDuration
+            uint48 campaignattributionWindow
         ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48));
 
         // Validate attribution deadline duration (if non-zero, must be in days precision)
-        if (campaignAttributionDeadlineDuration % 1 days != 0) {
-            revert InvalidAttributionDeadlineDuration(campaignAttributionDeadlineDuration);
+        if (campaignattributionWindow % 1 days != 0) {
+            revert InvalidattributionWindow(campaignattributionWindow);
         }
 
         bool hasAllowlist = allowedRefCodes.length > 0;
@@ -242,7 +238,7 @@ contract AdvertisementConversion is CampaignHooks {
             attributionProvider: attributionProvider,
             advertiser: advertiser,
             attributionDeadline: 0,
-            attributionDeadlineDuration: campaignAttributionDeadlineDuration,
+            attributionWindow: campaignattributionWindow,
             hasAllowlist: hasAllowlist
         });
         campaignURI[campaign] = uri;
@@ -270,9 +266,7 @@ contract AdvertisementConversion is CampaignHooks {
         }
 
         // Emit campaign creation event with all decoded data
-        emit AdvertisementCampaignCreated(
-            campaign, attributionProvider, advertiser, uri, campaignAttributionDeadlineDuration
-        );
+        emit AdvertisementCampaignCreated(campaign, attributionProvider, advertiser, uri, campaignattributionWindow);
     }
 
     /// @inheritdoc CampaignHooks
@@ -303,7 +297,7 @@ contract AdvertisementConversion is CampaignHooks {
 
         // Advertiser always allowed to start finalization delay
         if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
-            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionDeadlineDuration;
+            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
             emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
             return;
         }
