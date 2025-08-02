@@ -4,11 +4,11 @@ pragma solidity 0.8.29;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../src/hooks/AdConversion.sol";
 
-/// @notice Script for deploying the AdvertisementConversion hook contract
-contract DeployAdvertisementConversion is Script {
-    /// @notice Deploys the AdvertisementConversion hook
+/// @notice Script for deploying the AdConversion hook contract
+contract DeployAdConversion is Script {
+    /// @notice Deploys the AdConversion hook
     /// @param flywheel Address of the deployed Flywheel contract
     /// @param owner Address that will own the hook contract
     /// @param publisherRegistry Address of the deployed PublisherRegistry contract
@@ -19,10 +19,10 @@ contract DeployAdvertisementConversion is Script {
 
         vm.startBroadcast();
 
-        // Deploy AdvertisementConversion hook
-        AdvertisementConversion hook = new AdvertisementConversion(flywheel, owner, publisherRegistry);
+        // Deploy AdConversion hook
+        AdConversion hook = new AdConversion(flywheel, owner, publisherRegistry);
 
-        console.log("AdvertisementConversion hook deployed at:", address(hook));
+        console.log("AdConversion hook deployed at:", address(hook));
         console.log("Flywheel address:", flywheel);
         console.log("Publisher registry address:", publisherRegistry);
         console.log("Owner:", owner);

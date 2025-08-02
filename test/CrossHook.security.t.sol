@@ -7,7 +7,7 @@ import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -22,7 +22,7 @@ contract CrossHookSecurityTest is Test {
     AuthCaptureEscrow public escrow;
 
     // Hook contracts
-    AdvertisementConversion public adHook;
+    AdConversion public adHook;
     BuyerRewards public buyerHook;
     SimpleRewards public simpleHook;
 
@@ -35,7 +35,7 @@ contract CrossHookSecurityTest is Test {
     address public owner = makeAddr("owner");
     address public signer = makeAddr("signer");
 
-    // AdvertisementConversion actors
+    // AdConversion actors
     address public advertiser = makeAddr("advertiser");
     address public attributionProvider = makeAddr("attributionProvider");
     address public publisher1 = makeAddr("publisher1");
@@ -93,7 +93,7 @@ contract CrossHookSecurityTest is Test {
         _setupCampaigns();
 
         console.log("Cross-hook security & integration test setup complete");
-        console.log("AdvertisementConversion campaign:", adCampaign);
+        console.log("AdConversion campaign:", adCampaign);
         console.log("BuyerRewards campaign:", buyerCampaign);
         console.log("SimpleRewards campaign:", simpleCampaign);
     }
@@ -134,8 +134,8 @@ contract CrossHookSecurityTest is Test {
     }
 
     function _deployHooks() internal {
-        // Deploy AdvertisementConversion hook
-        adHook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
+        // Deploy AdConversion hook
+        adHook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
         // Deploy BuyerRewards hook
         buyerHook = new BuyerRewards(address(flywheel), address(escrow));
@@ -152,11 +152,10 @@ contract CrossHookSecurityTest is Test {
         publisherRegistry.registerCustom("VICTIM", victim, victim, "https://victim.com"); // For security tests
         vm.stopPrank();
 
-        // Create AdvertisementConversion campaign
+        // Create AdConversion campaign
         string[] memory allowedRefCodes = new string[](0);
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](1);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://ad-campaign.com/metadata"
         });
@@ -256,10 +255,10 @@ contract CrossHookSecurityTest is Test {
         assertEq(uint8(flywheel.campaignStatus(buyerCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
         assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
 
-        // Test AdvertisementConversion: Publisher earnings
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        // Test AdConversion: Publisher earnings
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 conversionConfigId: 1,
@@ -312,7 +311,7 @@ contract CrossHookSecurityTest is Test {
 
         // Campaigns are already ACTIVE from setUp(), so skip activation
 
-        // Test that AdvertisementConversion controls don't affect other campaigns
+        // Test that AdConversion controls don't affect other campaigns
         vm.expectRevert(); // Should fail - attribution provider has no control over buyer campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(buyerCampaign, Flywheel.CampaignStatus.INACTIVE, "");
@@ -626,9 +625,9 @@ contract CrossHookSecurityTest is Test {
         adHook.setAttributionProviderFee(5000); // 50% fee
 
         // Create attribution using registered publisher
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,

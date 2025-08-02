@@ -2,19 +2,19 @@
 pragma solidity 0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {AdvertisementConversionTestHelpers} from "./helpers/AdvertisementConversionTestHelpers.sol";
+import {AdConversionTestHelpers} from "./helpers/AdConversionTestHelpers.sol";
 
-/// @title AdvertisementConversion Security Test Suite
+/// @title AdConversion Security Test Suite
 /// @notice Security-focused testing with attack scenarios and vulnerability analysis
 /// @dev Implements comprehensive security testing patterns from MCP guidelines
-contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpers {
+contract AdConversionSecurityTest is AdConversionTestHelpers {
     function setUp() public {
-        _setupAdvertisementConversionTest();
+        _setupAdConversionTest();
     }
 
     // =============================================================
@@ -64,12 +64,12 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
         hook.setAttributionProviderFee(1000); // This should succeed - malicious user sets their own fee
 
         // Test unauthorized updateConversionConfigMetadata
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(maliciousUser);
         hook.updateConversionConfigMetadata(campaign, 1);
 
         // Test unauthorized addAllowedPublisherRefCode
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(maliciousUser);
         hook.addAllowedPublisherRefCode(campaign, "MALICIOUS_REF");
     }
@@ -102,7 +102,7 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
         _activateCampaign(campaign);
 
         // Test payout manipulation attempt
-        AdvertisementConversion.Attribution[] memory attributions =
+        AdConversion.Attribution[] memory attributions =
             _createOffchainAttribution("", type(uint256).max, address(0xbad));
 
         // Should revert with insufficient funds or overflow
@@ -113,7 +113,7 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
     /// @notice Test fee manipulation attacks
     function test_security_feeManipulation() public {
         // Test maximum fee attack - should revert with fee too high
-        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidFeeBps.selector, 10001));
+        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidFeeBps.selector, 10001));
         vm.prank(ATTRIBUTION_PROVIDER);
         hook.setAttributionProviderFee(10001); // 100.01%
 
@@ -151,7 +151,7 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
         _activateCampaign(campaign);
 
         // Test empty attribution array - this should succeed and return empty payouts
-        bytes memory emptyData = abi.encode(new AdvertisementConversion.Attribution[](0));
+        bytes memory emptyData = abi.encode(new AdConversion.Attribution[](0));
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, uint256 fee) =
@@ -187,11 +187,11 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
         _activateCampaign(campaign);
 
         // Test zero/max values in critical fields
-        AdvertisementConversion.Attribution[] memory boundaryAttacks = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory boundaryAttacks = new AdConversion.Attribution[](1);
 
         // Test with maximum timestamp
-        boundaryAttacks[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        boundaryAttacks[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(type(uint128).max),
                 clickId: string(new bytes(1024)), // Very long click ID
                 conversionConfigId: type(uint8).max,
@@ -262,12 +262,11 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
         _activateCampaign(campaign);
 
         // Test with large number of attributions
-        AdvertisementConversion.Attribution[] memory massiveAttributions =
-            new AdvertisementConversion.Attribution[](1000);
+        AdConversion.Attribution[] memory massiveAttributions = new AdConversion.Attribution[](1000);
 
         for (uint256 i = 0; i < 1000; i++) {
-            massiveAttributions[i] = AdvertisementConversion.Attribution({
-                conversion: AdvertisementConversion.Conversion({
+            massiveAttributions[i] = AdConversion.Attribution({
+                conversion: AdConversion.Conversion({
                     eventId: bytes16(uint128(i)),
                     clickId: string(abi.encodePacked("dos_", i)),
                     conversionConfigId: 1,
@@ -298,11 +297,11 @@ contract AdvertisementConversionSecurityTest is AdvertisementConversionTestHelpe
 
 /// @notice Mock reentrancy attacker contract
 contract ReentrancyAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
     address campaign;
 
     constructor(address _hook, address _campaign) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
         campaign = _campaign;
     }
 
@@ -314,11 +313,11 @@ contract ReentrancyAttacker {
 
 /// @notice Mock cross-function reentrancy attacker
 contract CrossFunctionReentrancyAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
     address campaign;
 
     constructor(address _hook, address _campaign) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
         campaign = _campaign;
     }
 
@@ -330,11 +329,11 @@ contract CrossFunctionReentrancyAttacker {
 
 /// @notice Mock privilege escalation attacker
 contract PrivilegeEscalationAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
     address targetProvider;
 
     constructor(address _hook, address _targetProvider) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
         targetProvider = _targetProvider;
     }
 
@@ -351,10 +350,10 @@ contract PrivilegeEscalationAttacker {
 
 /// @notice Mock fee manipulation attacker
 contract FeeManipulationAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
 
     constructor(address _hook) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
     }
 
     function attemptFeeManipulation() external {
@@ -365,11 +364,11 @@ contract FeeManipulationAttacker {
 
 /// @notice Mock flash loan attacker contract
 contract FlashLoanAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
     address campaign;
 
     constructor(address _hook, address _campaign) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
         campaign = _campaign;
     }
 
@@ -381,11 +380,11 @@ contract FlashLoanAttacker {
 
 /// @notice Mock allowlist bypass attacker
 contract AllowlistBypassAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
     address campaign;
 
     constructor(address _hook, address _campaign) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
         campaign = _campaign;
     }
 
@@ -407,11 +406,11 @@ contract AllowlistBypassAttacker {
 
 /// @notice Mock state manipulation attacker
 contract StateManipulationAttacker {
-    AdvertisementConversion hook;
+    AdConversion hook;
     address campaign;
 
     constructor(address _hook, address _campaign) {
-        hook = AdvertisementConversion(_hook);
+        hook = AdConversion(_hook);
         campaign = _campaign;
     }
 

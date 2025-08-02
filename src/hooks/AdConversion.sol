@@ -5,14 +5,14 @@ import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 import {ReferralCodeRegistry} from "../ReferralCodeRegistry.sol";
 
-/// @title AdvertisementConversion
+/// @title AdConversion
 ///
-/// @notice Attribution hook for processing advertisement conversions
+/// @notice Attribution hook for processing ad conversions
 ///
 /// @dev Handles both onchain and offchain conversion events
 ///
 /// @author Coinbase
-contract AdvertisementConversion is CampaignHooks {
+contract AdConversion is CampaignHooks {
     // Conversion configuration structure
     struct ConversionConfig {
         /// @dev Whether the conversion config is active
@@ -139,14 +139,14 @@ contract AdvertisementConversion is CampaignHooks {
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string refCode);
 
-    /// @notice Emitted when an advertisement campaign is created
+    /// @notice Emitted when an ad campaign is created
     ///
     /// @param campaign Address of the campaign
     /// @param attributionProvider Address of the attribution provider
     /// @param advertiser Address of the advertiser
     /// @param uri Campaign URI
     /// @param attributionWindow Duration for attribution deadline in seconds
-    event AdvertisementCampaignCreated(
+    event AdCampaignCreated(
         address indexed campaign, address attributionProvider, address advertiser, string uri, uint48 attributionWindow
     );
 
@@ -266,7 +266,7 @@ contract AdvertisementConversion is CampaignHooks {
         }
 
         // Emit campaign creation event with all decoded data
-        emit AdvertisementCampaignCreated(campaign, attributionProvider, advertiser, uri, campaignattributionWindow);
+        emit AdCampaignCreated(campaign, attributionProvider, advertiser, uri, campaignattributionWindow);
     }
 
     /// @inheritdoc CampaignHooks

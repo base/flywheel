@@ -140,6 +140,7 @@ import {MyHelper} from './MyHelper.sol';
 **Test File Categories:**
 
 - **Core Protocol Tests (`Flywheel.t.sol`)**:
+
   - Campaign lifecycle management (create, status transitions, finalize)
   - Core payout functions (allocate, distribute, deallocate, reward) using SimpleRewards for testing
   - Multi-token support and TokenStore functionality
@@ -148,7 +149,8 @@ import {MyHelper} from './MyHelper.sol';
   - Campaign address prediction and uniqueness
 
 - **Hook-Specific Tests (`HookName.t.sol`)**:
-  - Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdvertisementConversion)
+
+  - Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdConversion)
   - Hook-specific access control and authorization
   - Hook-specific data validation and edge cases
   - Hook-specific event emissions and state changes
@@ -156,6 +158,7 @@ import {MyHelper} from './MyHelper.sol';
   - **Note**: Avoid testing core protocol functionality that is already covered in Flywheel.t.sol
 
 - **Security Tests (`ContractName.security.t.sol`)**:
+
   - Reentrancy attack scenarios
   - Privilege escalation attempts
   - Economic attack vectors (flash loans, manipulation)

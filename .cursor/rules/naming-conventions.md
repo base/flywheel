@@ -7,7 +7,7 @@ Use the exact contract name as defined in the Solidity files:
 ### ✅ Correct Terms
 
 - **ReferralCodeRegistry** - The contract for managing publisher referral codes and payout addresses
-- **AdvertisementConversion** - Hook for performance marketing campaigns
+- **AdConversion** - Hook for performance marketing campaigns
 - **BuyerRewards** - Hook for e-commerce cashback campaigns
 - **SimpleRewards** - Hook for basic reward distribution
 

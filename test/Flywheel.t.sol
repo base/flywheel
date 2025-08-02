@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
 import {TokenStore} from "../src/TokenStore.sol";
-import {AdvertisementConversion} from "../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -13,7 +13,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract FlywheelTest is Test {
     Flywheel public flywheel;
     ReferralCodeRegistry public publisherRegistry;
-    AdvertisementConversion public hook;
+    AdConversion public hook;
     DummyERC20 public token;
 
     address public advertiser = address(0x1);
@@ -61,20 +61,19 @@ contract FlywheelTest is Test {
         vm.stopPrank();
 
         // Deploy hook
-        hook = new AdvertisementConversion(address(flywheel), owner, address(publisherRegistry));
+        hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
         // Create a basic campaign for tests
         _createCampaign();
     }
 
     function _createCampaign() internal {
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](2);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/offchain"
         });
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
+        configs[1] = AdConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/onchain"
         });
@@ -131,9 +130,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create offchain attribution data
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
+        AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_123",
             conversionConfigId: 1,
@@ -143,7 +142,7 @@ contract FlywheelTest is Test {
             payoutAmount: 100e18
         });
 
-        attributions[0] = AdvertisementConversion.Attribution({
+        attributions[0] = AdConversion.Attribution({
             conversion: conversion,
             logBytes: "" // Empty for offchain
         });
@@ -183,9 +182,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create onchain attribution data
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
+        AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0xabcdef1234567890abcdef1234567890),
             clickId: "click_456",
             conversionConfigId: 2,
@@ -195,10 +194,10 @@ contract FlywheelTest is Test {
             payoutAmount: 200 * 10 ** 18
         });
 
-        AdvertisementConversion.Log memory log =
-            AdvertisementConversion.Log({chainId: 1, transactionHash: keccak256("test_transaction"), index: 0});
+        AdConversion.Log memory log =
+            AdConversion.Log({chainId: 1, transactionHash: keccak256("test_transaction"), index: 0});
 
-        attributions[0] = AdvertisementConversion.Attribution({
+        attributions[0] = AdConversion.Attribution({
             conversion: conversion,
             logBytes: abi.encode(log) // Encoded log for onchain
         });
@@ -240,9 +239,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create attribution data
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
+        AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_789",
             conversionConfigId: 1,
@@ -252,7 +251,7 @@ contract FlywheelTest is Test {
             payoutAmount: 50 * 10 ** 18
         });
 
-        attributions[0] = AdvertisementConversion.Attribution({conversion: conversion, logBytes: ""});
+        attributions[0] = AdConversion.Attribution({conversion: conversion, logBytes: ""});
 
         bytes memory attributionData = abi.encode(attributions);
 
@@ -308,9 +307,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create attribution data to generate fees
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        AdvertisementConversion.Conversion memory conversion = AdvertisementConversion.Conversion({
+        AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_fees",
             conversionConfigId: 1,
@@ -320,7 +319,7 @@ contract FlywheelTest is Test {
             payoutAmount: 100 * 10 ** 18
         });
 
-        attributions[0] = AdvertisementConversion.Attribution({conversion: conversion, logBytes: ""});
+        attributions[0] = AdConversion.Attribution({conversion: conversion, logBytes: ""});
 
         bytes memory attributionData = abi.encode(attributions);
 
@@ -464,9 +463,9 @@ contract FlywheelTest is Test {
         address recipient2 = address(0x1666);
 
         // Attribution for token1
-        AdvertisementConversion.Attribution[] memory attributions1 = new AdvertisementConversion.Attribution[](1);
-        attributions1[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions1 = new AdConversion.Attribution[](1);
+        attributions1[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(0x55555555555555556666666666666666)),
                 clickId: "token1_test",
                 conversionConfigId: 1,
@@ -479,9 +478,9 @@ contract FlywheelTest is Test {
         });
 
         // Attribution for token2
-        AdvertisementConversion.Attribution[] memory attributions2 = new AdvertisementConversion.Attribution[](1);
-        attributions2[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions2 = new AdConversion.Attribution[](1);
+        attributions2[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(0x77777777777777778888888888888888)),
                 clickId: "token2_test",
                 conversionConfigId: 1,
@@ -523,9 +522,9 @@ contract FlywheelTest is Test {
         vm.stopPrank();
 
         // Create attributions that generate fees in both tokens
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(0x99999999999999990000000000000000)),
                 clickId: "fee_test",
                 conversionConfigId: 1,
@@ -606,12 +605,9 @@ contract FlywheelTest is Test {
     function test_campaignAddressPrediction() public {
         // Create hook data for a new campaign
         string[] memory allowedRefs = new string[](0);
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](1);
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://test.com"
-        });
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: "https://test.com"});
 
         bytes memory hookData =
             abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
@@ -628,8 +624,7 @@ contract FlywheelTest is Test {
 
     function test_campaignAddressUniqueness() public {
         string[] memory allowedRefs = new string[](0);
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](0);
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
 
         bytes memory hookData1 = abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs, 7 days);
         bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days);
@@ -850,7 +845,7 @@ contract FlywheelTest is Test {
         bytes memory simpleHookData = abi.encode(simpleManager);
         address simpleCampaign = flywheel.createCampaign(address(simpleHook), 400, simpleHookData);
 
-        // AdvertisementConversion campaign already exists from setUp()
+        // AdConversion campaign already exists from setUp()
         address adCampaign = campaign;
 
         // Test state transitions for SimpleRewards (Manager-controlled)
@@ -877,7 +872,7 @@ contract FlywheelTest is Test {
 
         vm.stopPrank();
 
-        // Test AdvertisementConversion state transitions (Attribution Provider controlled)
+        // Test AdConversion state transitions (Attribution Provider controlled)
         vm.startPrank(attributionProvider);
 
         // Ad campaign starts INACTIVE
@@ -894,7 +889,7 @@ contract FlywheelTest is Test {
         vm.stopPrank();
 
         // Test that advertiser cannot unpause (key difference from other hooks)
-        vm.expectRevert(AdvertisementConversion.Unauthorized.selector); // Should fail - advertiser cannot reactivate after attribution provider pause
+        vm.expectRevert(AdConversion.Unauthorized.selector); // Should fail - advertiser cannot reactivate after attribution provider pause
         vm.prank(advertiser);
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-advertiser-reactivate");
 
@@ -1341,8 +1336,7 @@ contract FlywheelTest is Test {
 
     function test_createCampaign_emitsCampaignCreatedEvent() public {
         string[] memory allowedRefs = new string[](0);
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](0);
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
 
         bytes memory hookData = abi.encode(
             attributionProvider, advertiser, "https://example.com/test-campaign", allowedRefs, configs, 7 days
@@ -1385,9 +1379,9 @@ contract FlywheelTest is Test {
         token.transfer(campaign, INITIAL_BALANCE);
 
         // Create attribution
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 0,

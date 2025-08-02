@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
-import {AdvertisementConversion} from "../../src/hooks/AdvertisementConversion.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {FlywheelTestHelpers} from "./FlywheelTestHelpers.sol";
 
-/// @notice Common test helpers for AdvertisementConversion hook testing
-abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
-    AdvertisementConversion public hook;
+/// @notice Common test helpers for AdConversion hook testing
+abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
+    AdConversion public hook;
 
     // Common event IDs for testing
     bytes16 public constant TEST_EVENT_ID_1 = bytes16(0x1234567890abcdef1234567890abcdef);
@@ -20,39 +20,34 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     string public constant OFAC_CLICK_ID = "ofac_sanctioned_funds";
     address public constant BURN_ADDRESS = address(0xdead);
 
-    /// @notice Sets up complete AdvertisementConversion test environment with default registry
-    function _setupAdvertisementConversionTest() internal {
+    /// @notice Sets up complete AdConversion test environment with default registry
+    function _setupAdConversionTest() internal {
         _setupFlywheelInfrastructure();
         _registerDefaultPublishers();
 
-        // Deploy AdvertisementConversion hook
-        hook = new AdvertisementConversion(address(flywheel), OWNER, address(referralCodeRegistry));
+        // Deploy AdConversion hook
+        hook = new AdConversion(address(flywheel), OWNER, address(referralCodeRegistry));
     }
 
-    /// @notice Sets up complete AdvertisementConversion test environment with custom registry
-    function _setupAdvertisementConversionTest(address publisherRegistryAddress) internal {
+    /// @notice Sets up complete AdConversion test environment with custom registry
+    function _setupAdConversionTest(address publisherRegistryAddress) internal {
         _setupFlywheelInfrastructure();
         _registerDefaultPublishers();
 
-        // Deploy AdvertisementConversion hook
-        hook = new AdvertisementConversion(address(flywheel), OWNER, publisherRegistryAddress);
+        // Deploy AdConversion hook
+        hook = new AdConversion(address(flywheel), OWNER, publisherRegistryAddress);
     }
 
     /// @notice Creates basic conversion configs for testing
-    function _createBasicConversionConfigs()
-        internal
-        pure
-        returns (AdvertisementConversion.ConversionConfigInput[] memory)
-    {
-        AdvertisementConversion.ConversionConfigInput[] memory configs =
-            new AdvertisementConversion.ConversionConfigInput[](2);
+    function _createBasicConversionConfigs() internal pure returns (AdConversion.ConversionConfigInput[] memory) {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
 
-        configs[0] = AdvertisementConversion.ConversionConfigInput({
+        configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/offchain"
         });
 
-        configs[1] = AdvertisementConversion.ConversionConfigInput({
+        configs[1] = AdConversion.ConversionConfigInput({
             isEventOnchain: true,
             conversionMetadataUrl: "https://example.com/onchain"
         });
@@ -67,7 +62,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
 
     /// @notice Creates a campaign with basic conversion configs and custom attribution deadline
     function _createBasicCampaignWithDeadline(uint256 nonce, uint48 attributionWindow) internal returns (address) {
-        AdvertisementConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
+        AdConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
         string[] memory allowedRefCodes = new string[](0);
 
         bytes memory hookData = abi.encode(
@@ -93,7 +88,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
         string[] memory allowedRefCodes,
         uint48 attributionWindow
     ) internal returns (address) {
-        AdvertisementConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
+        AdConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
 
         bytes memory hookData = abi.encode(
             ATTRIBUTION_PROVIDER,
@@ -117,12 +112,12 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     function _createOffchainAttribution(string memory publisherRefCode, uint256 payoutAmount, address payoutRecipient)
         internal
         view
-        returns (AdvertisementConversion.Attribution[] memory)
+        returns (AdConversion.Attribution[] memory)
     {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: TEST_EVENT_ID_1,
                 clickId: TEST_CLICK_ID_1,
                 conversionConfigId: 1, // Offchain config
@@ -141,18 +136,15 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     function _createOnchainAttribution(string memory publisherRefCode, uint256 payoutAmount, address payoutRecipient)
         internal
         view
-        returns (AdvertisementConversion.Attribution[] memory)
+        returns (AdConversion.Attribution[] memory)
     {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        AdvertisementConversion.Log memory log = AdvertisementConversion.Log({
-            chainId: block.chainid,
-            transactionHash: keccak256("test_transaction"),
-            index: 0
-        });
+        AdConversion.Log memory log =
+            AdConversion.Log({chainId: block.chainid, transactionHash: keccak256("test_transaction"), index: 0});
 
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: TEST_EVENT_ID_2,
                 clickId: TEST_CLICK_ID_2,
                 conversionConfigId: 2, // Onchain config
@@ -171,12 +163,12 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     function _createOfacReroutingAttribution(uint256 amount)
         internal
         view
-        returns (AdvertisementConversion.Attribution[] memory)
+        returns (AdConversion.Attribution[] memory)
     {
-        AdvertisementConversion.Attribution[] memory attributions = new AdvertisementConversion.Attribution[](1);
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
-        attributions[0] = AdvertisementConversion.Attribution({
-            conversion: AdvertisementConversion.Conversion({
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
                 eventId: OFAC_EVENT_ID,
                 clickId: OFAC_CLICK_ID,
                 conversionConfigId: 0, // No config - unregistered conversion
@@ -192,7 +184,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     }
 
     /// @notice Processes attribution and returns payouts/fees
-    function _processAttribution(address campaign, AdvertisementConversion.Attribution[] memory attributions)
+    function _processAttribution(address campaign, AdConversion.Attribution[] memory attributions)
         internal
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
@@ -205,10 +197,9 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
     }
 
     /// @notice Processes attribution through Flywheel reward function
-    function _processAttributionThroughFlywheel(
-        address campaign,
-        AdvertisementConversion.Attribution[] memory attributions
-    ) internal {
+    function _processAttributionThroughFlywheel(address campaign, AdConversion.Attribution[] memory attributions)
+        internal
+    {
         bytes memory attributionData = abi.encode(attributions);
 
         vm.prank(ATTRIBUTION_PROVIDER);
@@ -235,7 +226,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
         bool expectedIsEventOnchain,
         string memory expectedMetadataUrl
     ) internal view {
-        AdvertisementConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, uint8(configId));
+        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, uint8(configId));
 
         assertEq(config.isActive, expectedIsActive);
         assertEq(config.isEventOnchain, expectedIsEventOnchain);
@@ -260,7 +251,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
         _activateCampaign(campaign);
 
         // Create and process attribution
-        AdvertisementConversion.Attribution[] memory attributions =
+        AdConversion.Attribution[] memory attributions =
             _createOffchainAttribution(publisherRefCode, payoutAmount, address(0));
 
         _processAttributionThroughFlywheel(campaign, attributions);
@@ -299,7 +290,7 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
         _activateCampaign(campaign);
 
         // Create and process attribution
-        AdvertisementConversion.Attribution[] memory attributions =
+        AdConversion.Attribution[] memory attributions =
             _createOnchainAttribution(publisherRefCode, payoutAmount, address(0));
 
         _processAttributionThroughFlywheel(campaign, attributions);
@@ -333,11 +324,11 @@ abstract contract AdvertisementConversionTestHelpers is FlywheelTestHelpers {
         _activateCampaign(campaign);
 
         // Create and process OFAC rerouting attribution
-        AdvertisementConversion.Attribution[] memory attributions = _createOfacReroutingAttribution(amount);
+        AdConversion.Attribution[] memory attributions = _createOfacReroutingAttribution(amount);
 
         // Expect event emission
         vm.expectEmit(true, false, false, true);
-        emit AdvertisementConversion.OffchainConversionProcessed(campaign, attributions[0].conversion);
+        emit AdConversion.OffchainConversionProcessed(campaign, attributions[0].conversion);
 
         _processAttributionThroughFlywheel(campaign, attributions);
 

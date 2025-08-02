@@ -6,7 +6,7 @@ import {console} from "forge-std/console.sol";
 
 import {DeployFlywheel} from "./DeployFlywheel.s.sol";
 import {DeployPublisherRegistry} from "./DeployPublisherRegistry.s.sol";
-import {DeployAdvertisementConversion} from "./DeployAdvertisementConversion.s.sol";
+import {DeployAdConversion} from "./DeployAdConversion.s.sol";
 
 /// @notice Script for deploying all Flywheel protocol contracts in the correct order
 contract DeployAll is Script {
@@ -14,7 +14,7 @@ contract DeployAll is Script {
     struct DeploymentInfo {
         address flywheel;
         address publisherRegistry;
-        address advertisementConversion;
+        address AdConversion;
         address tokenStoreImpl;
     }
 
@@ -23,7 +23,7 @@ contract DeployAll is Script {
     /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
     function run(address owner, address signerAddress) external returns (DeploymentInfo memory info) {
         require(owner != address(0), "Owner cannot be zero address");
-        
+
         console.log("Starting deployment of Flywheel protocol contracts...");
         console.log("Owner address:", owner);
         console.log("Signer address:", signerAddress);
@@ -39,16 +39,16 @@ contract DeployAll is Script {
         DeployPublisherRegistry registryDeployer = new DeployPublisherRegistry();
         info.publisherRegistry = registryDeployer.run(owner, signerAddress);
 
-        // Deploy AdvertisementConversion hook (depends on both Flywheel and PublisherRegistry)
-        console.log("3. Deploying AdvertisementConversion hook...");
-        DeployAdvertisementConversion hookDeployer = new DeployAdvertisementConversion();
-        info.advertisementConversion = hookDeployer.run(info.flywheel, owner, info.publisherRegistry);
+        // Deploy AdConversion hook (depends on both Flywheel and PublisherRegistry)
+        console.log("3. Deploying AdConversion hook...");
+        DeployAdConversion hookDeployer = new DeployAdConversion();
+        info.AdConversion = hookDeployer.run(info.flywheel, owner, info.publisherRegistry);
 
         console.log("==========================================");
         console.log("Deployment complete!");
         console.log("Flywheel:", info.flywheel);
         console.log("PublisherRegistry:", info.publisherRegistry);
-        console.log("AdvertisementConversion:", info.advertisementConversion);
+        console.log("AdConversion:", info.AdConversion);
 
         return info;
     }
