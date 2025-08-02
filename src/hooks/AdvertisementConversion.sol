@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 import {ReferralCodeRegistry} from "../ReferralCodeRegistry.sol";
@@ -14,7 +12,7 @@ import {ReferralCodeRegistry} from "../ReferralCodeRegistry.sol";
 /// @dev Handles both onchain and offchain conversion events
 ///
 /// @author Coinbase
-contract AdvertisementConversion is CampaignHooks, Ownable {
+contract AdvertisementConversion is CampaignHooks {
     // Conversion configuration structure
     struct ConversionConfig {
         /// @dev Whether the conversion config is active
@@ -71,16 +69,16 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
 
     /// @notice Structure for recording finalization information
     struct CampaignState {
-        /// @dev Address of the attribution provider
-        address attributionProvider;
         /// @dev Address of the advertiser
         address advertiser;
+        /// @dev Whether this campaign has a publisher allowlist
+        bool hasAllowlist;
+        /// @dev Address of the attribution provider
+        address attributionProvider;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
         /// @dev Duration for attribution deadline specific to this campaign
         uint48 attributionDeadlineDuration;
-        /// @dev Whether this campaign has a publisher allowlist
-        bool hasAllowlist;
     }
 
     /// @notice Maximum basis points
@@ -89,12 +87,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Maximum number of conversion configs per campaign (255 since we use uint8, IDs are 1-indexed)
     uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
 
-    /// @notice Maximum attribution deadline duration (30 days)
-    uint48 public constant MAX_ATTRIBUTION_DEADLINE_DURATION = 30 days;
-
     /// @notice Address of the publisher registry contract
     ReferralCodeRegistry public immutable publisherRegistry;
-
 
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
@@ -145,7 +139,6 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string refCode);
 
-
     /// @notice Emitted when an attribution provider updates their fee
     ///
     /// @param attributionProvider The attribution provider address
@@ -179,7 +172,7 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     /// @notice Error thrown when trying to add too many conversion configs
     error TooManyConversionConfigs();
 
-    /// @notice Error thrown when attribution deadline duration is invalid
+    /// @notice Error thrown when attribution deadline duration is invalid (must be non-zero and in days precision)
     ///
     /// @param duration The invalid duration
     error InvalidAttributionDeadlineDuration(uint48 duration);
@@ -191,15 +184,11 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
     ///
     /// @param protocol_ Address of the protocol contract
     /// @param owner_ Address of the contract owner
-    /// @param publisherRegistry_ Address of the publisher registry contract
-    constructor(address protocol_, address owner_, address publisherRegistry_)
-        CampaignHooks(protocol_)
-        Ownable(owner_)
-    {
-        if (publisherRegistry_ == address(0)) revert ZeroAddress();
-        publisherRegistry = ReferralCodeRegistry(publisherRegistry_);
+    /// @param referralCodeRegistry_ Address of the publisher registry contract
+    constructor(address protocol_, address owner_, address referralCodeRegistry_) CampaignHooks(protocol_) {
+        if (referralCodeRegistry_ == address(0)) revert ZeroAddress();
+        publisherRegistry = ReferralCodeRegistry(referralCodeRegistry_);
     }
-
 
     /// @notice Sets the fee for an attribution provider
     ///
@@ -226,8 +215,8 @@ contract AdvertisementConversion is CampaignHooks, Ownable {
             uint48 campaignAttributionDeadlineDuration
         ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48));
 
-        // Validate attribution deadline duration (must be between 1 and 30 days)
-        if (campaignAttributionDeadlineDuration == 0 || campaignAttributionDeadlineDuration > MAX_ATTRIBUTION_DEADLINE_DURATION) {
+        // Validate attribution deadline duration (must be non-zero and in days precision)
+        if (campaignAttributionDeadlineDuration == 0 || campaignAttributionDeadlineDuration % 1 days != 0) {
             revert InvalidAttributionDeadlineDuration(campaignAttributionDeadlineDuration);
         }
 

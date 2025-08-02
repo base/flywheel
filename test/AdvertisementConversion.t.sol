@@ -65,8 +65,9 @@ contract AdvertisementConversionTest is Test {
 
         string[] memory allowedRefCodes = new string[](0);
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
     }
@@ -317,8 +318,9 @@ contract AdvertisementConversionTest is Test {
 
         string[] memory allowedRefCodes = new string[](0);
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         // Calculate expected campaign address
         address expectedCampaign = flywheel.campaignAddress(2, hookData);
@@ -369,8 +371,9 @@ contract AdvertisementConversionTest is Test {
         allowedRefCodes[1] = "PUB2";
         allowedRefCodes[2] = "TEST_REF_CODE";
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         // Calculate expected campaign address
         address expectedCampaign = flywheel.campaignAddress(3, hookData);
@@ -398,8 +401,9 @@ contract AdvertisementConversionTest is Test {
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "TEST_REF_CODE";
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         address allowlistCampaign = flywheel.createCampaign(address(hook), 4, hookData);
 
@@ -633,8 +637,9 @@ contract AdvertisementConversionTest is Test {
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "TEST_REF_CODE"; // Only TEST_REF_CODE is allowed
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         address restrictedCampaign = flywheel.createCampaign(address(hook), 5, hookData);
 
@@ -1031,8 +1036,9 @@ contract AdvertisementConversionTest is Test {
         AdvertisementConversion.ConversionConfigInput[] memory configs =
             new AdvertisementConversion.ConversionConfigInput[](0);
         string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData2 =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs);
+        bytes memory hookData2 = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs, 7 days
+        );
 
         address campaign2 = flywheel.createCampaign(address(hook), 999, hookData2);
 
@@ -1089,7 +1095,6 @@ contract AdvertisementConversionTest is Test {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
     }
 
-
     function test_campaignCreation_customAttributionDeadline() public {
         // Create campaign with 14-day attribution deadline
         uint48 customDeadline = 14 days;
@@ -1108,7 +1113,7 @@ contract AdvertisementConversionTest is Test {
         address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
 
         // Get campaign state to verify custom deadline duration
-        (,,, uint48 storedDuration,) = hook.state(customCampaign);
+        (,,,, uint48 storedDuration) = hook.state(customCampaign);
         assertEq(storedDuration, customDeadline);
     }
 
@@ -1131,12 +1136,15 @@ contract AdvertisementConversionTest is Test {
             uint48(0) // Invalid - must be between 1 and 30 days
         );
 
-        vm.expectRevert(abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, uint48(0)));
+        vm.expectRevert(
+            abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, uint48(0))
+        );
         flywheel.createCampaign(address(hook), 998, hookData);
     }
 
-    function test_campaignCreation_revert_exceedsMaxAttributionDeadline() public {
-        uint48 invalidDeadline = hook.MAX_ATTRIBUTION_DEADLINE_DURATION() + 1;
+    function test_campaignCreation_revert_invalidPrecision() public {
+        // Try to create with 1.5 days (not days precision)
+        uint48 invalidDeadline = 1 days + 12 hours;
         AdvertisementConversion.ConversionConfigInput[] memory configs =
             new AdvertisementConversion.ConversionConfigInput[](1);
         configs[0] = AdvertisementConversion.ConversionConfigInput({
@@ -1153,6 +1161,41 @@ contract AdvertisementConversionTest is Test {
             abi.encodeWithSelector(AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDeadline)
         );
         flywheel.createCampaign(address(hook), 997, hookData);
+    }
+
+    function test_campaignCreation_revert_hoursMinutesPrecision() public {
+        // Test various invalid durations that are not in days precision
+        uint48[] memory invalidDurations = new uint48[](4);
+        invalidDurations[0] = 2 hours; // Just hours
+        invalidDurations[1] = 3 days + 5 hours; // Days with hours
+        invalidDurations[2] = 7 days + 30 minutes; // Days with minutes
+        invalidDurations[3] = 10 days + 45 seconds; // Days with seconds
+
+        for (uint256 i = 0; i < invalidDurations.length; i++) {
+            AdvertisementConversion.ConversionConfigInput[] memory configs =
+                new AdvertisementConversion.ConversionConfigInput[](1);
+            configs[0] = AdvertisementConversion.ConversionConfigInput({
+                isEventOnchain: false,
+                conversionMetadataUrl: "https://example.com/config"
+            });
+
+            string[] memory allowedRefCodes = new string[](0);
+            bytes memory hookData = abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                allowedRefCodes,
+                configs,
+                invalidDurations[i]
+            );
+
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    AdvertisementConversion.InvalidAttributionDeadlineDuration.selector, invalidDurations[i]
+                )
+            );
+            flywheel.createCampaign(address(hook), 996 - i, hookData);
+        }
     }
 
     function test_finalization_usesPerCampaignDeadline() public {
@@ -1181,7 +1224,7 @@ contract AdvertisementConversionTest is Test {
         flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         // Check that attribution deadline uses custom duration
-        (,, uint48 deadline,,) = hook.state(customCampaign);
+        (,,, uint48 deadline,) = hook.state(customCampaign);
         assertEq(deadline, beforeFinalize + customDeadline);
     }
 
@@ -1201,8 +1244,9 @@ contract AdvertisementConversionTest is Test {
             conversionMetadataUrl: "https://example.com/metadata"
         });
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         address campaignWithAllowlist = flywheel.createCampaign(address(hook), 2, hookData);
 
@@ -1211,86 +1255,84 @@ contract AdvertisementConversionTest is Test {
 
     function test_campaignCreation_oneDayDeadlineAllowed() public {
         // Create campaign with 1 day (minimum) attribution deadline
-        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
         configs[0] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config"
         });
-        
+
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, 
-            advertiser, 
-            "https://example.com/campaign", 
-            allowedRefCodes, 
-            configs, 
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
             uint48(1 days) // Minimum allowed value
         );
 
         address minCampaign = flywheel.createCampaign(address(hook), 995, hookData);
-        
+
         // Should use 1 day
-        (,,, uint48 storedDuration,) = hook.state(minCampaign);
+        (,,,, uint48 storedDuration) = hook.state(minCampaign);
         assertEq(storedDuration, 1 days);
     }
 
-    function test_campaignCreation_maxDeadlineAllowed() public {
-        // Create campaign with maximum 30-day attribution deadline
-        uint48 maxDeadline = hook.MAX_ATTRIBUTION_DEADLINE_DURATION(); // 30 days
-        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+    function test_campaignCreation_largeDeadlineAllowed() public {
+        // Create campaign with 365-day attribution deadline (now allowed since no max)
+        uint48 largeDeadline = 365 days;
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
         configs[0] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config"
         });
-        
+
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, 
-            advertiser, 
-            "https://example.com/campaign", 
-            allowedRefCodes, 
-            configs, 
-            maxDeadline
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, largeDeadline
         );
 
-        address maxCampaign = flywheel.createCampaign(address(hook), 994, hookData);
-        
-        // Should use the maximum deadline
-        (,,, uint48 storedDuration,) = hook.state(maxCampaign);
-        assertEq(storedDuration, maxDeadline);
-        assertEq(storedDuration, 30 days); // Verify it's actually 30 days
+        address largeCampaign = flywheel.createCampaign(address(hook), 994, hookData);
+
+        // Should use the large deadline
+        (,,,, uint48 storedDuration) = hook.state(largeCampaign);
+        assertEq(storedDuration, largeDeadline);
+        assertEq(storedDuration, 365 days); // Verify it's actually 365 days
     }
 
     function test_finalization_usesMinimumDeadline() public {
         // Create campaign with 1 day deadline (minimum)
-        AdvertisementConversion.ConversionConfigInput[] memory configs = new AdvertisementConversion.ConversionConfigInput[](1);
+        AdvertisementConversion.ConversionConfigInput[] memory configs =
+            new AdvertisementConversion.ConversionConfigInput[](1);
         configs[0] = AdvertisementConversion.ConversionConfigInput({
             isEventOnchain: false,
             conversionMetadataUrl: "https://example.com/config"
         });
-        
+
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, 
-            advertiser, 
-            "https://example.com/campaign", 
-            allowedRefCodes, 
-            configs, 
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
             uint48(1 days) // Minimum deadline
         );
 
         address minCampaign = flywheel.createCampaign(address(hook), 993, hookData);
-        
+
         // Activate and then finalize
         vm.prank(attributionProvider);
         flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-        
+
         uint256 beforeFinalize = block.timestamp;
         vm.prank(advertiser);
         flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-        
+
         // Check that attribution deadline uses 1 day
-        (, , uint48 deadline,,) = hook.state(minCampaign);
+        (,,, uint48 deadline,) = hook.state(minCampaign);
         assertEq(deadline, beforeFinalize + 1 days);
     }
 

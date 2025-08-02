@@ -162,7 +162,7 @@ contract CrossHookSecurityTest is Test {
         });
 
         bytes memory adHookData =
-            abi.encode(attributionProvider, advertiser, "https://ad-campaign.com", allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, "https://ad-campaign.com", allowedRefCodes, configs, 7 days);
         adCampaign = flywheel.createCampaign(address(adHook), 1, adHookData);
 
         // Create BuyerRewards campaign

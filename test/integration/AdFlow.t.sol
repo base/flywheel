@@ -106,7 +106,7 @@ contract AdFlowTest is Test {
         });
 
         bytes memory hookData =
-            abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs);
+            abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs, 7 days);
 
         // Create campaign
         campaign = flywheel.createCampaign(address(adHook), CAMPAIGN_NONCE, hookData);

@@ -79,7 +79,7 @@ contract AdBatchRewardsTest is Test {
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
 
         bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
 
@@ -280,7 +280,7 @@ contract AdBatchRewardsTest is Test {
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 
         bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
 
         address multiPublisherCampaign = flywheel.createCampaign(address(hook), 2, newHookData);
 
@@ -387,7 +387,7 @@ contract AdBatchRewardsTest is Test {
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 
         bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs);
+            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
 
         address userCampaign = flywheel.createCampaign(address(hook), 3, newHookData);
 

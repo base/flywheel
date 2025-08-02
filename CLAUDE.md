@@ -19,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `forge clean` - Clean build artifacts
 - `forge fmt` - Format Solidity code
 - Always run `forge test -vv` before committing changes
+- **After adding features or fixing bugs, execute `forge fmt` to ensure code is properly formatted**
 
 ## Protocol Overview
 

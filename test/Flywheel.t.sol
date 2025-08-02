@@ -80,8 +80,9 @@ contract FlywheelTest is Test {
         });
 
         string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
     }
@@ -613,7 +614,7 @@ contract FlywheelTest is Test {
         });
 
         bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs);
+            abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
 
         // Predict the campaign address
         address predictedAddress = flywheel.campaignAddress(999, hookData);
@@ -630,8 +631,8 @@ contract FlywheelTest is Test {
         AdvertisementConversion.ConversionConfigInput[] memory configs =
             new AdvertisementConversion.ConversionConfigInput[](0);
 
-        bytes memory hookData1 = abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs);
-        bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs);
+        bytes memory hookData1 = abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs, 7 days);
+        bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days);
 
         // Same nonce, different data should produce different addresses
         address addr1 = flywheel.campaignAddress(100, hookData1);
