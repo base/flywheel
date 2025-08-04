@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MTI
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
