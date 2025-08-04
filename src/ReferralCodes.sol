@@ -44,11 +44,11 @@ contract ReferralCodes is
         keccak256("ReferralCodeRegistration(string code,address initialOwner,address payoutAddress)");
 
     /// @notice Allowed characters for referral codes
-    string public constant ALLOWED_CHARACTERS = "0123456789abcdefghijklmonpqrstuvwxyz";
+    string public constant ALLOWED_CHARACTERS = "0123456789abcdefghijklmonpqrstuvwxyz_";
 
     /// @notice Allowed characters for referral codes lookup
     /// @dev LibString.to7BitASCIIAllowedLookup(ALLOWED_CHARACTERS)
-    uint128 public constant ALLOWED_CHARACTERS_LOOKUP = 10633823807823001954989730196329857024;
+    uint128 public constant ALLOWED_CHARACTERS_LOOKUP = 10633823847437083212121898993101832192;
 
     /// @notice EIP-1967 storage slot base for registry mapping using ERC-7201
     /// @dev keccak256(abi.encode(uint256(keccak256("base.flywheel.ReferralCodes")) - 1)) & ~bytes32(uint256(0xff))
@@ -188,6 +188,16 @@ contract ReferralCodes is
         return tokenURI(toTokenId(code));
     }
 
+    /// @notice Returns the URI for a referral code
+    ///
+    /// @param tokenId Token ID of the referral code
+    ///
+    /// @return uri The URI for the referral code
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        return bytes(_uriPrefix).length > 0 ? string.concat(_uriPrefix, toCode(tokenId)) : "";
+    }
+
     /// @notice Checks if a referral code exists
     ///
     /// @param code Referral code to check
@@ -268,13 +278,6 @@ contract ReferralCodes is
         if (payoutAddress == address(0)) revert ZeroAddress();
         _getRegistryStorage().payoutAddresses[toTokenId(code)] = payoutAddress;
         emit PayoutAddressUpdated(code, payoutAddress);
-    }
-
-    /// @notice Returns the base URI for the referral codes
-    ///
-    /// @return The base URI for the referral codes
-    function _baseURI() internal view override returns (string memory) {
-        return _uriPrefix;
     }
 
     /// @notice Authorization for upgrades
