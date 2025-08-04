@@ -445,4 +445,9 @@ contract Flywheel is ReentrancyGuardTransient {
             total += payouts[i].amount;
         }
     }
+
+    /// @dev Override to use transient reentrancy guard on all chains
+    function _useTransientReentrancyGuardOnlyOnMainnet() internal pure override returns (bool) {
+        return false;
+    }
 }
