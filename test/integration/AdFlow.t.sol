@@ -9,7 +9,6 @@ import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {ReferralCodes} from "../../src/ReferralCodes.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
-import {TokenStore} from "../../src/TokenStore.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "../helpers/PublisherSetupHelper.sol";
 

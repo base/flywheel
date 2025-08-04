@@ -274,7 +274,7 @@ contract BuyerRewardsTest is Test {
         bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/new-campaign");
 
         // Calculate expected campaign address
-        address expectedCampaign = flywheel.campaignAddress(2, hookData);
+        address expectedCampaign = flywheel.campaignAddress(address(hook), 2, hookData);
 
         vm.expectEmit(true, false, false, true);
         emit BuyerRewards.CampaignCreated(expectedCampaign, owner, manager, "https://api.example.com/new-campaign");

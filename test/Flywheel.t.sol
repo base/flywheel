@@ -4,7 +4,7 @@ pragma solidity ^0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {ReferralCodes} from "../src/ReferralCodes.sol";
-import {TokenStore} from "../src/TokenStore.sol";
+import {Campaign} from "../src/Campaign.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
@@ -126,7 +126,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
-        // Fund campaign by transferring tokens directly to the TokenStore
+        // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
         token.transfer(campaign, INITIAL_BALANCE);
 
@@ -178,7 +178,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
-        // Fund campaign by transferring tokens directly to the TokenStore
+        // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
         token.transfer(campaign, INITIAL_BALANCE);
 
@@ -235,7 +235,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
-        // Fund campaign by transferring tokens directly to the TokenStore
+        // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
         token.transfer(campaign, INITIAL_BALANCE);
 
@@ -303,7 +303,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
-        // Fund campaign by transferring tokens directly to the TokenStore
+        // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
         token.transfer(campaign, INITIAL_BALANCE);
 
@@ -567,10 +567,10 @@ contract FlywheelTest is FlywheelTestHelpers {
     // =============================================================
 
     function test_tokenStoreCloneDeployment() public {
-        // Verify TokenStore was cloned correctly
+        // Verify Campaign was cloned correctly
         assertTrue(campaign != address(0), "Campaign address should be non-zero");
 
-        // Verify the campaign is a clone of the TokenStore implementation
+        // Verify the campaign is a clone of the Campaign implementation
         // The campaign address should have code (cloned contract)
         uint256 codeSize;
         address campaignAddr = campaign;
@@ -585,13 +585,13 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(advertiser);
         token.transfer(campaign, INITIAL_BALANCE);
 
-        // Try to call TokenStore directly (should fail)
+        // Try to call Campaign directly (should fail)
         vm.expectRevert();
-        TokenStore(campaign).sendTokens(address(token), advertiser, 100e18);
+        Campaign(campaign).sendTokens(address(token), advertiser, 100e18);
 
-        // Only Flywheel should be able to call TokenStore
+        // Only Flywheel should be able to call Campaign
         vm.prank(address(flywheel));
-        TokenStore(campaign).sendTokens(address(token), advertiser, 100e18);
+        Campaign(campaign).sendTokens(address(token), advertiser, 100e18);
 
         // Verify the transfer worked - advertiser should have received the tokens back
         // Note: advertiser's balance should have the 100e18 transferred back plus remaining initial balance
@@ -614,7 +614,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
 
         // Predict the campaign address
-        address predictedAddress = flywheel.campaignAddress(999, hookData);
+        address predictedAddress = flywheel.campaignAddress(address(hook), 999, hookData);
 
         // Create the campaign
         address actualAddress = flywheel.createCampaign(address(hook), 999, hookData);
@@ -631,12 +631,12 @@ contract FlywheelTest is FlywheelTestHelpers {
         bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days);
 
         // Same nonce, different data should produce different addresses
-        address addr1 = flywheel.campaignAddress(100, hookData1);
-        address addr2 = flywheel.campaignAddress(100, hookData2);
+        address addr1 = flywheel.campaignAddress(address(hook), 100, hookData1);
+        address addr2 = flywheel.campaignAddress(address(hook), 100, hookData2);
         assertTrue(addr1 != addr2, "Different hook data should produce different addresses");
 
         // Same data, different nonce should produce different addresses
-        address addr3 = flywheel.campaignAddress(101, hookData1);
+        address addr3 = flywheel.campaignAddress(address(hook), 101, hookData1);
         assertTrue(addr1 != addr3, "Different nonce should produce different addresses");
     }
 
@@ -754,7 +754,7 @@ contract FlywheelTest is FlywheelTestHelpers {
     }
 
     function test_multiToken_allocateDistribute_isolationTesting() public {
-        // Test TokenStore isolation with multiple tokens and allocate/distribute workflows
+        // Test Campaign isolation with multiple tokens and allocate/distribute workflows
         SimpleRewards isolationHook = new SimpleRewards(address(flywheel));
         address isolationManager = address(0x9200);
 
@@ -997,7 +997,7 @@ contract FlywheelTest is FlywheelTestHelpers {
     }
 
     function test_tokenStore_clonePatternEfficiency() public {
-        // Test TokenStore clone pattern efficiency and isolation
+        // Test Campaign clone pattern efficiency and isolation
 
         // Deploy multiple campaigns to test clone efficiency
         SimpleRewards cloneHook = new SimpleRewards(address(flywheel));
@@ -1343,7 +1343,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             attributionProvider, advertiser, "https://example.com/test-campaign", allowedRefs, configs, 7 days
         );
 
-        address expectedCampaign = flywheel.campaignAddress(999, hookData);
+        address expectedCampaign = flywheel.campaignAddress(address(hook), 999, hookData);
 
         // Expect the Flywheel CampaignCreated event
         vm.expectEmit(true, false, false, true);
@@ -1375,7 +1375,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
-        // Fund campaign by transferring tokens directly to the TokenStore
+        // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
         token.transfer(campaign, INITIAL_BALANCE);
 
