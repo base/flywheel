@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
@@ -9,7 +9,6 @@ import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {ReferralCodes} from "../../src/ReferralCodes.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
-import {TokenStore} from "../../src/TokenStore.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "../helpers/PublisherSetupHelper.sol";
 

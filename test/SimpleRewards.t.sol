@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -33,7 +33,7 @@ contract SimpleRewardsTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create campaign
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
     }
 
@@ -296,7 +296,7 @@ contract SimpleRewardsTest is Test {
     function test_createNewCampaign() public {
         // Create second campaign with different manager
         address newManager = address(0x9000);
-        bytes memory hookData = abi.encode(newManager);
+        bytes memory hookData = abi.encode(newManager, newManager, "");
 
         address newCampaign = flywheel.createCampaign(address(hook), 2, hookData);
 

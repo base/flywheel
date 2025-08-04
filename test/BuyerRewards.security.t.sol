@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../src/Flywheel.sol";
+import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 
@@ -212,11 +213,11 @@ contract BuyerRewardsSecurityTest is Test {
         bytes memory hookData = abi.encode(paymentInfo, CASHBACK_AMOUNT);
 
         // Attacker tries to call payout functions directly
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
         flywheel.reward(campaign, address(token), hookData);
 
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
         flywheel.allocate(campaign, address(token), hookData);
     }
@@ -241,7 +242,7 @@ contract BuyerRewardsSecurityTest is Test {
         bytes memory hookData = abi.encode(paymentInfo, CASHBACK_AMOUNT);
 
         // Owner cannot call payout functions (only manager can)
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(owner);
         flywheel.reward(campaign, address(token), hookData);
 
@@ -249,7 +250,7 @@ contract BuyerRewardsSecurityTest is Test {
         vm.prank(manager);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
 
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(manager);
         flywheel.withdrawFunds(campaign, address(token), 100e18, "");
     }

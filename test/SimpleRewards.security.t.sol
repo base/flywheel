@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
@@ -37,7 +37,7 @@ contract SimpleRewardsSecurityTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create campaign with manager
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
 
         // Fund campaign
@@ -79,7 +79,7 @@ contract SimpleRewardsSecurityTest is Test {
     /// @notice Test campaign manager replacement attack
     function test_security_campaignManagerReplacement() public {
         // Attacker tries to create new campaign with themselves as manager
-        bytes memory maliciousHookData = abi.encode(attacker);
+        bytes memory maliciousHookData = abi.encode(attacker, attacker, "");
         address attackerCampaign = flywheel.createCampaign(address(hook), 2, maliciousHookData);
 
         // Verify attacker is manager of their own campaign
@@ -100,7 +100,7 @@ contract SimpleRewardsSecurityTest is Test {
     /// @notice Test zero address manager exploitation
     function test_security_zeroAddressManagerExploitation() public {
         // Create campaign with zero address manager
-        bytes memory hookData = abi.encode(address(0));
+        bytes memory hookData = abi.encode(address(0), address(0), "");
         address zeroCampaign = flywheel.createCampaign(address(hook), 3, hookData);
 
         // Fund the campaign
@@ -303,7 +303,7 @@ contract SimpleRewardsSecurityTest is Test {
     /// @notice Test cross-campaign privilege escalation
     function test_security_crossCampaignPrivilegeEscalation() public {
         // Create second campaign with different manager
-        bytes memory hookData2 = abi.encode(attacker);
+        bytes memory hookData2 = abi.encode(attacker, attacker, "");
         address attackerCampaign = flywheel.createCampaign(address(hook), 4, hookData2);
 
         // Fund attacker's campaign

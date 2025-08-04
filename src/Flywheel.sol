@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardTransient} from "solady/utils/ReentrancyGuardTransient.sol";
 
-import {TokenStore} from "./TokenStore.sol";
+import {Campaign} from "./Campaign.sol";
 import {CampaignHooks} from "./CampaignHooks.sol";
 
 /// @title Flywheel
@@ -44,8 +44,8 @@ contract Flywheel is ReentrancyGuardTransient {
         bytes extraData;
     }
 
-    /// @notice Implementation address for TokenStore contracts
-    address public immutable tokenStoreImpl;
+    /// @notice Implementation for Campaign contracts
+    address public immutable campaignImplementation;
 
     /// @notice Allocated rewards that are pending distribution
     mapping(address campaign => mapping(address token => mapping(address recipient => uint256 amount))) public
@@ -176,9 +176,9 @@ contract Flywheel is ReentrancyGuardTransient {
 
     /// @notice Constructor for the Flywheel contract
     ///
-    /// @dev Deploys a new TokenStore implementation for cloning
+    /// @dev Deploys a new Campaign implementation for cloning
     constructor() {
-        tokenStoreImpl = address(new TokenStore());
+        campaignImplementation = address(new Campaign());
     }
 
     /// @notice Creates a new campaign
@@ -189,7 +189,6 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @return campaign Address of the newly created campaign
     ///
-    /// @dev Clones a new TokenStore contract for the campaign
     /// @dev Call `campaignAddress` to know the address of the campaign without deploying it
     function createCampaign(address hooks, uint256 nonce, bytes calldata hookData)
         external
@@ -197,44 +196,10 @@ contract Flywheel is ReentrancyGuardTransient {
         returns (address campaign)
     {
         if (hooks == address(0)) revert ZeroAddress();
-        campaign = Clones.cloneDeterministic(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
+        campaign = Clones.cloneDeterministic(campaignImplementation, keccak256(abi.encode(hooks, nonce, hookData)));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.INACTIVE, hooks: CampaignHooks(hooks)});
         emit CampaignCreated(campaign, hooks);
         CampaignHooks(hooks).onCreateCampaign(campaign, hookData);
-    }
-
-    /// @notice Updates the metadata for a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant campaignExists(campaign) {
-        if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-        _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
-        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
-    }
-
-    /// @notice Updates the status of a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param newStatus New status of the campaign
-    /// @param hookData Data for the campaign hook
-    function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
-        external
-        nonReentrant
-        campaignExists(campaign)
-    {
-        CampaignStatus oldStatus = _campaigns[campaign].status;
-        if (
-            newStatus == oldStatus // must update status
-                || oldStatus == CampaignStatus.FINALIZED // cannot update from finalized
-                || (oldStatus == CampaignStatus.FINALIZING && newStatus != CampaignStatus.FINALIZED) // finalizing can only update to finalized
-        ) revert InvalidCampaignStatus();
-
-        _campaigns[campaign].hooks.onUpdateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
-        _campaigns[campaign].status = newStatus;
-        emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
     }
 
     /// @notice Rewards a recipient with an immediate payout for a campaign
@@ -257,7 +222,7 @@ contract Flywheel is ReentrancyGuardTransient {
         totalReserved[campaign][token] = reserved + fee;
         for (uint256 i = 0; i < payouts.length; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
-            TokenStore(campaign).sendTokens(token, recipient, amount);
+            Campaign(campaign).sendTokens(token, recipient, amount);
             emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
@@ -334,7 +299,7 @@ contract Flywheel is ReentrancyGuardTransient {
         for (uint256 i = 0; i < payouts.length; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] -= amount;
-            TokenStore(campaign).sendTokens(token, recipient, amount);
+            Campaign(campaign).sendTokens(token, recipient, amount);
             emit PayoutsDistributed(campaign, token, recipient, amount, payouts[i].extraData);
         }
     }
@@ -351,8 +316,42 @@ contract Flywheel is ReentrancyGuardTransient {
     {
         _canReserve(campaign, token, amount);
         _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
-        TokenStore(campaign).sendTokens(token, msg.sender, amount);
+        Campaign(campaign).sendTokens(token, msg.sender, amount);
         emit FundsWithdrawn(campaign, token, msg.sender, amount);
+    }
+
+    /// @notice Updates the status of a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param newStatus New status of the campaign
+    /// @param hookData Data for the campaign hook
+    function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
+        external
+        nonReentrant
+        campaignExists(campaign)
+    {
+        CampaignStatus oldStatus = _campaigns[campaign].status;
+        if (
+            newStatus == oldStatus // must update status
+                || oldStatus == CampaignStatus.FINALIZED // cannot update from finalized
+                || (oldStatus == CampaignStatus.FINALIZING && newStatus != CampaignStatus.FINALIZED) // finalizing can only update to finalized
+        ) revert InvalidCampaignStatus();
+
+        _campaigns[campaign].hooks.onUpdateStatus(msg.sender, campaign, oldStatus, newStatus, hookData);
+        _campaigns[campaign].status = newStatus;
+        emit CampaignStatusUpdated(campaign, msg.sender, oldStatus, newStatus);
+    }
+
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
+    function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant campaignExists(campaign) {
+        if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
+        _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
+        emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
     }
 
     /// @notice Collects fees from a campaign
@@ -368,27 +367,32 @@ contract Flywheel is ReentrancyGuardTransient {
         uint256 amount = fees[campaign][token][msg.sender];
         delete fees[campaign][token][msg.sender];
         totalReserved[campaign][token] -= amount;
-        TokenStore(campaign).sendTokens(token, recipient, amount);
+        Campaign(campaign).sendTokens(token, recipient, amount);
         emit FeesCollected(campaign, token, msg.sender, amount);
     }
 
     /// @notice Returns the address of a campaign given its creation parameters
     ///
+    /// @param hooks Address of the campaign hooks contract
     /// @param nonce Nonce used to create the campaign
     /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the campaign
-    function campaignAddress(uint256 nonce, bytes calldata hookData) external view returns (address campaign) {
-        return Clones.predictDeterministicAddress(tokenStoreImpl, keccak256(abi.encode(nonce, hookData)));
+    function campaignAddress(address hooks, uint256 nonce, bytes calldata hookData)
+        external
+        view
+        returns (address campaign)
+    {
+        return Clones.predictDeterministicAddress(campaignImplementation, keccak256(abi.encode(hooks, nonce, hookData)));
     }
 
-    /// @notice Returns the URI for a campaign
+    /// @notice Returns the hooks of a campaign
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return uri The URI for the campaign
-    function campaignURI(address campaign) public view campaignExists(campaign) returns (string memory uri) {
-        return _campaigns[campaign].hooks.campaignURI(campaign);
+    /// @return hooks of the campaign
+    function campaignHooks(address campaign) public view campaignExists(campaign) returns (address hooks) {
+        return address(_campaigns[campaign].hooks);
     }
 
     /// @notice Returns the status of a campaign
@@ -400,13 +404,13 @@ contract Flywheel is ReentrancyGuardTransient {
         return _campaigns[campaign].status;
     }
 
-    /// @notice Returns the hooks of a campaign
+    /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return hooks of the campaign
-    function campaignHooks(address campaign) public view campaignExists(campaign) returns (address hooks) {
-        return address(_campaigns[campaign].hooks);
+    /// @return uri The URI for the campaign
+    function campaignURI(address campaign) public view campaignExists(campaign) returns (string memory uri) {
+        return _campaigns[campaign].hooks.campaignURI(campaign);
     }
 
     /// @notice Allocates fees to a recipient for a campaign
@@ -444,5 +448,10 @@ contract Flywheel is ReentrancyGuardTransient {
         for (uint256 i = 0; i < payouts.length; i++) {
             total += payouts[i].amount;
         }
+    }
+
+    /// @dev Override to use transient reentrancy guard on all chains
+    function _useTransientReentrancyGuardOnlyOnMainnet() internal pure override returns (bool) {
+        return false;
     }
 }

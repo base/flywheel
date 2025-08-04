@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
@@ -321,7 +321,7 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         // Calculate expected campaign address
-        address expectedCampaign = flywheel.campaignAddress(2, hookData);
+        address expectedCampaign = flywheel.campaignAddress(address(hook), 2, hookData);
 
         // Expect events for each config (with isActive: true added automatically)
         vm.expectEmit(true, true, false, true);
@@ -373,7 +373,7 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         // Calculate expected campaign address
-        address expectedCampaign = flywheel.campaignAddress(3, hookData);
+        address expectedCampaign = flywheel.campaignAddress(address(hook), 3, hookData);
 
         // Expect events for each publisher
         vm.expectEmit(true, false, false, true);
@@ -410,7 +410,7 @@ contract AdConversionTest is PublisherTestSetup {
             abi.encode(attributionProvider, advertiser, uri, allowedRefCodes, configs, attributionDeadline);
 
         // Calculate expected campaign address
-        address expectedCampaign = flywheel.campaignAddress(4, hookData);
+        address expectedCampaign = flywheel.campaignAddress(address(hook), 4, hookData);
 
         // Expect the campaign creation event
         vm.expectEmit(true, false, false, true);

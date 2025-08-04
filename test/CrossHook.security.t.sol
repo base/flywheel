@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
@@ -169,7 +169,7 @@ contract CrossHookSecurityTest is Test {
         buyerCampaign = flywheel.createCampaign(address(buyerHook), 2, buyerHookData);
 
         // Create SimpleRewards campaign
-        bytes memory simpleHookData = abi.encode(daoManager);
+        bytes memory simpleHookData = abi.encode(daoManager, daoManager, "");
         simpleCampaign = flywheel.createCampaign(address(simpleHook), 3, simpleHookData);
 
         // Fund all campaigns
@@ -378,7 +378,7 @@ contract CrossHookSecurityTest is Test {
         bytes memory hookData = abi.encode(paymentInfo, ATTACK_AMOUNT);
 
         // SimpleRewards manager should NOT be able to control BuyerRewards campaign
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(simpleRewardsManager);
         flywheel.reward(buyerCampaign, address(rewardToken), hookData);
     }
@@ -413,7 +413,7 @@ contract CrossHookSecurityTest is Test {
 
         bytes memory buyerHookData = abi.encode(paymentInfo, ATTACK_AMOUNT);
 
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attributionProvider);
         flywheel.reward(buyerCampaign, address(rewardToken), buyerHookData);
     }

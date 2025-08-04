@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.29;
+pragma solidity ^0.8.29;
 
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
@@ -268,44 +268,6 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-    {
-        if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
-            revert Unauthorized();
-        }
-    }
-
-    /// @inheritdoc CampaignHooks
-    function onUpdateStatus(
-        address sender,
-        address campaign,
-        Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus,
-        bytes calldata hookData
-    ) external override onlyFlywheel {
-        // Attribution provider can perform any valid state transition, early return
-        // WARNING: This allows AP to pause campaigns (ACTIVE→INACTIVE). Advertiser can go INACTIVE→FINALIZING→FINALIZED
-        if (sender == state[campaign].attributionProvider) return;
-
-        // Otherwise only advertiser allowed to update status
-        if (sender != state[campaign].advertiser) revert Unauthorized();
-
-        // Advertiser always allowed to start finalization delay
-        if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
-            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
-            emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
-            return;
-        }
-
-        // Advertiser only allowed to finalize, but only if delay has passed
-        if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
-        if (state[campaign].attributionDeadline > block.timestamp) revert Unauthorized();
-    }
-
-    /// @inheritdoc CampaignHooks
     function onReward(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         external
         override
@@ -416,6 +378,44 @@ contract AdConversion is CampaignHooks {
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onUpdateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
+    ) external override onlyFlywheel {
+        // Attribution provider can perform any valid state transition, early return
+        // WARNING: This allows AP to pause campaigns (ACTIVE→INACTIVE). Advertiser can go INACTIVE→FINALIZING→FINALIZED
+        if (sender == state[campaign].attributionProvider) return;
+
+        // Otherwise only advertiser allowed to update status
+        if (sender != state[campaign].advertiser) revert Unauthorized();
+
+        // Advertiser always allowed to start finalization delay
+        if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
+            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
+            emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
+            return;
+        }
+
+        // Advertiser only allowed to finalize, but only if delay has passed
+        if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+        if (state[campaign].attributionDeadline > block.timestamp) revert Unauthorized();
+    }
+
+    /// @inheritdoc CampaignHooks
+    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+    {
+        if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
+            revert Unauthorized();
+        }
     }
 
     /// @notice Adds a publisher ref code to the campaign allowlist
