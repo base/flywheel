@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Test, console} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
-import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../src/ReferralCodes.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";
@@ -294,7 +294,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(1)),
                 clickId: "test_click",
                 conversionConfigId: 1,
-                publisherRefCode: "",
+                publisherRefCode: generateCode(0),
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x123),
                 payoutAmount: 50e18
@@ -313,7 +313,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(999999)),
                 clickId: "massive_attack",
                 conversionConfigId: 1,
-                publisherRefCode: "",
+                publisherRefCode: generateCode(0),
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0xbad),
                 payoutAmount: type(uint256).max

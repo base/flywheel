@@ -262,7 +262,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
 
         // Get payout recipient (publisher payout address or payoutRecipient)
         address expectedRecipient;
-        if (bytes(publisherRefCode).length > 0) {
+        if (bytes(publisherRefCode).length != 0) {
             if (keccak256(bytes(publisherRefCode)) == keccak256(bytes(DEFAULT_REF_CODE_1))) {
                 expectedRecipient = PUBLISHER_1_PAYOUT;
             } else if (keccak256(bytes(publisherRefCode)) == keccak256(bytes(DEFAULT_REF_CODE_2))) {
@@ -301,7 +301,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
 
         // Get payout recipient
         address expectedRecipient;
-        if (bytes(publisherRefCode).length > 0) {
+        if (bytes(publisherRefCode).length != 0) {
             if (keccak256(bytes(publisherRefCode)) == keccak256(bytes(DEFAULT_REF_CODE_1))) {
                 expectedRecipient = PUBLISHER_1_PAYOUT;
             } else if (keccak256(bytes(publisherRefCode)) == keccak256(bytes(DEFAULT_REF_CODE_2))) {

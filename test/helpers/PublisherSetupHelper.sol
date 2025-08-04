@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
-import {ReferralCodeRegistry} from "../../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../../src/ReferralCodes.sol";
 import {Test} from "forge-std/Test.sol";
+import {LibString} from "solady/utils/LibString.sol";
 
 /// @notice Helper library for easy publisher setup in tests
 library PublisherSetupHelper {
@@ -62,13 +63,41 @@ library PublisherSetupHelper {
 abstract contract PublisherTestSetup is Test {
     using PublisherSetupHelper for *;
 
+    /// @notice Generates a bytes32 code from a uint256 value, left-aligned with right padding
+    /// @param value The value to generate a code from
+    /// @return code The generated code with value left-aligned and padded with zeros on the right
+    function generateCode(uint256 value) public pure returns (string memory code) {
+        if (value == 0) return "0";
+        vm.assume(value < 10 ** 33);
+
+        bytes memory alphabet = "0123456789";
+
+        uint256 tmp = value;
+        uint256 length = 0;
+        while (tmp > 0) {
+            tmp = tmp / 10;
+            length++;
+        }
+
+        tmp = value;
+        bytes memory codeBytes = new bytes(length);
+        for (uint256 i; i < length; i++) {
+            uint256 digit = tmp % 10;
+            codeBytes[i] = alphabet[digit];
+            tmp = tmp / 10;
+            if (tmp == 0) break;
+        }
+
+        return string(codeBytes);
+    }
+
     /// @notice Sets up a publisher with minimal configuration
-    /// @param registry The ReferralCodeRegistry to register with
+    /// @param registry The ReferralCodes to register with
     /// @param refCode The referral code for the publisher
     /// @param owner The owner address for the publisher
-    /// @param signer The address that will sign the registration (must have SIGNER_ROLE)
+    /// @param signer The address that will sign the registration (must have REGISTER_ROLE)
     /// @return config The created publisher configuration
-    function setupPublisher(ReferralCodeRegistry registry, string memory refCode, address owner, address signer)
+    function setupPublisher(ReferralCodes registry, string memory refCode, address owner, address signer)
         internal
         returns (PublisherSetupHelper.PublisherConfig memory config)
     {
@@ -78,7 +107,7 @@ abstract contract PublisherTestSetup is Test {
 
     /// @notice Sets up a publisher with custom payout recipient
     function setupPublisher(
-        ReferralCodeRegistry registry,
+        ReferralCodes registry,
         string memory refCode,
         address owner,
         address payoutRecipient,
@@ -89,17 +118,15 @@ abstract contract PublisherTestSetup is Test {
     }
 
     /// @notice Sets up a publisher with full custom configuration
-    function setupPublisher(
-        ReferralCodeRegistry registry,
-        PublisherSetupHelper.PublisherConfig memory config,
-        address signer
-    ) internal {
+    function setupPublisher(ReferralCodes registry, PublisherSetupHelper.PublisherConfig memory config, address signer)
+        internal
+    {
         _registerPublisher(registry, config, signer);
     }
 
     /// @notice Batch setup multiple publishers
     function setupPublishers(
-        ReferralCodeRegistry registry,
+        ReferralCodes registry,
         PublisherSetupHelper.PublisherConfig[] memory configs,
         address signer
     ) internal {
@@ -110,12 +137,12 @@ abstract contract PublisherTestSetup is Test {
 
     /// @notice Internal function to register a publisher
     function _registerPublisher(
-        ReferralCodeRegistry registry,
+        ReferralCodes registry,
         PublisherSetupHelper.PublisherConfig memory config,
         address signer
     ) private {
         vm.prank(signer);
-        registry.registerCustom(config.refCode, config.owner, config.payoutRecipient, config.metadataUrl);
+        registry.register(config.refCode, config.owner, config.payoutRecipient);
     }
 
     /// @notice Creates test publisher addresses with labels
@@ -135,7 +162,7 @@ abstract contract PublisherTestSetup is Test {
             (address publisher, address payout) = createLabeledPublisher(i);
 
             configs[i] = PublisherSetupHelper.createPublisherConfig(
-                string(abi.encodePacked("REF_", vm.toString(i))),
+                generateCode(uint16(i)),
                 publisher,
                 payout,
                 string(abi.encodePacked("https://test.com/publisher", vm.toString(i)))

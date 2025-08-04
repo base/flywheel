@@ -8,7 +8,7 @@ import {Flywheel} from "../src/Flywheel.sol";
 import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
-import {ReferralCodeRegistry} from "../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../src/ReferralCodes.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -18,7 +18,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract CrossHookSecurityTest is Test {
     // Core contracts
     Flywheel public flywheel;
-    ReferralCodeRegistry public publisherRegistry;
+    ReferralCodes public publisherRegistry;
     AuthCaptureEscrow public escrow;
 
     // Hook contracts
@@ -124,10 +124,10 @@ contract CrossHookSecurityTest is Test {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        ReferralCodeRegistry impl = new ReferralCodeRegistry();
-        bytes memory initData = abi.encodeWithSelector(ReferralCodeRegistry.initialize.selector, owner, signer);
+        ReferralCodes impl = new ReferralCodes();
+        bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, owner, signer, "");
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = ReferralCodeRegistry(address(proxy));
+        publisherRegistry = ReferralCodes(address(proxy));
 
         // Deploy AuthCaptureEscrow
         escrow = new AuthCaptureEscrow();
@@ -147,9 +147,9 @@ contract CrossHookSecurityTest is Test {
     function _setupCampaigns() internal {
         // Register publishers for ad campaign
         vm.startPrank(owner);
-        publisherRegistry.registerCustom("PUB1", publisher1, publisher1, "https://pub1.com");
-        publisherRegistry.registerCustom("PUB2", publisher2, publisher2, "https://pub2.com");
-        publisherRegistry.registerCustom("VICTIM", victim, victim, "https://victim.com"); // For security tests
+        publisherRegistry.register("code1", publisher1, publisher1);
+        publisherRegistry.register("code2", publisher2, publisher2);
+        publisherRegistry.register("victim", victim, victim); // For security tests
         vm.stopPrank();
 
         // Create AdConversion campaign
@@ -262,7 +262,7 @@ contract CrossHookSecurityTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 conversionConfigId: 1,
-                publisherRefCode: "PUB1",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: AD_PAYOUT
@@ -631,7 +631,7 @@ contract CrossHookSecurityTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 1,
-                publisherRefCode: "PUB1", // Use registered publisher from setUp
+                publisherRefCode: "code1", // Use registered publisher from setUp
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1, // Set actual recipient
                 payoutAmount: 200e18

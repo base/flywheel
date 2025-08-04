@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.29;
 
-import {ReferralCodeRegistry} from "../../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../../src/ReferralCodes.sol";
 
 // Create a mock V2 contract for testing upgrades
-contract ReferralCodeRegistryV2 is ReferralCodeRegistry {
+contract ReferralCodesV2 is ReferralCodes {
     uint256 public totalPublishersCreated;
 
     function incrementTotalPublishers() external onlyOwner {

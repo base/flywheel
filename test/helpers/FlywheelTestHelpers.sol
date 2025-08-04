@@ -3,7 +3,7 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
-import {ReferralCodeRegistry} from "../../src/ReferralCodeRegistry.sol";
+import {ReferralCodes} from "../../src/ReferralCodes.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -15,7 +15,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
     // Core contracts
 
     Flywheel public flywheel;
-    ReferralCodeRegistry public referralCodeRegistry;
+    ReferralCodes public referralCodeRegistry;
     DummyERC20 public token;
 
     // Common test addresses
@@ -32,8 +32,8 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
     // Common constants
     uint16 public constant DEFAULT_ATTRIBUTION_FEE_BPS = 500; // 5%
     uint256 public constant INITIAL_TOKEN_BALANCE = 1000e18;
-    string public constant DEFAULT_REF_CODE_1 = "PUBLISHER_1";
-    string public constant DEFAULT_REF_CODE_2 = "PUBLISHER_2";
+    string public constant DEFAULT_REF_CODE_1 = "ref1";
+    string public constant DEFAULT_REF_CODE_2 = "ref2";
 
     /// @notice Sets up core Flywheel infrastructure
     function _setupFlywheelInfrastructure() internal {
@@ -48,10 +48,10 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
         token = new DummyERC20(initialHolders);
 
         // Deploy upgradeable PublisherRegistry
-        ReferralCodeRegistry impl = new ReferralCodeRegistry();
-        bytes memory initData = abi.encodeWithSelector(ReferralCodeRegistry.initialize.selector, OWNER, SIGNER);
+        ReferralCodes impl = new ReferralCodes();
+        bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, OWNER, SIGNER, "");
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        referralCodeRegistry = ReferralCodeRegistry(address(proxy));
+        referralCodeRegistry = ReferralCodes(address(proxy));
     }
 
     /// @notice Registers default test publishers using PublisherSetupHelper
