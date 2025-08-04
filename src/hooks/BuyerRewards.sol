@@ -89,23 +89,6 @@ contract BuyerRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-        onlyManager(sender, campaign)
-    {}
-
-    /// @inheritdoc CampaignHooks
-    function onUpdateStatus(
-        address sender,
-        address campaign,
-        Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus,
-        bytes calldata hookData
-    ) external override onlyFlywheel onlyManager(sender, campaign) {}
-
-    /// @inheritdoc CampaignHooks
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
@@ -183,6 +166,23 @@ contract BuyerRewards is CampaignHooks {
     {
         if (sender != owners[campaign]) revert Unauthorized();
     }
+
+    /// @inheritdoc CampaignHooks
+    function onUpdateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
+    ) external override onlyFlywheel onlyManager(sender, campaign) {}
+
+    /// @inheritdoc CampaignHooks
+    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
+        external
+        override
+        onlyFlywheel
+        onlyManager(sender, campaign)
+    {}
 
     /// @dev Parses the hook data and returns the payment info, payment info hash, and payout amount
     ///

@@ -34,39 +34,6 @@ abstract contract CampaignHooks {
     /// @dev Only callable by the flywheel contract
     function onCreateCampaign(address campaign, bytes calldata hookData) external virtual onlyFlywheel {}
 
-    /// @notice Updates the metadata for a campaign
-    ///
-    /// @param sender Address of the sender
-    /// @param campaign Address of the campaign
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
-        virtual
-        onlyFlywheel
-    {
-        revert Unsupported();
-    }
-
-    /// @notice Updates the campaign status
-    ///
-    /// @param campaign Address of the campaign
-    /// @param oldStatus Old status of the campaign
-    /// @param newStatus New status of the campaign
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
-    function onUpdateStatus(
-        address sender,
-        address campaign,
-        Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus,
-        bytes calldata hookData
-    ) external virtual onlyFlywheel {
-        revert Unsupported();
-    }
-
     /// @notice Processes reward for a campaign
     ///
     /// @param sender Address of the sender
@@ -151,6 +118,39 @@ abstract contract CampaignHooks {
     ///
     /// @dev Only callable by the flywheel contract
     function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+    {
+        revert Unsupported();
+    }
+
+    /// @notice Updates the campaign status
+    ///
+    /// @param campaign Address of the campaign
+    /// @param oldStatus Old status of the campaign
+    /// @param newStatus New status of the campaign
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @dev Only callable by the flywheel contract
+    function onUpdateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
+    ) external virtual onlyFlywheel {
+        revert Unsupported();
+    }
+
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @dev Only callable by the flywheel contract
+    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
         external
         virtual
         onlyFlywheel

@@ -33,15 +33,6 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onUpdateStatus(
-        address sender,
-        address campaign,
-        Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus,
-        bytes calldata hookData
-    ) external override onlyFlywheel onlyManager(sender, campaign) {}
-
-    /// @inheritdoc CampaignHooks
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
@@ -96,4 +87,13 @@ contract SimpleRewards is CampaignHooks {
         onlyFlywheel
         onlyManager(sender, campaign)
     {}
+
+    /// @inheritdoc CampaignHooks
+    function onUpdateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
+    ) external override onlyFlywheel onlyManager(sender, campaign) {}
 }
