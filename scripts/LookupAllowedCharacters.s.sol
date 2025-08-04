@@ -3,7 +3,6 @@ pragma solidity 0.8.29;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-
 import {LibString} from "solady/utils/LibString.sol";
 
 import {ReferralCodes} from "../src/ReferralCodes.sol";
