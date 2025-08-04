@@ -358,7 +358,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         address manager = address(0x1333);
 
         // Create SimpleRewards campaign
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         address simpleCampaign = flywheel.createCampaign(address(simpleHook), 100, hookData);
 
         // Fund and activate campaign
@@ -406,7 +406,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         address manager = address(0x1555);
 
         // Create SimpleRewards campaign
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         address simpleCampaign = flywheel.createCampaign(address(simpleHook), 101, hookData);
 
         // Fund and activate campaign
@@ -713,7 +713,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards feeHook = new SimpleRewards(address(flywheel));
         address feeManager = address(0x9100);
 
-        bytes memory hookData = abi.encode(feeManager);
+        bytes memory hookData = abi.encode(feeManager, feeManager, "");
         address feeCampaign = flywheel.createCampaign(address(feeHook), 200, hookData);
 
         // Fund campaign
@@ -758,7 +758,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards isolationHook = new SimpleRewards(address(flywheel));
         address isolationManager = address(0x9200);
 
-        bytes memory hookData = abi.encode(isolationManager);
+        bytes memory hookData = abi.encode(isolationManager, isolationManager, "");
         address campaign1 = flywheel.createCampaign(address(isolationHook), 300, hookData);
         address campaign2 = flywheel.createCampaign(address(isolationHook), 301, hookData);
 
@@ -840,17 +840,17 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Deploy all three hook types
         SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
-        address simpleManager = address(0x9300);
+        address manager = address(0x9300);
 
         // Create campaigns with different hooks
-        bytes memory simpleHookData = abi.encode(simpleManager);
-        address simpleCampaign = flywheel.createCampaign(address(simpleHook), 400, simpleHookData);
+        bytes memory hookData = abi.encode(manager, manager, "");
+        address simpleCampaign = flywheel.createCampaign(address(simpleHook), 400, hookData);
 
         // AdConversion campaign already exists from setUp()
         address adCampaign = campaign;
 
         // Test state transitions for SimpleRewards (Manager-controlled)
-        vm.startPrank(simpleManager);
+        vm.startPrank(manager);
 
         // Test all valid transitions for SimpleRewards
         assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
@@ -910,7 +910,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards stateHook = new SimpleRewards(address(flywheel));
         address stateManager = address(0x9400);
 
-        bytes memory hookData = abi.encode(stateManager);
+        bytes memory hookData = abi.encode(stateManager, stateManager, "");
         address stateCampaign = flywheel.createCampaign(address(stateHook), 500, hookData);
 
         // Fund campaign
@@ -1003,7 +1003,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards cloneHook = new SimpleRewards(address(flywheel));
         address cloneManager = address(0x9500);
 
-        bytes memory hookData = abi.encode(cloneManager);
+        bytes memory hookData = abi.encode(cloneManager, cloneManager, "");
 
         // Create multiple campaigns and measure clone efficiency
         address[] memory campaigns = new address[](5);
@@ -1032,7 +1032,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards withdrawHook = new SimpleRewards(address(flywheel));
         address withdrawManager = address(0x9600);
 
-        bytes memory hookData = abi.encode(withdrawManager);
+        bytes memory hookData = abi.encode(withdrawManager, withdrawManager, "");
         address withdrawCampaign = flywheel.createCampaign(address(withdrawHook), 700, hookData);
 
         // Fund campaign
@@ -1070,7 +1070,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         address manager = address(0x9000);
 
         // Create campaign with SimpleRewards hook
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         address simpleCampaign = flywheel.createCampaign(address(simpleHook), 100, hookData);
 
         // Deploy second token for multi-token testing
@@ -1136,7 +1136,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         address manager = address(0x9001);
 
         // Create campaign
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         address multiTokenCampaign = flywheel.createCampaign(address(simpleHook), 101, hookData);
 
         // Deploy additional tokens with different decimals
@@ -1214,7 +1214,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
         address manager = address(0x9002);
 
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         address complexCampaign = flywheel.createCampaign(address(simpleHook), 102, hookData);
 
         // Transfer tokens to manager for funding campaign
@@ -1274,7 +1274,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         SimpleRewards simpleHook = new SimpleRewards(address(flywheel));
         address manager = address(0x9003);
 
-        bytes memory hookData = abi.encode(manager);
+        bytes memory hookData = abi.encode(manager, manager, "");
         address errorCampaign = flywheel.createCampaign(address(simpleHook), 103, hookData);
 
         // Transfer tokens to manager for funding campaign

@@ -169,7 +169,7 @@ contract CrossHookSecurityTest is Test {
         buyerCampaign = flywheel.createCampaign(address(buyerHook), 2, buyerHookData);
 
         // Create SimpleRewards campaign
-        bytes memory simpleHookData = abi.encode(daoManager);
+        bytes memory simpleHookData = abi.encode(daoManager, daoManager, "");
         simpleCampaign = flywheel.createCampaign(address(simpleHook), 3, simpleHookData);
 
         // Fund all campaigns
