@@ -89,7 +89,7 @@ contract BuyerRewardsTest is Test {
         assertEq(token.balanceOf(payer), CASHBACK_AMOUNT);
 
         // Verify rewards info tracking
-        (uint120 allocated, uint120 distributed) = hook.rewardsInfo(paymentHash, campaign);
+        (uint120 allocated, uint120 distributed) = hook.rewards(campaign, address(token), paymentHash);
         assertEq(allocated, 0);
         assertEq(distributed, CASHBACK_AMOUNT);
     }

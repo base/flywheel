@@ -28,8 +28,9 @@ contract BuyerRewards is SimpleRewards {
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
-    /// @notice Tracks rewards info per payment per campaign
-    mapping(bytes32 paymentHash => mapping(address campaign => RewardsInfo info)) public rewardsInfo;
+    /// @notice Tracks rewards info per campaign per token per payment
+    mapping(address campaign => mapping(address token => mapping(bytes32 paymentHash => RewardsInfo info))) public
+        rewards;
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocation(uint120 amount, uint120 allocated);
@@ -59,7 +60,7 @@ contract BuyerRewards is SimpleRewards {
         (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
             _parseHookData(token, hookData);
 
-        rewardsInfo[paymentInfoHash][campaign].distributed += payoutAmount;
+        rewards[campaign][token][paymentInfoHash].distributed += payoutAmount;
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
@@ -75,7 +76,7 @@ contract BuyerRewards is SimpleRewards {
         (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
             _parseHookData(token, hookData);
 
-        rewardsInfo[paymentInfoHash][campaign].allocated += payoutAmount;
+        rewards[campaign][token][paymentInfoHash].allocated += payoutAmount;
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
@@ -91,9 +92,9 @@ contract BuyerRewards is SimpleRewards {
         (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
             _parseHookData(token, hookData);
 
-        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
+        uint120 allocated = rewards[campaign][token][paymentInfoHash].allocated;
         if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
-        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - payoutAmount;
+        rewards[campaign][token][paymentInfoHash].allocated = allocated - payoutAmount;
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount));
     }
@@ -109,11 +110,11 @@ contract BuyerRewards is SimpleRewards {
         (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
             _parseHookData(token, hookData);
 
-        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
+        uint120 allocated = rewards[campaign][token][paymentInfoHash].allocated;
         if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
-        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - payoutAmount;
+        rewards[campaign][token][paymentInfoHash].allocated = allocated - payoutAmount;
 
-        rewardsInfo[paymentInfoHash][campaign].distributed += payoutAmount;
+        rewards[campaign][token][paymentInfoHash].distributed += payoutAmount;
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
