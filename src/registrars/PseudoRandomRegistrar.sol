@@ -32,7 +32,7 @@ contract PseudoRandomRegistrar {
         // Generate unique referral code by looping until we find an unused one
         do {
             code = computeCode(++nonce);
-        } while (codes.isRegistered(code));
+        } while (!codes.isValidCode(code) || codes.isRegistered(code));
 
         codes.register(code, msg.sender, payoutAddress);
     }

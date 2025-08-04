@@ -38,9 +38,9 @@ The protocol uses a modular architecture with hooks, allowing for diverse campai
 The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 
 - **Core Flywheel Contract**: Manages campaign lifecycle and payouts
-- **TokenStore**: Each campaign has its own isolated token store
-- **Attribution Hooks**: Pluggable logic for different campaign types
-- **ReferralCodeRegistry**: Optional component for publisher-based campaigns
+- **Campaign**: Each campaign has its own isolated address for storing tokens
+- **Campaign Hooks**: Pluggable logic for different campaign types
+- **ReferralCodes**: Optional referral code system, initially used for publisher-based campaigns
 - **Participants**: Shows the flow between sponsors and recipients based on hook-specific validation
 
 ## Core Components
@@ -52,14 +52,14 @@ The main contract that manages:
 - Campaign lifecycle (Inactive → Active → Finalizing → Finalized)
 - Reward, allocation, distribution, and deallocation of payouts
 - Fee collection and distribution
-- TokenStore deployment for each campaign
+- Campaign deployment for each campaign
 
-#### 2. **TokenStore.sol** - Campaign Treasury
+#### 2. **Campaign.sol** - Campaign Treasury
 
 - Holds campaign funds (ERC20 tokens)
 - Deployed via clones for gas efficiency
 - Controlled by Flywheel contract
-- One TokenStore per campaign for isolation
+- One Campaign per campaign for isolation
 
 #### 3. **CampaignHooks** - Extensibility Layer
 
@@ -70,10 +70,10 @@ Abstract interface that enables:
 - Attribution calculations
 - Metadata management
 
-#### 4. **ReferralCodeRegistry.sol** - Publisher & Ref Code Management
+#### 4. **ReferralCodes.sol** - Publisher & Ref Code Management
 
 - Publisher registration and ref code generation
-- Relevant to `AdConversion.sol` for Spindl/Base Ads
+- Relevant to `AdConversion.sol` for Spindl/Base Ads and other open-ended use cases
 - Payout address management
 - Multi-chain publisher identity
 - Backward compatible with existing publishers
@@ -129,7 +129,7 @@ bytes memory hookData = abi.encode(
    - Useful when publisher wants specific address for rewards
    - Attribution fee deducted from `payoutAmount`
 
-2. **ReferralCodeRegistry Lookup**
+2. **ReferralCodes Lookup**
 
    ```solidity
    Conversion memory conversion = Conversion({
@@ -230,7 +230,7 @@ bytes memory hookData = abi.encode(
 
 **Validation Rules:**
 
-- Publisher ref code must exist in `ReferralCodeRegistry`
+- Publisher ref code must exist in `ReferralCodes`
 - If allowlist exists, publisher must be approved
 - Conversion config must be active (if specified)
 - Conversion type must match config (onchain/offchain)
@@ -338,7 +338,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Use Case**        | Publisher performance marketing                             | E-commerce cashback                                              | Flexible reward distribution                        |
 | **Validation**      | Complex (ref codes, configs)                                | Medium (payment verification)                                    | Minimal (pass-through)                              |
 | **Fees**            | ✅ Attribution provider fees                                | ❌ No fees                                                       | ❌ No fees                                          |
-| **Publishers**      | ✅ Via ReferralCodeRegistry                                 | ❌ Direct to users                                               | ❌ Direct to recipients                             |
+| **Publishers**      | ✅ Via ReferralCodes                                        | ❌ Direct to users                                               | ❌ Direct to recipients                             |
 | **Fund Withdrawal** | Advertiser only (FINALIZED + deadline)                      | Owner only (FINALIZED)                                           | Manager only (FINALIZED)                            |
 | **reward()**        | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
 | **allocate()**      | ❌ Not implemented                                          | ✅ Reserve cashback for claims<br/>Tracks allocated amounts      | ✅ Reserve payouts for claims                       |
@@ -357,7 +357,7 @@ The modular architecture supports diverse incentive programs:
 - **Attribution Provider**: Spindl or similar analytics service
 - **Flow**: Publishers drive traffic → Users convert → Attribution provider verifies → Publishers/users earn
 
-#### **E-commerce Cashback** (`BuyerRewards`)
+#### **Commerce Cashback and Loyalty Rewards** (`BuyerRewards`)
 
 - **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Manager**: Payment processor or platform itself
@@ -389,7 +389,7 @@ The permissionless architecture enables anyone to create custom hooks for new us
 
 ### Gas Efficiency
 
-- TokenStore uses clone pattern (not full deployment) saving ~90% deployment gas
+- Campaign uses clone pattern (not full deployment) saving ~90% deployment gas
 - Batch attribution submissions supported via arrays
 - Pull-based payout distribution prevents reentrancy
 - Optimized storage patterns
@@ -404,7 +404,7 @@ The permissionless architecture enables anyone to create custom hooks for new us
 ### Security
 
 - Minimal core protocol surface area
-- Campaign isolation through separate TokenStores
+- Campaign isolation through separate Campaigns
 - Hook-based access control
 - Reduced attack vectors
 
@@ -453,7 +453,7 @@ genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --i
 
 - Campaign lifecycle management (create, status transitions, finalize)
 - Core payout functions (allocate, distribute, deallocate, reward) using SimpleRewards for testing
-- Multi-token support and TokenStore functionality
+- Multi-token support and Campaign functionality
 - Fee collection and fund withdrawal mechanisms
 - Cross-hook state transition validation
 - Campaign address prediction and uniqueness
@@ -624,7 +624,7 @@ Each hook type has different access control patterns for state transitions and o
 
 - **Advertiser**: Campaign sponsor who funds the campaign
 - **Attribution Provider**: Authorized to submit conversion data and earn fees
-- **Publishers**: Earn rewards based on conversions (managed via ReferralCodeRegistry)
+- **Publishers**: Earn rewards based on conversions (managed via ReferralCodes)
 
 #### BuyerRewards Campaigns
 
@@ -710,7 +710,7 @@ contract MyCustomHook is CampaignHooks {
 
 ### Publishers
 
-- Register via ReferralCodeRegistry
+- Register via ReferralCodes
 - Drive traffic using ref codes
 - Claim accumulated rewards
 - View earnings across campaigns
@@ -731,7 +731,7 @@ contract MyCustomHook is CampaignHooks {
 
 ## Security Considerations
 
-- **Campaign Isolation**: Each campaign has its own TokenStore
+- **Campaign Isolation**: Each campaign has its own Campaign
 - **Immutable Hooks**: Campaign logic cannot be changed after creation
 - **Minimal Core**: Reduced attack surface in core protocol
 - **Access Control**: Hook-based permissions for each operation
@@ -751,7 +751,7 @@ The protocol is designed for deployment on Ethereum L2s and can technically be d
 Foundry deployment scripts are available in the `scripts/` directory for deploying all protocol contracts:
 
 - **`DeployFlywheel.s.sol`** - Deploys the core Flywheel contract
-- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable ReferralCodeRegistry with proxy
+- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable ReferralCodes with proxy
 - **`DeployAdConversion.s.sol`** - Deploys the AdConversion hook
 - **`DeployAll.s.sol`** - Orchestrates deployment of all contracts in the correct order
 
@@ -763,7 +763,7 @@ Foundry deployment scripts are available in the `scripts/` directory for deployi
 
 All deployment scripts require an owner address that will have administrative control over the deployed contracts. This address will be able to:
 
-- Upgrade the ReferralCodeRegistry contract (via UUPS proxy)
+- Upgrade the ReferralCodes contract (via UUPS proxy)
 - Configure protocol parameters
 - Manage contract permissions
 
@@ -796,7 +796,7 @@ source .env
 
 #### Signer Address (Optional)
 
-The ReferralCodeRegistry supports an optional "signer" address that can:
+The ReferralCodes supports an optional "signer" address that can:
 
 - Register publishers with custom ref codes (instead of auto-generated ones)
 - Register publishers on behalf of others
@@ -835,10 +835,10 @@ forge script scripts/DeployAll.s.sol --sig "run(address,address)" 0x7116F87D6ff2
 # Deploy only Flywheel (no owner parameter needed)
 forge script scripts/DeployFlywheel.s.sol --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 
-# Deploy only ReferralCodeRegistry with owner
+# Deploy only ReferralCodes with owner
 forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address)" OWNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 
-# Deploy only ReferralCodeRegistry with owner and signer
+# Deploy only ReferralCodes with owner and signer
 forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" OWNER_ADDRESS SIGNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 ```
 
@@ -847,14 +847,14 @@ forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" 
 The scripts handle dependencies automatically, but the deployment order is:
 
 1. **Flywheel** (independent)
-2. **ReferralCodeRegistry** (independent, upgradeable via UUPS proxy)
-3. **AdConversion** (requires Flywheel and ReferralCodeRegistry addresses)
+2. **ReferralCodes** (independent, upgradeable via UUPS proxy)
+3. **AdConversion** (requires Flywheel and ReferralCodes addresses)
 
 ### Contract Ownership
 
 The owner address is specified during deployment and will have administrative control over:
 
-- **ReferralCodeRegistry**: Can upgrade the contract via UUPS proxy pattern
+- **ReferralCodes**: Can upgrade the contract via UUPS proxy pattern
 - **AdConversion**: Can configure protocol parameters and manage permissions
 
 **Important**: Choose your owner address carefully as it will have significant control over the protocol. Consider using a multisig wallet for production deployments.
@@ -864,6 +864,6 @@ The owner address is specified during deployment and will have administrative co
 After deployment, you'll receive addresses for:
 
 - **Flywheel**: Core protocol contract
-- **ReferralCodeRegistry**: Publisher management (proxy address)
+- **ReferralCodes**: Publisher management (proxy address)
 - **AdConversion**: Hook for ad campaigns
-- **TokenStore Implementation**: Template for campaign treasuries (auto-deployed by Flywheel)
+- **Campaign Implementation**: Template for campaign treasuries (auto-deployed by Flywheel)

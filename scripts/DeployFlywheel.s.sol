@@ -11,15 +11,15 @@ contract DeployFlywheel is Script {
     /// @notice Deploys the Flywheel contract
     function run() external returns (address) {
         vm.startBroadcast();
-        
+
         // Deploy Flywheel contract (constructor automatically deploys TokenStore implementation)
         Flywheel flywheel = new Flywheel();
-        
+
         console.log("Flywheel deployed at:", address(flywheel));
-        console.log("TokenStore implementation at:", flywheel.tokenStoreImpl());
-        
+        console.log("Campaign implementation at:", flywheel.campaignImplementation());
+
         vm.stopBroadcast();
-        
-        return address(flywheel);
+
+        return (address(flywheel));
     }
 }

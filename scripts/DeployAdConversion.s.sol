@@ -26,7 +26,6 @@ contract DeployAdConversion is Script {
         console.log("Flywheel address:", flywheel);
         console.log("Publisher registry address:", publisherRegistry);
         console.log("Owner:", owner);
-        console.log("Attribution deadline duration:", hook.attributionWindow(), "seconds");
 
         vm.stopBroadcast();
 
