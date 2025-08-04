@@ -110,7 +110,7 @@ contract ReferralCodes is
         external
         onlyRole(REGISTER_ROLE)
     {
-        _mint(initialOwner, toTokenId(code));
+        _mint(initialOwner, toTokenId(code)); // toTokenId applies isValidCode check
         _updatePayoutAddress(code, payoutAddress);
     }
 
@@ -139,7 +139,7 @@ contract ReferralCodes is
         }
 
         // Register code
-        _mint(initialOwner, toTokenId(code));
+        _mint(initialOwner, toTokenId(code)); // toTokenId applies isValidCode check
         _updatePayoutAddress(code, payoutAddress);
     }
 
