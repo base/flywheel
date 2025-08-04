@@ -1173,7 +1173,7 @@ contract AdConversionTest is PublisherTestSetup {
             attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, invalidDeadline
         );
 
-        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidattributionWindow.selector, invalidDeadline));
+        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidAttributionWindow.selector, invalidDeadline));
         flywheel.createCampaign(address(hook), 997, hookData);
     }
 
@@ -1202,7 +1202,7 @@ contract AdConversionTest is PublisherTestSetup {
                 invalidDurations[i]
             );
 
-            vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidattributionWindow.selector, invalidDurations[i]));
+            vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidAttributionWindow.selector, invalidDurations[i]));
             flywheel.createCampaign(address(hook), 996 - i, hookData);
         }
     }

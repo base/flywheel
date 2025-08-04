@@ -186,7 +186,7 @@ contract AdConversion is CampaignHooks {
     /// @notice Error thrown when attribution deadline duration is invalid (if non-zero, must be in days precision)
     ///
     /// @param duration The invalid duration
-    error InvalidattributionWindow(uint48 duration);
+    error InvalidAttributionWindow(uint48 duration);
 
     /// @notice Error thrown when an invalid address is provided
     error ZeroAddress();
@@ -223,13 +223,11 @@ contract AdConversion is CampaignHooks {
             string memory uri,
             string[] memory allowedRefCodes,
             ConversionConfigInput[] memory configs,
-            uint48 campaignattributionWindow
+            uint48 campaignAttributionWindow
         ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48));
 
         // Validate attribution deadline duration (if non-zero, must be in days precision)
-        if (campaignattributionWindow % 1 days != 0) {
-            revert InvalidattributionWindow(campaignattributionWindow);
-        }
+        if (campaignAttributionWindow % 1 days != 0) revert InvalidAttributionWindow(campaignAttributionWindow);
 
         bool hasAllowlist = allowedRefCodes.length > 0;
 
@@ -238,7 +236,7 @@ contract AdConversion is CampaignHooks {
             attributionProvider: attributionProvider,
             advertiser: advertiser,
             attributionDeadline: 0,
-            attributionWindow: campaignattributionWindow,
+            attributionWindow: campaignAttributionWindow,
             hasAllowlist: hasAllowlist
         });
         campaignURI[campaign] = uri;
@@ -266,7 +264,7 @@ contract AdConversion is CampaignHooks {
         }
 
         // Emit campaign creation event with all decoded data
-        emit AdCampaignCreated(campaign, attributionProvider, advertiser, uri, campaignattributionWindow);
+        emit AdCampaignCreated(campaign, attributionProvider, advertiser, uri, campaignAttributionWindow);
     }
 
     /// @inheritdoc CampaignHooks

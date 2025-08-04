@@ -1386,7 +1386,7 @@ contract FlywheelTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 conversionConfigId: 0,
-                publisherRefCode: "PUBLISHER_1",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100e18

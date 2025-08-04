@@ -280,7 +280,8 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
                 ADVERTISER,
                 "test-uri-1",
                 new string[](0),
-                new AdConversion.ConversionConfigInput[](0)
+                new AdConversion.ConversionConfigInput[](0),
+                7 days
             )
         );
     }
