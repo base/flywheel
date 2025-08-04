@@ -5,6 +5,7 @@ import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {SimpleRewards} from "./SimpleRewards.sol";
 
 /// @title BuyerRewards
 ///
@@ -15,7 +16,7 @@ import {CampaignHooks} from "../CampaignHooks.sol";
 /// @dev Rewards can be made on any payment (supports custom filtering for platforms, wallets, merchants, etc.)
 ///
 /// @author Coinbase
-contract BuyerRewards is CampaignHooks {
+contract BuyerRewards is SimpleRewards {
     /// @notice Tracks rewards info per payment per campaign
     struct RewardsInfo {
         /// @dev Amount of reward allocated for this payment
@@ -27,28 +28,8 @@ contract BuyerRewards is CampaignHooks {
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
-    /// @notice Owners of the campaigns
-    mapping(address campaign => address owner) public owners;
-
-    /// @notice Managers of the campaigns
-    mapping(address campaign => address manager) public managers;
-
-    /// @notice Mapping of campaign addresses to their URI
-    mapping(address campaign => string uri) public override campaignURI;
-
     /// @notice Tracks rewards info per payment per campaign
     mapping(bytes32 paymentHash => mapping(address campaign => RewardsInfo info)) public rewardsInfo;
-
-    /// @notice Emitted when a campaign is created
-    ///
-    /// @param campaign Address of the campaign
-    /// @param owner Address of the owner of the campaign
-    /// @param manager Address of the manager of the campaign
-    /// @param uri URI of the campaign
-    event CampaignCreated(address indexed campaign, address owner, address manager, string uri);
-
-    /// @notice Thrown when the sender is not the manager of the campaign
-    error Unauthorized();
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocation(uint120 amount, uint120 allocated);
@@ -56,36 +37,15 @@ contract BuyerRewards is CampaignHooks {
     /// @notice Thrown when the payment amount is invalid
     error ZeroPayoutAmount();
 
-    /// @notice Thrown when the token is invalid
-    error InvalidToken();
-
     /// @notice Thrown when the payment has not been collected
     error PaymentNotCollected();
-
-    /// @dev Modifier to check if the sender is the manager of the campaign
-    ///
-    /// @param sender Sender address
-    /// @param campaign Campaign address
-    modifier onlyManager(address sender, address campaign) {
-        if (sender != managers[campaign]) revert Unauthorized();
-        _;
-    }
 
     /// @notice Constructor
     ///
     /// @param flywheel_ The Flywheel core protocol contract address
     /// @param escrow_ The AuthCaptureEscrow contract address
-    constructor(address flywheel_, address escrow_) CampaignHooks(flywheel_) {
+    constructor(address flywheel_, address escrow_) SimpleRewards(flywheel_) {
         escrow = AuthCaptureEscrow(escrow_);
-    }
-
-    /// @inheritdoc CampaignHooks
-    function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address owner, address manager, string memory uri) = abi.decode(hookData, (address, address, string));
-        owners[campaign] = owner;
-        managers[campaign] = manager;
-        campaignURI[campaign] = uri;
-        emit CampaignCreated(campaign, owner, manager, uri);
     }
 
     /// @inheritdoc CampaignHooks
@@ -157,32 +117,6 @@ contract BuyerRewards is CampaignHooks {
 
         return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
     }
-
-    /// @inheritdoc CampaignHooks
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-    {
-        if (sender != owners[campaign]) revert Unauthorized();
-    }
-
-    /// @inheritdoc CampaignHooks
-    function onUpdateStatus(
-        address sender,
-        address campaign,
-        Flywheel.CampaignStatus oldStatus,
-        Flywheel.CampaignStatus newStatus,
-        bytes calldata hookData
-    ) external override onlyFlywheel onlyManager(sender, campaign) {}
-
-    /// @inheritdoc CampaignHooks
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-        onlyManager(sender, campaign)
-    {}
 
     /// @dev Parses the hook data and returns the payment info, payment info hash, and payout amount
     ///

@@ -6,6 +6,7 @@ import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../src/Flywheel.sol";
 import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
+import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 
 contract BuyerRewardsTest is Test {
@@ -122,11 +123,11 @@ contract BuyerRewardsTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Owner cannot call payout functions
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(owner);
         flywheel.reward(campaign, address(token), hookData);
 
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(owner);
         flywheel.allocate(campaign, address(token), hookData);
     }
@@ -148,7 +149,7 @@ contract BuyerRewardsTest is Test {
         flywheel.withdrawFunds(campaign, address(token), INITIAL_TOKEN_BALANCE, "");
 
         // Manager cannot withdraw
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(manager);
         flywheel.withdrawFunds(campaign, address(token), 0, "");
     }
@@ -277,7 +278,7 @@ contract BuyerRewardsTest is Test {
         address expectedCampaign = flywheel.campaignAddress(address(hook), 2, hookData);
 
         vm.expectEmit(true, false, false, true);
-        emit BuyerRewards.CampaignCreated(expectedCampaign, owner, manager, "https://api.example.com/new-campaign");
+        emit SimpleRewards.CampaignCreated(expectedCampaign, owner, manager, "https://api.example.com/new-campaign");
 
         address newCampaign = flywheel.createCampaign(address(hook), 2, hookData);
 

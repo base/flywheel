@@ -378,7 +378,7 @@ contract CrossHookSecurityTest is Test {
         bytes memory hookData = abi.encode(paymentInfo, ATTACK_AMOUNT);
 
         // SimpleRewards manager should NOT be able to control BuyerRewards campaign
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(simpleRewardsManager);
         flywheel.reward(buyerCampaign, address(rewardToken), hookData);
     }
@@ -413,7 +413,7 @@ contract CrossHookSecurityTest is Test {
 
         bytes memory buyerHookData = abi.encode(paymentInfo, ATTACK_AMOUNT);
 
-        vm.expectRevert(BuyerRewards.Unauthorized.selector);
+        vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attributionProvider);
         flywheel.reward(buyerCampaign, address(rewardToken), buyerHookData);
     }
