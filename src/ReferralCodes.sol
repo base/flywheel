@@ -132,7 +132,8 @@ contract ReferralCodes is
         _checkRole(REGISTER_ROLE, registrar);
 
         // Check signature is valid
-        bytes32 structHash = keccak256(abi.encode(REGISTRATION_TYPEHASH, code, initialOwner, payoutAddress));
+        bytes32 structHash =
+            keccak256(abi.encode(REGISTRATION_TYPEHASH, keccak256(bytes(code)), initialOwner, payoutAddress));
         if (!SignatureCheckerLib.isValidSignatureNow(registrar, _hashTypedData(structHash), signature)) {
             revert Unauthorized();
         }
