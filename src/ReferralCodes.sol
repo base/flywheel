@@ -36,6 +36,9 @@ contract ReferralCodes is
     /// @notice Role identifier for addresses authorized to call register or sign registrations
     bytes32 public constant REGISTER_ROLE = keccak256("REGISTER_ROLE");
 
+    /// @notice Role identifier for addresses authorized to update metadata for one or all codes
+    bytes32 public constant METADATA_ROLE = keccak256("METADATA_ROLE");
+
     /// @notice EIP-712 typehash for registration
     bytes32 public constant REGISTRATION_TYPEHASH =
         keccak256("ReferralCodeRegistration(string code,address initialOwner,address payoutAddress)");
@@ -61,8 +64,8 @@ contract ReferralCodes is
     /// @param payoutAddress New default payout address for all chains
     event PayoutAddressUpdated(string code, address payoutAddress);
 
-    /// @notice Thrown when sender doesn't have required permissions
-    error Unauthorized(address sender);
+    /// @notice Thrown when call doesn't have required permissions
+    error Unauthorized();
 
     /// @notice Thrown when provided address is invalid (usually zero address)
     error ZeroAddress();
@@ -130,7 +133,9 @@ contract ReferralCodes is
 
         // Check signature is valid
         bytes32 structHash = keccak256(abi.encode(REGISTRATION_TYPEHASH, code, initialOwner, payoutAddress));
-        SignatureCheckerLib.isValidSignatureNow(registrar, _hashTypedData(structHash), signature);
+        if (!SignatureCheckerLib.isValidSignatureNow(registrar, _hashTypedData(structHash), signature)) {
+            revert Unauthorized();
+        }
 
         // Register code
         _mint(initialOwner, toTokenId(code));
@@ -140,14 +145,14 @@ contract ReferralCodes is
     /// @notice Updates the metadata for a referral code
     ///
     /// @param tokenId Token ID of the referral code
-    function updateMetadata(uint256 tokenId) external onlyOwner {
+    function updateMetadata(uint256 tokenId) external onlyRole(METADATA_ROLE) {
         emit MetadataUpdate(tokenId);
     }
 
     /// @notice Updates the base URI for the referral codes
     ///
     /// @param uriPrefix New base URI for the referral codes
-    function updateBaseURI(string memory uriPrefix) external onlyOwner {
+    function updateBaseURI(string memory uriPrefix) external onlyRole(METADATA_ROLE) {
         _uriPrefix = uriPrefix;
         emit BatchMetadataUpdate(0, type(uint256).max);
     }
@@ -158,7 +163,7 @@ contract ReferralCodes is
     /// @param payoutAddress New default payout address
     /// @dev Only callable by referral code owner
     function updatePayoutAddress(string memory code, address payoutAddress) external {
-        if (_requireOwned(toTokenId(code)) != msg.sender) revert Unauthorized(msg.sender);
+        if (_requireOwned(toTokenId(code)) != msg.sender) revert Unauthorized();
         _updatePayoutAddress(code, payoutAddress);
     }
 
@@ -179,8 +184,7 @@ contract ReferralCodes is
     ///
     /// @return The URI for the referral code
     function codeURI(string memory code) external view returns (string memory) {
-        uint256 tokenId = toTokenId(code);
-        return tokenURI(tokenId);
+        return tokenURI(toTokenId(code));
     }
 
     /// @notice Checks if a referral code exists
@@ -189,8 +193,7 @@ contract ReferralCodes is
     ///
     /// @return True if the referral code exists
     function isRegistered(string memory code) public view returns (bool) {
-        uint256 tokenId = toTokenId(code);
-        return _ownerOf(tokenId) != address(0);
+        return _ownerOf(toTokenId(code)) != address(0);
     }
 
     /// @notice Checks if an address has a role
