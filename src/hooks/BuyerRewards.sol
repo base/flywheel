@@ -18,18 +18,26 @@ import {SimpleRewards} from "./SimpleRewards.sol";
 /// @author Coinbase
 contract BuyerRewards is SimpleRewards {
     /// @notice Tracks rewards info per payment per campaign
-    struct RewardsInfo {
+    struct RewardState {
         /// @dev Amount of reward allocated for this payment
         uint120 allocated;
         /// @dev Amount of reward distributed for this payment
         uint120 distributed;
     }
 
+    /// @notice A struct for a payment reward
+    struct PaymentReward {
+        /// @dev The payment to reward
+        AuthCaptureEscrow.PaymentInfo paymentInfo;
+        /// @dev The reward payout amount
+        uint120 payoutAmount;
+    }
+
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
-    /// @notice Tracks rewards info per payment per campaign
-    mapping(bytes32 paymentHash => mapping(address campaign => RewardsInfo info)) public rewardsInfo;
+    /// @notice Tracks rewards info per campaign per payment
+    mapping(address campaign => mapping(bytes32 paymentHash => RewardState state)) public rewards;
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocation(uint120 amount, uint120 allocated);
@@ -56,12 +64,18 @@ contract BuyerRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
-            _parseHookData(token, hookData);
+        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        uint256 len = paymentRewards.length;
+        payouts = new Flywheel.Payout[](len);
 
-        rewardsInfo[paymentInfoHash][campaign].distributed += payoutAmount;
+        // For each payment reward, distribute the payout amount
+        for (uint256 i = 0; i < len; i++) {
+            bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i]);
+            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
+            // Add the payout amount to the distributed amount
+            rewards[campaign][paymentInfoHash].distributed += paymentRewards[i].payoutAmount;
+        }
     }
 
     /// @inheritdoc CampaignHooks
@@ -72,12 +86,18 @@ contract BuyerRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
-            _parseHookData(token, hookData);
+        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        uint256 len = paymentRewards.length;
+        payouts = new Flywheel.Payout[](len);
 
-        rewardsInfo[paymentInfoHash][campaign].allocated += payoutAmount;
+        // For each payment reward, allocate the payout amount
+        for (uint256 i = 0; i < len; i++) {
+            bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i]);
+            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
+            // Add the payout amount to the allocated amount
+            rewards[campaign][paymentInfoHash].allocated += paymentRewards[i].payoutAmount;
+        }
     }
 
     /// @inheritdoc CampaignHooks
@@ -88,14 +108,23 @@ contract BuyerRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
-            _parseHookData(token, hookData);
+        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        uint256 len = paymentRewards.length;
+        payouts = new Flywheel.Payout[](len);
 
-        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
-        if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
-        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - payoutAmount;
+        // For each payment reward, deduct the payout amount from allocated
+        for (uint256 i = 0; i < len; i++) {
+            bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i]);
+            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
+            uint120 payoutAmount = paymentRewards[i].payoutAmount;
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount));
+            // Check sufficient allocation
+            uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
+            if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
+
+            // Deduct the payout amount from allocated
+            rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
+        }
     }
 
     /// @inheritdoc CampaignHooks
@@ -106,57 +135,56 @@ contract BuyerRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, uint256 fee)
     {
-        (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount) =
-            _parseHookData(token, hookData);
+        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        uint256 len = paymentRewards.length;
+        payouts = new Flywheel.Payout[](len);
 
-        uint120 allocated = rewardsInfo[paymentInfoHash][campaign].allocated;
-        if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
-        rewardsInfo[paymentInfoHash][campaign].allocated = allocated - payoutAmount;
+        // For each payment reward, shift the payout amount from allocated to distributed
+        for (uint256 i = 0; i < len; i++) {
+            bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i]);
+            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
+            uint120 payoutAmount = paymentRewards[i].payoutAmount;
 
-        rewardsInfo[paymentInfoHash][campaign].distributed += payoutAmount;
+            // Check sufficient allocation
+            uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
+            if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
-        return (_createPayouts(paymentInfo, paymentInfoHash, payoutAmount), 0);
+            // Shift the payout amount from allocated to distributed
+            rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
+            rewards[campaign][paymentInfoHash].distributed += payoutAmount;
+        }
     }
 
-    /// @dev Parses the hook data and returns the payment info, payment info hash, and payout amount
+    /// @dev Validates a payment reward and returns the payment info hash
     ///
-    /// @param token Expected token address for validation
-    /// @param hookData The hook data
-    ///
-    /// @return paymentInfo The payment info
-    /// @return paymentInfoHash The payment info hash
-    /// @return payoutAmount The payout amount
-    function _parseHookData(address token, bytes calldata hookData)
+    /// @param paymentReward The payment reward
+    function _validatePaymentReward(PaymentReward memory paymentReward)
         internal
         view
-        returns (AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 payoutAmount)
+        returns (bytes32 paymentInfoHash)
     {
         // Check payout amount non-zero
-        (paymentInfo, payoutAmount) = abi.decode(hookData, (AuthCaptureEscrow.PaymentInfo, uint120));
-        if (payoutAmount == 0) revert ZeroPayoutAmount();
+        if (paymentReward.payoutAmount == 0) revert ZeroPayoutAmount();
 
         // Check payment has been collected
-        paymentInfoHash = escrow.getHash(paymentInfo);
+        paymentInfoHash = escrow.getHash(paymentReward.paymentInfo);
         (bool hasCollectedPayment,,) = escrow.paymentState(paymentInfoHash);
         if (!hasCollectedPayment) revert PaymentNotCollected();
     }
 
-    /// @notice Creates a Flywheel.Payout array for a given payment and amount
+    /// @dev Prepares a Flywheel.Payout for a given payment reward
     ///
-    /// @param paymentInfo Payment info
-    /// @param paymentInfoHash Hash of payment info
-    /// @param amount Amount of cashback to reward
+    /// @param paymentReward The payment reward
     ///
-    /// @return payouts Payout array
-    function _createPayouts(AuthCaptureEscrow.PaymentInfo memory paymentInfo, bytes32 paymentInfoHash, uint120 amount)
+    /// @return payout The Flywheel.Payout
+    function _preparePayout(PaymentReward memory paymentReward, bytes32 paymentInfoHash)
         internal
         pure
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Payout memory payout)
     {
-        payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
-            recipient: paymentInfo.payer,
-            amount: amount,
+        return Flywheel.Payout({
+            recipient: paymentReward.paymentInfo.payer,
+            amount: paymentReward.payoutAmount,
             extraData: abi.encodePacked(paymentInfoHash)
         });
     }
