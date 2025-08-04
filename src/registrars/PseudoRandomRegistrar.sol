@@ -10,7 +10,7 @@ import {ReferralCodes} from "../ReferralCodes.sol";
 /// @author Coinbase
 contract PseudoRandomRegistrar {
     /// @notice Default length of new permissionless referral codes
-    uint256 public constant REF_CODE_LENGTH = 8;
+    uint256 public constant CODE_LENGTH = 8;
 
     /// @notice Referral codes contract
     ReferralCodes public immutable codes;
@@ -43,16 +43,15 @@ contract PseudoRandomRegistrar {
     ///
     /// @return code Referral code for the referral code
     function computeCode(uint256 nonceValue) public view returns (string memory code) {
-        bytes32 hash = keccak256(abi.encodePacked(nonceValue, block.timestamp));
-        bytes memory alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
-        bytes memory codeBytes = new bytes(REF_CODE_LENGTH);
+        bytes memory allowedCharacters = bytes(codes.ALLOWED_CHARACTERS());
+        uint256 len = allowedCharacters.length;
+        bytes memory codeBytes = new bytes(CODE_LENGTH);
 
-        // Use all 32 bytes of the hash to generate the code
-        uint256 hashNum = uint256(hash);
-        for (uint256 i; i < REF_CODE_LENGTH; i++) {
-            // Use division instead of byte indexing to better distribute values
-            codeBytes[i] = alphabet[hashNum % 36];
-            hashNum = hashNum / 36;
+        // Iteratively generate code with modulo arithmetic on nonce hash
+        uint256 hashNum = uint256(keccak256(abi.encodePacked(nonceValue, block.timestamp)));
+        for (uint256 i; i < CODE_LENGTH; i++) {
+            codeBytes[i] = allowedCharacters[hashNum % len];
+            hashNum /= len;
         }
 
         return string(codeBytes);
