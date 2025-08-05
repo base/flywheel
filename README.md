@@ -78,6 +78,195 @@ Abstract interface that enables:
 - Multi-chain publisher identity
 - Backward compatible with existing publishers
 
+#### 5. **PseudoRandomRegistrar.sol** - Permissionless Code Generation
+
+- Enables permissionless registration of referral codes with auto-generated identifiers
+- Generates 8-character codes using pseudo-random algorithm based on nonce and timestamp
+- Uses allowed character set from ReferralCodes for compatibility
+- Automatically retries if generated code already exists or is invalid
+- Provides alternative to custom code registration for users who don't need specific codes
+
+## Referral Code System
+
+The Flywheel Protocol includes a comprehensive referral code system that enables identity management and attribution tracking across campaigns for any type of participant. While publishers are the primary users in AdConversion campaigns, the registry is designed as a general-purpose identity system that builders, creators, liquidity providers, and other participant types can utilize. Referral codes are implemented as ERC721 tokens, making them tradeable assets with built-in ownership and metadata capabilities.
+
+### Overview
+
+Referral codes serve as unique identifiers for any campaign participant and can be used across different campaign types for attribution and reward distribution. **Publishers are just one type of user** - the system is designed to support builders, creators, liquidity providers, and any other participant type that future hooks might need. The system supports both custom-branded codes and auto-generated random codes, providing flexibility for different use cases.
+
+**Key Features:**
+
+- **ERC721 Implementation**: Each referral code is a unique NFT with transferable ownership
+- **Payout Address Management**: Codes map to payout addresses for reward distribution
+- **Multi-Chain Identity**: Single code can represent publisher across different chains
+- **Custom or Random Generation**: Support for branded codes and permissionless random codes
+- **Hook Integration**: Extensible system that any campaign hook can utilize
+
+### Registration Methods
+
+#### 1. Custom Code Registration
+
+Any participant (publishers, builders, creators, etc.) can register memorable, branded referral codes through the ReferralCodes contract:
+
+```solidity
+// Register custom code "base"
+referralCodes.register(
+    "base",                           // Custom referral code
+    0x1234...5678,                   // Initial owner
+    0xabcd...efgh                    // Payout address
+);
+```
+
+**Custom Code Examples:**
+
+- `"base"` - Brand/organization name
+- `"alice123"` - Publisher/builder username
+- `"crypto_news"` - Content creator category
+- `"defi_builder"` - Builder specialization
+- `"spring2024"` - Campaign-specific code
+
+**Requirements for Custom Codes:**
+
+- Must contain only allowed characters: `0123456789abcdefghijklmonpqrstuvwxyz_`
+- Cannot be empty
+- Must be unique across the entire system
+- Requires `REGISTER_ROLE` permission or valid signature
+
+#### 2. Permissionless Random Code Registration
+
+Users can generate random codes through the PseudoRandomRegistrar without requiring permissions:
+
+```solidity
+// Generate random 8-character code
+string memory randomCode = pseudoRandomRegistrar.register(
+    0xabcd...efgh  // Payout address
+);
+// Returns something like: "sdf34433"
+```
+
+**Random Code Examples:**
+
+- `"sdf34433"` - 8 characters, pseudo-random
+- `"x9k2m7q1"` - Another random variation
+- `"pq84nz3v"` - Auto-generated unique code
+
+**Random Generation Algorithm:**
+
+```solidity
+// Simplified version of the generation logic
+function computeCode(uint256 nonce) public view returns (string memory) {
+    uint256 hashNum = uint256(keccak256(abi.encodePacked(nonce, block.timestamp)));
+    bytes memory codeBytes = new bytes(8);
+
+    for (uint256 i = 0; i < 8; i++) {
+        codeBytes[i] = allowedCharacters[hashNum % allowedCharacters.length];
+        hashNum /= allowedCharacters.length;
+    }
+
+    return string(codeBytes);
+}
+```
+
+### Current Usage in AdConversion Campaigns
+
+The AdConversion hook leverages referral codes for publisher attribution and validation. Note that **publishers are the specific participant type** for AdConversion campaigns, but other hooks could use the same registry for different participant types (like builders):
+
+```solidity
+// Example AdConversion attribution
+Conversion memory conversion = Conversion({
+    eventId: "unique-event-id",
+    clickId: "click-12345",
+    conversionConfigId: 1,
+    publisherRefCode: "base",        // Must exist in ReferralCodes
+    timestamp: uint32(block.timestamp),
+    payoutRecipient: address(0),     // Use registry lookup
+    payoutAmount: 10e18
+});
+```
+
+**AdConversion Validation Process:**
+
+1. **Code Existence Check**: Verifies `publisherRefCode` exists in ReferralCodes registry
+2. **Allowlist Validation**: If campaign has allowlist, checks if publisher is approved
+3. **Payout Address Resolution**:
+   - If `payoutRecipient = address(0)`: Look up via `referralCodes.payoutAddress(publisherRefCode)`
+   - If `payoutRecipient` specified: Use direct address (with ownership validation)
+4. **Attribution Fee Calculation**: Deduct provider fees from publisher payout
+
+**Publisher Allowlist Examples:**
+
+```solidity
+// Restricted campaign - only specific publishers
+string[] memory allowedRefCodes = ["base", "alice123", "crypto_news"];
+
+// Open campaign - any registered publisher
+string[] memory allowedRefCodes = []; // Empty array = no restrictions
+```
+
+### Future Hook Extensibility
+
+The referral code system is designed for extensibility beyond AdConversion campaigns. **Future hooks can leverage the same infrastructure for any participant type** - builders, creators, validators, or any other role that needs identity and attribution:
+
+#### **Potential Use Cases:**
+
+**Builder Rewards Hook:**
+
+```solidity
+// Future BuilderRewards hook could use referral codes
+BuilderReward memory reward = BuilderReward({
+    projectId: "awesome-dapp",
+    builderRefCode: "alice123",      // Existing referral code
+    milestoneId: 5,
+    payoutAmount: 100e18
+});
+```
+
+### Code Ownership and Management
+
+Since referral codes are ERC721 tokens, they have full NFT functionality:
+
+```solidity
+// Transfer code ownership
+referralCodes.transferFrom(currentOwner, newOwner, tokenId);
+
+// Update payout address (owner only)
+referralCodes.updatePayoutAddress("base", newPayoutAddress);
+
+// Check code ownership
+address owner = referralCodes.ownerOf(referralCodes.toTokenId("base"));
+
+// Verify code exists
+bool exists = referralCodes.isRegistered("base");
+```
+
+### Integration Benefits
+
+**For Any Participant Type (Publishers, Builders, Creators, etc.):**
+
+- Single identity across multiple campaigns and platforms
+- Tradeable asset (can sell/transfer codes)
+- Centralized payout address management
+- Verifiable ownership and attribution history
+- Cross-hook identity portability
+
+**For Campaign Creators:**
+
+- Participant allowlist management (publishers, builders, etc.)
+- Trusted attribution source
+- Reduced fraud through verified identities
+- Flexible participant onboarding (custom or random codes)
+- Consistent identity system across different campaign types
+
+**For Hook Developers:**
+
+- Ready-made identity system for any participant type
+- No need to rebuild attribution infrastructure from scratch
+- Composable with existing participant relationships
+- Extensible for custom validation logic
+- Same registry works for publishers, builders, creators, validators, etc.
+
+The referral code system provides a robust foundation for any campaign type requiring participant attribution, making it easy for new hooks to leverage existing identity relationships across different participant types and use cases.
+
 ## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`

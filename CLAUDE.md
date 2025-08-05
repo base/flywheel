@@ -31,7 +31,8 @@ This repository contains the Flywheel Protocol - a modular, permissionless adver
   - `Flywheel.sol` - Main protocol
   - `CampaignHooks.sol` - Hook interface
   - `TokenStore.sol` - Campaign treasury
-  - `ReferralCodeRegistry.sol` - Publisher & Ref code management
+  - `ReferralCodes.sol` - Publisher & Ref code management
+  - `registrars/PseudoRandomRegistrar.sol` - Permissionless code generation
   - `hooks/` - Hook implementations
 - `test/` - Foundry tests (use -vv flag for proper verbosity)
 - `lib/` - Dependencies (OpenZeppelin, forge-std, commerce-payments)
