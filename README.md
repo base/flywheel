@@ -203,42 +203,6 @@ string[] memory allowedRefCodes = ["base", "alice123", "crypto_news"];
 string[] memory allowedRefCodes = []; // Empty array = no restrictions
 ```
 
-### Future Hook Extensibility
-
-The referral code system is designed for extensibility beyond AdConversion campaigns. **Future hooks can leverage the same infrastructure for any participant type** - builders, creators, validators, or any other role that needs identity and attribution:
-
-#### **Potential Use Cases:**
-
-**Builder Rewards Hook:**
-
-```solidity
-// Future BuilderRewards hook could use referral codes
-BuilderReward memory reward = BuilderReward({
-    projectId: "awesome-dapp",
-    builderRefCode: "alice123",      // Existing referral code
-    milestoneId: 5,
-    payoutAmount: 100e18
-});
-```
-
-### Code Ownership and Management
-
-Since referral codes are ERC721 tokens, they have full NFT functionality:
-
-```solidity
-// Transfer code ownership
-referralCodes.transferFrom(currentOwner, newOwner, tokenId);
-
-// Update payout address (owner only)
-referralCodes.updatePayoutAddress("base", newPayoutAddress);
-
-// Check code ownership
-address owner = referralCodes.ownerOf(referralCodes.toTokenId("base"));
-
-// Verify code exists
-bool exists = referralCodes.isRegistered("base");
-```
-
 ## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
