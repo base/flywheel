@@ -239,34 +239,6 @@ address owner = referralCodes.ownerOf(referralCodes.toTokenId("base"));
 bool exists = referralCodes.isRegistered("base");
 ```
 
-### Integration Benefits
-
-**For Any Participant Type (Publishers, Builders, Creators, etc.):**
-
-- Single identity across multiple campaigns and platforms
-- Tradeable asset (can sell/transfer codes)
-- Centralized payout address management
-- Verifiable ownership and attribution history
-- Cross-hook identity portability
-
-**For Campaign Creators:**
-
-- Participant allowlist management (publishers, builders, etc.)
-- Trusted attribution source
-- Reduced fraud through verified identities
-- Flexible participant onboarding (custom or random codes)
-- Consistent identity system across different campaign types
-
-**For Hook Developers:**
-
-- Ready-made identity system for any participant type
-- No need to rebuild attribution infrastructure from scratch
-- Composable with existing participant relationships
-- Extensible for custom validation logic
-- Same registry works for publishers, builders, creators, validators, etc.
-
-The referral code system provides a robust foundation for any campaign type requiring participant attribution, making it easy for new hooks to leverage existing identity relationships across different participant types and use cases.
-
 ## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
