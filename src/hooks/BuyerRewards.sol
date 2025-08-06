@@ -37,8 +37,8 @@ contract BuyerRewards is SimpleRewards {
     AuthCaptureEscrow public immutable escrow;
 
     /// @notice Tracks rewards info per campaign per token per payment
-    mapping(address campaign => mapping(address token => mapping(bytes32 paymentHash => RewardsInfo info))) public
-        rewards;
+    mapping(address campaign => mapping(address token => mapping(bytes32 paymentHash => RewardState rewardState)))
+        public rewards;
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocation(uint120 amount, uint120 allocated);
@@ -120,7 +120,7 @@ contract BuyerRewards is SimpleRewards {
             uint120 payoutAmount = paymentRewards[i].payoutAmount;
 
             // Check sufficient allocation
-            uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
+            uint120 allocated = rewards[campaign][token][paymentInfoHash].allocated;
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
             // Deduct the payout amount from allocated
@@ -147,7 +147,7 @@ contract BuyerRewards is SimpleRewards {
             uint120 payoutAmount = paymentRewards[i].payoutAmount;
 
             // Check sufficient allocation
-            uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
+            uint120 allocated = rewards[campaign][token][paymentInfoHash].allocated;
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
             // Shift the payout amount from allocated to distributed
