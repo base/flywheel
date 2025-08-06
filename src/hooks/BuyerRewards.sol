@@ -36,8 +36,9 @@ contract BuyerRewards is SimpleRewards {
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
-    /// @notice Tracks rewards info per campaign per payment
-    mapping(address campaign => mapping(bytes32 paymentHash => RewardState state)) public rewards;
+    /// @notice Tracks rewards info per campaign per token per payment
+    mapping(address campaign => mapping(address token => mapping(bytes32 paymentHash => RewardsInfo info))) public
+        rewards;
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocation(uint120 amount, uint120 allocated);
@@ -74,7 +75,7 @@ contract BuyerRewards is SimpleRewards {
             payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
 
             // Add the payout amount to the distributed amount
-            rewards[campaign][paymentInfoHash].distributed += paymentRewards[i].payoutAmount;
+            rewards[campaign][token][paymentInfoHash].distributed += paymentRewards[i].payoutAmount;
         }
     }
 
@@ -96,7 +97,7 @@ contract BuyerRewards is SimpleRewards {
             payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
 
             // Add the payout amount to the allocated amount
-            rewards[campaign][paymentInfoHash].allocated += paymentRewards[i].payoutAmount;
+            rewards[campaign][token][paymentInfoHash].allocated += paymentRewards[i].payoutAmount;
         }
     }
 
@@ -123,7 +124,7 @@ contract BuyerRewards is SimpleRewards {
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
             // Deduct the payout amount from allocated
-            rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
+            rewards[campaign][token][paymentInfoHash].allocated = allocated - payoutAmount;
         }
     }
 
@@ -150,8 +151,8 @@ contract BuyerRewards is SimpleRewards {
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
             // Shift the payout amount from allocated to distributed
-            rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
-            rewards[campaign][paymentInfoHash].distributed += payoutAmount;
+            rewards[campaign][token][paymentInfoHash].allocated = allocated - payoutAmount;
+            rewards[campaign][token][paymentInfoHash].distributed += payoutAmount;
         }
     }
 
