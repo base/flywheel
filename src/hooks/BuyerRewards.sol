@@ -36,7 +36,7 @@ contract BuyerRewards is SimpleRewards {
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
-    /// @notice Tracks an optional maximum reward percentage per campaign
+    /// @notice Tracks an optional maximum reward percentage per campaign in basis points (10000 = 100%)
     mapping(address campaign => uint16 maxRewardPercentage) public maxRewardPercentage;
 
     /// @notice Tracks rewards info per campaign per payment
@@ -59,11 +59,10 @@ contract BuyerRewards is SimpleRewards {
 
     /// @notice Operation types for reward validation
     enum RewardOperation {
-        REWARD, // Direct reward - use captured amount
-        ALLOCATE, // Allocation - use total payment amount
-        DISTRIBUTE, // Distribution - use captured amount
-        DEALLOCATE // Deallocation - use captured amount
-
+        REWARD,
+        ALLOCATE,
+        DISTRIBUTE,
+        DEALLOCATE
     }
 
     /// @notice Constructor
@@ -155,7 +154,7 @@ contract BuyerRewards is SimpleRewards {
             // Basic validation (payment collected, token match) - skip percentage validation for deallocate
             bytes32 paymentInfoHash = _validatePaymentReward(paymentReward, campaign, token, RewardOperation.DEALLOCATE);
 
-            // Determine correct deallocation amount - special case: 0 means deallocate all
+            // Determine correct deallocation amount (special case of 0 means deallocate all)
             uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
             uint120 payoutAmount = paymentReward.payoutAmount;
             if (payoutAmount == 0) {
