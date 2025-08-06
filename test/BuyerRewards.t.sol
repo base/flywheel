@@ -274,12 +274,16 @@ contract BuyerRewardsTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Allocate small amount
-        bytes memory allocateData = abi.encode(paymentInfo, 50e18);
+        BuyerRewards.PaymentReward[] memory allocateRewards = new BuyerRewards.PaymentReward[](1);
+        allocateRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(50e18)});
+        bytes memory allocateData = abi.encode(allocateRewards);
         vm.prank(manager);
         flywheel.allocate(campaign, address(token), allocateData);
 
         // Try to distribute larger amount
-        bytes memory distributeData = abi.encode(paymentInfo, CASHBACK_AMOUNT); // 100e18 > 50e18
+        BuyerRewards.PaymentReward[] memory distributeRewards = new BuyerRewards.PaymentReward[](1);
+        distributeRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT}); // 100e18 > 50e18
+        bytes memory distributeData = abi.encode(distributeRewards);
 
         vm.expectRevert(abi.encodeWithSelector(BuyerRewards.InsufficientAllocation.selector, CASHBACK_AMOUNT, 50e18));
         vm.prank(manager);
@@ -379,7 +383,10 @@ contract BuyerRewardsTest is Test {
             abi.encode(true, uint120(0), uint120(PURCHASE_AMOUNT))
         );
 
-        bytes memory rewardData = abi.encode(paymentInfo1, cashbackAmount1);
+        BuyerRewards.PaymentReward[] memory paymentRewards1 = new BuyerRewards.PaymentReward[](1);
+        paymentRewards1[0] =
+            BuyerRewards.PaymentReward({paymentInfo: paymentInfo1, payoutAmount: uint120(cashbackAmount1)});
+        bytes memory rewardData = abi.encode(paymentRewards1);
 
         vm.prank(manager);
         flywheel.reward(campaign, address(rewardToken), rewardData);
@@ -426,7 +433,10 @@ contract BuyerRewardsTest is Test {
             abi.encode(true, uint120(0), uint120(PURCHASE_AMOUNT * 2))
         );
 
-        bytes memory allocateData = abi.encode(paymentInfo2, cashbackAmount2);
+        BuyerRewards.PaymentReward[] memory paymentRewards2 = new BuyerRewards.PaymentReward[](1);
+        paymentRewards2[0] =
+            BuyerRewards.PaymentReward({paymentInfo: paymentInfo2, payoutAmount: uint120(cashbackAmount2)});
+        bytes memory allocateData = abi.encode(paymentRewards2);
 
         // Allocate cashback (reserve for later claim)
         vm.prank(manager);
@@ -541,7 +551,10 @@ contract BuyerRewardsTest is Test {
             salt: uint256(uncollectedHash)
         });
 
-        bytes memory uncollectedData = abi.encode(uncollectedPayment, cashbackAmount);
+        BuyerRewards.PaymentReward[] memory uncollectedRewards = new BuyerRewards.PaymentReward[](1);
+        uncollectedRewards[0] =
+            BuyerRewards.PaymentReward({paymentInfo: uncollectedPayment, payoutAmount: uint120(cashbackAmount)});
+        bytes memory uncollectedData = abi.encode(uncollectedRewards);
 
         // Should revert because payment not collected
         vm.expectRevert(BuyerRewards.PaymentNotCollected.selector);
@@ -602,8 +615,13 @@ contract BuyerRewardsTest is Test {
         uint256 mainCashback = PURCHASE_AMOUNT * 500 / 10000; // 5%
         uint256 bonusCashback = 100e6; // Fixed bonus amount
 
-        bytes memory mainRewardData = abi.encode(paymentInfo, mainCashback);
-        bytes memory bonusRewardData = abi.encode(paymentInfo, bonusCashback);
+        BuyerRewards.PaymentReward[] memory mainRewards = new BuyerRewards.PaymentReward[](1);
+        mainRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(mainCashback)});
+        bytes memory mainRewardData = abi.encode(mainRewards);
+
+        BuyerRewards.PaymentReward[] memory bonusRewards = new BuyerRewards.PaymentReward[](1);
+        bonusRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(bonusCashback)});
+        bytes memory bonusRewardData = abi.encode(bonusRewards);
 
         vm.startPrank(manager);
         flywheel.reward(campaign, address(token), mainRewardData);

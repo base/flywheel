@@ -283,7 +283,10 @@ contract CrossHookSecurityTest is Test {
             _createPaymentInfo(buyer1, makeAddr("merchant"), 10000e6, paymentHash);
         _simulatePayment(paymentInfo, paymentHash);
 
-        bytes memory buyerRewardData = abi.encode(paymentInfo, CASHBACK_AMOUNT);
+        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        paymentRewards[0] =
+            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+        bytes memory buyerRewardData = abi.encode(paymentRewards);
 
         vm.prank(paymentManager);
         flywheel.reward(buyerCampaign, address(rewardToken), buyerRewardData);
@@ -375,7 +378,9 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        bytes memory hookData = abi.encode(paymentInfo, ATTACK_AMOUNT);
+        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        bytes memory hookData = abi.encode(paymentRewards);
 
         // SimpleRewards manager should NOT be able to control BuyerRewards campaign
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
@@ -411,7 +416,9 @@ contract CrossHookSecurityTest is Test {
             salt: 12346
         });
 
-        bytes memory buyerHookData = abi.encode(paymentInfo, ATTACK_AMOUNT);
+        BuyerRewards.PaymentReward[] memory buyerRewards = new BuyerRewards.PaymentReward[](1);
+        buyerRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        bytes memory buyerHookData = abi.encode(buyerRewards);
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attributionProvider);
@@ -458,8 +465,12 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
+        BuyerRewards.PaymentReward[] memory buyerDrainRewards = new BuyerRewards.PaymentReward[](1);
+        buyerDrainRewards[0] =
+            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE)});
+
         vm.prank(buyerRewardsManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(paymentInfo, INITIAL_TOKEN_BALANCE));
+        flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(buyerDrainRewards));
 
         // Verify drainage
         uint256 attackerBalanceAfter = token.balanceOf(attacker);
@@ -510,7 +521,9 @@ contract CrossHookSecurityTest is Test {
             feeReceiver: address(0),
             salt: 12348
         });
-        bytes memory buyerRewardsData = abi.encode(paymentInfo, ATTACK_AMOUNT);
+        BuyerRewards.PaymentReward[] memory buyerRewards = new BuyerRewards.PaymentReward[](1);
+        buyerRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        bytes memory buyerRewardsData = abi.encode(buyerRewards);
 
         // Try to use BuyerRewards data on SimpleRewards campaign
         vm.expectRevert(); // Should fail due to data format mismatch
@@ -558,7 +571,10 @@ contract CrossHookSecurityTest is Test {
         // BuyerRewards campaign has no allocation for victim
         assertEq(flywheel.allocations(buyerCampaign, address(rewardToken), victim), 0);
 
-        bytes memory buyerData = abi.encode(paymentInfo, ATTACK_AMOUNT);
+        BuyerRewards.PaymentReward[] memory buyerDistributeRewards = new BuyerRewards.PaymentReward[](1);
+        buyerDistributeRewards[0] =
+            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        bytes memory buyerData = abi.encode(buyerDistributeRewards);
 
         // Should fail - no allocation in BuyerRewards campaign
         vm.expectRevert(); // InsufficientAllocation or similar
@@ -609,8 +625,12 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
+        BuyerRewards.PaymentReward[] memory economicRewards = new BuyerRewards.PaymentReward[](1);
+        economicRewards[0] =
+            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE / 2)});
+
         vm.prank(buyerRewardsManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(paymentInfo, INITIAL_TOKEN_BALANCE / 2));
+        flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(economicRewards));
         totalDrainAmount += INITIAL_TOKEN_BALANCE / 2;
 
         // Verify coordinated drainage
