@@ -113,14 +113,29 @@ contract BuyerRewards is SimpleRewards {
         uint256 len = paymentRewards.length;
         payouts = new Flywheel.Payout[](len);
 
-        // For each payment reward, deduct the payout amount from allocated
+        // For each payment reward, deduct the payout amount (or the entire remaining allocated amount if payout amount is 0) from allocated
+        uint120 payoutAmount;
         for (uint256 i = 0; i < len; i++) {
-            bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i]);
-            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
-            uint120 payoutAmount = paymentRewards[i].payoutAmount;
+            PaymentReward memory paymentReward = paymentRewards[i];
+            // Check payment has been collected
+            bytes32 paymentInfoHash = escrow.getHash(paymentReward.paymentInfo);
+            (bool hasCollectedPayment,,) = escrow.paymentState(paymentInfoHash);
+            if (!hasCollectedPayment) revert PaymentNotCollected();
+
+            // Determine correct deallocation amount
+            uint120 allocated = rewards[campaign][token][paymentInfoHash].allocated;
+            payoutAmount = paymentReward.payoutAmount;
+            if (payoutAmount == 0) {
+                payoutAmount = allocated;
+            }
+
+            payouts[i] = Flywheel.Payout({
+                recipient: paymentReward.paymentInfo.payer,
+                amount: payoutAmount,
+                extraData: abi.encodePacked(paymentInfoHash)
+            });
 
             // Check sufficient allocation
-            uint120 allocated = rewards[campaign][token][paymentInfoHash].allocated;
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
             // Deduct the payout amount from allocated
