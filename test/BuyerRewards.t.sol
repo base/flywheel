@@ -37,7 +37,7 @@ contract BuyerRewardsTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create campaign
-        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/campaign");
+        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/campaign", 0);
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
     }
@@ -91,7 +91,7 @@ contract BuyerRewardsTest is Test {
         assertEq(token.balanceOf(payer), CASHBACK_AMOUNT);
 
         // Verify rewards info tracking
-        (uint120 allocated, uint120 distributed) = hook.rewards(campaign, address(token), paymentHash);
+        (uint120 allocated, uint120 distributed) = hook.rewards(campaign, paymentHash);
         assertEq(allocated, 0);
         assertEq(distributed, CASHBACK_AMOUNT);
     }
@@ -292,7 +292,7 @@ contract BuyerRewardsTest is Test {
 
     function test_campaignCreatedEvent() public {
         // Create new campaign and check event
-        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/new-campaign");
+        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/new-campaign", 0);
 
         // Calculate expected campaign address
         address expectedCampaign = flywheel.campaignAddress(address(hook), 2, hookData);
@@ -389,10 +389,10 @@ contract BuyerRewardsTest is Test {
         bytes memory rewardData = abi.encode(paymentRewards1);
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(rewardToken), rewardData);
+        flywheel.reward(campaign, address(usdc), rewardData);
 
         // Verify immediate cashback
-        assertEq(rewardToken.balanceOf(payer), cashbackAmount1);
+        assertEq(usdc.balanceOf(payer), cashbackAmount1);
 
         // 4. Simulate second buyer purchase with allocate/distribute workflow
         address buyer2 = makeAddr("buyer2");
@@ -440,17 +440,17 @@ contract BuyerRewardsTest is Test {
 
         // Allocate cashback (reserve for later claim)
         vm.prank(manager);
-        flywheel.allocate(campaign, address(rewardToken), allocateData);
+        flywheel.allocate(campaign, address(usdc), allocateData);
 
         // Verify allocation (buyer2 hasn't received tokens yet)
-        assertEq(rewardToken.balanceOf(buyer2), 0);
+        assertEq(usdc.balanceOf(buyer2), 0);
 
         // 5. Buyer2 claims allocated cashback
         vm.prank(manager);
-        flywheel.distribute(campaign, address(rewardToken), allocateData);
+        flywheel.distribute(campaign, address(usdc), allocateData);
 
         // Verify distribution
-        assertEq(rewardToken.balanceOf(buyer2), cashbackAmount2);
+        assertEq(usdc.balanceOf(buyer2), cashbackAmount2);
 
         // 6. Finalize campaign
         vm.prank(manager);
@@ -466,10 +466,10 @@ contract BuyerRewardsTest is Test {
         uint256 ownerBalanceBefore = rewardToken.balanceOf(owner);
 
         vm.prank(owner);
-        flywheel.withdrawFunds(campaign, address(rewardToken), remainingFunds, "");
+        flywheel.withdrawFunds(campaign, address(usdc), remainingFunds, "");
 
-        assertEq(rewardToken.balanceOf(campaign), 0);
-        assertEq(rewardToken.balanceOf(owner), ownerBalanceBefore + remainingFunds);
+        assertEq(usdc.balanceOf(campaign), 0);
+        assertEq(usdc.balanceOf(owner), ownerBalanceBefore + remainingFunds);
     }
 
     function test_authCaptureEscrowIntegration() public {

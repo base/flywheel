@@ -42,7 +42,7 @@ contract BuyerRewardsSecurityTest is Test {
         token = new DummyERC20(initialHolders);
 
         // Create campaign
-        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/campaign");
+        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/campaign", 0);
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
 
@@ -148,7 +148,7 @@ contract BuyerRewardsSecurityTest is Test {
     /// @notice Test cross-campaign payment reuse
     function test_security_crossCampaignPaymentReuse() public {
         // Create second campaign
-        bytes memory hookData2 = abi.encode(owner, manager, "https://api.example.com/campaign2");
+        bytes memory hookData2 = abi.encode(owner, manager, "https://api.example.com/campaign2", 0);
         address campaign2 = flywheel.createCampaign(address(hook), 2, hookData2);
 
         vm.prank(owner);
@@ -411,7 +411,7 @@ contract BuyerRewardsSecurityTest is Test {
         MaliciousEscrow maliciousEscrow = new MaliciousEscrow();
         BuyerRewards maliciousHook = new BuyerRewards(address(flywheel), address(maliciousEscrow));
 
-        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/malicious");
+        bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/malicious", 0);
 
         address maliciousCampaign = flywheel.createCampaign(address(maliciousHook), 999, hookData);
 

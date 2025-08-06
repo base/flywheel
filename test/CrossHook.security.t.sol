@@ -165,7 +165,7 @@ contract CrossHookSecurityTest is Test {
         adCampaign = flywheel.createCampaign(address(adHook), 1, adHookData);
 
         // Create BuyerRewards campaign
-        bytes memory buyerHookData = abi.encode(ecommerceOwner, paymentManager, "https://ecommerce.com/cashback");
+        bytes memory buyerHookData = abi.encode(ecommerceOwner, paymentManager, "https://ecommerce.com/cashback", 0);
         buyerCampaign = flywheel.createCampaign(address(buyerHook), 2, buyerHookData);
 
         // Create SimpleRewards campaign
