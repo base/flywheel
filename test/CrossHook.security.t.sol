@@ -5,7 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../src/Flywheel.sol";
-import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
+import {CashbackRewards} from "../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {ReferralCodes} from "../src/ReferralCodes.sol";
@@ -23,7 +23,7 @@ contract CrossHookSecurityTest is Test {
 
     // Hook contracts
     AdConversion public adHook;
-    BuyerRewards public buyerHook;
+    CashbackRewards public buyerHook;
     SimpleRewards public simpleHook;
 
     // Tokens
@@ -41,7 +41,7 @@ contract CrossHookSecurityTest is Test {
     address public publisher1 = makeAddr("publisher1");
     address public publisher2 = makeAddr("publisher2");
 
-    // BuyerRewards actors
+    // CashbackRewards actors
     address public ecommerceOwner = makeAddr("ecommerceOwner");
     address public paymentManager = makeAddr("paymentManager");
     address public buyer1 = makeAddr("buyer1");
@@ -59,7 +59,7 @@ contract CrossHookSecurityTest is Test {
 
     // Legacy variable mappings for security tests
     address public simpleRewardsManager = daoManager;
-    address public buyerRewardsManager = paymentManager;
+    address public cashbackRewardsManager = paymentManager;
     address public manager = owner;
     DummyERC20 public token; // Alias for security tests
 
@@ -94,7 +94,7 @@ contract CrossHookSecurityTest is Test {
 
         console.log("Cross-hook security & integration test setup complete");
         console.log("AdConversion campaign:", adCampaign);
-        console.log("BuyerRewards campaign:", buyerCampaign);
+        console.log("CashbackRewards campaign:", buyerCampaign);
         console.log("SimpleRewards campaign:", simpleCampaign);
     }
 
@@ -137,8 +137,8 @@ contract CrossHookSecurityTest is Test {
         // Deploy AdConversion hook
         adHook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
-        // Deploy BuyerRewards hook
-        buyerHook = new BuyerRewards(address(flywheel), address(escrow));
+        // Deploy CashbackRewards hook
+        buyerHook = new CashbackRewards(address(flywheel), address(escrow));
 
         // Deploy SimpleRewards hook
         simpleHook = new SimpleRewards(address(flywheel));
@@ -164,7 +164,7 @@ contract CrossHookSecurityTest is Test {
             abi.encode(attributionProvider, advertiser, "https://ad-campaign.com", allowedRefCodes, configs, 7 days);
         adCampaign = flywheel.createCampaign(address(adHook), 1, adHookData);
 
-        // Create BuyerRewards campaign
+        // Create CashbackRewards campaign
         bytes memory buyerHookData = abi.encode(ecommerceOwner, paymentManager, "https://ecommerce.com/cashback", 0);
         buyerCampaign = flywheel.createCampaign(address(buyerHook), 2, buyerHookData);
 
@@ -204,7 +204,7 @@ contract CrossHookSecurityTest is Test {
         token = rewardToken;
     }
 
-    // Helper functions for BuyerRewards payment simulation
+    // Helper functions for CashbackRewards payment simulation
     function _createPaymentInfo(address payer, address payee, uint256 amount, bytes32 salt)
         internal
         view
@@ -276,16 +276,16 @@ contract CrossHookSecurityTest is Test {
         uint256 expectedAdPayout = AD_PAYOUT - (AD_PAYOUT * ATTRIBUTION_FEE_BPS / 10000);
         assertEq(rewardToken.balanceOf(publisher1), expectedAdPayout);
 
-        // Test BuyerRewards: Cashback system
+        // Test CashbackRewards: Cashback system
         bytes32 paymentHash = keccak256(abi.encodePacked("payment_1", buyer1));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo =
             _createPaymentInfo(buyer1, makeAddr("merchant"), 10000e6, paymentHash);
         _simulatePayment(paymentInfo, paymentHash);
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory buyerRewardData = abi.encode(paymentRewards);
 
         vm.prank(paymentManager);
@@ -323,7 +323,7 @@ contract CrossHookSecurityTest is Test {
         vm.prank(attributionProvider);
         flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.INACTIVE, "");
 
-        // Test that BuyerRewards controls don't affect other campaigns
+        // Test that CashbackRewards controls don't affect other campaigns
         vm.expectRevert(); // Should fail - payment manager has no control over ad campaign
         vm.prank(paymentManager);
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.INACTIVE, "");
@@ -355,7 +355,7 @@ contract CrossHookSecurityTest is Test {
 
     /// @notice Test cross-hook manager privilege escalation
     function test_security_crossHookManagerPrivilegeEscalation() public {
-        // Manager of SimpleRewards tries to control BuyerRewards campaign
+        // Manager of SimpleRewards tries to control CashbackRewards campaign
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
             operator: merchant,
             payer: attacker,
@@ -378,11 +378,12 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
-        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] =
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
-        // SimpleRewards manager should NOT be able to control BuyerRewards campaign
+        // SimpleRewards manager should NOT be able to control CashbackRewards campaign
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(simpleRewardsManager);
         flywheel.reward(buyerCampaign, address(rewardToken), hookData);
@@ -400,7 +401,7 @@ contract CrossHookSecurityTest is Test {
         vm.prank(attributionProvider);
         flywheel.reward(simpleCampaign, address(rewardToken), hookData);
 
-        // Attribution provider should NOT control BuyerRewards
+        // Attribution provider should NOT control CashbackRewards
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
             operator: merchant,
             payer: attacker,
@@ -416,9 +417,10 @@ contract CrossHookSecurityTest is Test {
             salt: 12346
         });
 
-        BuyerRewards.PaymentReward[] memory buyerRewards = new BuyerRewards.PaymentReward[](1);
-        buyerRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
-        bytes memory buyerHookData = abi.encode(buyerRewards);
+        CashbackRewards.PaymentReward[] memory cashbackRewards = new CashbackRewards.PaymentReward[](1);
+        cashbackRewards[0] =
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        bytes memory buyerHookData = abi.encode(cashbackRewards);
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attributionProvider);
@@ -441,7 +443,7 @@ contract CrossHookSecurityTest is Test {
         vm.prank(simpleRewardsManager);
         flywheel.reward(simpleCampaign, address(rewardToken), abi.encode(payouts1));
 
-        // Drain BuyerRewards campaign (manager can't do this - only owner can withdraw after finalization)
+        // Drain CashbackRewards campaign (manager can't do this - only owner can withdraw after finalization)
         // But manager can allocate large amounts to attacker
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
             operator: merchant,
@@ -465,11 +467,11 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        BuyerRewards.PaymentReward[] memory buyerDrainRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory buyerDrainRewards = new CashbackRewards.PaymentReward[](1);
         buyerDrainRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE)});
 
-        vm.prank(buyerRewardsManager);
+        vm.prank(cashbackRewardsManager);
         flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(buyerDrainRewards));
 
         // Verify drainage
@@ -501,12 +503,12 @@ contract CrossHookSecurityTest is Test {
         payouts[0] = Flywheel.Payout({recipient: attacker, amount: ATTACK_AMOUNT, extraData: ""});
         bytes memory simpleRewardsData = abi.encode(payouts);
 
-        // Try to use SimpleRewards data on BuyerRewards campaign
+        // Try to use SimpleRewards data on CashbackRewards campaign
         vm.expectRevert(); // Should fail due to data format mismatch
-        vm.prank(buyerRewardsManager);
+        vm.prank(cashbackRewardsManager);
         flywheel.reward(buyerCampaign, address(rewardToken), simpleRewardsData);
 
-        // Create BuyerRewards payment data
+        // Create CashbackRewards payment data
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
             operator: merchant,
             payer: attacker,
@@ -521,14 +523,15 @@ contract CrossHookSecurityTest is Test {
             feeReceiver: address(0),
             salt: 12348
         });
-        BuyerRewards.PaymentReward[] memory buyerRewards = new BuyerRewards.PaymentReward[](1);
-        buyerRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
-        bytes memory buyerRewardsData = abi.encode(buyerRewards);
+        CashbackRewards.PaymentReward[] memory cashbackRewards = new CashbackRewards.PaymentReward[](1);
+        cashbackRewards[0] =
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+        bytes memory cashbackRewardsData = abi.encode(cashbackRewards);
 
-        // Try to use BuyerRewards data on SimpleRewards campaign
+        // Try to use CashbackRewards data on SimpleRewards campaign
         vm.expectRevert(); // Should fail due to data format mismatch
         vm.prank(simpleRewardsManager);
-        flywheel.reward(simpleCampaign, address(rewardToken), buyerRewardsData);
+        flywheel.reward(simpleCampaign, address(rewardToken), cashbackRewardsData);
     }
 
     /// @notice Test allocation/distribution cross-contamination
@@ -568,17 +571,17 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        // BuyerRewards campaign has no allocation for victim
+        // CashbackRewards campaign has no allocation for victim
         assertEq(flywheel.allocations(buyerCampaign, address(rewardToken), victim), 0);
 
-        BuyerRewards.PaymentReward[] memory buyerDistributeRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory buyerDistributeRewards = new CashbackRewards.PaymentReward[](1);
         buyerDistributeRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(ATTACK_AMOUNT)});
         bytes memory buyerData = abi.encode(buyerDistributeRewards);
 
-        // Should fail - no allocation in BuyerRewards campaign
+        // Should fail - no allocation in CashbackRewards campaign
         vm.expectRevert(); // InsufficientAllocation or similar
-        vm.prank(buyerRewardsManager);
+        vm.prank(cashbackRewardsManager);
         flywheel.distribute(buyerCampaign, address(rewardToken), buyerData);
     }
 
@@ -602,7 +605,7 @@ contract CrossHookSecurityTest is Test {
         flywheel.reward(simpleCampaign, address(rewardToken), abi.encode(payouts));
         totalDrainAmount += INITIAL_TOKEN_BALANCE / 2;
 
-        // Drain BuyerRewards (manager has control over payouts)
+        // Drain CashbackRewards (manager has control over payouts)
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
             operator: merchant,
             payer: attacker,
@@ -625,11 +628,11 @@ contract CrossHookSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        BuyerRewards.PaymentReward[] memory economicRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory economicRewards = new CashbackRewards.PaymentReward[](1);
         economicRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE / 2)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE / 2)});
 
-        vm.prank(buyerRewardsManager);
+        vm.prank(cashbackRewardsManager);
         flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(economicRewards));
         totalDrainAmount += INITIAL_TOKEN_BALANCE / 2;
 
@@ -671,7 +674,7 @@ contract CrossHookSecurityTest is Test {
         // Fee should be 50% of 200e18 = 100e18
         assertEq(fee, 100e18);
 
-        // Other hooks (BuyerRewards, SimpleRewards) don't have fees
+        // Other hooks (CashbackRewards, SimpleRewards) don't have fees
         // This creates economic imbalance that could be exploited
     }
 
@@ -699,7 +702,7 @@ contract CrossHookSecurityTest is Test {
 /// @notice Contract that attempts reentrancy across different hook types
 contract CrossHookReentrancyAttacker {
     Flywheel public flywheel;
-    BuyerRewards public buyerHook;
+    CashbackRewards public buyerHook;
     SimpleRewards public simpleHook;
     address public buyerCampaign;
     address public simpleCampaign;
@@ -713,7 +716,7 @@ contract CrossHookReentrancyAttacker {
         address _simpleCampaign
     ) {
         flywheel = Flywheel(_flywheel);
-        buyerHook = BuyerRewards(_buyerHook);
+        buyerHook = CashbackRewards(_buyerHook);
         simpleHook = SimpleRewards(_simpleHook);
         buyerCampaign = _buyerCampaign;
         simpleCampaign = _simpleCampaign;

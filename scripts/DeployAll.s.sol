@@ -8,7 +8,7 @@ import {DeployFlywheel} from "./DeployFlywheel.s.sol";
 import {DeployReferralCodes} from "./DeployReferralCodes.s.sol";
 import {DeployAdConversion} from "./DeployAdConversion.s.sol";
 import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
-import {DeployBuyerRewards} from "./DeployBuyerRewards.s.sol";
+import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
 
 /// @notice Script for deploying all Flywheel protocol contracts in the correct order
 contract DeployAll is Script {
@@ -17,7 +17,7 @@ contract DeployAll is Script {
         address flywheel;
         address referralCodes;
         address adConversion;
-        address buyerRewards;
+        address cashbackRewards;
         address simpleRewards;
     }
 
@@ -60,10 +60,10 @@ contract DeployAll is Script {
         DeployAdConversion adConversionDeployer = new DeployAdConversion();
         info.adConversion = adConversionDeployer.run(info.flywheel, owner, info.referralCodes);
 
-        // Deploy BuyerRewards hook (depends on Flywheel and AuthCaptureEscrow)
-        console.log("4. Deploying BuyerRewards hook...");
-        DeployBuyerRewards buyerRewardsDeployer = new DeployBuyerRewards();
-        info.buyerRewards = buyerRewardsDeployer.run(info.flywheel, escrow);
+        // Deploy CashbackRewards hook (depends on Flywheel and AuthCaptureEscrow)
+        console.log("4. Deploying CashbackRewards hook...");
+        DeployCashbackRewards cashbackRewardsDeployer = new DeployCashbackRewards();
+        info.cashbackRewards = cashbackRewardsDeployer.run(info.flywheel, escrow);
 
         // Deploy SimpleRewards hook (depends on Flywheel)
         console.log("5. Deploying SimpleRewards hook...");
@@ -75,7 +75,7 @@ contract DeployAll is Script {
         console.log("Flywheel:", info.flywheel);
         console.log("ReferralCodes:", info.referralCodes);
         console.log("AdConversion:", info.adConversion);
-        console.log("BuyerRewards:", info.buyerRewards);
+        console.log("CashbackRewards:", info.cashbackRewards);
         console.log("SimpleRewards:", info.simpleRewards);
 
         return info;

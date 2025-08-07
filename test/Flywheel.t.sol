@@ -698,8 +698,8 @@ contract FlywheelTest is FlywheelTestHelpers {
     // =============================================================
 
     function test_feeHandling_inAllocateDistributeOperations() public {
-        // Test fee handling across allocate/distribute operations with BuyerRewards
-        // Deploy BuyerRewards hook that charges no fees but supports full workflow
+        // Test fee handling across allocate/distribute operations with CashbackRewards
+        // Deploy CashbackRewards hook that charges no fees but supports full workflow
 
         address[] memory holders = new address[](1);
         holders[0] = advertiser;
@@ -709,7 +709,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(advertiser);
         feeToken.transfer(advertiser, 1000e18);
 
-        // Since BuyerRewards doesn't support fee operations, test with SimpleRewards
+        // Since CashbackRewards doesn't support fee operations, test with SimpleRewards
         SimpleRewards feeHook = new SimpleRewards(address(flywheel));
         address feeManager = address(0x9100);
 

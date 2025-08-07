@@ -7,16 +7,17 @@ import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {SimpleRewards} from "./SimpleRewards.sol";
 
-/// @title BuyerRewards
+/// @title CashbackRewards
 ///
 /// @notice Reward buyers for their purchases made with the Commerce Payments Protocol (https://github.com/base/commerce-payments)
 ///
 /// @dev Rewards must be made in the same token as the original payment token (cashback)
 /// @dev Rewards can be made in any amount (supports %, fixed, etc.)
+/// @dev Maximum reward percentage can be optionally configured per campaign
 /// @dev Rewards can be made on any payment (supports custom filtering for platforms, wallets, merchants, etc.)
 ///
 /// @author Coinbase
-contract BuyerRewards is SimpleRewards {
+contract CashbackRewards is SimpleRewards {
     /// @notice Tracks rewards info per payment per campaign
     struct RewardState {
         /// @dev Amount of reward allocated for this payment

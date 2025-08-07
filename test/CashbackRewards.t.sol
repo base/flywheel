@@ -5,13 +5,13 @@ import {Test} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../src/Flywheel.sol";
-import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
+import {CashbackRewards} from "../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 
 contract BuyerRewardsTest is Test {
     Flywheel public flywheel;
-    BuyerRewards public hook;
+    CashbackRewards public hook;
     AuthCaptureEscrow public escrow;
     DummyERC20 public token;
 
@@ -28,7 +28,7 @@ contract BuyerRewardsTest is Test {
         // Deploy contracts
         flywheel = new Flywheel();
         escrow = new AuthCaptureEscrow();
-        hook = new BuyerRewards(address(flywheel), address(escrow));
+        hook = new CashbackRewards(address(flywheel), address(escrow));
 
         // Deploy token with initial holders
         address[] memory initialHolders = new address[](2);
@@ -43,7 +43,7 @@ contract BuyerRewardsTest is Test {
     }
 
     // NOTE: Core campaign creation is tested in Flywheel.t.sol
-    // This focuses on BuyerRewards-specific campaign setup and verification
+    // This focuses on CashbackRewards-specific campaign setup and verification
 
     function test_reward_success() public {
         // Create and collect payment in escrow
@@ -80,8 +80,8 @@ contract BuyerRewardsTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Process reward
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
-        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT});
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT});
         bytes memory hookData = abi.encode(paymentRewards);
 
         vm.prank(manager);
@@ -97,7 +97,7 @@ contract BuyerRewardsTest is Test {
     }
 
     // NOTE: Core allocate/distribute/deallocate functionality is tested in Flywheel.t.sol
-    // This hook focuses on BuyerRewards-specific behavior (payment verification, etc.)
+    // This hook focuses on CashbackRewards-specific behavior (payment verification, etc.)
 
     function test_onlyManager_canCallPayoutFunctions() public {
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
@@ -115,8 +115,8 @@ contract BuyerRewardsTest is Test {
             salt: 12347
         });
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
-        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT});
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Fund and activate campaign
@@ -198,12 +198,12 @@ contract BuyerRewardsTest is Test {
         vm.prank(manager);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
-        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT});
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Should revert when payment not collected
-        vm.expectRevert(BuyerRewards.PaymentNotCollected.selector);
+        vm.expectRevert(CashbackRewards.PaymentNotCollected.selector);
         vm.prank(manager);
         flywheel.reward(campaign, address(token), hookData);
     }
@@ -231,12 +231,12 @@ contract BuyerRewardsTest is Test {
             salt: 12349
         });
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
-        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: 0});
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: 0});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Should revert with zero payout amount
-        vm.expectRevert(BuyerRewards.ZeroPayoutAmount.selector);
+        vm.expectRevert(CashbackRewards.ZeroPayoutAmount.selector);
         vm.prank(manager);
         flywheel.reward(campaign, address(token), hookData);
     }
@@ -274,18 +274,18 @@ contract BuyerRewardsTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Allocate small amount
-        BuyerRewards.PaymentReward[] memory allocateRewards = new BuyerRewards.PaymentReward[](1);
-        allocateRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(50e18)});
+        CashbackRewards.PaymentReward[] memory allocateRewards = new CashbackRewards.PaymentReward[](1);
+        allocateRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(50e18)});
         bytes memory allocateData = abi.encode(allocateRewards);
         vm.prank(manager);
         flywheel.allocate(campaign, address(token), allocateData);
 
         // Try to distribute larger amount
-        BuyerRewards.PaymentReward[] memory distributeRewards = new BuyerRewards.PaymentReward[](1);
-        distributeRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT}); // 100e18 > 50e18
+        CashbackRewards.PaymentReward[] memory distributeRewards = new CashbackRewards.PaymentReward[](1);
+        distributeRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: CASHBACK_AMOUNT}); // 100e18 > 50e18
         bytes memory distributeData = abi.encode(distributeRewards);
 
-        vm.expectRevert(abi.encodeWithSelector(BuyerRewards.InsufficientAllocation.selector, CASHBACK_AMOUNT, 50e18));
+        vm.expectRevert(abi.encodeWithSelector(CashbackRewards.InsufficientAllocation.selector, CASHBACK_AMOUNT, 50e18));
         vm.prank(manager);
         flywheel.distribute(campaign, address(token), distributeData);
     }
@@ -313,7 +313,7 @@ contract BuyerRewardsTest is Test {
     // =============================================================
 
     function test_endToEndBuyerRewardsFlow() public {
-        // Integration test for complete BuyerRewards workflow
+        // Integration test for complete CashbackRewards workflow
 
         // Setup - Deploy additional tokens for proper separation
         address[] memory usdcHolders = new address[](3);
@@ -383,9 +383,9 @@ contract BuyerRewardsTest is Test {
             abi.encode(true, uint120(0), uint120(PURCHASE_AMOUNT))
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards1 = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards1 = new CashbackRewards.PaymentReward[](1);
         paymentRewards1[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo1, payoutAmount: uint120(cashbackAmount1)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo1, payoutAmount: uint120(cashbackAmount1)});
         bytes memory rewardData = abi.encode(paymentRewards1);
 
         vm.prank(manager);
@@ -433,9 +433,9 @@ contract BuyerRewardsTest is Test {
             abi.encode(true, uint120(0), uint120(PURCHASE_AMOUNT * 2))
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards2 = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards2 = new CashbackRewards.PaymentReward[](1);
         paymentRewards2[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo2, payoutAmount: uint120(cashbackAmount2)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo2, payoutAmount: uint120(cashbackAmount2)});
         bytes memory allocateData = abi.encode(paymentRewards2);
 
         // Allocate cashback (reserve for later claim)
@@ -515,9 +515,9 @@ contract BuyerRewardsTest is Test {
         );
 
         uint256 cashbackAmount = PURCHASE_AMOUNT * CASHBACK_RATE_BPS / 10000;
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(cashbackAmount)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(cashbackAmount)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Test reward with payment verification
@@ -551,13 +551,13 @@ contract BuyerRewardsTest is Test {
             salt: uint256(uncollectedHash)
         });
 
-        BuyerRewards.PaymentReward[] memory uncollectedRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory uncollectedRewards = new CashbackRewards.PaymentReward[](1);
         uncollectedRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: uncollectedPayment, payoutAmount: uint120(cashbackAmount)});
+            CashbackRewards.PaymentReward({paymentInfo: uncollectedPayment, payoutAmount: uint120(cashbackAmount)});
         bytes memory uncollectedData = abi.encode(uncollectedRewards);
 
         // Should revert because payment not collected
-        vm.expectRevert(BuyerRewards.PaymentNotCollected.selector);
+        vm.expectRevert(CashbackRewards.PaymentNotCollected.selector);
         vm.prank(manager);
         flywheel.reward(campaign, address(token), uncollectedData);
     }
@@ -615,12 +615,13 @@ contract BuyerRewardsTest is Test {
         uint256 mainCashback = PURCHASE_AMOUNT * 500 / 10000; // 5%
         uint256 bonusCashback = 100e6; // Fixed bonus amount
 
-        BuyerRewards.PaymentReward[] memory mainRewards = new BuyerRewards.PaymentReward[](1);
-        mainRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(mainCashback)});
+        CashbackRewards.PaymentReward[] memory mainRewards = new CashbackRewards.PaymentReward[](1);
+        mainRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(mainCashback)});
         bytes memory mainRewardData = abi.encode(mainRewards);
 
-        BuyerRewards.PaymentReward[] memory bonusRewards = new BuyerRewards.PaymentReward[](1);
-        bonusRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(bonusCashback)});
+        CashbackRewards.PaymentReward[] memory bonusRewards = new CashbackRewards.PaymentReward[](1);
+        bonusRewards[0] =
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(bonusCashback)});
         bytes memory bonusRewardData = abi.encode(bonusRewards);
 
         vm.startPrank(manager);

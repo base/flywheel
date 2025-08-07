@@ -6,15 +6,15 @@ import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
 import {Flywheel} from "../src/Flywheel.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
-import {BuyerRewards} from "../src/hooks/BuyerRewards.sol";
+import {CashbackRewards} from "../src/hooks/CashbackRewards.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 
-/// @title BuyerRewards Security Test Suite
+/// @title CashbackRewards Security Test Suite
 /// @notice Security-focused testing with attack scenarios and vulnerability analysis
 /// @dev Implements comprehensive security testing patterns targeting payment manipulation and privilege escalation
-contract BuyerRewardsSecurityTest is Test {
+contract CashbackRewardsSecurityTest is Test {
     Flywheel public flywheel;
-    BuyerRewards public hook;
+    CashbackRewards public hook;
     AuthCaptureEscrow public escrow;
     DummyERC20 public token;
 
@@ -32,7 +32,7 @@ contract BuyerRewardsSecurityTest is Test {
         // Deploy contracts
         flywheel = new Flywheel();
         escrow = new AuthCaptureEscrow();
-        hook = new BuyerRewards(address(flywheel), address(escrow));
+        hook = new CashbackRewards(address(flywheel), address(escrow));
 
         // Deploy token with initial holders
         address[] memory initialHolders = new address[](3);
@@ -85,9 +85,9 @@ contract BuyerRewardsSecurityTest is Test {
             abi.encode(true, false, false) // Fake collected state
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: fakePayment, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: fakePayment, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Attacker attempts to get rewards for fake payment
@@ -124,9 +124,9 @@ contract BuyerRewardsSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // First reward (legitimate)
@@ -181,9 +181,9 @@ contract BuyerRewardsSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Get rewards from first campaign
@@ -219,9 +219,9 @@ contract BuyerRewardsSecurityTest is Test {
             salt: 12347
         });
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Attacker tries to call payout functions directly
@@ -251,9 +251,9 @@ contract BuyerRewardsSecurityTest is Test {
             salt: 12348
         });
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Owner cannot call payout functions (only manager can)
@@ -305,9 +305,9 @@ contract BuyerRewardsSecurityTest is Test {
             abi.encode(true, false, false)
         );
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         // Malicious token will attempt reentrancy during transfer
@@ -349,8 +349,8 @@ contract BuyerRewardsSecurityTest is Test {
         );
 
         // Try to allocate maximum uint120 amount
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
-        paymentRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: type(uint120).max});
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: type(uint120).max});
         bytes memory hookData = abi.encode(paymentRewards);
 
         vm.prank(manager);
@@ -384,19 +384,19 @@ contract BuyerRewardsSecurityTest is Test {
         );
 
         // Allocate small amount
-        BuyerRewards.PaymentReward[] memory allocateRewards = new BuyerRewards.PaymentReward[](1);
-        allocateRewards[0] = BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(50e18)});
+        CashbackRewards.PaymentReward[] memory allocateRewards = new CashbackRewards.PaymentReward[](1);
+        allocateRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(50e18)});
         bytes memory allocateData = abi.encode(allocateRewards);
         vm.prank(manager);
         flywheel.allocate(campaign, address(token), allocateData);
 
         // Try to distribute larger amount
-        BuyerRewards.PaymentReward[] memory distributeRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory distributeRewards = new CashbackRewards.PaymentReward[](1);
         distributeRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)}); // 100e18 > 50e18
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)}); // 100e18 > 50e18
         bytes memory distributeData = abi.encode(distributeRewards);
 
-        vm.expectRevert(abi.encodeWithSelector(BuyerRewards.InsufficientAllocation.selector, CASHBACK_AMOUNT, 50e18));
+        vm.expectRevert(abi.encodeWithSelector(CashbackRewards.InsufficientAllocation.selector, CASHBACK_AMOUNT, 50e18));
         vm.prank(manager);
         flywheel.distribute(campaign, address(token), distributeData);
     }
@@ -409,7 +409,7 @@ contract BuyerRewardsSecurityTest is Test {
     function test_security_maliciousEscrowContract() public {
         // Deploy hook with malicious escrow
         MaliciousEscrow maliciousEscrow = new MaliciousEscrow();
-        BuyerRewards maliciousHook = new BuyerRewards(address(flywheel), address(maliciousEscrow));
+        CashbackRewards maliciousHook = new CashbackRewards(address(flywheel), address(maliciousEscrow));
 
         bytes memory hookData = abi.encode(owner, manager, "https://api.example.com/malicious", 0);
 
@@ -436,9 +436,9 @@ contract BuyerRewardsSecurityTest is Test {
             salt: 12352
         });
 
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
         bytes memory rewardData = abi.encode(paymentRewards);
 
         // Malicious escrow always returns true for payment collected
@@ -479,9 +479,9 @@ contract BuyerRewardsSecurityTest is Test {
         );
 
         // Attempt to drain entire campaign balance
-        BuyerRewards.PaymentReward[] memory paymentRewards = new BuyerRewards.PaymentReward[](1);
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] =
-            BuyerRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE)});
+            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE)});
         bytes memory hookData = abi.encode(paymentRewards);
 
         vm.prank(manager);

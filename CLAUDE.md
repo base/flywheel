@@ -151,7 +151,7 @@ import {MyHelper} from './MyHelper.sol';
 
 - **Hook-Specific Tests (`HookName.t.sol`)**:
 
-  - Hook-specific business logic (e.g., payment verification in BuyerRewards, attribution in AdConversion)
+  - Hook-specific business logic (e.g., payment verification in CashbackRewards, attribution in AdConversion)
   - Hook-specific access control and authorization
   - Hook-specific data validation and edge cases
   - Hook-specific event emissions and state changes
