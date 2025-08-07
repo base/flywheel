@@ -231,19 +231,23 @@ contract BuyerRewards is SimpleRewards {
         if (!hasCollectedPayment) revert PaymentNotCollected();
 
         // Check max reward percentage if configured
-        _validateMaxRewardPercentage(campaign, paymentReward, operation, capturableAmount, refundableAmount);
+        _validateMaxRewardPercentage(
+            campaign, paymentReward, paymentInfoHash, operation, capturableAmount, refundableAmount
+        );
     }
 
     /// @dev Validates that the reward amount doesn't exceed the maximum configured percentage
     ///
     /// @param campaign The campaign address
     /// @param paymentReward The payment reward to validate
+    /// @param paymentInfoHash The payment info hash
     /// @param operation The type of operation being performed
     /// @param capturableAmount The capturable amount from escrow
     /// @param refundableAmount The refundable amount from escrow
     function _validateMaxRewardPercentage(
         address campaign,
         PaymentReward memory paymentReward,
+        bytes32 paymentInfoHash,
         RewardOperation operation,
         uint120 capturableAmount,
         uint120 refundableAmount
@@ -256,21 +260,25 @@ contract BuyerRewards is SimpleRewards {
 
         // Determine the base amount for percentage calculation based on operation
         uint120 baseAmount;
+        uint120 cumulativeRewardAmount;
         if (operation == RewardOperation.ALLOCATE) {
             // For allocation, use total payment amount (capturable + refundable)
             baseAmount = capturableAmount + refundableAmount;
+            cumulativeRewardAmount =
+                rewards[campaign][paymentInfoHash].allocated + rewards[campaign][paymentInfoHash].distributed;
         } else {
             // For reward/distribute, use only capturable amount
             baseAmount = capturableAmount;
+            cumulativeRewardAmount = rewards[campaign][paymentInfoHash].distributed;
         }
 
         // Use cross-multiplication to avoid precision loss from division
         // Instead of: payoutAmount <= (baseAmount * maxPercentage) / 10000
         // We check: payoutAmount * 10000 <= baseAmount * maxPercentage
-        uint256 scaledPayoutAmount = uint256(paymentReward.payoutAmount) * 10000;
+        uint256 scaledNewCumulativeRewardAmount = uint256(paymentReward.payoutAmount + cumulativeRewardAmount) * 10000;
         uint256 scaledMaxAllowed = uint256(baseAmount) * uint256(maxPercentage);
 
-        if (scaledPayoutAmount > scaledMaxAllowed) {
+        if (scaledNewCumulativeRewardAmount > scaledMaxAllowed) {
             // Calculate the actual max allowed amount for error reporting
             uint120 maxAllowedAmount = uint120((uint256(baseAmount) * uint256(maxPercentage)) / 10000);
             revert RewardExceedsMaxPercentage(paymentReward.payoutAmount, maxAllowedAmount);
