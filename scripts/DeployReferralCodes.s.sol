@@ -26,6 +26,8 @@ contract DeployReferralCodes is Script {
         // Deploy the proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
 
+        PseudoRandomRegistrar registrar = new PseudoRandomRegistrar(address(proxy));
+
         console.log("ReferralCodes implementation deployed at:", address(implementation));
         console.log("ReferralCodes proxy deployed at:", address(proxy));
         console.log("Owner:", owner);

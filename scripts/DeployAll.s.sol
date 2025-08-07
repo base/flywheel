@@ -22,8 +22,8 @@ contract DeployAll is Script {
     }
 
     function run() external {
-        address owner = 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff;
-        address signerAddress = 0x0000000000000000000000000000000000000000;
+        address owner = 0x0BFc799dF7e440b7C88cC2454f12C58f8a29D986;
+        address signerAddress = 0x7116F87D6ff2ECa5e3b2D5C5224fc457978194B2;
         string memory uriPrefix = "https://flywheel.com/";
         run(owner, signerAddress, uriPrefix);
     }
