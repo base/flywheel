@@ -154,12 +154,10 @@ contract BuyerRewards is SimpleRewards {
             // Basic validation (payment collected, token match) - skip percentage validation for deallocate
             bytes32 paymentInfoHash = _validatePaymentReward(paymentReward, campaign, token, RewardOperation.DEALLOCATE);
 
-            // Determine correct deallocation amount (special case of 0 means deallocate all)
+            // Determine correct deallocation amount (special case of max uint120 means deallocate all allocated)
             uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
             uint120 payoutAmount = paymentReward.payoutAmount;
-            if (payoutAmount == 0) {
-                payoutAmount = allocated;
-            }
+            if (payoutAmount == type(uint120).max) payoutAmount = allocated;
 
             payouts[i] = Flywheel.Payout({
                 recipient: paymentReward.paymentInfo.payer,
@@ -216,10 +214,8 @@ contract BuyerRewards is SimpleRewards {
         address token,
         RewardOperation operation
     ) internal view returns (bytes32 paymentInfoHash) {
-        // Check payout amount non-zero (except for deallocate which can be 0 to deallocate all)
-        if (paymentReward.payoutAmount == 0 && operation != RewardOperation.DEALLOCATE) {
-            revert ZeroPayoutAmount();
-        }
+        // Check payout amount non-zero
+        if (paymentReward.payoutAmount == 0) revert ZeroPayoutAmount();
 
         // Check the token matches the payment token
         if (paymentReward.paymentInfo.token != token) revert TokenMismatch();
@@ -230,33 +226,13 @@ contract BuyerRewards is SimpleRewards {
             escrow.paymentState(paymentInfoHash);
         if (!hasCollectedPayment) revert PaymentNotCollected();
 
-        // Check max reward percentage if configured
-        _validateMaxRewardPercentage(
-            campaign, paymentReward, paymentInfoHash, operation, capturableAmount, refundableAmount
-        );
-    }
+        // Check reward operation doesn't violate max reward percentage if configured
 
-    /// @dev Validates that the reward amount doesn't exceed the maximum configured percentage
-    ///
-    /// @param campaign The campaign address
-    /// @param paymentReward The payment reward to validate
-    /// @param paymentInfoHash The payment info hash
-    /// @param operation The type of operation being performed
-    /// @param capturableAmount The capturable amount from escrow
-    /// @param refundableAmount The refundable amount from escrow
-    function _validateMaxRewardPercentage(
-        address campaign,
-        PaymentReward memory paymentReward,
-        bytes32 paymentInfoHash,
-        RewardOperation operation,
-        uint120 capturableAmount,
-        uint120 refundableAmount
-    ) internal view {
         // Skip percentage validation for deallocate operations
-        if (operation == RewardOperation.DEALLOCATE) return;
+        if (operation == RewardOperation.DEALLOCATE) return paymentInfoHash;
 
         uint16 maxPercentage = maxRewardPercentage[campaign];
-        if (maxPercentage == 0) return; // No limit configured
+        if (maxPercentage == 0) return paymentInfoHash; // No limit configured
 
         // Determine the base amount for percentage calculation based on operation
         uint120 baseAmount;
