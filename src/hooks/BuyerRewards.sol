@@ -268,7 +268,7 @@ contract BuyerRewards is SimpleRewards {
                 rewards[campaign][paymentInfoHash].allocated + rewards[campaign][paymentInfoHash].distributed;
         } else {
             // For reward/distribute, use only capturable amount
-            baseAmount = capturableAmount;
+            baseAmount = refundableAmount;
             cumulativeRewardAmount = rewards[campaign][paymentInfoHash].distributed;
         }
 
