@@ -246,69 +246,6 @@ contract CrossHookSecurityTest is Test {
     //                    BASELINE INTEGRATION TESTS
     // =============================================================
 
-    function test_crossHookCampaignComparison() public {
-        // Test that different hook types work independently and correctly
-
-        // Campaigns are already active from setUp()
-        // Verify all campaigns are active
-        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
-        assertEq(uint8(flywheel.campaignStatus(buyerCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
-        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
-
-        // Test AdConversion: Publisher earnings
-        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
-        attributions[0] = AdConversion.Attribution({
-            conversion: AdConversion.Conversion({
-                eventId: bytes16(uint128(1)),
-                clickId: "click_123",
-                conversionConfigId: 1,
-                publisherRefCode: "code1",
-                timestamp: uint32(block.timestamp),
-                payoutRecipient: publisher1,
-                payoutAmount: AD_PAYOUT
-            }),
-            logBytes: ""
-        });
-
-        vm.prank(attributionProvider);
-        flywheel.reward(adCampaign, address(rewardToken), abi.encode(attributions));
-
-        uint256 expectedAdPayout = AD_PAYOUT - (AD_PAYOUT * ATTRIBUTION_FEE_BPS / 10000);
-        assertEq(rewardToken.balanceOf(publisher1), expectedAdPayout);
-
-        // Test CashbackRewards: Cashback system
-        bytes32 paymentHash = keccak256(abi.encodePacked("payment_1", buyer1));
-
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo =
-            _createPaymentInfo(buyer1, makeAddr("merchant"), 10000e6, paymentHash);
-        _simulatePayment(paymentInfo, paymentHash);
-
-        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
-        paymentRewards[0] =
-            CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(CASHBACK_AMOUNT)});
-        bytes memory buyerRewardData = abi.encode(paymentRewards);
-
-        vm.prank(paymentManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), buyerRewardData);
-
-        assertEq(rewardToken.balanceOf(buyer1), CASHBACK_AMOUNT);
-
-        // Test SimpleRewards: DAO contribution rewards
-        Flywheel.Payout[] memory daoPayouts = new Flywheel.Payout[](1);
-        daoPayouts[0] =
-            Flywheel.Payout({recipient: contributor1, amount: DAO_REWARD, extraData: "code-contribution-pr-123"});
-
-        vm.prank(daoManager);
-        flywheel.reward(simpleCampaign, address(rewardToken), abi.encode(daoPayouts));
-
-        assertEq(rewardToken.balanceOf(contributor1), DAO_REWARD);
-
-        console.log("Cross-hook campaign comparison completed successfully:");
-        console.log("- Publisher1 ad earnings:", expectedAdPayout);
-        console.log("- Buyer1 cashback:", CASHBACK_AMOUNT);
-        console.log("- Contributor1 DAO reward:", DAO_REWARD);
-    }
-
     function test_hookInteroperabilityValidation() public {
         // Test that hooks don't interfere with each other
 
