@@ -1,23 +1,18 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-
-import {Flywheel} from "../../src/Flywheel.sol";
-import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
-
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 import {ERC3009PaymentCollector} from "commerce-payments/collectors/ERC3009PaymentCollector.sol";
-import {OperatorRefundCollector} from "commerce-payments/collectors/OperatorRefundCollector.sol";
 import {IERC3009} from "commerce-payments/interfaces/IERC3009.sol";
-
 import {MockERC3009Token} from "../../lib/commerce-payments/test/mocks/MockERC3009Token.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {OperatorRefundCollector} from "commerce-payments/collectors/OperatorRefundCollector.sol";
+import {Test} from "forge-std/Test.sol";
+
+import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
 
 contract CashbackRewardsBase is Test {
-    uint16 internal constant FEE_BPS = 0; // No fees for simplicity
-
-    // Test bounds constants - designed for maximum flexibility and realism
+    // Test bounds constants when necessary for fuzzing
     uint120 internal constant MIN_PAYMENT_AMOUNT = 1e4; // 0.01 USDC
     uint120 internal constant MAX_PAYMENT_AMOUNT = type(uint120).max; // Maximum possible payment in escrow system
     uint120 internal constant MIN_REWARD_AMOUNT = 1; // 1 wei (minimum non-zero)
@@ -41,6 +36,8 @@ contract CashbackRewardsBase is Test {
     uint256 internal constant BUYER_PK = uint256(keccak256("buyer"));
     uint256 internal constant RECEIVER_PK = uint256(keccak256("receiver"));
 
+    uint16 internal constant FEE_BPS = 0; // No payment fees
+
     bytes32 constant _RECEIVE_WITH_AUTHORIZATION_TYPEHASH =
         0xd099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8;
 
@@ -58,8 +55,8 @@ contract CashbackRewardsBase is Test {
     address public operator;
     address public buyer;
     address public receiver;
-    address public cashbackCampaign;
-    address public restrictedCampaign; // Campaign with max reward percentage limit
+    address public unlimitedCashbackCampaign;
+    address public limitedCashbackCampaign; // Campaign with max reward percentage limit
 
     string public constant CAMPAIGN_URI = "https://example.com/campaign/metadata";
 
@@ -92,48 +89,48 @@ contract CashbackRewardsBase is Test {
         vm.label(address(cashbackRewards), "CashbackRewards");
         vm.label(address(usdc), "USDC");
 
-        _createCashbackCampaign();
-        _createRestrictedCampaign();
+        _createUnlimitedCampaign();
+        _createLimitedCampaign();
 
         _setupInitialTokenBalances();
     }
 
-    function _createCashbackCampaign() internal {
+    function _createUnlimitedCampaign() internal {
         // Encode hook data: (owner, manager, uri, maxRewardBasisPoints)
         bytes memory hookData = abi.encode(owner, manager, CAMPAIGN_URI, uint16(0)); // No max reward limit
 
         // Create campaign
         vm.prank(manager);
-        cashbackCampaign = flywheel.createCampaign(
+        unlimitedCashbackCampaign = flywheel.createCampaign(
             address(cashbackRewards),
             0, // nonce
             hookData
         );
 
-        vm.label(cashbackCampaign, "CashbackCampaign");
+        vm.label(unlimitedCashbackCampaign, "CashbackCampaign");
 
         // Activate campaign
         vm.prank(manager);
-        flywheel.updateStatus(cashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(unlimitedCashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
     }
 
-    function _createRestrictedCampaign() internal {
+    function _createLimitedCampaign() internal {
         // Encode hook data: (owner, manager, uri, maxRewardBasisPoints)
         bytes memory hookData = abi.encode(owner, manager, CAMPAIGN_URI, TEST_MAX_REWARD_BASIS_POINTS); // 1% max reward
 
         // Create campaign
         vm.prank(manager);
-        restrictedCampaign = flywheel.createCampaign(
+        limitedCashbackCampaign = flywheel.createCampaign(
             address(cashbackRewards),
             0, // nonce
             hookData
         );
 
-        vm.label(restrictedCampaign, "RestrictedCampaign");
+        vm.label(limitedCashbackCampaign, "RestrictedCampaign");
 
         // Activate campaign
         vm.prank(manager);
-        flywheel.updateStatus(restrictedCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(limitedCashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
     }
 
     function _setupInitialTokenBalances() internal {
@@ -141,10 +138,10 @@ contract CashbackRewardsBase is Test {
         usdc.mint(buyer, MAX_PAYMENT_AMOUNT);
 
         // Give campaign some tokens for rewards
-        usdc.mint(cashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
+        usdc.mint(unlimitedCashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
 
-        // Give restricted campaign some tokens for rewards too
-        usdc.mint(restrictedCampaign, DEFAULT_CAMPAIGN_BALANCE);
+        // Give limited campaign some tokens for rewards too
+        usdc.mint(limitedCashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
 
         // Give operator some tokens for refunds
         usdc.mint(operator, DEFAULT_CAMPAIGN_BALANCE);
@@ -263,7 +260,7 @@ contract CashbackRewardsBase is Test {
         bytes memory hookData = createCashbackHookData(paymentInfo, rewardAmount);
 
         vm.prank(manager);
-        flywheel.reward(cashbackCampaign, address(usdc), hookData);
+        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     /// @notice Get current payment state from escrow

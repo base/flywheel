@@ -10,9 +10,9 @@ contract WithdrawTest is CashbackRewardsBase {
         withdrawAmount = bound(withdrawAmount, 1e6, DEFAULT_CAMPAIGN_BALANCE);
 
         vm.prank(owner);
-        flywheel.withdrawFunds(cashbackCampaign, address(usdc), withdrawAmount, "");
+        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), withdrawAmount, "");
 
-        uint256 finalBalance = usdc.balanceOf(cashbackCampaign);
+        uint256 finalBalance = usdc.balanceOf(unlimitedCashbackCampaign);
         assertEq(finalBalance, DEFAULT_CAMPAIGN_BALANCE - withdrawAmount);
     }
 
@@ -23,7 +23,7 @@ contract WithdrawTest is CashbackRewardsBase {
         // Anyone other than owner should not be able to withdraw
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(unauthorizedCaller);
-        flywheel.withdrawFunds(cashbackCampaign, address(usdc), withdrawAmount, "");
+        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), withdrawAmount, "");
     }
 
     function test_managerCannotWithdrawFunds(uint256 withdrawAmount) public {
@@ -32,6 +32,6 @@ contract WithdrawTest is CashbackRewardsBase {
         // Even the manager should not be able to withdraw funds (only owner can)
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(manager);
-        flywheel.withdrawFunds(cashbackCampaign, address(usdc), withdrawAmount, "");
+        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), withdrawAmount, "");
     }
 }

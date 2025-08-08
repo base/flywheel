@@ -22,11 +22,11 @@ contract DeallocateTest is CashbackRewardsBase {
 
         authorizePayment(paymentInfo);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), hookData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), hookData);
 
         vm.prank(unauthorizedCaller);
         vm.expectRevert(abi.encodeWithSelector(SimpleRewards.Unauthorized.selector));
-        flywheel.deallocate(cashbackCampaign, address(usdc), hookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnUnauthorizedPayment(uint120 paymentAmount, uint120 deallocateAmount) public {
@@ -38,7 +38,7 @@ contract DeallocateTest is CashbackRewardsBase {
 
         vm.prank(manager);
         vm.expectRevert(abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector));
-        flywheel.deallocate(cashbackCampaign, address(usdc), hookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnZeroAmount(uint120 paymentAmount) public {
@@ -51,7 +51,7 @@ contract DeallocateTest is CashbackRewardsBase {
 
         vm.expectRevert(CashbackRewards.ZeroPayoutAmount.selector);
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), hookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnWrongToken(uint120 paymentAmount, uint120 deallocateAmount, address wrongToken) public {
@@ -66,7 +66,7 @@ contract DeallocateTest is CashbackRewardsBase {
 
         vm.prank(manager);
         vm.expectRevert(abi.encodeWithSelector(CashbackRewards.TokenMismatch.selector));
-        flywheel.deallocate(cashbackCampaign, address(usdc), hookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnPaymentNotCollected(uint120 paymentAmount, uint120 deallocateAmount) public {
@@ -79,7 +79,7 @@ contract DeallocateTest is CashbackRewardsBase {
         // Don't authorize payment - this should fail before InsufficientAllocation check
         vm.expectRevert(CashbackRewards.PaymentNotCollected.selector);
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), hookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnInsufficientAllocation(uint120 paymentAmount) public {
@@ -92,14 +92,14 @@ contract DeallocateTest is CashbackRewardsBase {
         authorizePayment(paymentInfo);
         bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), allocateHookData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
 
         bytes memory deallocateHookData = createCashbackHookData(paymentInfo, excessiveDeallocate);
         vm.prank(manager);
         vm.expectRevert(
             abi.encodeWithSelector(CashbackRewards.InsufficientAllocation.selector, excessiveDeallocate, allocateAmount)
         );
-        flywheel.deallocate(cashbackCampaign, address(usdc), deallocateHookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
     }
 
     function test_successfulPartialDeallocation(uint120 paymentAmount, uint120 allocateAmount, uint120 deallocateAmount)
@@ -114,19 +114,19 @@ contract DeallocateTest is CashbackRewardsBase {
         authorizePayment(paymentInfo);
         bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), allocateHookData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
 
-        CashbackRewards.RewardState memory initialRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
-        uint256 initialCampaignBalance = usdc.balanceOf(cashbackCampaign);
+        CashbackRewards.RewardState memory initialRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
+        uint256 initialCampaignBalance = usdc.balanceOf(unlimitedCashbackCampaign);
 
         bytes memory deallocateHookData = createCashbackHookData(paymentInfo, deallocateAmount);
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), deallocateHookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
 
-        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
+        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
         assertEq(finalRewards.allocated, initialRewards.allocated - deallocateAmount);
         assertEq(finalRewards.distributed, initialRewards.distributed);
-        assertEq(usdc.balanceOf(cashbackCampaign), initialCampaignBalance);
+        assertEq(usdc.balanceOf(unlimitedCashbackCampaign), initialCampaignBalance);
     }
 
     function test_successfulFullDeallocationWithMaxValue(uint120 paymentAmount, uint120 allocateAmount) public {
@@ -138,10 +138,10 @@ contract DeallocateTest is CashbackRewardsBase {
         authorizePayment(paymentInfo);
         bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), allocateHookData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
 
-        CashbackRewards.RewardState memory initialRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
-        uint256 initialCampaignBalance = usdc.balanceOf(cashbackCampaign);
+        CashbackRewards.RewardState memory initialRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
+        uint256 initialCampaignBalance = usdc.balanceOf(unlimitedCashbackCampaign);
 
         // Special value for full deallocation
         CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
@@ -149,12 +149,12 @@ contract DeallocateTest is CashbackRewardsBase {
         bytes memory deallocateHookData = abi.encode(paymentRewards);
 
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), deallocateHookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
 
-        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
+        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
         assertEq(finalRewards.allocated, 0);
         assertEq(finalRewards.distributed, initialRewards.distributed);
-        assertEq(usdc.balanceOf(cashbackCampaign), initialCampaignBalance);
+        assertEq(usdc.balanceOf(unlimitedCashbackCampaign), initialCampaignBalance);
     }
 
     function test_deallocateZeroWhenNothingAllocated(uint120 paymentAmount) public {
@@ -169,9 +169,9 @@ contract DeallocateTest is CashbackRewardsBase {
         bytes memory deallocateHookData = abi.encode(paymentRewards);
 
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), deallocateHookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
 
-        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
+        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
         assertEq(finalRewards.allocated, 0);
         assertEq(finalRewards.distributed, 0);
     }
@@ -187,20 +187,20 @@ contract DeallocateTest is CashbackRewardsBase {
         authorizePayment(paymentInfo);
         bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), allocateHookData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
 
         bytes memory firstDeallocateData = createCashbackHookData(paymentInfo, firstDeallocate);
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), firstDeallocateData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), firstDeallocateData);
 
-        CashbackRewards.RewardState memory midRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
+        CashbackRewards.RewardState memory midRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
         assertEq(midRewards.allocated, allocateAmount - firstDeallocate);
 
         bytes memory secondDeallocateData = createCashbackHookData(paymentInfo, secondDeallocate);
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), secondDeallocateData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), secondDeallocateData);
 
-        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, cashbackCampaign);
+        CashbackRewards.RewardState memory finalRewards = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
         assertEq(finalRewards.allocated, allocateAmount - firstDeallocate - secondDeallocate);
         assertEq(finalRewards.distributed, 0);
     }
@@ -237,9 +237,9 @@ contract DeallocateTest is CashbackRewardsBase {
         bytes memory secondAllocateData = createCashbackHookData(secondPayment, secondAllocation);
 
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), firstAllocateData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), firstAllocateData);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), secondAllocateData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), secondAllocateData);
 
         // Create batch deallocation hook data
         CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](2);
@@ -248,16 +248,17 @@ contract DeallocateTest is CashbackRewardsBase {
         bytes memory batchHookData = abi.encode(paymentRewards);
 
         // Get initial states
-        CashbackRewards.RewardState memory firstRewardsBefore = getRewardsInfo(firstPayment, cashbackCampaign);
-        CashbackRewards.RewardState memory secondRewardsBefore = getRewardsInfo(secondPayment, cashbackCampaign);
+        CashbackRewards.RewardState memory firstRewardsBefore = getRewardsInfo(firstPayment, unlimitedCashbackCampaign);
+        CashbackRewards.RewardState memory secondRewardsBefore =
+            getRewardsInfo(secondPayment, unlimitedCashbackCampaign);
 
         // Execute batch deallocation
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), batchHookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), batchHookData);
 
         // Verify both deallocations were processed
-        CashbackRewards.RewardState memory firstRewardsAfter = getRewardsInfo(firstPayment, cashbackCampaign);
-        CashbackRewards.RewardState memory secondRewardsAfter = getRewardsInfo(secondPayment, cashbackCampaign);
+        CashbackRewards.RewardState memory firstRewardsAfter = getRewardsInfo(firstPayment, unlimitedCashbackCampaign);
+        CashbackRewards.RewardState memory secondRewardsAfter = getRewardsInfo(secondPayment, unlimitedCashbackCampaign);
 
         assertEq(firstRewardsAfter.allocated, firstRewardsBefore.allocated - firstDeallocate);
         assertEq(secondRewardsAfter.allocated, secondRewardsBefore.allocated - secondDeallocate);
@@ -275,16 +276,16 @@ contract DeallocateTest is CashbackRewardsBase {
         authorizePayment(paymentInfo);
         bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
         vm.prank(manager);
-        flywheel.allocate(cashbackCampaign, address(usdc), allocateHookData);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
 
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutsDeallocated(
-            cashbackCampaign, address(usdc), buyer, deallocateAmount, abi.encodePacked(paymentInfoHash)
+            unlimitedCashbackCampaign, address(usdc), buyer, deallocateAmount, abi.encodePacked(paymentInfoHash)
         );
 
         bytes memory deallocateHookData = createCashbackHookData(paymentInfo, deallocateAmount);
         vm.prank(manager);
-        flywheel.deallocate(cashbackCampaign, address(usdc), deallocateHookData);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
     }
 }
