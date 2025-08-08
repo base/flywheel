@@ -34,11 +34,14 @@ contract CashbackRewards is SimpleRewards {
         uint120 payoutAmount;
     }
 
+    /// @notice The divisor for max reward basis points (10000 = 100%)
+    uint256 public constant MAX_REWARD_BASIS_POINTS_DIVISOR = 10000;
+
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
     /// @notice Tracks an optional maximum reward percentage per campaign in basis points (10000 = 100%)
-    mapping(address campaign => uint16 maxRewardPercentage) public maxRewardPercentage;
+    mapping(address campaign => uint256 maxRewardBasisPoints) public maxRewardBasisPoints;
 
     /// @notice Tracks rewards info per campaign per payment
     mapping(address campaign => mapping(bytes32 paymentHash => RewardState rewardState)) public rewards;
@@ -82,12 +85,12 @@ contract CashbackRewards is SimpleRewards {
     /// @dev Only callable by the flywheel contract
     /// @inheritdoc CampaignHooks
     function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        (address owner, address manager, string memory uri, uint16 maxRewardPercentage_) =
+        (address owner, address manager, string memory uri, uint16 maxRewardBasisPoints_) =
             abi.decode(hookData, (address, address, string, uint16));
         owners[campaign] = owner;
         managers[campaign] = manager;
         campaignURI[campaign] = uri;
-        maxRewardPercentage[campaign] = maxRewardPercentage_;
+        maxRewardBasisPoints[campaign] = uint256(maxRewardBasisPoints_);
         emit CampaignCreated(campaign, owner, manager, uri);
     }
 
@@ -160,17 +163,15 @@ contract CashbackRewards is SimpleRewards {
             uint120 payoutAmount = paymentReward.payoutAmount;
             if (payoutAmount == type(uint120).max) payoutAmount = allocated;
 
-            payouts[i] = Flywheel.Payout({
-                recipient: paymentReward.paymentInfo.payer,
-                amount: payoutAmount,
-                extraData: abi.encodePacked(paymentInfoHash)
-            });
-
             // Check sufficient allocation
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
             // Deduct the payout amount from allocated
             rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
+
+            // Prepare the payout and assign the correct payout amount in case of max uint120
+            payouts[i] = _preparePayout(paymentReward, paymentInfoHash);
+            payouts[i].amount = payoutAmount;
         }
     }
 
@@ -232,8 +233,8 @@ contract CashbackRewards is SimpleRewards {
         // Skip percentage validation for deallocate operations
         if (operation == RewardOperation.DEALLOCATE) return paymentInfoHash;
 
-        uint16 maxPercentage = maxRewardPercentage[campaign];
-        if (maxPercentage == 0) return paymentInfoHash; // No limit configured
+        uint256 maxRewardBasisPoints = maxRewardBasisPoints[campaign];
+        if (maxRewardBasisPoints == 0) return paymentInfoHash; // No limit configured
 
         // Determine the base amount for percentage calculation based on operation
         uint120 baseAmount;
@@ -250,14 +251,16 @@ contract CashbackRewards is SimpleRewards {
         }
 
         // Use cross-multiplication to avoid precision loss from division
-        // Instead of: payoutAmount <= (baseAmount * maxPercentage) / 10000
-        // We check: payoutAmount * 10000 <= baseAmount * maxPercentage
-        uint256 scaledNewCumulativeRewardAmount = uint256(paymentReward.payoutAmount + cumulativeRewardAmount) * 10000;
-        uint256 scaledMaxAllowed = uint256(baseAmount) * uint256(maxPercentage);
+        // Instead of: payoutAmount <= (baseAmount * maxPercentage) / MAX_REWARD_BASIS_POINTS_DIVISOR
+        // We check: payoutAmount * MAX_REWARD_BASIS_POINTS_DIVISOR <= baseAmount * maxPercentage
+        uint256 scaledNewCumulativeRewardAmount =
+            uint256(paymentReward.payoutAmount + cumulativeRewardAmount) * MAX_REWARD_BASIS_POINTS_DIVISOR;
+        uint256 scaledMaxAllowed = uint256(baseAmount) * uint256(maxRewardBasisPoints);
 
         if (scaledNewCumulativeRewardAmount > scaledMaxAllowed) {
             // Calculate the actual max allowed amount for error reporting
-            uint120 maxAllowedAmount = uint120((uint256(baseAmount) * uint256(maxPercentage)) / 10000);
+            uint120 maxAllowedAmount =
+                uint120((uint256(baseAmount) * uint256(maxRewardBasisPoints)) / MAX_REWARD_BASIS_POINTS_DIVISOR);
             revert RewardExceedsMaxPercentage(paymentReward.payoutAmount, maxAllowedAmount);
         }
     }
