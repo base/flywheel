@@ -29,10 +29,10 @@ contract CashbackRewardsBase is Test {
 
     // Percentage validation constants
     uint16 internal constant TEST_MAX_REWARD_BASIS_POINTS = 100; // 1% for restricted campaigns
-    uint16 internal constant MAX_BASIS_POINTS = 10000; // 100%
+    uint16 internal constant MAX_REWARD_BASIS_POINTS_DIVISOR = 10000; // 100%
 
     // Allocation bounds for multi-step workflows
-    uint120 internal constant MIN_ALLOCATION_AMOUNT = 100e6; // 100 USDC
+    uint120 internal constant MIN_ALLOCATION_AMOUNT = 1e4; // 0.01 USDC
     uint120 internal constant MAX_ALLOCATION_AMOUNT = DEFAULT_CAMPAIGN_BALANCE; // Bound by campaign balance
 
     uint256 internal constant OWNER_PK = uint256(keccak256("owner"));

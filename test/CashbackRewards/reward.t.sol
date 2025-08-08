@@ -89,7 +89,7 @@ contract RewardTest is CashbackRewardsBase {
 
         chargePayment(paymentInfo);
 
-        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_BASIS_POINTS; // 10 USDC (1%)
+        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_REWARD_BASIS_POINTS_DIVISOR; // 10 USDC (1%)
         vm.expectRevert(
             abi.encodeWithSelector(
                 CashbackRewards.RewardExceedsMaxPercentage.selector, excessiveReward, maxAllowedAmount
@@ -121,8 +121,9 @@ contract RewardTest is CashbackRewardsBase {
 
     function test_successfulRewardWithinMaxPercentage(uint120 paymentAmount, uint120 rewardAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
-        uint120 maxValidReward =
-            uint120((uint256(paymentAmount) * uint256(TEST_MAX_REWARD_BASIS_POINTS)) / uint256(MAX_BASIS_POINTS));
+        uint120 maxValidReward = uint120(
+            (uint256(paymentAmount) * uint256(TEST_MAX_REWARD_BASIS_POINTS)) / uint256(MAX_REWARD_BASIS_POINTS_DIVISOR)
+        );
         rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, maxValidReward));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
@@ -229,7 +230,7 @@ contract RewardTest is CashbackRewardsBase {
         vm.prank(manager);
         flywheel.reward(restrictedCampaign, address(usdc), secondRewardHookData);
 
-        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_BASIS_POINTS;
+        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_REWARD_BASIS_POINTS_DIVISOR;
 
         bytes memory thirdRewardHookData = createCashbackHookData(paymentInfo, thirdReward);
         vm.expectRevert(

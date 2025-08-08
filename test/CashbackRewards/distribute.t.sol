@@ -105,8 +105,9 @@ contract DistributeTest is CashbackRewardsBase {
 
     function test_successfulDistributeWithinMaxPercentage(uint120 paymentAmount, uint120 distributeAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
-        uint120 maxValidDistribute =
-            uint120((uint256(paymentAmount) * uint256(TEST_MAX_REWARD_BASIS_POINTS)) / uint256(MAX_BASIS_POINTS));
+        uint120 maxValidDistribute = uint120(
+            (uint256(paymentAmount) * uint256(TEST_MAX_REWARD_BASIS_POINTS)) / uint256(MAX_REWARD_BASIS_POINTS_DIVISOR)
+        );
         distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, maxValidDistribute));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);

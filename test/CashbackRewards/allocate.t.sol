@@ -71,7 +71,7 @@ contract AllocateTest is CashbackRewardsBase {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, 1000000e6)); // Max 1M USDC to avoid overflow
 
         // Calculate max allowed amount (1% of payment)
-        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_BASIS_POINTS;
+        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_REWARD_BASIS_POINTS_DIVISOR;
 
         // Skip test if maxAllowedAmount would be 0 (payment too small)
         vm.assume(maxAllowedAmount > 0);
