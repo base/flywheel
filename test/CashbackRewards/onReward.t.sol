@@ -7,7 +7,7 @@ import {Flywheel} from "../../src/Flywheel.sol";
 import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 
-contract RewardTest is CashbackRewardsBase {
+contract OnRewardTest is CashbackRewardsBase {
     function test_revertsOnUnauthorizedCaller(uint120 paymentAmount, uint120 rewardAmount, address unauthorizedCaller)
         public
     {

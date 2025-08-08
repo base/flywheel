@@ -5,7 +5,7 @@ import {CashbackRewardsBase} from "./CashbackRewardsBase.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 
-contract CreateCampaignTest is CashbackRewardsBase {
+contract OnCreateCampaignTest is CashbackRewardsBase {
     function test_createCampaignWithZeroMaxReward(
         address testOwner,
         address testManager,

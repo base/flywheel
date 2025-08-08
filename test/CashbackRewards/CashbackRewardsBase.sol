@@ -95,58 +95,6 @@ contract CashbackRewardsBase is Test {
         _setupInitialTokenBalances();
     }
 
-    function _createUnlimitedCampaign() internal {
-        // Encode hook data: (owner, manager, uri, maxRewardBasisPoints)
-        bytes memory hookData = abi.encode(owner, manager, CAMPAIGN_URI, uint16(0)); // No max reward limit
-
-        // Create campaign
-        vm.prank(manager);
-        unlimitedCashbackCampaign = flywheel.createCampaign(
-            address(cashbackRewards),
-            0, // nonce
-            hookData
-        );
-
-        vm.label(unlimitedCashbackCampaign, "CashbackCampaign");
-
-        // Activate campaign
-        vm.prank(manager);
-        flywheel.updateStatus(unlimitedCashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-    }
-
-    function _createLimitedCampaign() internal {
-        // Encode hook data: (owner, manager, uri, maxRewardBasisPoints)
-        bytes memory hookData = abi.encode(owner, manager, CAMPAIGN_URI, TEST_MAX_REWARD_BASIS_POINTS); // 1% max reward
-
-        // Create campaign
-        vm.prank(manager);
-        limitedCashbackCampaign = flywheel.createCampaign(
-            address(cashbackRewards),
-            0, // nonce
-            hookData
-        );
-
-        vm.label(limitedCashbackCampaign, "RestrictedCampaign");
-
-        // Activate campaign
-        vm.prank(manager);
-        flywheel.updateStatus(limitedCashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-    }
-
-    function _setupInitialTokenBalances() internal {
-        // Give buyer tokens for payments (generous amount for comprehensive testing)
-        usdc.mint(buyer, MAX_PAYMENT_AMOUNT);
-
-        // Give campaign some tokens for rewards
-        usdc.mint(unlimitedCashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
-
-        // Give limited campaign some tokens for rewards too
-        usdc.mint(limitedCashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
-
-        // Give operator some tokens for refunds
-        usdc.mint(operator, DEFAULT_CAMPAIGN_BALANCE);
-    }
-
     /// @notice Create a standard PaymentInfo struct for testing
     function createPaymentInfo(address payer, uint120 maxAmount)
         public
@@ -211,30 +159,7 @@ contract CashbackRewardsBase is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    /// @notice Get ERC3009 digest for signing
-    function _getERC3009Digest(
-        address token,
-        address from,
-        address to,
-        uint256 value,
-        uint256 validAfter,
-        uint256 validBefore,
-        bytes32 nonce
-    ) internal view returns (bytes32) {
-        bytes32 structHash =
-            keccak256(abi.encode(_RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce));
-        return keccak256(abi.encodePacked("\x19\x01", IERC3009(token).DOMAIN_SEPARATOR(), structHash));
-    }
-
-    /// @notice Get payer-agnostic hash for ERC3009 nonce
-    function _getPayerAgnosticHash(AuthCaptureEscrow.PaymentInfo memory paymentInfo) internal view returns (bytes32) {
-        address originalPayer = paymentInfo.payer;
-        paymentInfo.payer = address(0);
-        bytes32 hash = escrow.getHash(paymentInfo);
-        paymentInfo.payer = originalPayer;
-        return hash;
-    }
-
+    /// @notice Authorize a payment through the escrow
     function authorizePayment(AuthCaptureEscrow.PaymentInfo memory paymentInfo)
         public
         returns (bytes32 paymentInfoHash)
@@ -247,6 +172,7 @@ contract CashbackRewardsBase is Test {
         return escrow.getHash(paymentInfo);
     }
 
+    /// @notice Charge a payment through the escrow
     function chargePayment(AuthCaptureEscrow.PaymentInfo memory paymentInfo) public returns (bytes32 paymentInfoHash) {
         bytes memory signature = signERC3009Payment(paymentInfo, BUYER_PK);
 
@@ -254,13 +180,6 @@ contract CashbackRewardsBase is Test {
         escrow.charge(paymentInfo, paymentInfo.maxAmount, address(paymentCollector), signature, FEE_BPS, address(0));
 
         return escrow.getHash(paymentInfo);
-    }
-
-    function giveCashbackReward(AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint120 rewardAmount) public {
-        bytes memory hookData = createCashbackHookData(paymentInfo, rewardAmount);
-
-        vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     /// @notice Get current payment state from escrow
@@ -288,6 +207,85 @@ contract CashbackRewardsBase is Test {
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         (uint120 allocated, uint120 distributed) = cashbackRewards.rewards(campaign, paymentInfoHash);
         return CashbackRewards.RewardState({allocated: allocated, distributed: distributed});
+    }
+
+    /// @notice Create an unlimited cashback campaign (no max reward basis points)
+    function _createUnlimitedCampaign() internal {
+        // Encode hook data: (owner, manager, uri, maxRewardBasisPoints)
+        bytes memory hookData = abi.encode(owner, manager, CAMPAIGN_URI, uint16(0)); // No max reward limit
+
+        // Create campaign
+        vm.prank(manager);
+        unlimitedCashbackCampaign = flywheel.createCampaign(
+            address(cashbackRewards),
+            0, // nonce
+            hookData
+        );
+
+        vm.label(unlimitedCashbackCampaign, "CashbackCampaign");
+
+        // Activate campaign
+        vm.prank(manager);
+        flywheel.updateStatus(unlimitedCashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    /// @notice Create a limited cashback campaign (1% max reward basis points)
+    function _createLimitedCampaign() internal {
+        // Encode hook data: (owner, manager, uri, maxRewardBasisPoints)
+        bytes memory hookData = abi.encode(owner, manager, CAMPAIGN_URI, TEST_MAX_REWARD_BASIS_POINTS); // 1% max reward
+
+        // Create campaign
+        vm.prank(manager);
+        limitedCashbackCampaign = flywheel.createCampaign(
+            address(cashbackRewards),
+            0, // nonce
+            hookData
+        );
+
+        vm.label(limitedCashbackCampaign, "RestrictedCampaign");
+
+        // Activate campaign
+        vm.prank(manager);
+        flywheel.updateStatus(limitedCashbackCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    /// @notice Setup initial token balances for the campaigns
+    function _setupInitialTokenBalances() internal {
+        // Give buyer tokens for payments (generous amount for comprehensive testing)
+        usdc.mint(buyer, MAX_PAYMENT_AMOUNT);
+
+        // Give campaign some tokens for rewards
+        usdc.mint(unlimitedCashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
+
+        // Give limited campaign some tokens for rewards too
+        usdc.mint(limitedCashbackCampaign, DEFAULT_CAMPAIGN_BALANCE);
+
+        // Give operator some tokens for refunds
+        usdc.mint(operator, DEFAULT_CAMPAIGN_BALANCE);
+    }
+
+    /// @notice Get ERC3009 digest for signing
+    function _getERC3009Digest(
+        address token,
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce
+    ) internal view returns (bytes32) {
+        bytes32 structHash =
+            keccak256(abi.encode(_RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce));
+        return keccak256(abi.encodePacked("\x19\x01", IERC3009(token).DOMAIN_SEPARATOR(), structHash));
+    }
+
+    /// @notice Get payer-agnostic hash for ERC3009 nonce
+    function _getPayerAgnosticHash(AuthCaptureEscrow.PaymentInfo memory paymentInfo) internal view returns (bytes32) {
+        address originalPayer = paymentInfo.payer;
+        paymentInfo.payer = address(0);
+        bytes32 hash = escrow.getHash(paymentInfo);
+        paymentInfo.payer = originalPayer;
+        return hash;
     }
 
     /// @notice Helper to get Multicall3 bytecode

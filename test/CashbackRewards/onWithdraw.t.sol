@@ -5,7 +5,7 @@ import {CashbackRewardsBase} from "./CashbackRewardsBase.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 
-contract WithdrawTest is CashbackRewardsBase {
+contract OnWithdrawTest is CashbackRewardsBase {
     function test_ownerCanWithdrawFunds(uint256 withdrawAmount) public {
         withdrawAmount = bound(withdrawAmount, 1e6, DEFAULT_CAMPAIGN_BALANCE);
 
