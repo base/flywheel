@@ -233,8 +233,8 @@ contract CashbackRewards is SimpleRewards {
         // Skip percentage validation for deallocate operations
         if (operation == RewardOperation.DEALLOCATE) return paymentInfoHash;
 
-        uint256 maxRewardBasisPoints = maxRewardBasisPoints[campaign];
-        if (maxRewardBasisPoints == 0) return paymentInfoHash; // No limit configured
+        uint256 maxRewardBps = maxRewardBasisPoints[campaign];
+        if (maxRewardBps == 0) return paymentInfoHash; // No limit configured
 
         // Determine the base amount for percentage calculation based on operation
         uint120 baseAmount;
@@ -245,7 +245,7 @@ contract CashbackRewards is SimpleRewards {
             cumulativeRewardAmount =
                 rewards[campaign][paymentInfoHash].allocated + rewards[campaign][paymentInfoHash].distributed;
         } else {
-            // For reward/distribute, use only capturable amount
+            // For reward/distribute, use only refundable amount
             baseAmount = refundableAmount;
             cumulativeRewardAmount = rewards[campaign][paymentInfoHash].distributed;
         }
@@ -255,12 +255,12 @@ contract CashbackRewards is SimpleRewards {
         // We check: payoutAmount * MAX_REWARD_BASIS_POINTS_DIVISOR <= baseAmount * maxPercentage
         uint256 scaledNewCumulativeRewardAmount =
             uint256(paymentReward.payoutAmount + cumulativeRewardAmount) * MAX_REWARD_BASIS_POINTS_DIVISOR;
-        uint256 scaledMaxAllowed = uint256(baseAmount) * uint256(maxRewardBasisPoints);
+        uint256 scaledMaxAllowed = uint256(baseAmount) * uint256(maxRewardBps);
 
         if (scaledNewCumulativeRewardAmount > scaledMaxAllowed) {
             // Calculate the actual max allowed amount for error reporting
             uint120 maxAllowedAmount =
-                uint120((uint256(baseAmount) * uint256(maxRewardBasisPoints)) / MAX_REWARD_BASIS_POINTS_DIVISOR);
+                uint120((uint256(baseAmount) * uint256(maxRewardBps)) / MAX_REWARD_BASIS_POINTS_DIVISOR);
             revert RewardExceedsMaxPercentage(paymentReward.payoutAmount, maxAllowedAmount);
         }
     }

@@ -666,7 +666,7 @@ contract AdConversionTest is PublisherTestSetup {
             attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
         );
 
-        address restrictedCampaign = flywheel.createCampaign(address(hook), 5, hookData);
+        address limitedCashbackCampaign = flywheel.createCampaign(address(hook), 5, hookData);
 
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
         attributions[0] = AdConversion.Attribution({
@@ -686,7 +686,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.expectRevert(AdConversion.PublisherNotAllowed.selector);
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, restrictedCampaign, address(token), rewardData);
+        hook.onReward(attributionProvider, limitedCashbackCampaign, address(token), rewardData);
     }
 
     function test_onReward_revert_publisherNotRegistered() public {
