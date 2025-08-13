@@ -76,7 +76,8 @@ contract OnAllocateTest is CashbackRewardsBase {
         // Skip test if maxAllowedAmount would be 0 (payment too small)
         vm.assume(maxAllowedAmount > 0);
 
-        uint120 excessiveAllocation = maxAllowedAmount + 1; // Just over the limit
+        uint120 excessRewardAmount = 1;
+        uint120 excessiveAllocation = maxAllowedAmount + excessRewardAmount; // Just over the limit
 
         // Fund the restricted campaign for the test
         usdc.mint(manager, excessiveAllocation);
@@ -84,13 +85,17 @@ contract OnAllocateTest is CashbackRewardsBase {
         usdc.transfer(limitedCashbackCampaign, excessiveAllocation);
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         bytes memory hookData = createCashbackHookData(paymentInfo, excessiveAllocation);
 
         authorizePayment(paymentInfo);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                CashbackRewards.RewardExceedsMaxPercentage.selector, excessiveAllocation, maxAllowedAmount
+                CashbackRewards.RewardExceedsMaxPercentage.selector,
+                paymentInfoHash,
+                maxAllowedAmount,
+                excessRewardAmount
             )
         );
         vm.prank(manager);

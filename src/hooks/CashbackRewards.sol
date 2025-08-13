@@ -18,6 +18,14 @@ import {SimpleRewards} from "./SimpleRewards.sol";
 ///
 /// @author Coinbase
 contract CashbackRewards is SimpleRewards {
+    /// @notice Operation types for reward validation
+    enum RewardOperation {
+        REWARD,
+        ALLOCATE,
+        DEALLOCATE,
+        DISTRIBUTE
+    }
+
     /// @notice Tracks rewards info per payment per campaign
     struct RewardState {
         /// @dev Amount of reward allocated for this payment
@@ -34,13 +42,13 @@ contract CashbackRewards is SimpleRewards {
         uint120 payoutAmount;
     }
 
-    /// @notice The divisor for max reward basis points (10000 = 100%)
-    uint256 public constant MAX_REWARD_BASIS_POINTS_DIVISOR = 10000;
+    /// @notice The divisor for max reward basis points (10_000 = 100%)
+    uint256 public constant BASIS_POINTS_100_PERCENT = 10_000;
 
     /// @notice The escrow contract to track payment states and calculate payment hash
     AuthCaptureEscrow public immutable escrow;
 
-    /// @notice Tracks an optional maximum reward percentage per campaign in basis points (10000 = 100%)
+    /// @notice Tracks an optional maximum reward percentage per campaign in basis points (10_000 = 100%)
     mapping(address campaign => uint256 maxRewardBasisPoints) public maxRewardBasisPoints;
 
     /// @notice Tracks rewards info per campaign per payment
@@ -59,15 +67,9 @@ contract CashbackRewards is SimpleRewards {
     error PaymentNotCollected();
 
     /// @notice Thrown when the reward amount exceeds the maximum allowed percentage
-    error RewardExceedsMaxPercentage(uint120 payoutAmount, uint120 maxAllowedAmount);
-
-    /// @notice Operation types for reward validation
-    enum RewardOperation {
-        REWARD,
-        ALLOCATE,
-        DISTRIBUTE,
-        DEALLOCATE
-    }
+    error RewardExceedsMaxPercentage(
+        bytes32 paymentInfoHash, uint120 maxAllowedRewardAmount, uint120 excessRewardAmount
+    );
 
     /// @notice Constructor
     ///
@@ -77,12 +79,6 @@ contract CashbackRewards is SimpleRewards {
         escrow = AuthCaptureEscrow(escrow_);
     }
 
-    /// @notice Creates a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
     /// @inheritdoc CampaignHooks
     function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
         (address owner, address manager, string memory uri, uint16 maxRewardBasisPoints_) =
@@ -222,46 +218,36 @@ contract CashbackRewards is SimpleRewards {
         // Check the token matches the payment token
         if (paymentReward.paymentInfo.token != token) revert TokenMismatch();
 
-        // Get payment state - single call for efficiency
+        // Check payment has been collected
         paymentInfoHash = escrow.getHash(paymentReward.paymentInfo);
         (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
             escrow.paymentState(paymentInfoHash);
         if (!hasCollectedPayment) revert PaymentNotCollected();
 
-        // Check reward operation doesn't violate max reward percentage if configured
-
-        // Skip percentage validation for deallocate operations
+        // Early return if deallocating, skips percentage validation
         if (operation == RewardOperation.DEALLOCATE) return paymentInfoHash;
 
+        // Early return if no max reward percentage is configured
         uint256 maxRewardBps = maxRewardBasisPoints[campaign];
-        if (maxRewardBps == 0) return paymentInfoHash; // No limit configured
+        if (maxRewardBps == 0) return paymentInfoHash;
 
-        // Determine the base amount for percentage calculation based on operation
-        uint120 baseAmount;
-        uint120 cumulativeRewardAmount;
+        // Payment amount is the captured amount that has not been refunded i.e. "refundable" amount
+        uint120 paymentAmount = refundableAmount;
+        uint120 previouslyRewardedAmount = rewards[campaign][paymentInfoHash].distributed;
+
+        // If allocating, add the pre-capture and pre-distribution amounts too to prevent allocating more than the max allowed reward for this payment
         if (operation == RewardOperation.ALLOCATE) {
-            // For allocation, use total payment amount (capturable + refundable)
-            baseAmount = capturableAmount + refundableAmount;
-            cumulativeRewardAmount =
-                rewards[campaign][paymentInfoHash].allocated + rewards[campaign][paymentInfoHash].distributed;
-        } else {
-            // For reward/distribute, use only refundable amount
-            baseAmount = refundableAmount;
-            cumulativeRewardAmount = rewards[campaign][paymentInfoHash].distributed;
+            paymentAmount += capturableAmount;
+            previouslyRewardedAmount += rewards[campaign][paymentInfoHash].allocated;
         }
 
-        // Use cross-multiplication to avoid precision loss from division
-        // Instead of: payoutAmount <= (baseAmount * maxPercentage) / MAX_REWARD_BASIS_POINTS_DIVISOR
-        // We check: payoutAmount * MAX_REWARD_BASIS_POINTS_DIVISOR <= baseAmount * maxPercentage
-        uint256 scaledNewCumulativeRewardAmount =
-            uint256(paymentReward.payoutAmount + cumulativeRewardAmount) * MAX_REWARD_BASIS_POINTS_DIVISOR;
-        uint256 scaledMaxAllowed = uint256(baseAmount) * uint256(maxRewardBps);
-
-        if (scaledNewCumulativeRewardAmount > scaledMaxAllowed) {
-            // Calculate the actual max allowed amount for error reporting
-            uint120 maxAllowedAmount =
-                uint120((uint256(baseAmount) * uint256(maxRewardBps)) / MAX_REWARD_BASIS_POINTS_DIVISOR);
-            revert RewardExceedsMaxPercentage(paymentReward.payoutAmount, maxAllowedAmount);
+        // Check total reward amount doesn't exceed the max allowed reward for this payment
+        uint120 totalRewardAmount = previouslyRewardedAmount + paymentReward.payoutAmount;
+        uint120 maxAllowedRewardAmount = uint120(paymentAmount * maxRewardBps / BASIS_POINTS_100_PERCENT);
+        if (totalRewardAmount > maxAllowedRewardAmount) {
+            revert RewardExceedsMaxPercentage(
+                paymentInfoHash, maxAllowedRewardAmount, totalRewardAmount - maxAllowedRewardAmount
+            );
         }
     }
 

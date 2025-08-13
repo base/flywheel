@@ -82,9 +82,11 @@ contract OnRewardTest is CashbackRewardsBase {
     function test_revertsOnMaxRewardPercentageExceeded() public {
         // Use hardcoded values to make the percentage test crystal clear
         uint120 paymentAmount = 1000e6; // 1000 USDC payment
-        uint120 excessiveReward = 11e6; // 11 USDC reward (1.1% > 1% limit)
+        uint120 excessRewardAmount = paymentAmount / 1000; // 0.1% of payment
+        uint120 excessiveReward = paymentAmount / 100 + excessRewardAmount; // 1.1% > 1% limit
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         bytes memory hookData = createCashbackHookData(paymentInfo, excessiveReward);
 
         chargePayment(paymentInfo);
@@ -92,7 +94,10 @@ contract OnRewardTest is CashbackRewardsBase {
         uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_REWARD_BASIS_POINTS_DIVISOR; // 10 USDC (1%)
         vm.expectRevert(
             abi.encodeWithSelector(
-                CashbackRewards.RewardExceedsMaxPercentage.selector, excessiveReward, maxAllowedAmount
+                CashbackRewards.RewardExceedsMaxPercentage.selector,
+                paymentInfoHash,
+                maxAllowedAmount,
+                excessRewardAmount
             )
         );
         vm.prank(manager);
@@ -221,6 +226,7 @@ contract OnRewardTest is CashbackRewardsBase {
         uint120 thirdReward = 1e6; // 1 USDC (0.1%) - would make total 1.1% > 1% limit
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         chargePayment(paymentInfo);
 
         bytes memory firstRewardHookData = createCashbackHookData(paymentInfo, firstReward);
@@ -235,7 +241,9 @@ contract OnRewardTest is CashbackRewardsBase {
 
         bytes memory thirdRewardHookData = createCashbackHookData(paymentInfo, thirdReward);
         vm.expectRevert(
-            abi.encodeWithSelector(CashbackRewards.RewardExceedsMaxPercentage.selector, thirdReward, maxAllowedAmount)
+            abi.encodeWithSelector(
+                CashbackRewards.RewardExceedsMaxPercentage.selector, paymentInfoHash, maxAllowedAmount, thirdReward
+            )
         );
         vm.prank(manager);
         flywheel.reward(limitedCashbackCampaign, address(usdc), thirdRewardHookData);
