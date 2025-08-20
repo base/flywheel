@@ -243,7 +243,8 @@ contract AdConversion is CampaignHooks {
 
         // Set up allowed publishers mapping if allowlist exists
         if (hasAllowlist) {
-            for (uint256 i = 0; i < allowedRefCodes.length; i++) {
+            uint256 count = allowedRefCodes.length;
+            for (uint256 i = 0; i < count; i++) {
                 allowedPublishers[campaign][allowedRefCodes[i]] = true;
                 emit PublisherAddedToAllowlist(campaign, allowedRefCodes[i]);
             }
@@ -251,7 +252,8 @@ contract AdConversion is CampaignHooks {
 
         // Store conversion configs
         conversionConfigCount[campaign] = uint8(configs.length);
-        for (uint8 i = 0; i < configs.length; i++) {
+        uint256 count = configs.length;
+        for (uint8 i = 0; i < count; i++) {
             uint8 configId = i + 1;
             // Always set isActive to true for new configs
             ConversionConfig memory activeConfig = ConversionConfig({
@@ -289,7 +291,8 @@ contract AdConversion is CampaignHooks {
         uint256 uniqueCount = 0;
 
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
-        for (uint256 i = 0; i < attributions.length; i++) {
+        uint256 count = attributions.length;
+        for (uint256 i = 0; i < count; i++) {
             // Validate publisher ref code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
             if (bytes(publisherRefCode).length != 0 && !publisherRegistry.isRegistered(publisherRefCode)) {
