@@ -603,7 +603,7 @@ contract FlywheelTest is FlywheelTestHelpers {
     //                    CAMPAIGN ADDRESS PREDICTION
     // =============================================================
 
-    function test_campaignAddressPrediction() public {
+    function test_predictCampaignAddress() public {
         // Create hook data for a new campaign
         string[] memory allowedRefs = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
@@ -614,7 +614,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
 
         // Predict the campaign address
-        address predictedAddress = flywheel.campaignAddress(address(hook), 999, hookData);
+        address predictedAddress = flywheel.predictCampaignAddress(address(hook), 999, hookData);
 
         // Create the campaign
         address actualAddress = flywheel.createCampaign(address(hook), 999, hookData);
@@ -631,12 +631,12 @@ contract FlywheelTest is FlywheelTestHelpers {
         bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days);
 
         // Same nonce, different data should produce different addresses
-        address addr1 = flywheel.campaignAddress(address(hook), 100, hookData1);
-        address addr2 = flywheel.campaignAddress(address(hook), 100, hookData2);
+        address addr1 = flywheel.predictCampaignAddress(address(hook), 100, hookData1);
+        address addr2 = flywheel.predictCampaignAddress(address(hook), 100, hookData2);
         assertTrue(addr1 != addr2, "Different hook data should produce different addresses");
 
         // Same data, different nonce should produce different addresses
-        address addr3 = flywheel.campaignAddress(address(hook), 101, hookData1);
+        address addr3 = flywheel.predictCampaignAddress(address(hook), 101, hookData1);
         assertTrue(addr1 != addr3, "Different nonce should produce different addresses");
     }
 
@@ -1343,7 +1343,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             attributionProvider, advertiser, "https://example.com/test-campaign", allowedRefs, configs, 7 days
         );
 
-        address expectedCampaign = flywheel.campaignAddress(address(hook), 999, hookData);
+        address expectedCampaign = flywheel.predictCampaignAddress(address(hook), 999, hookData);
 
         // Expect the Flywheel CampaignCreated event
         vm.expectEmit(true, false, false, true);

@@ -189,7 +189,7 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @return campaign Address of the newly created campaign
     ///
-    /// @dev Call `campaignAddress` to know the address of the campaign without deploying it
+    /// @dev Call `predictCampaignAddress` to know the address of the campaign without deploying it
     function createCampaign(address hooks, uint256 nonce, bytes calldata hookData)
         external
         nonReentrant
@@ -378,7 +378,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the campaign
-    function campaignAddress(address hooks, uint256 nonce, bytes calldata hookData)
+    function predictCampaignAddress(address hooks, uint256 nonce, bytes calldata hookData)
         external
         view
         returns (address campaign)
