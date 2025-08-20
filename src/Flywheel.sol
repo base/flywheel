@@ -216,11 +216,11 @@ contract Flywheel is ReentrancyGuardTransient {
         (payouts, fee) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
 
         _allocateFee(campaign, token, fee);
-        uint256 totalPayouts = _sumAmounts(payouts);
-        uint256 reserved = _canReserve(campaign, token, totalPayouts + fee);
+        (uint256 count, uint256 totalAmount) = _aggregatePayouts(payouts);
+        uint256 reserved = _canReserve(campaign, token, totalAmount + fee);
 
         totalReserved[campaign][token] = reserved + fee;
-        for (uint256 i = 0; i < payouts.length; i++) {
+        for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             Campaign(campaign).sendTokens(token, recipient, amount);
             emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
@@ -244,11 +244,11 @@ contract Flywheel is ReentrancyGuardTransient {
         (payouts, fee) = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, hookData);
 
         _allocateFee(campaign, token, fee);
-        uint256 totalPayouts = _sumAmounts(payouts);
-        uint256 reserved = _canReserve(campaign, token, totalPayouts + fee);
+        (uint256 count, uint256 totalAmount) = _aggregatePayouts(payouts);
+        uint256 reserved = _canReserve(campaign, token, totalAmount + fee);
 
-        totalReserved[campaign][token] = reserved + totalPayouts + fee;
-        for (uint256 i = 0; i < payouts.length; i++) {
+        totalReserved[campaign][token] = reserved + totalAmount + fee;
+        for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] += amount;
             emit PayoutAllocated(campaign, token, recipient, amount, payouts[i].extraData);
@@ -268,8 +268,9 @@ contract Flywheel is ReentrancyGuardTransient {
     {
         Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
-        totalReserved[campaign][token] -= _sumAmounts(payouts);
-        for (uint256 i = 0; i < payouts.length; i++) {
+        (uint256 count, uint256 totalAmount) = _aggregatePayouts(payouts);
+        totalReserved[campaign][token] -= totalAmount;
+        for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] -= amount;
             emit PayoutsDeallocated(campaign, token, recipient, amount, payouts[i].extraData);
@@ -293,10 +294,10 @@ contract Flywheel is ReentrancyGuardTransient {
     {
         (payouts, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
         _allocateFee(campaign, token, fee);
-        uint256 totalPayouts = _sumAmounts(payouts);
+        (uint256 count, uint256 totalAmount) = _aggregatePayouts(payouts);
 
-        totalReserved[campaign][token] = totalReserved[campaign][token] + fee - totalPayouts;
-        for (uint256 i = 0; i < payouts.length; i++) {
+        totalReserved[campaign][token] = totalReserved[campaign][token] + fee - totalAmount;
+        for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             allocations[campaign][token][recipient] -= amount;
             Campaign(campaign).sendTokens(token, recipient, amount);
@@ -439,14 +440,16 @@ contract Flywheel is ReentrancyGuardTransient {
         if (IERC20(token).balanceOf(campaign) < reserved + amount) revert InsufficientCampaignFunds();
     }
 
-    /// @notice Sums the amounts of a list of payouts
+    /// @notice Aggregates a list of payouts into a count and total amount
     ///
     /// @param payouts List of payouts
     ///
-    /// @return total Sum of the amounts of the payouts
-    function _sumAmounts(Payout[] memory payouts) internal pure returns (uint256 total) {
-        for (uint256 i = 0; i < payouts.length; i++) {
-            total += payouts[i].amount;
+    /// @return count Number of payouts
+    /// @return totalAmount Sum of the payouts' amounts
+    function _aggregatePayouts(Payout[] memory payouts) internal pure returns (uint256 count, uint256 totalAmount) {
+        count = payouts.length;
+        for (uint256 i = 0; i < count; i++) {
+            totalAmount += payouts[i].amount;
         }
     }
 
