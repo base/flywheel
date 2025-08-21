@@ -19,16 +19,16 @@ contract AdConversion is CampaignHooks {
         bool isActive;
         /// @dev Whether the conversion event is onchain
         bool isEventOnchain;
-        /// @dev URL to extra metadata for offchain events
-        string conversionMetadataUrl;
+        /// @dev URI to extra metadata for offchain events
+        string metadataURI;
     }
 
     // Input structure for creating conversion configs (without isActive)
     struct ConversionConfigInput {
         /// @dev Whether the conversion event is onchain
         bool isEventOnchain;
-        /// @dev URL to extra metadata for offchain events
-        string conversionMetadataUrl;
+        /// @dev URI to extra metadata for offchain events
+        string metadataURI;
     }
 
     /// @notice Attribution structure containing payout and conversion data
@@ -46,7 +46,7 @@ contract AdConversion is CampaignHooks {
         /// @dev Click identifier
         string clickId;
         /// @dev Configuration ID for the conversion (0 = no config/unregistered)
-        uint8 conversionConfigId;
+        uint8 configId;
         /// @dev Publisher reference code
         string publisherRefCode;
         /// @dev Timestamp of the conversion
@@ -132,9 +132,6 @@ contract AdConversion is CampaignHooks {
 
     /// @notice Emitted when a conversion config is disabled
     event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, bool isActive);
-
-    /// @notice Emitted when conversion config metadata is updated
-    event ConversionConfigMetadataUpdated(address indexed campaign, uint8 indexed configId);
 
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string refCode);
@@ -259,7 +256,7 @@ contract AdConversion is CampaignHooks {
             ConversionConfig memory activeConfig = ConversionConfig({
                 isActive: true,
                 isEventOnchain: configs[i].isEventOnchain,
-                conversionMetadataUrl: configs[i].conversionMetadataUrl
+                metadataURI: configs[i].metadataURI
             });
             conversionConfigs[campaign][configId] = activeConfig;
             emit ConversionConfigAdded(campaign, configId, activeConfig);
@@ -307,7 +304,7 @@ contract AdConversion is CampaignHooks {
             }
 
             // Validate conversion config (if configId is not 0)
-            uint8 configId = attributions[i].conversion.conversionConfigId;
+            uint8 configId = attributions[i].conversion.configId;
             bytes memory logBytes = attributions[i].logBytes;
 
             if (configId != 0) {
@@ -459,11 +456,8 @@ contract AdConversion is CampaignHooks {
 
         // Add the new config - always set isActive to true
         uint8 newConfigId = currentCount + 1;
-        ConversionConfig memory activeConfig = ConversionConfig({
-            isActive: true,
-            isEventOnchain: config.isEventOnchain,
-            conversionMetadataUrl: config.conversionMetadataUrl
-        });
+        ConversionConfig memory activeConfig =
+            ConversionConfig({isActive: true, isEventOnchain: config.isEventOnchain, metadataURI: config.metadataURI});
         conversionConfigs[campaign][newConfigId] = activeConfig;
         conversionConfigCount[campaign] = newConfigId;
 
@@ -485,26 +479,6 @@ contract AdConversion is CampaignHooks {
         conversionConfigs[campaign][configId].isActive = false;
 
         emit ConversionConfigStatusChanged(campaign, configId, false);
-    }
-
-    /// @notice Signals that conversion config metadata has been updated
-    /// @param campaign Address of the campaign
-    /// @param configId The ID of the conversion config that was updated
-    /// @dev Only advertiser or attribution provider can signal metadata updates
-    /// @dev Indexers should update their metadata cache for this conversion config
-    function updateConversionConfigMetadata(address campaign, uint8 configId) external {
-        // Check authorization - either advertiser or attribution provider
-        if (msg.sender != state[campaign].advertiser && msg.sender != state[campaign].attributionProvider) {
-            revert Unauthorized();
-        }
-
-        // Validate config exists
-        if (configId == 0 || configId > conversionConfigCount[campaign]) {
-            revert InvalidConversionConfigId();
-        }
-
-        // Emit event to signal metadata update
-        emit ConversionConfigMetadataUpdated(campaign, configId);
     }
 
     /// @notice Checks if a campaign has a publisher allowlist

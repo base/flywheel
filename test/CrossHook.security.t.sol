@@ -155,10 +155,8 @@ contract CrossHookSecurityTest is Test {
         // Create AdConversion campaign
         string[] memory allowedRefCodes = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://ad-campaign.com/metadata"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://ad-campaign.com/metadata"});
 
         bytes memory adHookData =
             abi.encode(attributionProvider, advertiser, "https://ad-campaign.com", allowedRefCodes, configs, 7 days);
@@ -590,7 +588,7 @@ contract CrossHookSecurityTest is Test {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "code1", // Use registered publisher from setUp
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1, // Set actual recipient

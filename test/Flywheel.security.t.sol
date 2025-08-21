@@ -293,7 +293,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "test_click",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: generateCode(0),
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x123),
@@ -312,7 +312,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(999999)),
                 clickId: "massive_attack",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: generateCode(0),
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0xbad),

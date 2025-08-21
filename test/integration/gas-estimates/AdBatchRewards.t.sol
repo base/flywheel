@@ -64,12 +64,9 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Create campaign with 3 conversion configs (2 onchain, 1 offchain)
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](3);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_1_URL});
-        configs[1] =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_2_URL});
-        configs[2] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_1_URL});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_2_URL});
+        configs[2] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: OFFCHAIN_CONFIG_1_URL});
 
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
@@ -110,7 +107,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
-                conversionConfigId: configId,
+                configId: configId,
                 publisherRefCode: PUBLISHER_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisherTba,
@@ -146,7 +143,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
-                conversionConfigId: configId,
+                configId: configId,
                 publisherRefCode: refCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: recipient,
@@ -254,12 +251,9 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Create a new campaign that allows all publishers (empty allowedRefCodes = allow all)
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](3);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_1_URL});
-        configs[1] =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_2_URL});
-        configs[2] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_1_URL});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_2_URL});
+        configs[2] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: OFFCHAIN_CONFIG_1_URL});
 
         bytes32[] memory allowedRefCodes = new bytes32[](0); // Empty = allow all publishers
 
@@ -287,7 +281,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 conversion: AdConversion.Conversion({
                     eventId: bytes16(uint128(i + 1)),
                     clickId: string(abi.encodePacked("click_", vm.toString(i))),
-                    conversionConfigId: configId,
+                    configId: configId,
                     publisherRefCode: refCode,
                     timestamp: uint32(block.timestamp),
                     payoutRecipient: address(0),
@@ -349,12 +343,9 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Create a new campaign that allows all publishers
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](3);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_1_URL});
-        configs[1] =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, conversionMetadataUrl: ONCHAIN_CONFIG_2_URL});
-        configs[2] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: OFFCHAIN_CONFIG_1_URL});
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_1_URL});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_2_URL});
+        configs[2] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: OFFCHAIN_CONFIG_1_URL});
 
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 

@@ -176,7 +176,7 @@ The AdConversion hook leverages referral codes for publisher attribution and val
 Conversion memory conversion = Conversion({
     eventId: "unique-event-id",
     clickId: "click-12345",
-    conversionConfigId: 1,
+    configId: 1,
     publisherRefCode: "base",        // Must exist in ReferralCodes
     timestamp: uint32(block.timestamp),
     payoutRecipient: address(0),     // Use registry lookup
@@ -242,7 +242,7 @@ bytes memory hookData = abi.encode(
    Conversion memory conversion = Conversion({
        eventId: "unique-event-id",
        clickId: "click-12345",
-       conversionConfigId: 1,
+       configId: 1,
        publisherRefCode: "publisher-123",
        timestamp: uint32(block.timestamp),
        payoutRecipient: 0x1234...5678,  // Direct payout address
@@ -260,7 +260,7 @@ bytes memory hookData = abi.encode(
    Conversion memory conversion = Conversion({
        eventId: "unique-event-id",
        clickId: "click-12345",
-       conversionConfigId: 1,
+       configId: 1,
        publisherRefCode: "publisher-123",
        timestamp: uint32(block.timestamp),
        payoutRecipient: address(0),  // Use registry lookup

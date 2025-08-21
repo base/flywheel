@@ -42,15 +42,11 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
     function _createBasicConversionConfigs() internal pure returns (AdConversion.ConversionConfigInput[] memory) {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
 
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/offchain"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
 
-        configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: "https://example.com/onchain"
-        });
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
 
         return configs;
     }
@@ -120,7 +116,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: TEST_EVENT_ID_1,
                 clickId: TEST_CLICK_ID_1,
-                conversionConfigId: 1, // Offchain config
+                configId: 1, // Offchain config
                 publisherRefCode: publisherRefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: payoutRecipient,
@@ -147,7 +143,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: TEST_EVENT_ID_2,
                 clickId: TEST_CLICK_ID_2,
-                conversionConfigId: 2, // Onchain config
+                configId: 2, // Onchain config
                 publisherRefCode: publisherRefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: payoutRecipient,
@@ -171,7 +167,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: OFAC_EVENT_ID,
                 clickId: OFAC_CLICK_ID,
-                conversionConfigId: 0, // No config - unregistered conversion
+                configId: 0, // No config - unregistered conversion
                 publisherRefCode: "", // No publisher
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: BURN_ADDRESS,
@@ -206,12 +202,6 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
         flywheel.reward(campaign, address(token), attributionData);
     }
 
-    /// @notice Updates conversion config metadata
-    function _updateConversionConfigMetadata(address campaign, uint256 configId, address caller) internal {
-        vm.prank(caller);
-        hook.updateConversionConfigMetadata(campaign, uint8(configId));
-    }
-
     /// @notice Adds publisher to campaign allowlist
     function _addPublisherToAllowlist(address campaign, string memory refCode, address caller) internal {
         vm.prank(caller);
@@ -230,7 +220,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
 
         assertEq(config.isActive, expectedIsActive);
         assertEq(config.isEventOnchain, expectedIsEventOnchain);
-        assertEq(config.conversionMetadataUrl, expectedMetadataUrl);
+        assertEq(config.metadataURI, expectedMetadataUrl);
     }
 
     /// @notice Asserts publisher is allowed in campaign

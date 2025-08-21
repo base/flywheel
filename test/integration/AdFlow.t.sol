@@ -97,11 +97,11 @@ contract AdFlowTest is PublisherTestSetup {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
         configs[0] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
-            conversionMetadataUrl: "https://campaign.com/offchain-metadata"
+            metadataURI: "https://campaign.com/offchain-metadata"
         });
         configs[1] = AdConversion.ConversionConfigInput({
             isEventOnchain: true,
-            conversionMetadataUrl: "https://campaign.com/onchain-metadata"
+            metadataURI: "https://campaign.com/onchain-metadata"
         });
 
         bytes memory hookData =
@@ -144,7 +144,7 @@ contract AdFlowTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
@@ -158,7 +158,7 @@ contract AdFlowTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(2)),
                 clickId: "click_456",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: pub2RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher2,
@@ -229,7 +229,7 @@ contract AdFlowTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "onchain_click_123",
-                conversionConfigId: 2,
+                configId: 2,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
@@ -272,7 +272,7 @@ contract AdFlowTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
@@ -306,14 +306,14 @@ contract AdFlowTest is PublisherTestSetup {
             AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: false,
-                conversionMetadataUrl: "https://campaign.com/new-config-metadata"
+                metadataURI: "https://campaign.com/new-config-metadata"
             })
         );
         adHook.addConversionConfig(
             campaign,
             AdConversion.ConversionConfigInput({
                 isEventOnchain: false,
-                conversionMetadataUrl: "https://campaign.com/new-config-metadata"
+                metadataURI: "https://campaign.com/new-config-metadata"
             })
         );
         vm.stopPrank();
@@ -322,7 +322,7 @@ contract AdFlowTest is PublisherTestSetup {
         AdConversion.ConversionConfig memory retrievedConfig = adHook.getConversionConfig(campaign, 3);
         assertEq(retrievedConfig.isActive, true);
         assertEq(retrievedConfig.isEventOnchain, false);
-        assertEq(retrievedConfig.conversionMetadataUrl, "https://campaign.com/new-config-metadata");
+        assertEq(retrievedConfig.metadataURI, "https://campaign.com/new-config-metadata");
 
         // Test disabling a conversion config
         vm.startPrank(advertiser);
@@ -342,7 +342,7 @@ contract AdFlowTest is PublisherTestSetup {
             campaign,
             AdConversion.ConversionConfigInput({
                 isEventOnchain: false,
-                conversionMetadataUrl: "https://campaign.com/unauthorized-config"
+                metadataURI: "https://campaign.com/unauthorized-config"
             })
         );
 
@@ -360,7 +360,7 @@ contract AdFlowTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_disabled_config",
-                conversionConfigId: 1, // This config was disabled
+                configId: 1, // This config was disabled
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,

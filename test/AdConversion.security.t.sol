@@ -43,7 +43,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
-        // Test reentrancy from onReward to updateConversionConfigMetadata
+        // Test cross-function reentrancy scenarios
         CrossFunctionReentrancyAttacker crossAttacker = new CrossFunctionReentrancyAttacker(address(hook), campaign);
 
         vm.expectRevert(); // Should be blocked by reentrancy guard
@@ -63,10 +63,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         vm.prank(maliciousUser);
         hook.setAttributionProviderFee(1000); // This should succeed - malicious user sets their own fee
 
-        // Test unauthorized updateConversionConfigMetadata
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        vm.prank(maliciousUser);
-        hook.updateConversionConfigMetadata(campaign, 1);
+        // Test unauthorized access (function removed - no test needed)
 
         // Test unauthorized addAllowedPublisherRefCode
         vm.expectRevert(AdConversion.Unauthorized.selector);
@@ -194,7 +191,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(type(uint128).max),
                 clickId: string(new bytes(1024)), // Very long click ID
-                conversionConfigId: type(uint8).max,
+                configId: type(uint8).max,
                 publisherRefCode: "code1",
                 timestamp: type(uint32).max,
                 payoutRecipient: address(type(uint160).max),
@@ -269,7 +266,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
                 conversion: AdConversion.Conversion({
                     eventId: bytes16(uint128(i)),
                     clickId: string(abi.encodePacked("dos_", i)),
-                    conversionConfigId: 1,
+                    configId: 1,
                     publisherRefCode: "",
                     timestamp: uint32(block.timestamp),
                     payoutRecipient: address(uint160(i + 1)),
@@ -306,8 +303,8 @@ contract ReentrancyAttacker {
     }
 
     function attack() external {
-        // This would attempt reentrancy but should fail
-        hook.updateConversionConfigMetadata(campaign, 1);
+        // Try to call disableConversionConfig without authorization (reentrancy scenario)
+        hook.disableConversionConfig(campaign, 1);
     }
 }
 
@@ -343,8 +340,8 @@ contract PrivilegeEscalationAttacker {
     }
 
     function attemptRoleImpersonation(address campaign) external {
-        // Try to impersonate attribution provider
-        hook.updateConversionConfigMetadata(campaign, 1);
+        // Try to add publisher without being advertiser
+        hook.addAllowedPublisherRefCode(campaign, "malicious_code");
     }
 }
 

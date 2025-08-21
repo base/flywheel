@@ -51,14 +51,10 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Create a campaign with conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: "https://example.com/config0"
-        });
-        configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config1"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config0"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config1"});
 
         string[] memory allowedRefCodes = new string[](0);
 
@@ -67,57 +63,6 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
-    }
-
-    function test_updateConversionConfigMetadata_asAdvertiser() public {
-        // Update as advertiser
-        vm.prank(advertiser);
-        hook.updateConversionConfigMetadata(campaign, 1);
-
-        // Verify the metadata URL hasn't changed
-        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
-        assertEq(config.conversionMetadataUrl, "https://example.com/config0");
-    }
-
-    function test_updateConversionConfigMetadata_asAttributionProvider() public {
-        // Update as attribution provider
-        vm.prank(attributionProvider);
-        hook.updateConversionConfigMetadata(campaign, 2);
-
-        // Verify the metadata URL hasn't changed
-        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 2);
-        assertEq(config.conversionMetadataUrl, "https://example.com/config1");
-    }
-
-    function test_updateConversionConfigMetadata_emitsEvent() public {
-        // Expect the event
-        vm.expectEmit(true, true, false, true);
-        emit AdConversion.ConversionConfigMetadataUpdated(campaign, 1);
-
-        // Update as advertiser
-        vm.prank(advertiser);
-        hook.updateConversionConfigMetadata(campaign, 1);
-    }
-
-    function test_updateConversionConfigMetadata_revert_unauthorized() public {
-        // Try to update as random user
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        vm.prank(randomUser);
-        hook.updateConversionConfigMetadata(campaign, 1);
-    }
-
-    function test_updateConversionConfigMetadata_revert_invalidConfigId() public {
-        // Try to update metadata for non-existent config ID (3, when we only have 2 configs)
-        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
-        vm.prank(advertiser);
-        hook.updateConversionConfigMetadata(campaign, 3);
-    }
-
-    function test_updateConversionConfigMetadata_revert_zeroConfigId() public {
-        // Try to update metadata for config ID 0 (invalid in 1-indexed system)
-        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
-        vm.prank(advertiser);
-        hook.updateConversionConfigMetadata(campaign, 0);
     }
 
     function test_onReward_valid_onchainConversion() public {
@@ -134,7 +79,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1, // ONCHAIN config (1-indexed)
+                configId: 1, // ONCHAIN config (1-indexed)
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -171,7 +116,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 2, // OFFCHAIN config (1-indexed)
+                configId: 2, // OFFCHAIN config (1-indexed)
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -201,7 +146,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1, // ONCHAIN config (1-indexed)
+                configId: 1, // ONCHAIN config (1-indexed)
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -225,7 +170,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 2, // OFFCHAIN config (1-indexed)
+                configId: 2, // OFFCHAIN config (1-indexed)
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -264,7 +209,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(999)), // Unique ID for OFAC re-routing
                 clickId: "ofac_sanctioned_funds",
-                conversionConfigId: 0, // No config - unregistered conversion
+                configId: 0, // No config - unregistered conversion
                 publisherRefCode: "", // No publisher
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: burnAddress, // Send to burn address
@@ -282,7 +227,7 @@ contract AdConversionTest is PublisherTestSetup {
             AdConversion.Conversion({
                 eventId: bytes16(uint128(999)),
                 clickId: "ofac_sanctioned_funds",
-                conversionConfigId: 0,
+                configId: 0,
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: burnAddress,
@@ -305,14 +250,10 @@ contract AdConversionTest is PublisherTestSetup {
     function test_createCampaign_emitsConversionConfigAddedEvents() public {
         // Create conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: "https://example.com/config0"
-        });
-        configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config1"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config0"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config1"});
 
         string[] memory allowedRefCodes = new string[](0);
 
@@ -331,7 +272,7 @@ contract AdConversionTest is PublisherTestSetup {
             AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: true,
-                conversionMetadataUrl: "https://example.com/config0"
+                metadataURI: "https://example.com/config0"
             })
         );
 
@@ -342,7 +283,7 @@ contract AdConversionTest is PublisherTestSetup {
             AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: false,
-                conversionMetadataUrl: "https://example.com/config1"
+                metadataURI: "https://example.com/config1"
             })
         );
 
@@ -394,10 +335,8 @@ contract AdConversionTest is PublisherTestSetup {
     function test_createCampaign_emitsAdCampaignCreatedEvent() public {
         // Create conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config"});
 
         // Create allowlist
         string[] memory allowedRefCodes = new string[](1);
@@ -492,10 +431,8 @@ contract AdConversionTest is PublisherTestSetup {
     // =============================================================
 
     function test_addConversionConfig_success() public {
-        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: "https://example.com/new-config"
-        });
+        AdConversion.ConversionConfigInput memory newConfig =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/new-config"});
 
         vm.expectEmit(true, true, false, true);
         emit AdConversion.ConversionConfigAdded(
@@ -504,7 +441,7 @@ contract AdConversionTest is PublisherTestSetup {
             AdConversion.ConversionConfig({
                 isActive: true,
                 isEventOnchain: true,
-                conversionMetadataUrl: "https://example.com/new-config"
+                metadataURI: "https://example.com/new-config"
             })
         );
 
@@ -515,14 +452,12 @@ contract AdConversionTest is PublisherTestSetup {
         AdConversion.ConversionConfig memory retrievedConfig = hook.getConversionConfig(campaign, 3);
         assertTrue(retrievedConfig.isActive);
         assertTrue(retrievedConfig.isEventOnchain);
-        assertEq(retrievedConfig.conversionMetadataUrl, "https://example.com/new-config");
+        assertEq(retrievedConfig.metadataURI, "https://example.com/new-config");
     }
 
     function test_addConversionConfig_revert_unauthorized() public {
-        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/unauthorized"
-        });
+        AdConversion.ConversionConfigInput memory newConfig =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/unauthorized"});
 
         vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(randomUser);
@@ -577,7 +512,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -602,7 +537,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 99, // Invalid config ID
+                configId: 99, // Invalid config ID
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -631,7 +566,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1, // Disabled config
+                configId: 1, // Disabled config
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -654,10 +589,8 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Create campaign with specific allowlist that DOESN'T include the registered publisher
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "code1"; // Only code1 is allowed
@@ -673,7 +606,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "notonallowlist", // Registered but not in allowlist
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -695,7 +628,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 2,
+                configId: 2,
                 publisherRefCode: "code2",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -733,7 +666,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click1",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "random",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -746,7 +679,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(2)),
                 clickId: "click2",
-                conversionConfigId: 2,
+                configId: 2,
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -759,7 +692,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(3)),
                 clickId: "click3",
-                conversionConfigId: 2,
+                configId: 2,
                 publisherRefCode: "code2",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x2222), // Custom recipient
@@ -827,7 +760,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -849,7 +782,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -884,12 +817,12 @@ contract AdConversionTest is PublisherTestSetup {
         AdConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
         assertTrue(config1.isActive);
         assertTrue(config1.isEventOnchain);
-        assertEq(config1.conversionMetadataUrl, "https://example.com/config0");
+        assertEq(config1.metadataURI, "https://example.com/config0");
 
         AdConversion.ConversionConfig memory config2 = hook.getConversionConfig(campaign, 2);
         assertTrue(config2.isActive);
         assertFalse(config2.isEventOnchain);
-        assertEq(config2.conversionMetadataUrl, "https://example.com/config1");
+        assertEq(config2.metadataURI, "https://example.com/config1");
     }
 
     function test_getConversionConfig_revert_invalidId() public {
@@ -1089,10 +1022,8 @@ contract AdConversionTest is PublisherTestSetup {
         // Create campaign with 14-day attribution deadline
         uint48 customDeadline = 14 days;
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1109,10 +1040,8 @@ contract AdConversionTest is PublisherTestSetup {
     function test_campaignCreation_zeroDeadlineAllowed() public {
         // Create campaign with 0 attribution deadline (instant finalization allowed)
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1135,10 +1064,8 @@ contract AdConversionTest is PublisherTestSetup {
         // Try to create with 1.5 days (not days precision)
         uint48 invalidDeadline = 1 days + 12 hours;
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1159,10 +1086,8 @@ contract AdConversionTest is PublisherTestSetup {
 
         for (uint256 i = 0; i < invalidDurations.length; i++) {
             AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-            configs[0] = AdConversion.ConversionConfigInput({
-                isEventOnchain: false,
-                conversionMetadataUrl: "https://example.com/config"
-            });
+            configs[0] =
+                AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
             string[] memory allowedRefCodes = new string[](0);
             bytes memory hookData = abi.encode(
@@ -1183,10 +1108,8 @@ contract AdConversionTest is PublisherTestSetup {
         // Create campaign with 21-day attribution deadline
         uint48 customDeadline = 21 days;
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1218,10 +1141,8 @@ contract AdConversionTest is PublisherTestSetup {
         allowedRefCodes[0] = "TEST_REF_CODE";
 
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/metadata"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/metadata"});
 
         bytes memory hookData = abi.encode(
             attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
@@ -1235,10 +1156,8 @@ contract AdConversionTest is PublisherTestSetup {
     function test_campaignCreation_oneDayDeadlineAllowed() public {
         // Create campaign with 1 day (minimum) attribution deadline
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1261,10 +1180,8 @@ contract AdConversionTest is PublisherTestSetup {
         // Create campaign with 365-day attribution deadline (now allowed since no max)
         uint48 largeDeadline = 365 days;
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1282,10 +1199,8 @@ contract AdConversionTest is PublisherTestSetup {
     function test_finalization_usesMinimumDeadline() public {
         // Create campaign with 1 day deadline (minimum)
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -1315,10 +1230,8 @@ contract AdConversionTest is PublisherTestSetup {
     function test_finalization_instantWithZeroDeadline() public {
         // Create campaign with 0 deadline (instant finalization)
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/config"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(

@@ -70,14 +70,10 @@ contract FlywheelTest is FlywheelTestHelpers {
 
     function _createCampaign() internal {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            conversionMetadataUrl: "https://example.com/offchain"
-        });
-        configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            conversionMetadataUrl: "https://example.com/onchain"
-        });
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
@@ -137,7 +133,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_123",
-            conversionConfigId: 1,
+            configId: 1,
             publisherRefCode: "code1",
             timestamp: uint32(block.timestamp),
             payoutRecipient: address(0),
@@ -189,7 +185,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0xabcdef1234567890abcdef1234567890),
             clickId: "click_456",
-            conversionConfigId: 2,
+            configId: 2,
             publisherRefCode: "code2",
             timestamp: uint32(block.timestamp),
             payoutRecipient: address(0),
@@ -246,7 +242,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_789",
-            conversionConfigId: 1,
+            configId: 1,
             publisherRefCode: "",
             timestamp: uint32(block.timestamp),
             payoutRecipient: payoutRecipient,
@@ -314,7 +310,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         AdConversion.Conversion memory conversion = AdConversion.Conversion({
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_fees",
-            conversionConfigId: 1,
+            configId: 1,
             publisherRefCode: "",
             timestamp: uint32(block.timestamp),
             payoutRecipient: payoutRecipient,
@@ -470,7 +466,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(0x55555555555555556666666666666666)),
                 clickId: "token1_test",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: recipient1,
@@ -485,7 +481,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(0x77777777777777778888888888888888)),
                 clickId: "token2_test",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: recipient2,
@@ -529,7 +525,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(0x99999999999999990000000000000000)),
                 clickId: "fee_test",
-                conversionConfigId: 1,
+                configId: 1,
                 publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x1777),
@@ -608,8 +604,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Create hook data for a new campaign
         string[] memory allowedRefs = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, conversionMetadataUrl: "https://test.com"});
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://test.com"});
 
         bytes memory hookData =
             abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
@@ -1388,7 +1383,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                conversionConfigId: 0,
+                configId: 0,
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
