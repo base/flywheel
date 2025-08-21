@@ -51,7 +51,7 @@ contract BuilderCodes is
     /// @notice EIP-1967 storage slot base for registry mapping using ERC-7201
     /// @dev keccak256(abi.encode(uint256(keccak256("base.flywheel.BuilderCodes")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant REGISTRY_STORAGE_LOCATION =
-        0x4a3b80799e90f9df091dcea435957de9889859bcf6dcfc6951e94a95d50b9f00;
+        0xe3aaf266708e5133bd922e269bb5e8f72a7444c3b231cbf562ddc67a383e5700;
 
     /// @notice Base URI for builder code metadata
     string internal _uriPrefix;
