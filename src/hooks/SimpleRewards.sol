@@ -112,13 +112,17 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
-        external
-        virtual
-        override
-        onlyFlywheel
-    {
+    function onWithdrawFunds(
+        address sender,
+        address campaign,
+        address token,
+        address to,
+        uint256 amount,
+        bytes calldata hookData
+    ) external virtual override onlyFlywheel {
         if (sender != owners[campaign]) revert Unauthorized();
+        // Enforce that the sender equals the 'to' address for SimpleRewards and CashbackRewards
+        if (sender != to) revert Unauthorized();
     }
 
     /// @inheritdoc CampaignHooks

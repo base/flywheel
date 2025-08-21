@@ -371,13 +371,17 @@ contract AdConversion is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-    {
+    function onWithdrawFunds(
+        address sender,
+        address campaign,
+        address token,
+        address to,
+        uint256 amount,
+        bytes calldata hookData
+    ) external override onlyFlywheel {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+        // No restrictions on the 'to' address - advertiser can send funds anywhere
     }
 
     /// @inheritdoc CampaignHooks

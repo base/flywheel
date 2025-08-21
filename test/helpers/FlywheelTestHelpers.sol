@@ -106,7 +106,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
     /// @notice Withdraws remaining campaign funds to advertiser
     function _withdrawCampaignFunds(address campaign, uint256 amount) internal {
         vm.prank(ADVERTISER);
-        flywheel.withdrawFunds(campaign, address(token), amount, "");
+        flywheel.withdrawFunds(campaign, address(token), ADVERTISER, amount, "");
     }
 
     /// @notice Asserts campaign has expected status

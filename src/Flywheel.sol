@@ -142,8 +142,9 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the withdrawn token
+    /// @param to Address that received the withdrawn tokens
     /// @param amount Amount of tokens withdrawn
-    event FundsWithdrawn(address indexed campaign, address token, address withdrawer, uint256 amount);
+    event FundsWithdrawn(address indexed campaign, address token, address to, uint256 amount);
 
     /// @notice Thrown when campaign does not exist
     error CampaignDoesNotExist();
@@ -308,16 +309,18 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
+    /// @param to Address to send the withdrawn tokens to
+    /// @param amount Amount of tokens to withdraw
     /// @param hookData Data for the campaign hook
-    function withdrawFunds(address campaign, address token, uint256 amount, bytes calldata hookData)
+    function withdrawFunds(address campaign, address token, address to, uint256 amount, bytes calldata hookData)
         external
         nonReentrant
         campaignExists(campaign)
     {
         _canReserve(campaign, token, amount);
-        _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
-        Campaign(campaign).sendTokens(token, msg.sender, amount);
-        emit FundsWithdrawn(campaign, token, msg.sender, amount);
+        _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, to, amount, hookData);
+        Campaign(campaign).sendTokens(token, to, amount);
+        emit FundsWithdrawn(campaign, token, to, amount);
     }
 
     /// @notice Updates the status of a campaign

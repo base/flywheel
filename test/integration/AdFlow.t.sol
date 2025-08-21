@@ -206,7 +206,7 @@ contract AdFlowTest is PublisherTestSetup {
         // 9. Withdraw remaining funds
         uint256 remainingFunds = usdc.balanceOf(campaign);
         vm.startPrank(advertiser);
-        flywheel.withdrawFunds(campaign, address(usdc), remainingFunds, "");
+        flywheel.withdrawFunds(campaign, address(usdc), advertiser, remainingFunds, "");
         vm.stopPrank();
 
         assertEq(usdc.balanceOf(campaign), 0);
@@ -288,10 +288,38 @@ contract AdFlowTest is PublisherTestSetup {
         vm.stopPrank();
 
         // Try to withdraw funds as unauthorized user
-        vm.startPrank(makeAddr("unauthorized"));
+        address unauthorized = makeAddr("unauthorized");
+        vm.startPrank(unauthorized);
         vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.withdrawFunds(campaign, address(usdc), 100, "");
+        flywheel.withdrawFunds(campaign, address(usdc), unauthorized, 100, "");
         vm.stopPrank();
+    }
+
+    function test_advertiserCanWithdrawToDifferentAddress() public {
+        // Use the existing campaign from setUp
+        // Fund the campaign first
+        vm.prank(advertiser);
+        usdc.transfer(campaign, INITIAL_FUNDING);
+
+        // Activate and then finalize campaign
+        vm.startPrank(provider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        vm.warp(block.timestamp + 1 days + 1); // Wait for attribution deadline
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        vm.stopPrank();
+
+        // Advertiser can withdraw to a different address (unlike SimpleRewards)
+        address differentAddress = makeAddr("beneficiary");
+        uint256 remainingFunds = usdc.balanceOf(campaign);
+        uint256 beneficiaryBalanceBefore = usdc.balanceOf(differentAddress);
+
+        vm.startPrank(advertiser);
+        flywheel.withdrawFunds(campaign, address(usdc), differentAddress, remainingFunds, "");
+        vm.stopPrank();
+
+        // Verify funds went to the different address
+        assertEq(usdc.balanceOf(differentAddress), beneficiaryBalanceBefore + remainingFunds);
+        assertEq(usdc.balanceOf(campaign), 0);
     }
 
     function test_conversionConfigManagement() public {

@@ -962,7 +962,6 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
     }
 
-
     function test_maliciousPause_nowBlocked() public {
         // Start ACTIVE campaign
         vm.prank(attributionProvider);

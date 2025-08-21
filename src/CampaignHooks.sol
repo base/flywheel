@@ -114,14 +114,19 @@ abstract contract CampaignHooks {
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
+    /// @param to Address to send the withdrawn tokens to
+    /// @param amount Amount of tokens to withdraw
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
-        external
-        virtual
-        onlyFlywheel
-    {
+    function onWithdrawFunds(
+        address sender,
+        address campaign,
+        address token,
+        address to,
+        uint256 amount,
+        bytes calldata hookData
+    ) external virtual onlyFlywheel {
         revert Unsupported();
     }
 

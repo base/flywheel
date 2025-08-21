@@ -83,7 +83,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
         // Test unauthorized fund withdrawal
         vm.expectRevert();
         vm.prank(maliciousUser);
-        flywheel.withdrawFunds(campaign, address(token), 100e18, "");
+        flywheel.withdrawFunds(campaign, address(token), maliciousUser, 100e18, "");
 
         // Test unauthorized fee collection - collecting 0 fees succeeds, so remove this test
         // Anyone can collect their own fees (even if 0), so this is not a security issue
@@ -122,7 +122,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
 
         vm.expectRevert(); // Should not allow withdrawal in ACTIVE state
         vm.prank(ADVERTISER);
-        flywheel.withdrawFunds(campaign, address(token), campaignBalance, "");
+        flywheel.withdrawFunds(campaign, address(token), ADVERTISER, campaignBalance, "");
 
         // Test fee collection without earned fees - this should succeed but transfer 0 tokens
         vm.prank(ATTRIBUTION_PROVIDER);
@@ -389,7 +389,7 @@ contract RoleImpersonationAttacker {
 
     function impersonateAdvertiser(address campaign) external {
         // Try to act as advertiser
-        flywheel.withdrawFunds(campaign, address(0), 0, "");
+        flywheel.withdrawFunds(campaign, address(0), address(0), 0, "");
     }
 
     function impersonateHook(address campaign) external {
