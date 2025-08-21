@@ -134,7 +134,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_123",
             configId: 1,
-            refCode: "code1",
+            publisherRefCode: "code1",
             timestamp: uint32(block.timestamp),
             payoutRecipient: address(0),
             payoutAmount: 100e18
@@ -186,7 +186,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             eventId: bytes16(0xabcdef1234567890abcdef1234567890),
             clickId: "click_456",
             configId: 2,
-            refCode: "code2",
+            publisherRefCode: "code2",
             timestamp: uint32(block.timestamp),
             payoutRecipient: address(0),
             payoutAmount: 200 * 10 ** 18
@@ -243,7 +243,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_789",
             configId: 1,
-            refCode: "",
+            publisherRefCode: "",
             timestamp: uint32(block.timestamp),
             payoutRecipient: payoutRecipient,
             payoutAmount: 50 * 10 ** 18
@@ -311,7 +311,7 @@ contract FlywheelTest is FlywheelTestHelpers {
             eventId: bytes16(0x1234567890abcdef1234567890abcdef),
             clickId: "click_fees",
             configId: 1,
-            refCode: "",
+            publisherRefCode: "",
             timestamp: uint32(block.timestamp),
             payoutRecipient: payoutRecipient,
             payoutAmount: 100 * 10 ** 18
@@ -467,7 +467,7 @@ contract FlywheelTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(0x55555555555555556666666666666666)),
                 clickId: "token1_test",
                 configId: 1,
-                refCode: "",
+                publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: recipient1,
                 payoutAmount: 50e18
@@ -482,7 +482,7 @@ contract FlywheelTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(0x77777777777777778888888888888888)),
                 clickId: "token2_test",
                 configId: 1,
-                refCode: "",
+                publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: recipient2,
                 payoutAmount: 25e18
@@ -526,7 +526,7 @@ contract FlywheelTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(0x99999999999999990000000000000000)),
                 clickId: "fee_test",
                 configId: 1,
-                refCode: "",
+                publisherRefCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x1777),
                 payoutAmount: 100e18
@@ -1384,7 +1384,7 @@ contract FlywheelTest is FlywheelTestHelpers {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 0,
-                refCode: "code1",
+                publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100e18

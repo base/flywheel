@@ -589,7 +589,7 @@ contract CrossHookSecurityTest is Test {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1,
-                refCode: "code1", // Use registered publisher from setUp
+                publisherRefCode: "code1", // Use registered publisher from setUp
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1, // Set actual recipient
                 payoutAmount: 200e18
