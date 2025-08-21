@@ -206,7 +206,7 @@ contract AdFlowTest is PublisherTestSetup {
         // 9. Withdraw remaining funds
         uint256 remainingFunds = usdc.balanceOf(campaign);
         vm.startPrank(advertiser);
-        flywheel.withdrawFunds(campaign, address(usdc), advertiser, remainingFunds, "");
+        flywheel.withdrawFunds(campaign, address(usdc), abi.encode(advertiser, remainingFunds));
         vm.stopPrank();
 
         assertEq(usdc.balanceOf(campaign), 0);
@@ -291,7 +291,7 @@ contract AdFlowTest is PublisherTestSetup {
         address unauthorized = makeAddr("unauthorized");
         vm.startPrank(unauthorized);
         vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.withdrawFunds(campaign, address(usdc), unauthorized, 100, "");
+        flywheel.withdrawFunds(campaign, address(usdc), abi.encode(unauthorized, 100));
         vm.stopPrank();
     }
 
@@ -314,7 +314,7 @@ contract AdFlowTest is PublisherTestSetup {
         uint256 beneficiaryBalanceBefore = usdc.balanceOf(differentAddress);
 
         vm.startPrank(advertiser);
-        flywheel.withdrawFunds(campaign, address(usdc), differentAddress, remainingFunds, "");
+        flywheel.withdrawFunds(campaign, address(usdc), abi.encode(differentAddress, remainingFunds));
         vm.stopPrank();
 
         // Verify funds went to the different address
