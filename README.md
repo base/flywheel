@@ -364,11 +364,10 @@ bytes memory hookData = abi.encode(
 
 **State Transition Control:**
 
-- **Attribution Provider**: Can perform any valid state transition (including ACTIVE→INACTIVE pause)
+- **Attribution Provider**: Can perform most state transitions (INACTIVE→ACTIVE, ACTIVE→FINALIZING, FINALIZING→FINALIZED)
 - **Advertiser**: Limited to ACTIVE→FINALIZING and FINALIZING→FINALIZED (after deadline)
-- **Important**: If attribution provider pauses campaign (ACTIVE→INACTIVE), advertiser cannot unpause
-- **Advertiser Recourse**: INACTIVE→FINALIZING→FINALIZED→withdraw funds (campaign permanently ends)
-- **Design Rationale**: Attribution provider has operational control; advertiser has exit rights
+- **Important**: ACTIVE→INACTIVE transitions are blocked for all parties (campaigns cannot be paused)
+- **Design Rationale**: Prevents malicious campaign pausing while maintaining attribution provider operational control
 
 ### **CashbackRewards.sol**
 
@@ -704,12 +703,12 @@ flywheel.collectFees(campaign, token, feeRecipient);
 
 ### State Transitions and Access Control
 
-| State          | Who Can Update To          | Next Valid States    | Payout Functions Available                       |
-| -------------- | -------------------------- | -------------------- | ------------------------------------------------ |
-| **INACTIVE**   | Anyone (campaign creation) | ACTIVE               | None                                             |
-| **ACTIVE**     | Hook-dependent             | INACTIVE, FINALIZING | reward(), allocate(), deallocate(), distribute() |
-| **FINALIZING** | Hook-dependent             | FINALIZED            | reward(), allocate(), deallocate(), distribute() |
-| **FINALIZED**  | None (terminal state)      | None                 | None                                             |
+| State          | Who Can Update To          | Next Valid States | Payout Functions Available                       |
+| -------------- | -------------------------- | ----------------- | ------------------------------------------------ |
+| **INACTIVE**   | Anyone (campaign creation) | ACTIVE            | None                                             |
+| **ACTIVE**     | Hook-dependent             | FINALIZING        | reward(), allocate(), deallocate(), distribute() |
+| **FINALIZING** | Hook-dependent             | FINALIZED         | reward(), allocate(), deallocate(), distribute() |
+| **FINALIZED**  | None (terminal state)      | None              | None                                             |
 
 ### Detailed State Descriptions
 
@@ -721,21 +720,21 @@ Each hook type has different access control patterns for state transitions and o
 
 ##### AdConversion Campaigns
 
-| State          | Who Can Transition To                                                                                             | Available Functions | Special Behaviors                                                                                   |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
-| **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                        | reward() only       | Live campaign processing conversions                                                                |
-| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline based on campaign's configured duration                                   |
-| **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
+| State          | Who Can Transition To                                                                    | Available Functions | Special Behaviors                                                 |
+| -------------- | ---------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | None                | Initial campaign state after creation                             |
+| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser                                         | reward() only       | Live campaign processing conversions                              |
+| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                | reward() only       | Sets attribution deadline based on campaign's configured duration |
+| **FINALIZED**  | None (terminal state)                                                                    | None                | Only Advertiser can withdraw remaining funds                      |
 
 ##### CashbackRewards & SimpleRewards Campaigns
 
-| State          | Who Can Transition                                      | Available Functions                              | Special Behaviors                                                                 |
-| -------------- | ------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Manager only<br/>• FINALIZING: Manager only   | None                                             | Initial/paused state                                                              |
-| **ACTIVE**     | • INACTIVE: Manager only<br/>• FINALIZING: Manager only | reward(), allocate(), deallocate(), distribute() | CashbackRewards: Payment must be collected in AuthCaptureEscrow                   |
-| **FINALIZING** | • ACTIVE: Manager only<br/>• FINALIZED: Manager only    | reward(), allocate(), deallocate(), distribute() | Grace period before closure                                                       |
-| **FINALIZED**  | None (terminal state)                                   | None                                             | CashbackRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
+| State          | Who Can Transition                                    | Available Functions                              | Special Behaviors                                                                 |
+| -------------- | ----------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Manager only<br/>• FINALIZING: Manager only | None                                             | Initial state (pause capability removed)                                          |
+| **ACTIVE**     | • FINALIZING: Manager only                            | reward(), allocate(), deallocate(), distribute() | CashbackRewards: Payment must be collected in AuthCaptureEscrow                   |
+| **FINALIZING** | • FINALIZED: Manager only                             | reward(), allocate(), deallocate(), distribute() | Grace period before closure                                                       |
+| **FINALIZED**  | None (terminal state)                                 | None                                             | CashbackRewards: Owner withdraws funds<br/>SimpleRewards: Manager withdraws funds |
 
 #### Key Design Notes
 
