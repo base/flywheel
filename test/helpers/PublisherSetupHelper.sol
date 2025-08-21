@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {ReferralCodes} from "../../src/ReferralCodes.sol";
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {Test} from "forge-std/Test.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
@@ -92,12 +92,12 @@ abstract contract PublisherTestSetup is Test {
     }
 
     /// @notice Sets up a publisher with minimal configuration
-    /// @param registry The ReferralCodes to register with
+    /// @param registry The BuilderCodes to register with
     /// @param refCode The referral code for the publisher
     /// @param owner The owner address for the publisher
     /// @param signer The address that will sign the registration (must have REGISTER_ROLE)
     /// @return config The created publisher configuration
-    function setupPublisher(ReferralCodes registry, string memory refCode, address owner, address signer)
+    function setupPublisher(BuilderCodes registry, string memory refCode, address owner, address signer)
         internal
         returns (PublisherSetupHelper.PublisherConfig memory config)
     {
@@ -107,7 +107,7 @@ abstract contract PublisherTestSetup is Test {
 
     /// @notice Sets up a publisher with custom payout recipient
     function setupPublisher(
-        ReferralCodes registry,
+        BuilderCodes registry,
         string memory refCode,
         address owner,
         address payoutRecipient,
@@ -118,7 +118,7 @@ abstract contract PublisherTestSetup is Test {
     }
 
     /// @notice Sets up a publisher with full custom configuration
-    function setupPublisher(ReferralCodes registry, PublisherSetupHelper.PublisherConfig memory config, address signer)
+    function setupPublisher(BuilderCodes registry, PublisherSetupHelper.PublisherConfig memory config, address signer)
         internal
     {
         _registerPublisher(registry, config, signer);
@@ -126,7 +126,7 @@ abstract contract PublisherTestSetup is Test {
 
     /// @notice Batch setup multiple publishers
     function setupPublishers(
-        ReferralCodes registry,
+        BuilderCodes registry,
         PublisherSetupHelper.PublisherConfig[] memory configs,
         address signer
     ) internal {
@@ -137,7 +137,7 @@ abstract contract PublisherTestSetup is Test {
 
     /// @notice Internal function to register a publisher
     function _registerPublisher(
-        ReferralCodes registry,
+        BuilderCodes registry,
         PublisherSetupHelper.PublisherConfig memory config,
         address signer
     ) private {

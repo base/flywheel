@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
-import {ReferralCodes} from "../src/ReferralCodes.sol";
+import {BuilderCodes} from "../src/BuilderCodes.sol";
 import {Campaign} from "../src/Campaign.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
 import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
@@ -13,7 +13,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";
 
 contract FlywheelTest is FlywheelTestHelpers {
-    ReferralCodes public publisherRegistry;
+    BuilderCodes public publisherRegistry;
     AdConversion public hook;
 
     address public advertiser = address(0x1);
@@ -41,15 +41,15 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        ReferralCodes impl = new ReferralCodes();
+        BuilderCodes impl = new BuilderCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodes.initialize.selector,
+            BuilderCodes.initialize.selector,
             owner,
             address(0x999), // signer address
             "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = ReferralCodes(address(proxy));
+        publisherRegistry = BuilderCodes(address(proxy));
 
         // Register publishers with ref codes
         vm.startPrank(owner);

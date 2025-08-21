@@ -1,32 +1,32 @@
 pragma solidity ^0.8.29;
 
 import "forge-std/Test.sol";
-import {ReferralCodes} from "../src/ReferralCodes.sol";
+import {BuilderCodes} from "../src/BuilderCodes.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {ReferralCodesV2} from "./mocks/DummyUpgrades.sol";
+import {BuilderCodesV2} from "./mocks/DummyUpgrades.sol";
 
 contract PublisherRegistryUpgradesTest is Test {
-    ReferralCodes public implementation;
-    ReferralCodes public pubRegistry;
+    BuilderCodes public implementation;
+    BuilderCodes public pubRegistry;
     ERC1967Proxy public proxy;
-    ReferralCodesV2 public implementationV2;
+    BuilderCodesV2 public implementationV2;
     address private owner = address(this);
 
     function setUp() public {
         vm.startPrank(owner);
 
         // Deploy implementation
-        implementation = new ReferralCodes();
+        implementation = new BuilderCodes();
 
         // Deploy proxy
-        bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, owner, address(0), "");
+        bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, address(0), "");
         proxy = new ERC1967Proxy(address(implementation), initData);
 
         // Create interface to proxy
-        pubRegistry = ReferralCodes(address(proxy));
+        pubRegistry = BuilderCodes(address(proxy));
 
         // Deploy V2 implementation
-        implementationV2 = new ReferralCodesV2();
+        implementationV2 = new BuilderCodesV2();
 
         vm.stopPrank();
     }
@@ -38,7 +38,7 @@ contract PublisherRegistryUpgradesTest is Test {
         vm.stopPrank();
 
         // Test V2 functionality
-        ReferralCodesV2 registryV2 = ReferralCodesV2(address(proxy));
+        BuilderCodesV2 registryV2 = BuilderCodesV2(address(proxy));
         assertEq(registryV2.version(), "V2");
 
         // Verify state is preserved

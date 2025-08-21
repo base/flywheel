@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {ReferralCodes} from "../ReferralCodes.sol";
+import {BuilderCodes} from "../BuilderCodes.sol";
 
 /// @notice Pseudo-random registrar for referral codes
 ///
@@ -13,16 +13,16 @@ contract PseudoRandomRegistrar {
     uint256 public constant CODE_LENGTH = 8;
 
     /// @notice Referral codes contract
-    ReferralCodes public immutable codes;
+    BuilderCodes public immutable codes;
 
     /// @notice Nonce for generating unique referral codes
     uint256 public nonce;
 
     /// @notice Constructor for PseudoRandomRegistrar
     ///
-    /// @param codes_ Address of the ReferralCodes contract
+    /// @param codes_ Address of the BuilderCodes contract
     constructor(address codes_) {
-        codes = ReferralCodes(codes_);
+        codes = BuilderCodes(codes_);
     }
 
     /// @notice Registers a new referral code in the system

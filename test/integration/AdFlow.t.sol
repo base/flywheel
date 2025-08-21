@@ -7,7 +7,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
-import {ReferralCodes} from "../../src/ReferralCodes.sol";
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "../helpers/PublisherSetupHelper.sol";
@@ -15,7 +15,7 @@ import {PublisherTestSetup, PublisherSetupHelper} from "../helpers/PublisherSetu
 contract AdFlowTest is PublisherTestSetup {
     // Contracts
     Flywheel public flywheel;
-    ReferralCodes public publisherRegistry;
+    BuilderCodes public publisherRegistry;
     AdConversion public adHook;
     DummyERC20 public usdc;
 
@@ -49,15 +49,15 @@ contract AdFlowTest is PublisherTestSetup {
         flywheel = new Flywheel();
 
         // Deploy publisher registry
-        ReferralCodes impl = new ReferralCodes();
+        BuilderCodes impl = new BuilderCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodes.initialize.selector,
+            BuilderCodes.initialize.selector,
             owner,
             signer, // signer address
             "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        publisherRegistry = ReferralCodes(address(proxy));
+        publisherRegistry = BuilderCodes(address(proxy));
 
         // Deploy ad conversion hook
         adHook = new AdConversion(address(flywheel), owner, address(publisherRegistry));

@@ -5,14 +5,14 @@ import {Test} from "forge-std/Test.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {ReferralCodes} from "../src/ReferralCodes.sol";
+import {BuilderCodes} from "../src/BuilderCodes.sol";
 import {PublisherTestSetup, PublisherSetupHelper} from "./helpers/PublisherSetupHelper.sol";
 
-contract ReferralCodesTest is PublisherTestSetup {
+contract BuilderCodesTest is PublisherTestSetup {
     using PublisherSetupHelper for *;
 
-    ReferralCodes public implementation;
-    ReferralCodes public pubRegistry;
+    BuilderCodes public implementation;
+    BuilderCodes public pubRegistry;
     ERC1967Proxy public proxy;
 
     address private owner = address(this);
@@ -22,14 +22,14 @@ contract ReferralCodesTest is PublisherTestSetup {
         vm.startPrank(owner);
 
         // Deploy implementation
-        implementation = new ReferralCodes();
+        implementation = new BuilderCodes();
 
         // Deploy proxy with signer address
-        bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, owner, signer, "");
+        bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, signer, "");
         proxy = new ERC1967Proxy(address(implementation), initData);
 
         // Create interface to proxy
-        pubRegistry = ReferralCodes(address(proxy));
+        pubRegistry = BuilderCodes(address(proxy));
 
         vm.stopPrank();
     }
@@ -49,23 +49,23 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //     function test_initializeWithZeroOwner() public {
     //         // Deploy fresh implementation
-    //         ReferralCodes freshImpl = new ReferralCodes();
+    //         BuilderCodes freshImpl = new BuilderCodes();
 
     //         // Try to initialize with zero owner
-    //         bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, address(0), address(0));
+    //         bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, address(0), address(0));
 
-    //         vm.expectRevert(ReferralCodes.ZeroAddress.selector);
+    //         vm.expectRevert(BuilderCodes.ZeroAddress.selector);
     //         new ERC1967Proxy(address(freshImpl), initData);
     //     }
 
     //     function test_initializeWithZeroSigner() public {
     //         // Deploy fresh implementation
-    //         ReferralCodes freshImpl = new ReferralCodes();
+    //         BuilderCodes freshImpl = new BuilderCodes();
 
     //         // Initialize with zero signer (should be allowed)
-    //         bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, owner, address(0));
+    //         bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, address(0));
     //         ERC1967Proxy freshProxy = new ERC1967Proxy(address(freshImpl), initData);
-    //         ReferralCodes freshRegistry = ReferralCodes(address(freshProxy));
+    //         BuilderCodes freshRegistry = BuilderCodes(address(freshProxy));
 
     //         assertEq(freshRegistry.owner(), owner);
     //         assertFalse(freshRegistry.hasRole(implementation.REGISTER_ROLE(), address(0x123))); // No signers
@@ -128,7 +128,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Expect the event before registration
     //         vm.expectEmit(true, true, true, true);
-    //         emit ReferralCodes.ReferralCodeRegistered(
+    //         emit BuilderCodes.ReferralCodeRegistered(
     //             config.refCode, config.owner, config.payoutRecipient, config.metadataUrl, true
     //         );
 
@@ -173,10 +173,10 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //     function test_register_WithZeroSigner() public {
     //         // Deploy registry with zero signer
-    //         ReferralCodes freshImpl = new ReferralCodes();
-    //         bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, owner, address(0));
+    //         BuilderCodes freshImpl = new BuilderCodes();
+    //         bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, address(0));
     //         ERC1967Proxy freshProxy = new ERC1967Proxy(address(freshImpl), initData);
-    //         ReferralCodes freshRegistry = ReferralCodes(address(freshProxy));
+    //         BuilderCodes freshRegistry = BuilderCodes(address(freshProxy));
 
     //         bytes32 customRefCode = generateCode(1);
 
@@ -249,7 +249,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Expect the event before calling the function
     //         vm.expectEmit(true, true, true, true);
-    //         emit ReferralCodes.ReferralCodeMetadataUrlUpdated(refCode, newDimsUrl);
+    //         emit BuilderCodes.ReferralCodeMetadataUrlUpdated(refCode, newDimsUrl);
 
     //         pubRegistry.updateMetadataUrl(refCode, newDimsUrl);
 
@@ -266,7 +266,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Expect the event before calling the function
     //         vm.expectEmit(true, true, true, true);
-    //         emit ReferralCodes.ReferralCodePayoutRecipientUpdated(refCode, newDefaultPayout);
+    //         emit BuilderCodes.ReferralCodePayoutRecipientUpdated(refCode, newDefaultPayout);
 
     //         pubRegistry.updatePayoutRecipient(refCode, newDefaultPayout);
 
@@ -276,7 +276,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // non-publisher cannot update default payout
     //         vm.startPrank(address(0x123));
-    //         vm.expectRevert(ReferralCodes.Unauthorized.selector);
+    //         vm.expectRevert(BuilderCodes.Unauthorized.selector);
     //         pubRegistry.updatePayoutRecipient(refCode, newDefaultPayout);
     //         vm.stopPrank();
     //     }
@@ -293,7 +293,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // non-publisher cannot update owner
     //         vm.startPrank(address(0x123));
-    //         vm.expectRevert(ReferralCodes.Unauthorized.selector);
+    //         vm.expectRevert(BuilderCodes.Unauthorized.selector);
     //         pubRegistry.updateOwner(refCode, newOwner);
     //         vm.stopPrank();
     //     }
@@ -367,7 +367,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Expect events before registration
     //         vm.expectEmit(true, true, true, true);
-    //         emit ReferralCodes.ReferralCodeRegistered(
+    //         emit BuilderCodes.ReferralCodeRegistered(
     //             config.refCode, config.owner, config.payoutRecipient, config.metadataUrl, true
     //         );
 
@@ -403,7 +403,7 @@ contract ReferralCodesTest is PublisherTestSetup {
     //         pubRegistry.register(customRefCode, address(0x123), address(0x456), "https://first.com");
 
     //         // Try to register second publisher with same ref code
-    //         vm.expectRevert(ReferralCodes.AlreadyRegistered.selector);
+    //         vm.expectRevert(BuilderCodes.AlreadyRegistered.selector);
     //         pubRegistry.register(customRefCode, address(0x789), address(0x101), "https://second.com");
     //         vm.stopPrank();
     //     }
@@ -414,7 +414,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Try to update owner from unauthorized address
     //         vm.startPrank(address(0x123));
-    //         vm.expectRevert(ReferralCodes.Unauthorized.selector);
+    //         vm.expectRevert(BuilderCodes.Unauthorized.selector);
     //         pubRegistry.updateOwner(refCode, newOwner);
     //         vm.stopPrank();
     //     }
@@ -436,7 +436,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Verify old owner cannot make updates
     //         vm.startPrank(publisherOwner);
-    //         vm.expectRevert(ReferralCodes.Unauthorized.selector);
+    //         vm.expectRevert(BuilderCodes.Unauthorized.selector);
     //         pubRegistry.updateMetadataUrl(refCode, "https://oldowner.com");
     //         vm.stopPrank();
 
@@ -449,7 +449,7 @@ contract ReferralCodesTest is PublisherTestSetup {
 
     //         // Try to update owner to address(0)
     //         vm.startPrank(publisherOwner);
-    //         vm.expectRevert(ReferralCodes.ZeroAddress.selector);
+    //         vm.expectRevert(BuilderCodes.ZeroAddress.selector);
     //         pubRegistry.updateOwner(refCode, address(0));
     //         vm.stopPrank();
     //     }
@@ -466,7 +466,7 @@ contract ReferralCodesTest is PublisherTestSetup {
     //     /// @notice Test renounceOwnership function should revert
     //     function test_renounceOwnership_shouldRevert() public {
     //         vm.prank(owner);
-    //         vm.expectRevert(ReferralCodes.OwnershipRenunciationDisabled.selector);
+    //         vm.expectRevert(BuilderCodes.OwnershipRenunciationDisabled.selector);
     //         pubRegistry.renounceOwnership();
     //     }
 

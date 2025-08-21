@@ -4,7 +4,7 @@ pragma solidity ^0.8.29;
 import {Test, console} from "forge-std/Test.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
-import {ReferralCodes} from "../src/ReferralCodes.sol";
+import {BuilderCodes} from "../src/BuilderCodes.sol";
 import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";

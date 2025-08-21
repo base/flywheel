@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
-import {ReferralCodes} from "../../../src/ReferralCodes.sol";
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 import {AdConversion} from "../../../src/hooks/AdConversion.sol";
 import {DummyERC20} from "../../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -12,7 +12,7 @@ import {PublisherTestSetup, PublisherSetupHelper} from "../../helpers/PublisherS
 
 contract AdBatchRewardsTest is PublisherTestSetup {
     Flywheel public flywheel;
-    ReferralCodes public publisherRegistry;
+    BuilderCodes public publisherRegistry;
     AdConversion public hook;
     DummyERC20 public token;
 
@@ -44,16 +44,16 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         // Deploy contracts
         flywheel = new Flywheel();
 
-        // Deploy ReferralCodes as upgradeable proxy
-        ReferralCodes implementation = new ReferralCodes();
+        // Deploy BuilderCodes as upgradeable proxy
+        BuilderCodes implementation = new BuilderCodes();
         bytes memory initData = abi.encodeWithSelector(
-            ReferralCodes.initialize.selector,
+            BuilderCodes.initialize.selector,
             owner,
             address(0x999), // signer address
             "" // empty baseURI
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        publisherRegistry = ReferralCodes(address(proxy));
+        publisherRegistry = BuilderCodes(address(proxy));
 
         hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 

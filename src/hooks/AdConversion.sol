@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
-import {ReferralCodes} from "../ReferralCodes.sol";
+import {BuilderCodes} from "../BuilderCodes.sol";
 
 /// @title AdConversion
 ///
@@ -88,7 +88,7 @@ contract AdConversion is CampaignHooks {
     uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
 
     /// @notice Address of the publisher registry contract
-    ReferralCodes public immutable publisherRegistry;
+    BuilderCodes public immutable publisherRegistry;
 
     /// @notice Mapping of campaign addresses to their URI
     mapping(address campaign => string uri) public override campaignURI;
@@ -198,7 +198,7 @@ contract AdConversion is CampaignHooks {
     /// @param referralCodeRegistry_ Address of the publisher registry contract
     constructor(address protocol_, address owner_, address referralCodeRegistry_) CampaignHooks(protocol_) {
         if (referralCodeRegistry_ == address(0)) revert ZeroAddress();
-        publisherRegistry = ReferralCodes(referralCodeRegistry_);
+        publisherRegistry = BuilderCodes(referralCodeRegistry_);
     }
 
     /// @notice Sets the fee for an attribution provider

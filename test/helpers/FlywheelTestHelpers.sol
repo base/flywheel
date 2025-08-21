@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
-import {ReferralCodes} from "../../src/ReferralCodes.sol";
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {DummyERC20} from "../mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -15,7 +15,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
     // Core contracts
 
     Flywheel public flywheel;
-    ReferralCodes public referralCodeRegistry;
+    BuilderCodes public referralCodeRegistry;
     DummyERC20 public token;
 
     // Common test addresses
@@ -48,10 +48,10 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
         token = new DummyERC20(initialHolders);
 
         // Deploy upgradeable PublisherRegistry
-        ReferralCodes impl = new ReferralCodes();
-        bytes memory initData = abi.encodeWithSelector(ReferralCodes.initialize.selector, OWNER, SIGNER, "");
+        BuilderCodes impl = new BuilderCodes();
+        bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, OWNER, SIGNER, "");
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        referralCodeRegistry = ReferralCodes(address(proxy));
+        referralCodeRegistry = BuilderCodes(address(proxy));
     }
 
     /// @notice Registers default test publishers using PublisherSetupHelper

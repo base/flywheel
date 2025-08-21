@@ -12,12 +12,10 @@ import {LibString} from "solady/utils/LibString.sol";
 import {EIP712} from "solady/utils/EIP712.sol";
 import {SignatureCheckerLib} from "solady/utils/SignatureCheckerLib.sol";
 
-/// @notice Registry for referral code records
-///
-/// @dev Manages referral code registration and payout addresses
+/// @notice Registry for builder codes
 ///
 /// @author Coinbase
-contract ReferralCodes is
+contract BuilderCodes is
     Initializable,
     ERC721Upgradeable,
     AccessControlUpgradeable,
@@ -27,9 +25,9 @@ contract ReferralCodes is
     IERC4906
 {
     /// @notice EIP-712 storage structure for registry data
-    /// @custom:storage-location erc7201:base.flywheel.ReferralCodes
+    /// @custom:storage-location erc7201:base.flywheel.BuilderCodes
     struct RegistryStorage {
-        /// @dev Mapping of referral code token IDs to payout recipients
+        /// @dev Mapping of builder code token IDs to payout recipients
         mapping(uint256 tokenId => address payoutAddress) payoutAddresses;
     }
 
@@ -41,7 +39,7 @@ contract ReferralCodes is
 
     /// @notice EIP-712 typehash for registration
     bytes32 public constant REGISTRATION_TYPEHASH =
-        keccak256("ReferralCodeRegistration(string code,address initialOwner,address payoutAddress)");
+        keccak256("BuilderCodeRegistration(string code,address initialOwner,address payoutAddress)");
 
     /// @notice Allowed characters for referral codes
     string public constant ALLOWED_CHARACTERS = "0123456789abcdefghijklmonpqrstuvwxyz_";
@@ -51,16 +49,16 @@ contract ReferralCodes is
     uint128 public constant ALLOWED_CHARACTERS_LOOKUP = 10633823847437083212121898993101832192;
 
     /// @notice EIP-1967 storage slot base for registry mapping using ERC-7201
-    /// @dev keccak256(abi.encode(uint256(keccak256("base.flywheel.ReferralCodes")) - 1)) & ~bytes32(uint256(0xff))
+    /// @dev keccak256(abi.encode(uint256(keccak256("base.flywheel.BuilderCodes")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant REGISTRY_STORAGE_LOCATION =
         0x4a3b80799e90f9df091dcea435957de9889859bcf6dcfc6951e94a95d50b9f00;
 
-    /// @notice Base URI for referral code metadata
+    /// @notice Base URI for builder code metadata
     string internal _uriPrefix;
 
     /// @notice Emitted when a publisher's default payout address is updated
     ///
-    /// @param code Referral code
+    /// @param code Builder code
     /// @param payoutAddress New default payout address for all chains
     event PayoutAddressUpdated(string code, address payoutAddress);
 
@@ -70,10 +68,10 @@ contract ReferralCodes is
     /// @notice Thrown when provided address is invalid (usually zero address)
     error ZeroAddress();
 
-    /// @notice Thrown when referral code is invalid
+    /// @notice Thrown when builder code is invalid
     error InvalidCode(string code);
 
-    /// @notice Thrown when referral code is not registered
+    /// @notice Thrown when builder code is not registered
     error Unregistered(string code);
 
     /// @notice Thrown when trying to renounce ownership (disabled for security)
@@ -92,7 +90,7 @@ contract ReferralCodes is
         if (initialOwner == address(0)) revert ZeroAddress();
 
         __AccessControl_init();
-        __ERC721_init("Referral Codes", "REFCODE");
+        __ERC721_init("Builder Codes", "BUILDERCODE");
         __Ownable2Step_init();
         _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
@@ -103,8 +101,8 @@ contract ReferralCodes is
 
     /// @notice Registers a new referral code in the system with a custom value
     ///
-    /// @param code Custom ref code for the referral code
-    /// @param initialOwner Owner of the ref code
+    /// @param code Custom builder code for the builder code
+    /// @param initialOwner Owner of the builder code
     /// @param payoutAddress Default payout address for all chains
     function register(string memory code, address initialOwner, address payoutAddress)
         external
@@ -116,8 +114,8 @@ contract ReferralCodes is
 
     /// @notice Registers a new referral code in the system with a signature
     ///
-    /// @param code Custom ref code for the referral code
-    /// @param initialOwner Owner of the ref code
+    /// @param code Custom builder code for the builder code
+    /// @param initialOwner Owner of the builder code
     /// @param payoutAddress Default payout address for all chains
     /// @param registrar Address of the registrar
     /// @param signature Signature of the registrar
@@ -143,16 +141,16 @@ contract ReferralCodes is
         _updatePayoutAddress(code, payoutAddress);
     }
 
-    /// @notice Updates the metadata for a referral code
+    /// @notice Updates the metadata for a builder code
     ///
-    /// @param tokenId Token ID of the referral code
+    /// @param tokenId Token ID of the builder code
     function updateMetadata(uint256 tokenId) external onlyRole(METADATA_ROLE) {
         emit MetadataUpdate(tokenId);
     }
 
-    /// @notice Updates the base URI for the referral codes
+    /// @notice Updates the base URI for the builder codes
     ///
-    /// @param uriPrefix New base URI for the referral codes
+    /// @param uriPrefix New base URI for the builder codes
     function updateBaseURI(string memory uriPrefix) external onlyRole(METADATA_ROLE) {
         _uriPrefix = uriPrefix;
         emit BatchMetadataUpdate(0, type(uint256).max);
@@ -160,7 +158,7 @@ contract ReferralCodes is
 
     /// @notice Updates the default payout address for a referral code
     ///
-    /// @param code Referral code
+    /// @param code Builder code
     /// @param payoutAddress New default payout address
     /// @dev Only callable by referral code owner
     function updatePayoutAddress(string memory code, address payoutAddress) external {
@@ -170,7 +168,7 @@ contract ReferralCodes is
 
     /// @notice Gets the default payout address for a referral code
     ///
-    /// @param code Referral code
+    /// @param code Builder code
     ///
     /// @return The default payout address
     function payoutAddress(string memory code) external view returns (address) {
@@ -191,7 +189,7 @@ contract ReferralCodes is
 
     /// @notice Returns the URI for a referral code
     ///
-    /// @param code Referral code
+    /// @param code Builder code
     ///
     /// @return The URI for the referral code
     function codeURI(string memory code) external view returns (string memory) {
@@ -210,7 +208,7 @@ contract ReferralCodes is
 
     /// @notice Checks if a referral code exists
     ///
-    /// @param code Referral code to check
+    /// @param code Builder code to check
     ///
     /// @return True if the referral code exists
     function isRegistered(string memory code) public view returns (bool) {
@@ -240,7 +238,7 @@ contract ReferralCodes is
 
     /// @notice Checks if a referral code is valid
     ///
-    /// @param code Referral code to check
+    /// @param code Builder code to check
     ///
     /// @return True if the referral code is valid
     function isValidCode(string memory code) public pure returns (bool) {
@@ -253,7 +251,7 @@ contract ReferralCodes is
 
     /// @notice Converts a referral code to a token ID
     ///
-    /// @param code Referral code to convert
+    /// @param code Builder code to convert
     ///
     /// @return tokenId The token ID for the referral code
     function toTokenId(string memory code) public pure returns (uint256 tokenId) {
@@ -282,7 +280,7 @@ contract ReferralCodes is
 
     /// @notice Registers a new referral code
     ///
-    /// @param code Referral code
+    /// @param code Builder code
     /// @param payoutAddress Default payout address for all chains
     function _updatePayoutAddress(string memory code, address payoutAddress) internal {
         if (payoutAddress == address(0)) revert ZeroAddress();
@@ -300,7 +298,7 @@ contract ReferralCodes is
     /// @return name The domain name for the referral codes
     /// @return version The version of the referral codes
     function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {
-        name = "Referral Codes";
+        name = "Builder Codes";
         version = "1";
     }
 
