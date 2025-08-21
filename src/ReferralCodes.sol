@@ -179,6 +179,16 @@ contract ReferralCodes is
         return _getRegistryStorage().payoutAddresses[tokenId];
     }
 
+    /// @notice Gets the default payout address for a referral code
+    ///
+    /// @param tokenId Token ID of the referral code
+    ///
+    /// @return The default payout address
+    function payoutAddress(uint256 tokenId) external view returns (address) {
+        if (_ownerOf(tokenId) == address(0)) revert Unregistered(toCode(tokenId));
+        return _getRegistryStorage().payoutAddresses[tokenId];
+    }
+
     /// @notice Returns the URI for a referral code
     ///
     /// @param code Referral code
