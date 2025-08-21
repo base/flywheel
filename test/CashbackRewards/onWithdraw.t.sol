@@ -10,7 +10,11 @@ contract OnWithdrawTest is CashbackRewardsBase {
         withdrawAmount = bound(withdrawAmount, 1e6, DEFAULT_CAMPAIGN_BALANCE);
 
         vm.prank(owner);
-        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), owner, withdrawAmount, "");
+        flywheel.withdrawFunds(
+            unlimitedCashbackCampaign,
+            address(usdc),
+            abi.encode(Flywheel.Payout({recipient: owner, amount: withdrawAmount, extraData: ""}))
+        );
 
         uint256 finalBalance = usdc.balanceOf(unlimitedCashbackCampaign);
         assertEq(finalBalance, DEFAULT_CAMPAIGN_BALANCE - withdrawAmount);
@@ -23,7 +27,11 @@ contract OnWithdrawTest is CashbackRewardsBase {
         // Anyone other than owner should not be able to withdraw
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(unauthorizedCaller);
-        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), unauthorizedCaller, withdrawAmount, "");
+        flywheel.withdrawFunds(
+            unlimitedCashbackCampaign,
+            address(usdc),
+            abi.encode(Flywheel.Payout({recipient: unauthorizedCaller, amount: withdrawAmount, extraData: ""}))
+        );
     }
 
     function test_managerCannotWithdrawFunds(uint256 withdrawAmount) public {
@@ -32,16 +40,10 @@ contract OnWithdrawTest is CashbackRewardsBase {
         // Even the manager should not be able to withdraw funds (only owner can)
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(manager);
-        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), manager, withdrawAmount, "");
-    }
-
-    function test_ownerCannotWithdrawToDifferentAddress(uint256 withdrawAmount) public {
-        withdrawAmount = bound(withdrawAmount, 1e6, DEFAULT_CAMPAIGN_BALANCE);
-        address differentAddress = makeAddr("differentAddress");
-
-        // Owner cannot withdraw to a different address (sender must equal to address)
-        vm.expectRevert(SimpleRewards.Unauthorized.selector);
-        vm.prank(owner);
-        flywheel.withdrawFunds(unlimitedCashbackCampaign, address(usdc), differentAddress, withdrawAmount, "");
+        flywheel.withdrawFunds(
+            unlimitedCashbackCampaign,
+            address(usdc),
+            abi.encode(Flywheel.Payout({recipient: manager, amount: withdrawAmount, extraData: ""}))
+        );
     }
 }
