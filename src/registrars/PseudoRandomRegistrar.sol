@@ -48,7 +48,7 @@ contract PseudoRandomRegistrar {
         bytes memory codeBytes = new bytes(CODE_LENGTH);
 
         // Iteratively generate code with modulo arithmetic on nonce hash
-        uint256 hashNum = uint256(keccak256(abi.encodePacked(nonceValue, block.timestamp)));
+        uint256 hashNum = uint256(keccak256(abi.encodePacked(nonceValue, block.timestamp, block.prevrandao)));
         for (uint256 i; i < CODE_LENGTH; i++) {
             codeBytes[i] = allowedCharacters[hashNum % len];
             hashNum /= len;
