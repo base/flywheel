@@ -5,11 +5,11 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
-import {ReferralCodes} from "../src/ReferralCodes.sol";
+import {BuilderCodes} from "../src/BuilderCodes.sol";
 
 contract LookupAllowedCharacters is Script {
     function run() external {
-        ReferralCodes codes = new ReferralCodes();
+        BuilderCodes codes = new BuilderCodes();
         console.log("Allowed characters:", LibString.to7BitASCIIAllowedLookup(codes.ALLOWED_CHARACTERS()));
     }
 }

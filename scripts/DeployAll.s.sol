@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployFlywheel} from "./DeployFlywheel.s.sol";
-import {DeployReferralCodes} from "./DeployReferralCodes.s.sol";
+import {DeployBuilderCodes} from "./DeployBuilderCodes.s.sol";
 import {DeployAdConversion} from "./DeployAdConversion.s.sol";
 import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
 import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
@@ -50,12 +50,12 @@ contract DeployAll is Script {
         DeployFlywheel flywheelDeployer = new DeployFlywheel();
         info.flywheel = flywheelDeployer.run();
 
-        // Deploy ReferralCodes (independent contract)
-        console.log("2. Deploying ReferralCodes...");
-        DeployReferralCodes registryDeployer = new DeployReferralCodes();
+        // Deploy BuilderCodes (independent contract)
+        console.log("2. Deploying BuilderCodes...");
+        DeployBuilderCodes registryDeployer = new DeployBuilderCodes();
         info.referralCodes = registryDeployer.run(owner, signerAddress, uriPrefix);
 
-        // Deploy AdConversion hook (depends on both Flywheel and ReferralCodes)
+        // Deploy AdConversion hook (depends on both Flywheel and BuilderCodes)
         console.log("3. Deploying AdConversion hook...");
         DeployAdConversion adConversionDeployer = new DeployAdConversion();
         info.adConversion = adConversionDeployer.run(info.flywheel, owner, info.referralCodes);
@@ -73,7 +73,7 @@ contract DeployAll is Script {
         console.log("==========================================");
         console.log("Deployment complete!");
         console.log("Flywheel:", info.flywheel);
-        console.log("ReferralCodes:", info.referralCodes);
+        console.log("BuilderCodes:", info.referralCodes);
         console.log("AdConversion:", info.adConversion);
         console.log("CashbackRewards:", info.cashbackRewards);
         console.log("SimpleRewards:", info.simpleRewards);
