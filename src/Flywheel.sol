@@ -160,8 +160,8 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @notice Check if a campaign exists
     ///
     /// @param campaign Address of the campaign
-    modifier campaignExists(address campaign) {
-        if (address(_campaigns[campaign].hooks) == address(0)) revert CampaignDoesNotExist();
+    modifier onlyCampaignExists(address campaign) {
+        if (!campaignExists(campaign)) revert CampaignDoesNotExist();
         _;
     }
 
@@ -237,7 +237,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function allocate(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        campaignExists(campaign)
+        onlyCampaignExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
     {
@@ -263,7 +263,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function deallocate(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        campaignExists(campaign)
+        onlyCampaignExists(campaign)
         acceptingPayouts(campaign)
     {
         Payout[] memory payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
@@ -287,7 +287,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function distribute(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        campaignExists(campaign)
+        onlyCampaignExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, uint256 fee)
     {
@@ -312,7 +312,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function withdrawFunds(address campaign, address token, uint256 amount, bytes calldata hookData)
         external
         nonReentrant
-        campaignExists(campaign)
+        onlyCampaignExists(campaign)
     {
         _canReserve(campaign, token, amount);
         _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
@@ -328,7 +328,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
         external
         nonReentrant
-        campaignExists(campaign)
+        onlyCampaignExists(campaign)
     {
         CampaignStatus oldStatus = _campaigns[campaign].status;
         if (
@@ -348,7 +348,11 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant campaignExists(campaign) {
+    function updateMetadata(address campaign, bytes calldata hookData)
+        external
+        nonReentrant
+        onlyCampaignExists(campaign)
+    {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
@@ -362,7 +366,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function collectFees(address campaign, address token, address recipient)
         external
         nonReentrant
-        campaignExists(campaign)
+        onlyCampaignExists(campaign)
     {
         uint256 amount = fees[campaign][token][msg.sender];
         delete fees[campaign][token][msg.sender];
@@ -386,12 +390,21 @@ contract Flywheel is ReentrancyGuardTransient {
         return Clones.predictDeterministicAddress(campaignImplementation, keccak256(abi.encode(hooks, nonce, hookData)));
     }
 
+    /// @notice Checks if a campaign exists
+    ///
+    /// @param campaign Address of the campaign
+    ///
+    /// @return true if the campaign exists, false otherwise
+    function campaignExists(address campaign) public view returns (bool) {
+        return address(_campaigns[campaign].hooks) != address(0);
+    }
+
     /// @notice Returns the hooks of a campaign
     ///
     /// @param campaign Address of the campaign
     ///
     /// @return hooks of the campaign
-    function campaignHooks(address campaign) public view campaignExists(campaign) returns (address hooks) {
+    function campaignHooks(address campaign) public view onlyCampaignExists(campaign) returns (address hooks) {
         return address(_campaigns[campaign].hooks);
     }
 
@@ -400,7 +413,12 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     ///
     /// @return status of the campaign
-    function campaignStatus(address campaign) public view campaignExists(campaign) returns (CampaignStatus status) {
+    function campaignStatus(address campaign)
+        public
+        view
+        onlyCampaignExists(campaign)
+        returns (CampaignStatus status)
+    {
         return _campaigns[campaign].status;
     }
 
@@ -409,7 +427,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     ///
     /// @return uri The URI for the campaign
-    function campaignURI(address campaign) public view campaignExists(campaign) returns (string memory uri) {
+    function campaignURI(address campaign) public view onlyCampaignExists(campaign) returns (string memory uri) {
         return _campaigns[campaign].hooks.campaignURI(campaign);
     }
 

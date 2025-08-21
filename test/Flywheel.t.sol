@@ -90,6 +90,7 @@ contract FlywheelTest is FlywheelTestHelpers {
     function test_createCampaign() public {
         // Verify campaign was created correctly
         assertEq(uint8(flywheel.campaignStatus(campaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        assert(flywheel.campaignExists(campaign));
         assertEq(flywheel.campaignHooks(campaign), address(hook));
         assertEq(flywheel.campaignURI(campaign), "https://example.com/campaign");
     }
