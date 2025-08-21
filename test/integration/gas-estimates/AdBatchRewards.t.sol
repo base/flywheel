@@ -108,7 +108,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
                 configId: configId,
-                publisherRefCode: PUBLISHER_REF_CODE,
+                refCode: PUBLISHER_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisherTba,
                 payoutAmount: PAYOUT_PER_EVENT
@@ -144,7 +144,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 eventId: bytes16(uint128(eventId)),
                 clickId: clickId,
                 configId: configId,
-                publisherRefCode: refCode,
+                refCode: refCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: recipient,
                 payoutAmount: PAYOUT_PER_EVENT
@@ -282,7 +282,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                     eventId: bytes16(uint128(i + 1)),
                     clickId: string(abi.encodePacked("click_", vm.toString(i))),
                     configId: configId,
-                    publisherRefCode: refCode,
+                    refCode: refCode,
                     timestamp: uint32(block.timestamp),
                     payoutRecipient: address(0),
                     payoutAmount: PAYOUT_PER_EVENT

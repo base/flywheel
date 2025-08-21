@@ -192,7 +192,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
                 eventId: bytes16(type(uint128).max),
                 clickId: string(new bytes(1024)), // Very long click ID
                 configId: type(uint8).max,
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: type(uint32).max,
                 payoutRecipient: address(type(uint160).max),
                 payoutAmount: type(uint256).max
@@ -267,7 +267,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
                     eventId: bytes16(uint128(i)),
                     clickId: string(abi.encodePacked("dos_", i)),
                     configId: 1,
-                    publisherRefCode: "",
+                    refCode: "",
                     timestamp: uint32(block.timestamp),
                     payoutRecipient: address(uint160(i + 1)),
                     payoutAmount: 1

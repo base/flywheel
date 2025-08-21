@@ -117,7 +117,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
                 eventId: TEST_EVENT_ID_1,
                 clickId: TEST_CLICK_ID_1,
                 configId: 1, // Offchain config
-                publisherRefCode: publisherRefCode,
+                refCode: publisherRefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: payoutRecipient,
                 payoutAmount: payoutAmount
@@ -144,7 +144,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
                 eventId: TEST_EVENT_ID_2,
                 clickId: TEST_CLICK_ID_2,
                 configId: 2, // Onchain config
-                publisherRefCode: publisherRefCode,
+                refCode: publisherRefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: payoutRecipient,
                 payoutAmount: payoutAmount
@@ -168,7 +168,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
                 eventId: OFAC_EVENT_ID,
                 clickId: OFAC_CLICK_ID,
                 configId: 0, // No config - unregistered conversion
-                publisherRefCode: "", // No publisher
+                refCode: "", // No publisher
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: BURN_ADDRESS,
                 payoutAmount: amount
@@ -225,7 +225,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
 
     /// @notice Asserts publisher is allowed in campaign
     function _assertPublisherAllowed(address campaign, string memory refCode, bool expected) internal view {
-        assertEq(hook.isPublisherAllowed(campaign, refCode), expected);
+        assertEq(hook.isRefCodeAllowed(campaign, refCode), expected);
     }
 
     /// @notice Runs complete offchain attribution test

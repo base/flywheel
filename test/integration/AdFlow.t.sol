@@ -145,7 +145,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 configId: 1,
-                publisherRefCode: pub1RefCode,
+                refCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -159,7 +159,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(2)),
                 clickId: "click_456",
                 configId: 1,
-                publisherRefCode: pub2RefCode,
+                refCode: pub2RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher2,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -230,7 +230,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "onchain_click_123",
                 configId: 2,
-                publisherRefCode: pub1RefCode,
+                refCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -273,7 +273,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 configId: 1,
-                publisherRefCode: pub1RefCode,
+                refCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -361,7 +361,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_disabled_config",
                 configId: 1, // This config was disabled
-                publisherRefCode: pub1RefCode,
+                refCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT

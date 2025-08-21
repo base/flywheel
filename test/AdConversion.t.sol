@@ -80,7 +80,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1, // ONCHAIN config (1-indexed)
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -117,7 +117,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 2, // OFFCHAIN config (1-indexed)
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -147,7 +147,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1, // ONCHAIN config (1-indexed)
-                publisherRefCode: "",
+                refCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -171,7 +171,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 2, // OFFCHAIN config (1-indexed)
-                publisherRefCode: "",
+                refCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -210,7 +210,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(999)), // Unique ID for OFAC re-routing
                 clickId: "ofac_sanctioned_funds",
                 configId: 0, // No config - unregistered conversion
-                publisherRefCode: "", // No publisher
+                refCode: "", // No publisher
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: burnAddress, // Send to burn address
                 payoutAmount: 1000 ether // Full amount
@@ -228,7 +228,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(999)),
                 clickId: "ofac_sanctioned_funds",
                 configId: 0,
-                publisherRefCode: "",
+                refCode: "",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: burnAddress,
                 payoutAmount: 1000 ether
@@ -386,7 +386,7 @@ contract AdConversionTest is PublisherTestSetup {
         hook.addAllowedPublisherRefCode(allowlistCampaign, "code1");
 
         // Verify it was added
-        assertTrue(hook.isPublisherAllowed(allowlistCampaign, "code1"));
+        assertTrue(hook.isRefCodeAllowed(allowlistCampaign, "code1"));
     }
 
     // =============================================================
@@ -497,9 +497,9 @@ contract AdConversionTest is PublisherTestSetup {
     // Note: There's no removeAllowedPublisherRefCode function - publishers cannot be removed once added
     // This is by design to prevent accidental removal of authorized publishers
 
-    function test_isPublisherAllowed_noAllowlist(uint16 codeNum) public {
+    function test_isRefCodeAllowed_noAllowlist(uint16 codeNum) public {
         // Campaign with empty allowlist should allow all publishers
-        assertTrue(hook.isPublisherAllowed(campaign, generateCode(codeNum)));
+        assertTrue(hook.isRefCodeAllowed(campaign, generateCode(codeNum)));
     }
 
     // =============================================================
@@ -513,7 +513,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1,
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -538,7 +538,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 99, // Invalid config ID
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -567,7 +567,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1, // Disabled config
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -607,7 +607,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1,
-                publisherRefCode: "notonallowlist", // Registered but not in allowlist
+                refCode: "notonallowlist", // Registered but not in allowlist
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -629,7 +629,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 2,
-                publisherRefCode: "code2",
+                refCode: "code2",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -667,7 +667,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click1",
                 configId: 1,
-                publisherRefCode: "random",
+                refCode: "random",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -680,7 +680,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(2)),
                 clickId: "click2",
                 configId: 2,
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 200 ether
@@ -693,7 +693,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(3)),
                 clickId: "click3",
                 configId: 2,
-                publisherRefCode: "code2",
+                refCode: "code2",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0x2222), // Custom recipient
                 payoutAmount: 150 ether
@@ -761,7 +761,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1,
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
@@ -783,7 +783,7 @@ contract AdConversionTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
                 configId: 1,
-                publisherRefCode: "code1",
+                refCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
