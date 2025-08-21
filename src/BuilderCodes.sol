@@ -61,6 +61,9 @@ contract BuilderCodes is
     /// @param payoutAddress New default payout address for all chains
     event PayoutAddressUpdated(string code, address payoutAddress);
 
+    /// @notice Emits when the contract URI is updated (ERC-7572)
+    event ContractURIUpdated();
+
     /// @notice Thrown when call doesn't have required permissions
     error Unauthorized();
 
@@ -153,6 +156,7 @@ contract BuilderCodes is
     function updateBaseURI(string memory uriPrefix) external onlyRole(METADATA_ROLE) {
         _getRegistryStorage().uriPrefix = uriPrefix;
         emit BatchMetadataUpdate(0, type(uint256).max);
+        emit ContractURIUpdated();
     }
 
     /// @notice Updates the default payout address for a referral code
@@ -193,6 +197,14 @@ contract BuilderCodes is
     /// @return The URI for the referral code
     function codeURI(string memory code) external view returns (string memory) {
         return tokenURI(toTokenId(code));
+    }
+
+    /// @notice Returns the URI for the contract
+    ///
+    /// @return The URI for the contract
+    function contractURI() external view returns (string memory) {
+        string memory uriPrefix = _getRegistryStorage().uriPrefix;
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, "contractURI.json") : "";
     }
 
     /// @notice Returns the URI for a referral code
