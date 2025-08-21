@@ -947,38 +947,46 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
-    function test_attributionProvider_cannotPauseCampaign() public {
+    function test_attributionProvider_canPauseCampaign() public {
         // Start with ACTIVE campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
-        // Attribution provider CANNOT pause campaign (ACTIVE → INACTIVE) - this transition is now blocked
+        // Attribution provider can pause campaign (ACTIVE → INACTIVE)
         vm.prank(attributionProvider);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
 
-        // Campaign remains active - ACTIVE → INACTIVE transitions are no longer allowed
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
     }
 
-    function test_maliciousPause_nowBlocked() public {
+    function test_maliciousPause_campaignKilledForever() public {
         // Start ACTIVE campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        // Malicious/uncooperative attribution provider tries to pause campaign but fails
+        // Malicious/uncooperative attribution provider pauses campaign
         vm.prank(attributionProvider);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
 
-        // Campaign remains ACTIVE - malicious pause is now blocked
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Attribution provider can still perform other valid transitions like ACTIVE → FINALIZING
-        vm.prank(attributionProvider);
+        // Advertiser's ONLY escape route is to finalize and withdraw
+        // They can go INACTIVE → FINALIZING (this works)
+        vm.prank(advertiser);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Wait for deadline to pass
+        vm.warp(block.timestamp + 8 days);
+
+        // Then finalize (this works)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Campaign is now permanently dead - can never be reactivated
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+
+        // Advertiser can withdraw funds but campaign is killed forever
+
+        // No way to ever resume the campaign for publishers/users
     }
 
     // =============================================================
@@ -1043,17 +1051,18 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     /// @notice Test Attribution Provider has full state transition control
-    function test_attributionProviderControlExceptActivePause() public {
+    function test_attributionProviderFullControl() public {
         // Attribution Provider can do INACTIVE → ACTIVE
         vm.startPrank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
-        // Attribution Provider CANNOT do ACTIVE → INACTIVE (this transition is now blocked)
-        vm.expectRevert(AdConversion.Unauthorized.selector);
+        // Attribution Provider can do ACTIVE → INACTIVE (pause)
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
 
-        // Campaign remains ACTIVE
+        // Attribution Provider can reactivate: INACTIVE → ACTIVE
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
         // Attribution Provider can do ACTIVE → FINALIZING
@@ -1065,6 +1074,48 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
 
         vm.stopPrank();
+    }
+
+    /// @notice Test that advertiser cannot revert from pause - only attribution provider can unpause
+    function test_onlyAttributionProvider_canUnpauseCampaign() public {
+        // Start ACTIVE, attribution provider pauses
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Advertiser CANNOT unpause (INACTIVE → ACTIVE)
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Only attribution provider can unpause
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    /// @notice Test Advertiser CAN do INACTIVE → FINALIZING (escape route from pause)
+    function test_advertiserCanEscapeInactiveCampaign() public {
+        // Start ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Attribution Provider pauses campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Advertiser CANNOT unpause (INACTIVE → ACTIVE)
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // But Advertiser CAN escape via INACTIVE → FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
     }
 
     /// @notice Test Advertiser can transition from ACTIVE → FINALIZING directly (no pause state needed)

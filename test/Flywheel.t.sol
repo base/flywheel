@@ -860,12 +860,11 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.ACTIVE, "simple-activation");
         assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
 
-        // ACTIVE → INACTIVE (pause) - now blocked for all hook types
-        vm.expectRevert(SimpleRewards.Unauthorized.selector);
+        // ACTIVE → INACTIVE (pause) - SimpleRewards allows all transitions for manager
         flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.INACTIVE, "simple-pause");
-        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
 
-        // ACTIVE → FINALIZING (direct transition instead of pause)
+        // INACTIVE → FINALIZING (transition from paused state)
         flywheel.updateStatus(simpleCampaign, Flywheel.CampaignStatus.FINALIZING, "simple-finalizing");
         assertEq(uint8(flywheel.campaignStatus(simpleCampaign)), uint8(Flywheel.CampaignStatus.FINALIZING));
 
@@ -885,19 +884,18 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-activation");
         assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
 
-        // ACTIVE → INACTIVE (pause) - now blocked for attribution providers too
-        vm.expectRevert(AdConversion.Unauthorized.selector);
+        // ACTIVE → INACTIVE (pause) - attribution providers can pause campaigns
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.INACTIVE, "ad-pause");
-        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
 
         vm.stopPrank();
 
-        // Test that advertiser cannot change campaign from ACTIVE to INACTIVE either
-        vm.expectRevert(AdConversion.Unauthorized.selector); // Should fail - advertiser also cannot pause
+        // Test that advertiser cannot unpause (INACTIVE to ACTIVE) - only attribution provider can
+        vm.expectRevert(AdConversion.Unauthorized.selector); // Should fail - advertiser cannot unpause
         vm.prank(advertiser);
-        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.INACTIVE, "ad-advertiser-pause");
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-advertiser-unpause");
 
-        // But advertiser can escape via FINALIZING route
+        // But advertiser can escape via FINALIZING route from INACTIVE
         vm.prank(advertiser);
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.FINALIZING, "ad-advertiser-finalizing");
         assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.FINALIZING));

@@ -128,12 +128,7 @@ contract SimpleRewards is CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) external virtual override onlyFlywheel onlyManager(sender, campaign) {
-        // Prevent ACTIVE→INACTIVE transitions for any party
-        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.INACTIVE) {
-            revert Unauthorized();
-        }
-    }
+    ) external virtual override onlyFlywheel onlyManager(sender, campaign) {}
 
     /// @inheritdoc CampaignHooks
     function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)

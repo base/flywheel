@@ -391,11 +391,6 @@ contract AdConversion is CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) external override onlyFlywheel {
-        // Prevent ACTIVE→INACTIVE transitions for any party
-        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.INACTIVE) {
-            revert Unauthorized();
-        }
-
         // Attribution provider can perform other valid state transitions
         if (sender == state[campaign].attributionProvider) return;
 
