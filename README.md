@@ -220,6 +220,7 @@ Traditional performance marketing campaigns where publishers drive conversions a
 - Publisher allowlists for restricted campaigns
 - Attribution fee collection for providers
 - Attribution deadline duration must be in days precision (0 days for instant finalization, or multiples of 1 day)
+- Attribution window must be between 0 and 6 months (180 days maximum)
 
 **Campaign Creation:**
 
@@ -230,7 +231,7 @@ bytes memory hookData = abi.encode(
     "https://api.spindl.xyz/metadata/...",    // Campaign metadata URI
     allowedRefCodes,       // Publisher allowlist (empty = no restrictions)
     conversionConfigs,     // Array of ConversionConfig structs
-    attributionWindow  // Duration for attribution finalization (must be in days precision: 0, 1 day, 2 days, etc.)
+    attributionWindow  // Duration for attribution finalization (must be in days precision: 0, 1 day, 2 days, etc.; max 180 days)
 );
 ```
 
@@ -343,15 +344,24 @@ bytes memory hookData = abi.encode(
    // 30-day attribution window
    uint48 attributionWindow = 30 days;
 
+   // Maximum allowed: 6 months (180 days)
+   uint48 attributionWindow = 180 days;
+
+   // Invalid: Exceeds 6-month limit
+   // uint48 attributionWindow = 365 days;  // ❌ Reverts
+   // uint48 attributionWindow = 200 days;  // ❌ Reverts
+
    // Invalid: Not in days precision
    // uint48 attributionWindow = 3 hours;  // ❌ Reverts
    // uint48 attributionWindow = 2 days + 5 hours;  // ❌ Reverts
    ```
 
    - Must be in days precision (0, 1 day, 2 days, etc.)
+   - Must be between 0 and 180 days (6 months maximum)
    - 0 means instant finalization when entering FINALIZING state
    - Non-zero values create a waiting period before advertiser can finalize
    - Prevents UI complexity from inconsistent time formats
+   - Prevents unreasonably long finalization delays
 
 **Validation Rules:**
 
@@ -364,11 +374,10 @@ bytes memory hookData = abi.encode(
 
 **State Transition Control:**
 
-- **Attribution Provider**: Can perform any valid state transition (including ACTIVE→INACTIVE pause)
+- **Attribution Provider**: Can perform INACTIVE→ACTIVE and ACTIVE→FINALIZING transitions
 - **Advertiser**: Limited to ACTIVE→FINALIZING and FINALIZING→FINALIZED (after deadline)
-- **Important**: If attribution provider pauses campaign (ACTIVE→INACTIVE), advertiser cannot unpause
-- **Advertiser Recourse**: INACTIVE→FINALIZING→FINALIZED→withdraw funds (campaign permanently ends)
-- **Design Rationale**: Attribution provider has operational control; advertiser has exit rights
+- **Security Restriction**: No party can pause active campaigns (ACTIVE→INACTIVE is blocked for ALL parties)
+- **Design Rationale**: Prevents malicious campaign pausing while maintaining attribution provider operational control and advertiser exit rights
 
 ### **CashbackRewards.sol**
 
@@ -723,9 +732,9 @@ Each hook type has different access control patterns for state transitions and o
 
 | State          | Who Can Transition To                                                                                             | Available Functions | Special Behaviors                                                                                   |
 | -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | ⚠️ If Attribution Provider pauses campaign, Advertiser cannot unpause but can escape via FINALIZING |
-| **ACTIVE**     | • INACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                        | reward() only       | Live campaign processing conversions                                                                |
-| **FINALIZING** | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Attribution Provider (any time), Advertiser (after deadline) | reward() only       | Sets attribution deadline based on campaign's configured duration                                   |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)                          |
+| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser                                                                 | reward() only       | Live campaign processing conversions                                                                |
+| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                                       | reward() only       | Sets attribution deadline based on campaign's configured duration (max 180 days)                   |
 | **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
 
 ##### CashbackRewards & SimpleRewards Campaigns
