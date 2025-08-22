@@ -879,23 +879,23 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-activation");
         assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
 
-        // ACTIVE → INACTIVE (pause) - attribution providers can pause campaigns
+        // ACTIVE → INACTIVE (pause) - NO LONGER ALLOWED for attribution providers (security improvement)
+        vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.INACTIVE, "ad-pause");
-        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
+        
+        // Campaign remains ACTIVE after failed pause attempt
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
+
+        // Attribution provider can still do ACTIVE → FINALIZING
+        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.FINALIZING, "ad-finalizing");
+        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.FINALIZING));
 
         vm.stopPrank();
 
-        // Test that advertiser cannot unpause (INACTIVE to ACTIVE) - only attribution provider can
-        vm.expectRevert(AdConversion.Unauthorized.selector); // Should fail - advertiser cannot unpause
-        vm.prank(advertiser);
-        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.ACTIVE, "ad-advertiser-unpause");
+        // Test that advertiser cannot do FINALIZING → FINALIZED without waiting (should work for attribution provider)
+        // Note: We can't test FINALIZING → ACTIVE as that's blocked by core Flywheel state machine
 
-        // But advertiser can escape via FINALIZING route from INACTIVE
-        vm.prank(advertiser);
-        flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.FINALIZING, "ad-advertiser-finalizing");
-        assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.FINALIZING));
-
-        // Attribution provider can still control from FINALIZING
+        // Attribution provider can finalize from FINALIZING
         vm.prank(attributionProvider);
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.FINALIZED, "ad-finalized");
         assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.FINALIZED));

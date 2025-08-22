@@ -226,6 +226,9 @@ contract AdConversion is CampaignHooks {
 
         // Validate attribution deadline duration (if non-zero, must be in days precision)
         if (campaignAttributionWindow % 1 days != 0) revert InvalidAttributionWindow(campaignAttributionWindow);
+        
+        // Validate attribution window is between 0 and 6 months (180 days)
+        if (campaignAttributionWindow > 180 days) revert InvalidAttributionWindow(campaignAttributionWindow);
 
         bool hasAllowlist = allowedPublisherRefCodes.length > 0;
 
@@ -393,6 +396,11 @@ contract AdConversion is CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) external override onlyFlywheel {
+        // Prevent ACTIVE → INACTIVE transitions for ALL parties (no one can pause active campaigns)
+        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.INACTIVE) {
+            revert Unauthorized();
+        }
+
         // Attribution provider can perform other valid state transitions
         if (sender == state[campaign].attributionProvider) return;
 
