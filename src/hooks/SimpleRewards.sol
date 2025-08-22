@@ -66,10 +66,9 @@ contract SimpleRewards is CampaignHooks {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData)
     {
         payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        return (payouts, 0);
     }
 
     /// @inheritdoc CampaignHooks
@@ -79,10 +78,9 @@ contract SimpleRewards is CampaignHooks {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Payout[] memory payouts)
     {
         payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        return (payouts, 0);
     }
 
     /// @inheritdoc CampaignHooks
@@ -95,7 +93,6 @@ contract SimpleRewards is CampaignHooks {
         returns (Flywheel.Payout[] memory payouts)
     {
         payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        return (payouts);
     }
 
     /// @inheritdoc CampaignHooks
@@ -105,10 +102,9 @@ contract SimpleRewards is CampaignHooks {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData)
     {
         payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        return (payouts, 0);
     }
 
     /// @inheritdoc CampaignHooks

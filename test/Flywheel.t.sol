@@ -160,7 +160,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Check attribution provider fee is allocated
         uint256 expectedFee = feeAmount;
         assertEq(
-            flywheel.fees(campaign, address(token), attributionProvider),
+            flywheel.fees(campaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider should have fee allocated"
         );
@@ -215,7 +215,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Check attribution provider fee is allocated
         uint256 expectedFee = feeAmount2;
         assertEq(
-            flywheel.fees(campaign, address(token), attributionProvider),
+            flywheel.fees(campaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider should have fee allocated"
         );
@@ -271,7 +271,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // First, attribution provider collects their fee
         vm.startPrank(attributionProvider);
-        flywheel.collectFees(campaign, address(token), attributionProvider);
+        flywheel.collectFees(campaign, address(token), abi.encode(attributionProvider));
         vm.stopPrank();
 
         // Withdraw remaining tokens
@@ -328,19 +328,19 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Check that fees are available
         uint256 payoutAmount4 = 100 * 10 ** 18;
         uint256 expectedFee = payoutAmount4 * ATTRIBUTION_FEE_BPS / 10000;
-        uint256 availableFees = flywheel.fees(campaign, address(token), attributionProvider);
+        uint256 availableFees = flywheel.fees(campaign, address(token), bytes32(bytes20(attributionProvider)));
         assertEq(availableFees, expectedFee, "Should have correct attribution fee allocated");
 
         // Collect fees as attribution provider
         vm.startPrank(attributionProvider);
         uint256 balanceBefore = token.balanceOf(attributionProvider);
-        flywheel.collectFees(campaign, address(token), attributionProvider);
+        flywheel.collectFees(campaign, address(token), abi.encode(attributionProvider));
         uint256 balanceAfter = token.balanceOf(attributionProvider);
 
         assertEq(balanceAfter - balanceBefore, expectedFee, "Attribution provider should receive fee tokens");
 
         // Check that fees are cleared
-        uint256 remainingFees = flywheel.fees(campaign, address(token), attributionProvider);
+        uint256 remainingFees = flywheel.fees(campaign, address(token), bytes32(bytes20(attributionProvider)));
         assertEq(remainingFees, 0, "Fees should be cleared after collection");
         vm.stopPrank();
     }
@@ -372,26 +372,28 @@ contract FlywheelTest is FlywheelTestHelpers {
         allocatePayouts[0] = Flywheel.Payout({recipient: recipient, amount: 150e18, extraData: "allocate-test"});
 
         vm.prank(manager);
-        (Flywheel.Payout[] memory allocateResult, uint256 allocateFee) =
+        (Flywheel.Payout[] memory allocateResult) =
             flywheel.allocate(simpleCampaign, address(token), abi.encode(allocatePayouts));
 
         // Verify allocation results
         assertEq(allocateResult.length, 1);
         assertEq(allocateResult[0].amount, 150e18);
-        assertEq(allocateFee, 0); // SimpleRewards charges no fees
 
         // Verify tokens not transferred yet (allocation phase)
         assertEq(token.balanceOf(recipient), 0);
 
         // Test distribute operation
         vm.prank(manager);
-        (Flywheel.Payout[] memory distributeResult, uint256 distributeFee) =
+        (Flywheel.Payout[] memory distributeResult, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData) =
             flywheel.distribute(simpleCampaign, address(token), abi.encode(allocatePayouts));
 
         // Verify distribution results
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 150e18);
-        assertEq(distributeFee, 0); // SimpleRewards charges no fees
+        // SimpleRewards charges no fees
+        assertEq(feeKey, bytes32(0));
+        assertEq(feeAmount, 0);
+        assertEq(keccak256(feeExtraData), keccak256(""));
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient), 150e18);
@@ -542,13 +544,13 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Verify fees are collected for both tokens
         uint256 expectedFee = 100e18 * 1000 / 10000; // 10%
-        assertEq(flywheel.fees(campaign, address(token), attributionProvider), expectedFee);
-        assertEq(flywheel.fees(campaign, address(token2), attributionProvider), expectedFee);
+        assertEq(flywheel.fees(campaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee);
+        assertEq(flywheel.fees(campaign, address(token2), bytes32(bytes20(attributionProvider))), expectedFee);
 
         // Collect fees for both tokens
         vm.startPrank(attributionProvider);
-        flywheel.collectFees(campaign, address(token), attributionProvider);
-        flywheel.collectFees(campaign, address(token2), attributionProvider);
+        flywheel.collectFees(campaign, address(token), abi.encode(attributionProvider));
+        flywheel.collectFees(campaign, address(token2), abi.encode(attributionProvider));
         vm.stopPrank();
 
         // Verify attribution provider received fees in both tokens
@@ -727,21 +729,22 @@ contract FlywheelTest is FlywheelTestHelpers {
         allocatePayouts[0] = Flywheel.Payout({recipient: recipient, amount: 100e18, extraData: "fee-test-allocation"});
 
         vm.prank(feeManager);
-        (Flywheel.Payout[] memory allocateResult, uint256 allocateFee) =
+        (Flywheel.Payout[] memory allocateResult) =
             flywheel.allocate(feeCampaign, address(feeToken), abi.encode(allocatePayouts));
 
         // Verify no fees charged during allocation (SimpleRewards has no fees)
-        assertEq(allocateFee, 0, "SimpleRewards should not charge allocation fees");
         assertEq(allocateResult.length, 1);
         assertEq(allocateResult[0].amount, 100e18);
 
         // Test distribute operation
         vm.prank(feeManager);
-        (Flywheel.Payout[] memory distributeResult, uint256 distributeFee) =
+        (Flywheel.Payout[] memory distributeResult, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData) =
             flywheel.distribute(feeCampaign, address(feeToken), abi.encode(allocatePayouts));
 
         // Verify no fees charged during distribution
-        assertEq(distributeFee, 0, "SimpleRewards should not charge distribution fees");
+        assertEq(feeKey, bytes32(0));
+        assertEq(feeAmount, 0);
+        assertEq(keccak256(feeExtraData), keccak256(""));
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 100e18);
 
@@ -1118,7 +1121,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         distributePayouts[1] = Flywheel.Payout({recipient: recipient2, amount: 150e18, extraData: "distribution-2"});
 
         vm.prank(manager);
-        (Flywheel.Payout[] memory payouts, uint256 fee) =
+        (Flywheel.Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData) =
             flywheel.distribute(simpleCampaign, address(token), abi.encode(distributePayouts));
 
         // Verify distribute() results
@@ -1127,7 +1130,10 @@ contract FlywheelTest is FlywheelTestHelpers {
         assertEq(payouts[0].amount, 100e18);
         assertEq(payouts[1].recipient, recipient2);
         assertEq(payouts[1].amount, 150e18);
-        assertEq(fee, 0); // SimpleRewards has no fees
+        // SimpleRewards has no fees
+        assertEq(feeKey, bytes32(0));
+        assertEq(feeAmount, 0);
+        assertEq(keccak256(feeExtraData), keccak256(""));
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient1), 100e18);

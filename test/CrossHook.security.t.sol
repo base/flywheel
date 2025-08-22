@@ -603,11 +603,13 @@ contract CrossHookSecurityTest is Test {
         uint256 providerBalanceBefore = token.balanceOf(attributionProvider);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, uint256 fee) =
+        (Flywheel.Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData) =
             adHook.onReward(attributionProvider, adCampaign, address(rewardToken), adHookData);
 
         // Fee should be 50% of 200e18 = 100e18
-        assertEq(fee, 100e18);
+        assertEq(feeKey, bytes32(bytes20(attributionProvider)));
+        assertEq(feeAmount, 100e18);
+        assertEq(keccak256(feeExtraData), keccak256(""));
 
         // Other hooks (CashbackRewards, SimpleRewards) don't have fees
         // This creates economic imbalance that could be exploited

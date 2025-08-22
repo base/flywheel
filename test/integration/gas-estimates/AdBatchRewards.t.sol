@@ -224,7 +224,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Verify attribution provider fee is allocated (not transferred immediately)
         assertEq(
-            flywheel.fees(campaign, address(token), attributionProvider),
+            flywheel.fees(campaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider fee should be allocated"
         );
@@ -332,7 +332,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Verify attribution provider fee is allocated
         assertEq(
-            flywheel.fees(multiPublisherCampaign, address(token), attributionProvider),
+            flywheel.fees(multiPublisherCampaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider fee should be allocated"
         );
@@ -416,7 +416,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Verify attribution provider fee is allocated
         assertEq(
-            flywheel.fees(userCampaign, address(token), attributionProvider),
+            flywheel.fees(userCampaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider fee should be allocated"
         );
