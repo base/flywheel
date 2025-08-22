@@ -27,7 +27,9 @@ contract BuilderCodes is
     /// @notice EIP-712 storage structure for registry data
     /// @custom:storage-location erc7201:base.flywheel.BuilderCodes
     struct RegistryStorage {
-        /// @dev Mapping of builder code token IDs to payout recipients
+        /// @notice Base URI for referral code metadata
+        string uriPrefix;
+        /// @dev Mapping of referral code token IDs to payout recipients
         mapping(uint256 tokenId => address payoutAddress) payoutAddresses;
     }
 
@@ -53,14 +55,14 @@ contract BuilderCodes is
     bytes32 private constant REGISTRY_STORAGE_LOCATION =
         0xe3aaf266708e5133bd922e269bb5e8f72a7444c3b231cbf562ddc67a383e5700;
 
-    /// @notice Base URI for builder code metadata
-    string internal _uriPrefix;
-
     /// @notice Emitted when a publisher's default payout address is updated
     ///
     /// @param code Builder code
     /// @param payoutAddress New default payout address for all chains
     event PayoutAddressUpdated(string code, address payoutAddress);
+
+    /// @notice Emits when the contract URI is updated (ERC-7572)
+    event ContractURIUpdated();
 
     /// @notice Thrown when call doesn't have required permissions
     error Unauthorized();
@@ -94,7 +96,7 @@ contract BuilderCodes is
         __Ownable2Step_init();
         _transferOwnership(initialOwner);
         __UUPSUpgradeable_init();
-        _uriPrefix = uriPrefix;
+        _getRegistryStorage().uriPrefix = uriPrefix;
 
         if (initialRegistrar != address(0)) _grantRole(REGISTER_ROLE, initialRegistrar);
     }
@@ -152,8 +154,9 @@ contract BuilderCodes is
     ///
     /// @param uriPrefix New base URI for the builder codes
     function updateBaseURI(string memory uriPrefix) external onlyRole(METADATA_ROLE) {
-        _uriPrefix = uriPrefix;
+        _getRegistryStorage().uriPrefix = uriPrefix;
         emit BatchMetadataUpdate(0, type(uint256).max);
+        emit ContractURIUpdated();
     }
 
     /// @notice Updates the default payout address for a referral code
@@ -196,6 +199,14 @@ contract BuilderCodes is
         return tokenURI(toTokenId(code));
     }
 
+    /// @notice Returns the URI for the contract
+    ///
+    /// @return The URI for the contract
+    function contractURI() external view returns (string memory) {
+        string memory uriPrefix = _getRegistryStorage().uriPrefix;
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, "contractURI.json") : "";
+    }
+
     /// @notice Returns the URI for a referral code
     ///
     /// @param tokenId Token ID of the referral code
@@ -203,7 +214,8 @@ contract BuilderCodes is
     /// @return uri The URI for the referral code
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
-        return bytes(_uriPrefix).length > 0 ? string.concat(_uriPrefix, toCode(tokenId)) : "";
+        string memory uriPrefix = _getRegistryStorage().uriPrefix;
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, toCode(tokenId)) : "";
     }
 
     /// @notice Checks if a referral code exists
