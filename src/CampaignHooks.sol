@@ -117,10 +117,11 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
+    function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
+        returns (Flywheel.Payout memory payout)
     {
         revert Unsupported();
     }

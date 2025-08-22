@@ -282,7 +282,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         uint256 campaignBalance = token.balanceOf(campaign);
         vm.startPrank(advertiser);
         uint256 advertiserBalanceBefore = token.balanceOf(advertiser);
-        flywheel.withdrawFunds(campaign, address(token), campaignBalance, "");
+        flywheel.withdrawFunds(campaign, address(token), abi.encode(advertiser, campaignBalance));
         uint256 advertiserBalanceAfter = token.balanceOf(advertiser);
 
         assertEq(
@@ -1055,12 +1055,20 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Test unauthorized withdrawal fails
         vm.expectRevert();
         vm.prank(advertiser); // Not the manager
-        flywheel.withdrawFunds(withdrawCampaign, address(token), campaignBalance, "");
+        flywheel.withdrawFunds(
+            withdrawCampaign,
+            address(token),
+            abi.encode(Flywheel.Payout({recipient: advertiser, amount: campaignBalance, extraData: ""}))
+        );
 
         // Test authorized manager withdrawal succeeds
         uint256 managerBalanceBefore = token.balanceOf(withdrawManager);
         vm.prank(withdrawManager);
-        flywheel.withdrawFunds(withdrawCampaign, address(token), campaignBalance, "");
+        flywheel.withdrawFunds(
+            withdrawCampaign,
+            address(token),
+            abi.encode(Flywheel.Payout({recipient: withdrawManager, amount: campaignBalance, extraData: ""}))
+        );
 
         uint256 managerBalanceAfter = token.balanceOf(withdrawManager);
         assertEq(managerBalanceAfter - managerBalanceBefore, campaignBalance, "Manager should receive withdrawal");

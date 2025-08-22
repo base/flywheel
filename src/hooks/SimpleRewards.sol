@@ -112,13 +112,15 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
+    function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         override
         onlyFlywheel
+        returns (Flywheel.Payout memory payout)
     {
         if (sender != owners[campaign]) revert Unauthorized();
+        return (abi.decode(hookData, (Flywheel.Payout)));
     }
 
     /// @inheritdoc CampaignHooks

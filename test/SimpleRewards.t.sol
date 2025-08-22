@@ -126,12 +126,18 @@ contract SimpleRewardsTest is Test {
 
         // Manager can withdraw
         vm.prank(manager);
-        flywheel.withdrawFunds(campaign, address(token), INITIAL_TOKEN_BALANCE, "");
+        flywheel.withdrawFunds(
+            campaign,
+            address(token),
+            abi.encode(Flywheel.Payout({recipient: manager, amount: INITIAL_TOKEN_BALANCE, extraData: ""}))
+        );
 
         // Random user cannot withdraw
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
-        flywheel.withdrawFunds(campaign, address(token), 0, "");
+        flywheel.withdrawFunds(
+            campaign, address(token), abi.encode(Flywheel.Payout({recipient: randomUser, amount: 0, extraData: ""}))
+        );
     }
 
     function test_batchPayouts() public {
@@ -485,8 +491,16 @@ contract SimpleRewardsTest is Test {
         uint256 managerBonusBalanceBefore = bonusToken.balanceOf(manager);
 
         vm.startPrank(manager);
-        flywheel.withdrawFunds(campaign, address(rewardToken), remainingRewardTokens, "");
-        flywheel.withdrawFunds(campaign, address(bonusToken), remainingBonusTokens, "");
+        flywheel.withdrawFunds(
+            campaign,
+            address(rewardToken),
+            abi.encode(Flywheel.Payout({recipient: manager, amount: remainingRewardTokens, extraData: ""}))
+        );
+        flywheel.withdrawFunds(
+            campaign,
+            address(bonusToken),
+            abi.encode(Flywheel.Payout({recipient: manager, amount: remainingBonusTokens, extraData: ""}))
+        );
         vm.stopPrank();
 
         assertEq(rewardToken.balanceOf(campaign), 0);

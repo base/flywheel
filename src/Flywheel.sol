@@ -142,8 +142,10 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the withdrawn token
+    /// @param recipient Address that received the withdrawn tokens
     /// @param amount Amount of tokens withdrawn
-    event FundsWithdrawn(address indexed campaign, address token, address withdrawer, uint256 amount);
+    /// @param extraData Extra data for the payout to attach in events
+    event FundsWithdrawn(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
 
     /// @notice Thrown when campaign does not exist
     error CampaignDoesNotExist();
@@ -305,20 +307,20 @@ contract Flywheel is ReentrancyGuardTransient {
         }
     }
 
-    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
+    /// @notice Withdraw tokens from a campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
     /// @param hookData Data for the campaign hook
-    function withdrawFunds(address campaign, address token, uint256 amount, bytes calldata hookData)
+    function withdrawFunds(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
         onlyCampaignExists(campaign)
     {
-        _canReserve(campaign, token, amount);
-        _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, amount, hookData);
-        Campaign(campaign).sendTokens(token, msg.sender, amount);
-        emit FundsWithdrawn(campaign, token, msg.sender, amount);
+        Payout memory payout = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
+        _canReserve(campaign, token, payout.amount);
+        Campaign(campaign).sendTokens(token, payout.recipient, payout.amount);
+        emit FundsWithdrawn(campaign, token, payout.recipient, payout.amount, payout.extraData);
     }
 
     /// @notice Updates the status of a campaign

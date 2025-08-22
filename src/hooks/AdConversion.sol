@@ -374,13 +374,17 @@ contract AdConversion is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
-    function onWithdrawFunds(address sender, address campaign, address token, uint256 amount, bytes calldata hookData)
+    function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
+        returns (Flywheel.Payout memory payout)
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+
+        (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
+        return (Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}));
     }
 
     /// @inheritdoc CampaignHooks

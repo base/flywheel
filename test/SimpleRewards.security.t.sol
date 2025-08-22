@@ -264,7 +264,9 @@ contract SimpleRewardsSecurityTest is Test {
         // Attacker tries to withdraw funds
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
-        flywheel.withdrawFunds(campaign, address(token), 100e18, "");
+        flywheel.withdrawFunds(
+            campaign, address(token), abi.encode(Flywheel.Payout({recipient: attacker, amount: 100e18, extraData: ""}))
+        );
     }
 
     // =============================================================
