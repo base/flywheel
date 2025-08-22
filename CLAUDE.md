@@ -31,7 +31,7 @@ This repository contains the Flywheel Protocol - a modular, permissionless adver
   - `Flywheel.sol` - Main protocol
   - `CampaignHooks.sol` - Hook interface
   - `TokenStore.sol` - Campaign treasury
-  - `ReferralCodes.sol` - Publisher & Ref code management
+  - `BuilderCodes.sol` - Publisher & Ref code management
   - `registrars/PseudoRandomRegistrar.sol` - Permissionless code generation
   - `hooks/` - Hook implementations
 - `test/` - Foundry tests (use -vv flag for proper verbosity)
@@ -281,7 +281,7 @@ struct Position {
 - Implement overattribution protection
 - Use precise fee calculations with basis points
 
-#### ReferralCodeRegistry
+#### BuilderCodes
 
 - Generate unique identifiers securely
 - Implement chain-specific overrides for multi-chain support

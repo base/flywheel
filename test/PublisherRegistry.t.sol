@@ -128,7 +128,7 @@ contract BuilderCodesTest is PublisherTestSetup {
 
     //         // Expect the event before registration
     //         vm.expectEmit(true, true, true, true);
-    //         emit BuilderCodes.ReferralCodeRegistered(
+    //         emit BuilderCodes.BuilderCodeRegistered(
     //             config.refCode, config.owner, config.payoutRecipient, config.metadataUrl, true
     //         );
 
@@ -136,7 +136,7 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         setupPublisher(pubRegistry, config, signer);
 
     //         // Verify the publisher was registered
-    //         assertTrue(pubRegistry.isReferralCodeRegistered(config.refCode));
+    //         assertTrue(pubRegistry.isBuilderCodeRegistered(config.refCode));
     //         assertEq(pubRegistry.getOwner(config.refCode), config.owner);
     //         assertEq(pubRegistry.getMetadataUrl(config.refCode), config.metadataUrl);
     //         assertEq(pubRegistry.getPayoutRecipient(config.refCode), config.payoutRecipient);
@@ -148,7 +148,7 @@ contract BuilderCodesTest is PublisherTestSetup {
     //             setupPublisher(pubRegistry, generateCode(1), address(0x789), address(0x101), owner);
 
     //         // Verify the publisher was registered
-    //         assertTrue(pubRegistry.isReferralCodeRegistered(config.refCode));
+    //         assertTrue(pubRegistry.isBuilderCodeRegistered(config.refCode));
     //         assertEq(pubRegistry.getOwner(config.refCode), config.owner);
     //         assertEq(pubRegistry.getPayoutRecipient(config.refCode), config.payoutRecipient);
     //         // Default metadata URL is auto-generated
@@ -189,7 +189,7 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         assertEq(freshRegistry.getOwner(customRefCode), address(0x789));
     //         assertEq(freshRegistry.getPayoutRecipient(customRefCode), address(0x101));
     //         assertEq(freshRegistry.getMetadataUrl(customRefCode), "https://example.com");
-    //         assertEq(freshRegistry.isReferralCodeRegistered(customRefCode), true);
+    //         assertEq(freshRegistry.isBuilderCodeRegistered(customRefCode), true);
 
     //         // Unauthorized address should fail
     //         vm.startPrank(address(0x999));
@@ -237,8 +237,8 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         assertEq(pubRegistry.getOwner(refCode), publisherOwner);
     //         assertEq(pubRegistry.getMetadataUrl(refCode), publisherMetadataUrl);
     //         assertEq(pubRegistry.getPayoutRecipient(refCode), defaultPayout);
-    //         assertEq(pubRegistry.isReferralCodeRegistered(refCode), true);
-    //         assertEq(pubRegistry.computeReferralCode(pubRegistry.nonce()), refCode);
+    //         assertEq(pubRegistry.isBuilderCodeRegistered(refCode), true);
+    //         assertEq(pubRegistry.computeBuilderCode(pubRegistry.nonce()), refCode);
     //     }
 
     //     function test_updateMetadataUrl() public {
@@ -249,7 +249,7 @@ contract BuilderCodesTest is PublisherTestSetup {
 
     //         // Expect the event before calling the function
     //         vm.expectEmit(true, true, true, true);
-    //         emit BuilderCodes.ReferralCodeMetadataUrlUpdated(refCode, newDimsUrl);
+    //         emit BuilderCodes.BuilderCodeMetadataUrlUpdated(refCode, newDimsUrl);
 
     //         pubRegistry.updateMetadataUrl(refCode, newDimsUrl);
 
@@ -266,7 +266,7 @@ contract BuilderCodesTest is PublisherTestSetup {
 
     //         // Expect the event before calling the function
     //         vm.expectEmit(true, true, true, true);
-    //         emit BuilderCodes.ReferralCodePayoutRecipientUpdated(refCode, newDefaultPayout);
+    //         emit BuilderCodes.BuilderCodePayoutRecipientUpdated(refCode, newDefaultPayout);
 
     //         pubRegistry.updatePayoutRecipient(refCode, newDefaultPayout);
 
@@ -298,18 +298,18 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         vm.stopPrank();
     //     }
 
-    //     function test_computeReferralCode() public {
+    //     function test_computeBuilderCode() public {
     //         registerDefaultPublisher();
-    //         string memory refCode1 = pubRegistry.computeReferralCode(1);
+    //         string memory refCode1 = pubRegistry.computeBuilderCode(1);
     //         console.log("xxx ref code 1", refCode1);
 
-    //         string memory refCode2 = pubRegistry.computeReferralCode(2);
+    //         string memory refCode2 = pubRegistry.computeBuilderCode(2);
     //         console.log("xxx ref code 2", refCode2);
 
-    //         string memory refCode3 = pubRegistry.computeReferralCode(3);
+    //         string memory refCode3 = pubRegistry.computeBuilderCode(3);
     //         console.log("xxx ref code 3", refCode3);
 
-    //         string memory refCode4333 = pubRegistry.computeReferralCode(4333);
+    //         string memory refCode4333 = pubRegistry.computeBuilderCode(4333);
     //         console.log("xxx ref code 4333", refCode4333);
     //     }
 
@@ -319,8 +319,8 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         uint256 nonce2 = 3_210_288;
 
     //         // Verify they actually generate the same ref code
-    //         string memory refCode1 = pubRegistry.computeReferralCode(nonce1);
-    //         string memory refCode2 = pubRegistry.computeReferralCode(nonce2);
+    //         string memory refCode1 = pubRegistry.computeBuilderCode(nonce1);
+    //         string memory refCode2 = pubRegistry.computeBuilderCode(nonce2);
     //         assertEq(refCode1, refCode2, "Test setup error: nonces should generate same ref code");
     //         console.log("xxx ref code 1", refCode1);
     //         console.log("xxx ref code 2", refCode2);
@@ -351,8 +351,8 @@ contract BuilderCodesTest is PublisherTestSetup {
     //             "Should generate different ref codes"
     //         );
 
-    //         assertEq(firstRefCode, pubRegistry.computeReferralCode(firstNonce), "First ref code mismatch");
-    //         assertEq(secondRefCode, pubRegistry.computeReferralCode(secondNonce), "Second ref code mismatch");
+    //         assertEq(firstRefCode, pubRegistry.computeBuilderCode(firstNonce), "First ref code mismatch");
+    //         assertEq(secondRefCode, pubRegistry.computeBuilderCode(secondNonce), "Second ref code mismatch");
 
     //         // Verify both publishers were registered with their respective ref codes
     //         assertEq(pubRegistry.getOwner(firstRefCode), publisherOwner, "First publisher not registered correctly");
@@ -367,14 +367,14 @@ contract BuilderCodesTest is PublisherTestSetup {
 
     //         // Expect events before registration
     //         vm.expectEmit(true, true, true, true);
-    //         emit BuilderCodes.ReferralCodeRegistered(
+    //         emit BuilderCodes.BuilderCodeRegistered(
     //             config.refCode, config.owner, config.payoutRecipient, config.metadataUrl, true
     //         );
 
     //         setupPublisher(pubRegistry, config, owner);
 
     //         // Verify registration
-    //         assertTrue(pubRegistry.isReferralCodeRegistered(config.refCode));
+    //         assertTrue(pubRegistry.isBuilderCodeRegistered(config.refCode));
     //         assertEq(pubRegistry.getOwner(config.refCode), config.owner);
     //         assertEq(pubRegistry.getMetadataUrl(config.refCode), config.metadataUrl);
     //         assertEq(pubRegistry.getPayoutRecipient(config.refCode), config.payoutRecipient);
@@ -389,7 +389,7 @@ contract BuilderCodesTest is PublisherTestSetup {
 
     //         // Verify all were registered
     //         for (uint256 i = 0; i < configs.length; i++) {
-    //             assertTrue(pubRegistry.isReferralCodeRegistered(configs[i].refCode));
+    //             assertTrue(pubRegistry.isBuilderCodeRegistered(configs[i].refCode));
     //             assertEq(pubRegistry.getOwner(configs[i].refCode), configs[i].owner);
     //             assertEq(pubRegistry.getPayoutRecipient(configs[i].refCode), configs[i].payoutRecipient);
     //         }
@@ -479,7 +479,7 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         vm.stopPrank();
 
     //         // Verify the ref code was generated correctly
-    //         assertEq(refCode, pubRegistry.computeReferralCode(pubRegistry.nonce()), "Ref code should match generated nonce");
+    //         assertEq(refCode, pubRegistry.computeBuilderCode(pubRegistry.nonce()), "Ref code should match generated nonce");
 
     //         // Verify publisher was registered with the generated ref code
     //         assertEq(
@@ -607,7 +607,7 @@ contract BuilderCodesTest is PublisherTestSetup {
     //         assertEq(pubRegistry.getOwner("newowner123"), address(0x789));
     //         assertEq(pubRegistry.getPayoutRecipient("newowner123"), address(0x101));
     //         assertEq(pubRegistry.getMetadataUrl("newowner123"), "https://newowner.com");
-    //         assertEq(pubRegistry.isReferralCodeRegistered("newowner123"), true);
+    //         assertEq(pubRegistry.isBuilderCodeRegistered("newowner123"), true);
     //     }
 
     //     /// @notice Test old owner cannot perform owner functions after transfer

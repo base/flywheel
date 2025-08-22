@@ -994,7 +994,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Attribution Provider CANNOT do ACTIVE → INACTIVE (pause) - now blocked
         vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-        
+
         // Campaign remains ACTIVE after failed pause attempt
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
@@ -1020,7 +1020,7 @@ contract AdConversionTest is PublisherTestSetup {
         vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
 
-        // Advertiser also CANNOT pause (ACTIVE → INACTIVE) 
+        // Advertiser also CANNOT pause (ACTIVE → INACTIVE)
         vm.prank(advertiser);
         vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
@@ -1291,7 +1291,9 @@ contract AdConversionTest is PublisherTestSetup {
                 excessiveDeadlines[i]
             );
 
-            vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidAttributionWindow.selector, excessiveDeadlines[i]));
+            vm.expectRevert(
+                abi.encodeWithSelector(AdConversion.InvalidAttributionWindow.selector, excessiveDeadlines[i])
+            );
             flywheel.createCampaign(address(hook), 996 - i, hookData);
         }
     }

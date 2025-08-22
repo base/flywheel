@@ -882,7 +882,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // ACTIVE → INACTIVE (pause) - NO LONGER ALLOWED for attribution providers (security improvement)
         vm.expectRevert(AdConversion.Unauthorized.selector);
         flywheel.updateStatus(adCampaign, Flywheel.CampaignStatus.INACTIVE, "ad-pause");
-        
+
         // Campaign remains ACTIVE after failed pause attempt
         assertEq(uint8(flywheel.campaignStatus(adCampaign)), uint8(Flywheel.CampaignStatus.ACTIVE));
 

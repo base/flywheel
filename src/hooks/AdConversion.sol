@@ -226,7 +226,7 @@ contract AdConversion is CampaignHooks {
 
         // Validate attribution deadline duration (if non-zero, must be in days precision)
         if (campaignAttributionWindow % 1 days != 0) revert InvalidAttributionWindow(campaignAttributionWindow);
-        
+
         // Validate attribution window is between 0 and 6 months (180 days)
         if (campaignAttributionWindow > 180 days) revert InvalidAttributionWindow(campaignAttributionWindow);
 

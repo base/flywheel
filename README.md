@@ -40,7 +40,7 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 - **Core Flywheel Contract**: Manages campaign lifecycle and payouts
 - **Campaign**: Each campaign has its own isolated address for storing tokens
 - **Campaign Hooks**: Pluggable logic for different campaign types
-- **ReferralCodes**: Optional referral code system, initially used for publisher-based campaigns
+- **BuilderCodes**: Optional referral code system, initially used for publisher-based campaigns
 - **Participants**: Shows the flow between sponsors and recipients based on hook-specific validation
 
 ## Core Components
@@ -70,7 +70,7 @@ Abstract interface that enables:
 - Attribution calculations
 - Metadata management
 
-#### 4. **ReferralCodes.sol** - Publisher & Ref Code Management
+#### 4. **BuilderCodes.sol** - Publisher & Ref Code Management
 
 - Publisher registration and ref code generation
 - Relevant to `AdConversion.sol` for Spindl/Base Ads and other open-ended use cases
@@ -82,7 +82,7 @@ Abstract interface that enables:
 
 - Enables permissionless registration of referral codes with auto-generated identifiers
 - Generates 8-character codes using pseudo-random algorithm based on nonce and timestamp
-- Uses allowed character set from ReferralCodes for compatibility
+- Uses allowed character set from BuilderCodes for compatibility
 - Automatically retries if generated code already exists or is invalid
 - Provides alternative to custom code registration for users who don't need specific codes
 
@@ -106,7 +106,7 @@ Referral codes serve as unique identifiers for any campaign participant and can 
 
 #### 1. Custom Code Registration
 
-Any participant (publishers, builders, creators, etc.) can register memorable, branded referral codes through the ReferralCodes contract:
+Any participant (publishers, builders, creators, etc.) can register memorable, branded referral codes through the BuilderCodes contract:
 
 ```solidity
 // Register custom code "base"
@@ -177,7 +177,7 @@ Conversion memory conversion = Conversion({
     eventId: "unique-event-id",
     clickId: "click-12345",
     configId: 1,
-    publisherRefCode: "base",        // Must exist in ReferralCodes
+    publisherRefCode: "base",        // Must exist in BuilderCodes
     timestamp: uint32(block.timestamp),
     payoutRecipient: address(0),     // Use registry lookup
     payoutAmount: 10e18
@@ -186,7 +186,7 @@ Conversion memory conversion = Conversion({
 
 **AdConversion Validation Process:**
 
-1. **Code Existence Check**: Verifies `publisherRefCode` exists in ReferralCodes registry
+1. **Code Existence Check**: Verifies `publisherRefCode` exists in BuilderCodes registry
 2. **Allowlist Validation**: If campaign has allowlist, checks if publisher is approved
 3. **Payout Address Resolution**:
    - If `payoutRecipient = address(0)`: Look up via `referralCodes.payoutAddress(publisherRefCode)`
@@ -255,7 +255,7 @@ bytes memory hookData = abi.encode(
    - Useful when publisher wants specific address for rewards
    - Attribution fee deducted from `payoutAmount`
 
-2. **ReferralCodes Lookup**
+2. **BuilderCodes Lookup**
 
    ```solidity
    Conversion memory conversion = Conversion({
@@ -365,7 +365,7 @@ bytes memory hookData = abi.encode(
 
 **Validation Rules:**
 
-- Publisher ref code must exist in `ReferralCodes`
+- Publisher ref code must exist in `BuilderCodes`
 - If allowlist exists, publisher must be approved
 - Conversion config must be active (if specified)
 - Conversion type must match config (onchain/offchain)
@@ -472,7 +472,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Use Case**        | Publisher performance marketing                             | E-commerce cashback                                              | Flexible reward distribution                        |
 | **Validation**      | Complex (ref codes, configs)                                | Medium (payment verification)                                    | Minimal (pass-through)                              |
 | **Fees**            | ✅ Attribution provider fees                                | ❌ No fees                                                       | ❌ No fees                                          |
-| **Publishers**      | ✅ Via ReferralCodes                                        | ❌ Direct to users                                               | ❌ Direct to recipients                             |
+| **Publishers**      | ✅ Via BuilderCodes                                        | ❌ Direct to users                                               | ❌ Direct to recipients                             |
 | **Fund Withdrawal** | Advertiser only (FINALIZED + deadline)                      | Owner only (FINALIZED)                                           | Manager only (FINALIZED)                            |
 | **reward()**        | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
 | **allocate()**      | ❌ Not implemented                                          | ✅ Reserve cashback for claims<br/>Tracks allocated amounts      | ✅ Reserve payouts for claims                       |
@@ -758,7 +758,7 @@ Each hook type has different access control patterns for state transitions and o
 
 - **Advertiser**: Campaign sponsor who funds the campaign
 - **Attribution Provider**: Authorized to submit conversion data and earn fees
-- **Publishers**: Earn rewards based on conversions (managed via ReferralCodes)
+- **Publishers**: Earn rewards based on conversions (managed via BuilderCodes)
 
 #### CashbackRewards Campaigns
 
@@ -844,7 +844,7 @@ contract MyCustomHook is CampaignHooks {
 
 ### Publishers
 
-- Register via ReferralCodes
+- Register via BuilderCodes
 - Drive traffic using ref codes
 - Claim accumulated rewards
 - View earnings across campaigns
@@ -885,7 +885,7 @@ The protocol is designed for deployment on Ethereum L2s and can technically be d
 Foundry deployment scripts are available in the `scripts/` directory for deploying all protocol contracts:
 
 - **`DeployFlywheel.s.sol`** - Deploys the core Flywheel contract
-- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable ReferralCodes with proxy
+- **`DeployPublisherRegistry.s.sol`** - Deploys the upgradeable BuilderCodes with proxy
 - **`DeployAdConversion.s.sol`** - Deploys the AdConversion hook
 - **`DeployAll.s.sol`** - Orchestrates deployment of all contracts in the correct order
 
@@ -897,7 +897,7 @@ Foundry deployment scripts are available in the `scripts/` directory for deployi
 
 All deployment scripts require an owner address that will have administrative control over the deployed contracts. This address will be able to:
 
-- Upgrade the ReferralCodes contract (via UUPS proxy)
+- Upgrade the BuilderCodes contract (via UUPS proxy)
 - Configure protocol parameters
 - Manage contract permissions
 
@@ -930,7 +930,7 @@ source .env
 
 #### Signer Address (Optional)
 
-The ReferralCodes supports an optional "signer" address that can:
+The BuilderCodes supports an optional "signer" address that can:
 
 - Register publishers with custom ref codes (instead of auto-generated ones)
 - Register publishers on behalf of others
@@ -969,10 +969,10 @@ forge script scripts/DeployAll.s.sol --sig "run(address,address)" 0x7116F87D6ff2
 # Deploy only Flywheel (no owner parameter needed)
 forge script scripts/DeployFlywheel.s.sol --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 
-# Deploy only ReferralCodes with owner
+# Deploy only BuilderCodes with owner
 forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address)" OWNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 
-# Deploy only ReferralCodes with owner and signer
+# Deploy only BuilderCodes with owner and signer
 forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" OWNER_ADDRESS SIGNER_ADDRESS --rpc-url https://sepolia.base.org --private-key $PRIVATE_KEY --broadcast --verify
 ```
 
@@ -981,14 +981,14 @@ forge script scripts/DeployPublisherRegistry.s.sol --sig "run(address,address)" 
 The scripts handle dependencies automatically, but the deployment order is:
 
 1. **Flywheel** (independent)
-2. **ReferralCodes** (independent, upgradeable via UUPS proxy)
-3. **AdConversion** (requires Flywheel and ReferralCodes addresses)
+2. **BuilderCodes** (independent, upgradeable via UUPS proxy)
+3. **AdConversion** (requires Flywheel and BuilderCodes addresses)
 
 ### Contract Ownership
 
 The owner address is specified during deployment and will have administrative control over:
 
-- **ReferralCodes**: Can upgrade the contract via UUPS proxy pattern
+- **BuilderCodes**: Can upgrade the contract via UUPS proxy pattern
 - **AdConversion**: Can configure protocol parameters and manage permissions
 
 **Important**: Choose your owner address carefully as it will have significant control over the protocol. Consider using a multisig wallet for production deployments.
@@ -998,6 +998,6 @@ The owner address is specified during deployment and will have administrative co
 After deployment, you'll receive addresses for:
 
 - **Flywheel**: Core protocol contract
-- **ReferralCodes**: Publisher management (proxy address)
+- **BuilderCodes**: Publisher management (proxy address)
 - **AdConversion**: Hook for ad campaigns
 - **Campaign Implementation**: Template for campaign treasuries (auto-deployed by Flywheel)
