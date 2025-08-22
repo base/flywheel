@@ -289,8 +289,8 @@ contract AdConversion is CampaignHooks {
         uint256 uniqueCount = 0;
 
         // Loop over attributions, deducting attribution fee from payout amount and emitting appropriate events
-
-        for (uint256 i = 0; i < attributions.length; i++) {
+        uint256 count = attributions.length;
+        for (uint256 i = 0; i < count; i++) {
             // Validate referral code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
             if (bytes(publisherRefCode).length != 0 && !publisherCodesRegistry.isRegistered(publisherRefCode)) {
