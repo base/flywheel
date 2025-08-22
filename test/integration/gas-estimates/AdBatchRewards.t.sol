@@ -92,7 +92,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
     }
 
-    function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint8 configId, uint256 txHashSeed)
+    function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint16 configId, uint256 txHashSeed)
         internal
         view
         returns (AdConversion.Attribution memory)
@@ -128,7 +128,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
     function _createAttributionWithRecipient(
         uint256 eventId,
         string memory clickIdPrefix,
-        uint8 configId,
+        uint16 configId,
         uint256 txHashSeed,
         address recipient,
         string memory refCode
@@ -189,7 +189,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](numEvents);
 
         for (uint256 i = 0; i < numEvents; i++) {
-            uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
+            uint16 configId = uint16((i % 3) + 1); // Cycle through configs 1, 2, 3
             attributions[i] = _createAttribution(i + 1, "click_", configId, i + 1);
         }
 
@@ -273,7 +273,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](numEvents);
 
         for (uint256 i = 0; i < numEvents; i++) {
-            uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
+            uint16 configId = uint16((i % 3) + 1); // Cycle through configs 1, 2, 3
             uint256 publisherIndex = i % numPublishers; // Distribute evenly across publishers
             string memory refCode = publisherIndex == 0 ? PUBLISHER_REF_CODE : generateCode(publisherIndex);
 
@@ -366,7 +366,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         address[] memory uniqueUsers = new address[](numEvents);
 
         for (uint256 i = 0; i < numEvents; i++) {
-            uint8 configId = uint8((i % 3) + 1); // Cycle through configs 1, 2, 3
+            uint16 configId = uint16((i % 3) + 1); // Cycle through configs 1, 2, 3
             uniqueUsers[i] = address(uint160(0x2000 + i)); // Create unique user addresses
 
             attributions[i] = _createAttributionWithRecipient(
