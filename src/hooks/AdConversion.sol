@@ -46,7 +46,7 @@ contract AdConversion is CampaignHooks {
         /// @dev Click identifier
         string clickId;
         /// @dev Configuration ID for the conversion (0 = no config/unregistered)
-        uint8 configId;
+        uint16 configId;
         /// @dev Referral code
         string publisherRefCode;
         /// @dev Timestamp of the conversion
@@ -84,8 +84,8 @@ contract AdConversion is CampaignHooks {
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
-    /// @notice Maximum number of conversion configs per campaign (255 since we use uint8, IDs are 1-indexed)
-    uint8 public constant MAX_CONVERSION_CONFIGS = type(uint8).max;
+    /// @notice Maximum number of conversion configs per campaign (65535 since we use uint16, IDs are 1-indexed)
+    uint16 public constant MAX_CONVERSION_CONFIGS = type(uint16).max;
 
     /// @notice Address of the publisher registry contract
     BuilderCodes public immutable publisherCodesRegistry;
@@ -103,10 +103,10 @@ contract AdConversion is CampaignHooks {
     mapping(address campaign => mapping(string publisherRefCode => bool allowed)) public allowedPublishers;
 
     /// @notice Mapping from campaign to conversion configs by config ID
-    mapping(address campaign => mapping(uint8 configId => ConversionConfig)) public conversionConfigs;
+    mapping(address campaign => mapping(uint16 configId => ConversionConfig)) public conversionConfigs;
 
     /// @notice Mapping from campaign to number of conversion configs
-    mapping(address campaign => uint8) public conversionConfigCount;
+    mapping(address campaign => uint16) public conversionConfigCount;
 
     /// @notice Emitted when an offchain attribution event occurred
     ///
@@ -128,10 +128,10 @@ contract AdConversion is CampaignHooks {
     event AttributionDeadlineUpdated(address indexed campaign, uint48 deadline);
 
     /// @notice Emitted when a new conversion config is added to a campaign
-    event ConversionConfigAdded(address indexed campaign, uint8 indexed configId, ConversionConfig config);
+    event ConversionConfigAdded(address indexed campaign, uint16 indexed configId, ConversionConfig config);
 
     /// @notice Emitted when a conversion config is disabled
-    event ConversionConfigStatusChanged(address indexed campaign, uint8 indexed configId, bool isActive);
+    event ConversionConfigStatusChanged(address indexed campaign, uint16 indexed configId, bool isActive);
 
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string publisherRefCode);
@@ -252,10 +252,10 @@ contract AdConversion is CampaignHooks {
         }
 
         // Store conversion configs
-        conversionConfigCount[campaign] = uint8(configs.length);
+        conversionConfigCount[campaign] = uint16(configs.length);
         uint256 count = configs.length;
-        for (uint8 i = 0; i < count; i++) {
-            uint8 configId = i + 1;
+        for (uint16 i = 0; i < count; i++) {
+            uint16 configId = i + 1;
             // Always set isActive to true for new configs
             ConversionConfig memory activeConfig = ConversionConfig({
                 isActive: true,
@@ -308,7 +308,7 @@ contract AdConversion is CampaignHooks {
             }
 
             // Validate conversion config (if configId is not 0)
-            uint8 configId = attributions[i].conversion.configId;
+            uint16 configId = attributions[i].conversion.configId;
             bytes memory logBytes = attributions[i].logBytes;
 
             if (configId != 0) {
@@ -459,11 +459,11 @@ contract AdConversion is CampaignHooks {
     function addConversionConfig(address campaign, ConversionConfigInput memory config) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
-        uint8 currentCount = conversionConfigCount[campaign];
-        if (currentCount >= type(uint8).max) revert TooManyConversionConfigs();
+        uint16 currentCount = conversionConfigCount[campaign];
+        if (currentCount >= type(uint16).max) revert TooManyConversionConfigs();
 
         // Add the new config - always set isActive to true
-        uint8 newConfigId = currentCount + 1;
+        uint16 newConfigId = currentCount + 1;
         ConversionConfig memory activeConfig =
             ConversionConfig({isActive: true, isEventOnchain: config.isEventOnchain, metadataURI: config.metadataURI});
         conversionConfigs[campaign][newConfigId] = activeConfig;
@@ -476,7 +476,7 @@ contract AdConversion is CampaignHooks {
     /// @param campaign Address of the campaign
     /// @param configId The ID of the conversion config to disable
     /// @dev Only advertiser can disable conversion configs
-    function disableConversionConfig(address campaign, uint8 configId) external {
+    function disableConversionConfig(address campaign, uint16 configId) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
         if (configId == 0 || configId > conversionConfigCount[campaign]) {
@@ -512,7 +512,7 @@ contract AdConversion is CampaignHooks {
     /// @param campaign Address of the campaign
     /// @param configId The ID of the conversion config
     /// @return The conversion config
-    function getConversionConfig(address campaign, uint8 configId) external view returns (ConversionConfig memory) {
+    function getConversionConfig(address campaign, uint16 configId) external view returns (ConversionConfig memory) {
         if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }

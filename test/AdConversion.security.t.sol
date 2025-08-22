@@ -191,7 +191,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(type(uint128).max),
                 clickId: string(new bytes(1024)), // Very long click ID
-                configId: type(uint8).max,
+                configId: type(uint16).max,
                 publisherRefCode: "code1",
                 timestamp: type(uint32).max,
                 payoutRecipient: address(type(uint160).max),

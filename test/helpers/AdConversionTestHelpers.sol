@@ -216,7 +216,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
         bool expectedIsEventOnchain,
         string memory expectedMetadataUrl
     ) internal view {
-        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, uint8(configId));
+        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, uint16(configId));
 
         assertEq(config.isActive, expectedIsActive);
         assertEq(config.isEventOnchain, expectedIsEventOnchain);
