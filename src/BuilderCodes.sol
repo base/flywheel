@@ -55,11 +55,17 @@ contract BuilderCodes is
     bytes32 private constant REGISTRY_STORAGE_LOCATION =
         0xe3aaf266708e5133bd922e269bb5e8f72a7444c3b231cbf562ddc67a383e5700;
 
+    /// @notice Emitted when a referral code is registered
+    ///
+    /// @param tokenId Token ID of the referral code
+    /// @param code Referral code
+    event CodeRegistered(uint256 indexed tokenId, string code);
+
     /// @notice Emitted when a publisher's default payout address is updated
     ///
-    /// @param code Builder code
+    /// @param tokenId Token ID of the referral code
     /// @param payoutAddress New default payout address for all chains
-    event PayoutAddressUpdated(string code, address payoutAddress);
+    event PayoutAddressUpdated(uint256 indexed tokenId, address payoutAddress);
 
     /// @notice Emits when the contract URI is updated (ERC-7572)
     event ContractURIUpdated();
@@ -110,8 +116,7 @@ contract BuilderCodes is
         external
         onlyRole(REGISTER_ROLE)
     {
-        _mint(initialOwner, toTokenId(code)); // toTokenId applies isValidCode check
-        _updatePayoutAddress(code, payoutAddress);
+        _register(code, initialOwner, payoutAddress);
     }
 
     /// @notice Registers a new referral code in the system with a signature
@@ -138,9 +143,7 @@ contract BuilderCodes is
             revert Unauthorized();
         }
 
-        // Register code
-        _mint(initialOwner, toTokenId(code)); // toTokenId applies isValidCode check
-        _updatePayoutAddress(code, payoutAddress);
+        _register(code, initialOwner, payoutAddress);
     }
 
     /// @notice Updates the metadata for a builder code
@@ -165,8 +168,9 @@ contract BuilderCodes is
     /// @param payoutAddress New default payout address
     /// @dev Only callable by referral code owner
     function updatePayoutAddress(string memory code, address payoutAddress) external {
-        if (_requireOwned(toTokenId(code)) != msg.sender) revert Unauthorized();
-        _updatePayoutAddress(code, payoutAddress);
+        uint256 tokenId = toTokenId(code);
+        if (_requireOwned(tokenId) != msg.sender) revert Unauthorized();
+        _updatePayoutAddress(tokenId, payoutAddress);
     }
 
     /// @notice Gets the default payout address for a referral code
@@ -292,12 +296,24 @@ contract BuilderCodes is
 
     /// @notice Registers a new referral code
     ///
-    /// @param code Builder code
+    /// @param code Referral code
+    /// @param initialOwner Owner of the ref code
     /// @param payoutAddress Default payout address for all chains
-    function _updatePayoutAddress(string memory code, address payoutAddress) internal {
+    function _register(string memory code, address initialOwner, address payoutAddress) internal {
+        uint256 tokenId = toTokenId(code);
+        _mint(initialOwner, tokenId);
+        emit CodeRegistered(tokenId, code);
+        _updatePayoutAddress(tokenId, payoutAddress);
+    }
+
+    /// @notice Registers a new referral code
+    ///
+    /// @param tokenId Token ID of the referral code
+    /// @param payoutAddress Default payout address for all chains
+    function _updatePayoutAddress(uint256 tokenId, address payoutAddress) internal {
         if (payoutAddress == address(0)) revert ZeroAddress();
-        _getRegistryStorage().payoutAddresses[toTokenId(code)] = payoutAddress;
-        emit PayoutAddressUpdated(code, payoutAddress);
+        _getRegistryStorage().payoutAddresses[tokenId] = payoutAddress;
+        emit PayoutAddressUpdated(tokenId, payoutAddress);
     }
 
     /// @notice Authorization for upgrades
