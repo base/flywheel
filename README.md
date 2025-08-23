@@ -472,7 +472,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Use Case**        | Publisher performance marketing                             | E-commerce cashback                                              | Flexible reward distribution                        |
 | **Validation**      | Complex (ref codes, configs)                                | Medium (payment verification)                                    | Minimal (pass-through)                              |
 | **Fees**            | ✅ Attribution provider fees                                | ❌ No fees                                                       | ❌ No fees                                          |
-| **Publishers**      | ✅ Via BuilderCodes                                        | ❌ Direct to users                                               | ❌ Direct to recipients                             |
+| **Publishers**      | ✅ Via BuilderCodes                                         | ❌ Direct to users                                               | ❌ Direct to recipients                             |
 | **Fund Withdrawal** | Advertiser only (FINALIZED + deadline)                      | Owner only (FINALIZED)                                           | Manager only (FINALIZED)                            |
 | **reward()**        | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
 | **allocate()**      | ❌ Not implemented                                          | ✅ Reserve cashback for claims<br/>Tracks allocated amounts      | ✅ Reserve payouts for claims                       |
@@ -706,7 +706,7 @@ flywheel.distribute(campaign, token, hookData);
 
 ```solidity
 // Attribution providers collect accumulated fees
-flywheel.collectFees(campaign, token, feeRecipient);
+flywheel.distributeFees(campaign, token, feeRecipient);
 ```
 
 ## Campaign Lifecycle
@@ -730,12 +730,12 @@ Each hook type has different access control patterns for state transitions and o
 
 ##### AdConversion Campaigns
 
-| State          | Who Can Transition To                                                                                             | Available Functions | Special Behaviors                                                                                   |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)                          |
-| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser                                                                 | reward() only       | Live campaign processing conversions                                                                |
-| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                                       | reward() only       | Sets attribution deadline based on campaign's configured duration (max 180 days)                   |
-| **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
+| State          | Who Can Transition To                                                                    | Available Functions | Special Behaviors                                                                |
+| -------------- | ---------------------------------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)       |
+| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser                                         | reward() only       | Live campaign processing conversions                                             |
+| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                | reward() only       | Sets attribution deadline based on campaign's configured duration (max 180 days) |
+| **FINALIZED**  | None (terminal state)                                                                    | None                | Only Advertiser can withdraw remaining funds                                     |
 
 ##### CashbackRewards & SimpleRewards Campaigns
 

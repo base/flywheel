@@ -184,7 +184,7 @@ contract AdFlowTest is PublisherTestSetup {
 
         // 6. Provider collects fees
         vm.startPrank(provider);
-        flywheel.collectFees(campaign, address(usdc), abi.encode(provider));
+        flywheel.distributeFees(campaign, address(usdc), abi.encode(provider));
         vm.stopPrank();
 
         assertEq(usdc.balanceOf(provider), 1000000 * 1e18 + expectedFeeAmount * 2); // Initial balance + fees

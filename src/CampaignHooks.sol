@@ -108,6 +108,25 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
+    /// @notice Distribute fees earned from a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to collect fees from
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return distributions Array of distributions for the fees
+    ///
+    /// @dev Only callable by the flywheel contract
+    function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+        returns (Flywheel.Distribution[] memory distributions)
+    {
+        revert Unsupported();
+    }
+
     /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
     ///
     /// @param sender Address of the sender
@@ -121,25 +140,6 @@ abstract contract CampaignHooks {
         virtual
         onlyFlywheel
         returns (Flywheel.Payout memory payout)
-    {
-        revert Unsupported();
-    }
-
-    /// @notice Collect fees earned from a campaign
-    ///
-    /// @param sender Address of the sender
-    /// @param campaign Address of the campaign
-    /// @param token Address of the token to collect fees from
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @return distributions Array of distributions for the fees
-    ///
-    /// @dev Only callable by the flywheel contract
-    function onCollectFees(address sender, address campaign, address token, bytes calldata hookData)
-        external
-        virtual
-        onlyFlywheel
-        returns (Flywheel.Distribution[] memory distributions)
     {
         revert Unsupported();
     }

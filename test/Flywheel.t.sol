@@ -271,7 +271,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // First, attribution provider collects their fee
         vm.startPrank(attributionProvider);
-        flywheel.collectFees(campaign, address(token), abi.encode(attributionProvider));
+        flywheel.distributeFees(campaign, address(token), abi.encode(attributionProvider));
         vm.stopPrank();
 
         // Withdraw remaining tokens
@@ -289,7 +289,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.stopPrank();
     }
 
-    function test_collectFees() public {
+    function test_distributeFees() public {
         address payoutRecipient = address(0x1222);
 
         // Activate campaign
@@ -334,7 +334,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Collect fees as attribution provider
         vm.startPrank(attributionProvider);
         uint256 balanceBefore = token.balanceOf(attributionProvider);
-        flywheel.collectFees(campaign, address(token), abi.encode(attributionProvider));
+        flywheel.distributeFees(campaign, address(token), abi.encode(attributionProvider));
         uint256 balanceAfter = token.balanceOf(attributionProvider);
 
         assertEq(balanceAfter - balanceBefore, expectedFee, "Attribution provider should receive fee tokens");
@@ -549,8 +549,8 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Collect fees for both tokens
         vm.startPrank(attributionProvider);
-        flywheel.collectFees(campaign, address(token), abi.encode(attributionProvider));
-        flywheel.collectFees(campaign, address(token2), abi.encode(attributionProvider));
+        flywheel.distributeFees(campaign, address(token), abi.encode(attributionProvider));
+        flywheel.distributeFees(campaign, address(token2), abi.encode(attributionProvider));
         vm.stopPrank();
 
         // Verify attribution provider received fees in both tokens

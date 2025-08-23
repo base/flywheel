@@ -98,9 +98,9 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
     }
 
     /// @notice Collects fees for an attribution provider
-    function _collectFees(address campaign, address feeRecipient) internal {
+    function _distributeFees(address campaign, address feeRecipient) internal {
         vm.prank(feeRecipient);
-        flywheel.collectFees(campaign, address(token), abi.encode(feeRecipient));
+        flywheel.distributeFees(campaign, address(token), abi.encode(feeRecipient));
     }
 
     /// @notice Withdraws remaining campaign funds to advertiser
@@ -177,7 +177,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
 
         // Finalize campaign and collect fees
         _finalizeCampaign(campaign);
-        _collectFees(campaign, ATTRIBUTION_PROVIDER);
+        _distributeFees(campaign, ATTRIBUTION_PROVIDER);
 
         // Verify fee was collected
         _assertTokenBalance(ATTRIBUTION_PROVIDER, initialProviderBalance + expectedFee);

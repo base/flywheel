@@ -390,7 +390,7 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onCollectFees(address sender, address campaign, address token, bytes calldata hookData)
+    function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         external
         override
         onlyFlywheel
