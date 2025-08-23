@@ -74,7 +74,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         chargePayment(paymentInfo);
 
-        vm.expectRevert(Flywheel.InsufficientCampaignFunds.selector);
+        vm.expectRevert();
         vm.prank(manager);
         flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
     }

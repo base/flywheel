@@ -34,7 +34,7 @@ contract Flywheel is ReentrancyGuardTransient {
         CampaignHooks hooks;
     }
 
-    /// @notice Payout structure for attribution rewards
+    /// @notice Payout for a recipient
     struct Payout {
         /// @dev recipient Address receiving the payout
         address recipient;
@@ -44,23 +44,36 @@ contract Flywheel is ReentrancyGuardTransient {
         bytes extraData;
     }
 
-    /// @notice Payout structure for keyed reserved funds
-    struct KeyedPayout {
-        /// @dev key Key for the payout
+    /// @notice Allocation for a key
+    struct Allocation {
+        /// @dev key Key for the allocation
         bytes32 key;
-        /// @dev payout Payout structure
-        Payout payout;
+        /// @dev amount Amount of tokens to be paid out
+        uint256 amount;
+        /// @dev extraData Extra data to attach in events
+        bytes extraData;
+    }
+
+    /// @notice Distribution for a key to a recipient
+    struct Distribution {
+        /// @dev recipient Address receiving the distribution
+        address recipient;
+        /// @dev key Key for the allocation
+        bytes32 key;
+        /// @dev amount Amount of tokens to be paid out
+        uint256 amount;
+        /// @dev extraData Extra data to attach in events
+        bytes extraData;
     }
 
     /// @notice Implementation for Campaign contracts
     address public immutable campaignImplementation;
 
     /// @notice Allocated rewards that are pending distribution
-    mapping(address campaign => mapping(address token => mapping(address recipient => uint256 amount))) public
-        allocations;
+    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public pendingPayouts;
 
     /// @notice Fees that are pending collection
-    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public fees;
+    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public pendingFees;
 
     /// @notice Total funds reserved for allocations and fees for a campaign
     mapping(address campaign => mapping(address token => uint256 amount)) public totalReserved;
@@ -103,32 +116,31 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
-    /// @param recipient Address receiving the payout
+    /// @param key Key for the allocation
     /// @param amount Amount of tokens allocated
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutAllocated(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
+    event PayoutAllocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
 
     /// @notice Emitted when allocated payouts are distributed to a recipient
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
+    /// @param key Key for the allocation
     /// @param recipient Address receiving the distribution
     /// @param amount Amount of tokens distributed
     /// @param extraData Extra data for the payout to attach in events
     event PayoutsDistributed(
-        address indexed campaign, address token, address recipient, uint256 amount, bytes extraData
+        address indexed campaign, address token, bytes32 key, address recipient, uint256 amount, bytes extraData
     );
 
     /// @notice Emitted when allocated payouts are deallocated from a recipient
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
-    /// @param recipient Address receiving the deallocation
+    /// @param key Key for the allocation
     /// @param amount Amount of tokens deallocated
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutsDeallocated(
-        address indexed campaign, address token, address recipient, uint256 amount, bytes extraData
-    );
+    event PayoutsDeallocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
 
     /// @notice Emitted when a fee is allocated to a recipient
     ///
@@ -175,7 +187,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @notice Check if a campaign exists
     ///
     /// @param campaign Address of the campaign
-    modifier onlyCampaignExists(address campaign) {
+    modifier onlyExists(address campaign) {
         if (!campaignExists(campaign)) revert CampaignDoesNotExist();
         _;
     }
@@ -226,24 +238,22 @@ contract Flywheel is ReentrancyGuardTransient {
         external
         nonReentrant
         acceptingPayouts(campaign)
-        returns (Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData)
+        returns (Payout[] memory payouts, Allocation memory fee)
     {
-        (payouts, feeKey, feeAmount, feeExtraData) =
-            _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
+        (payouts, fee) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
+        _allocateFee(campaign, token, fee);
 
-        _allocateFee(campaign, token, feeKey, feeAmount, feeExtraData);
-        (uint256 count, uint256 totalAmount) = _aggregate(payouts);
-        uint256 reserved = _canReserve(campaign, token, totalAmount + feeAmount);
-
-        totalReserved[campaign][token] = reserved + feeAmount;
+        uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             Campaign(campaign).sendTokens(token, recipient, amount);
             emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
         }
+
+        _updateTotalReserved(campaign, token, totalReserved[campaign][token] + fee.amount);
     }
 
-    /// @notice Allocates payouts to a recipient for a campaign
+    /// @notice Allocates payouts to a key for a campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to be distributed
@@ -253,24 +263,24 @@ contract Flywheel is ReentrancyGuardTransient {
     function allocate(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        onlyCampaignExists(campaign)
+        onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (Payout[] memory payouts)
+        returns (Allocation[] memory allocations)
     {
-        payouts = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, hookData);
+        allocations = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, hookData);
 
-        (uint256 count, uint256 totalAmount) = _aggregate(payouts);
-        uint256 reserved = _canReserve(campaign, token, totalAmount);
-
-        totalReserved[campaign][token] = reserved + totalAmount;
+        (uint256 totalAmount, uint256 count) = (0, allocations.length);
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
-            allocations[campaign][token][recipient] += amount;
-            emit PayoutAllocated(campaign, token, recipient, amount, payouts[i].extraData);
+            (bytes32 key, uint256 amount) = (allocations[i].key, allocations[i].amount);
+            totalAmount += amount;
+            pendingPayouts[campaign][token][key] += amount;
+            emit PayoutAllocated(campaign, token, key, amount, allocations[i].extraData);
         }
+
+        _updateTotalReserved(campaign, token, totalReserved[campaign][token] + totalAmount);
     }
 
-    /// @notice Deallocates allocated payouts from a recipient for a campaign
+    /// @notice Deallocates allocated payouts from a key for a campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to deallocate
@@ -278,22 +288,24 @@ contract Flywheel is ReentrancyGuardTransient {
     function deallocate(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        onlyCampaignExists(campaign)
+        onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (Payout[] memory payouts)
+        returns (Allocation[] memory allocations)
     {
-        payouts = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
+        allocations = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
-        (uint256 count, uint256 totalAmount) = _aggregate(payouts);
-        totalReserved[campaign][token] -= totalAmount;
+        (uint256 totalAmount, uint256 count) = (0, allocations.length);
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
-            allocations[campaign][token][recipient] -= amount;
-            emit PayoutsDeallocated(campaign, token, recipient, amount, payouts[i].extraData);
+            (bytes32 key, uint256 amount) = (allocations[i].key, allocations[i].amount);
+            totalAmount += amount;
+            pendingPayouts[campaign][token][key] -= amount;
+            emit PayoutsDeallocated(campaign, token, key, amount, allocations[i].extraData);
         }
+
+        _updateTotalReserved(campaign, token, totalReserved[campaign][token] - totalAmount);
     }
 
-    /// @notice Distributes allocated payouts to a recipient for a campaign
+    /// @notice Distributes allocated payouts to recipients for a campaign
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to distribute
@@ -304,38 +316,24 @@ contract Flywheel is ReentrancyGuardTransient {
     function distribute(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        onlyCampaignExists(campaign)
+        onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData)
+        returns (Distribution[] memory distributions, Allocation memory fee)
     {
-        (payouts, feeKey, feeAmount, feeExtraData) =
-            _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
-        _allocateFee(campaign, token, feeKey, feeAmount, feeExtraData);
-        (uint256 count, uint256 totalAmount) = _aggregate(payouts);
+        (distributions, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
+        _allocateFee(campaign, token, fee);
 
-        totalReserved[campaign][token] = totalReserved[campaign][token] + feeAmount - totalAmount;
+        (uint256 totalAmount, uint256 count) = (0, distributions.length);
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
-            allocations[campaign][token][recipient] -= amount;
+            (address recipient, bytes32 key, uint256 amount) =
+                (distributions[i].recipient, distributions[i].key, distributions[i].amount);
+            totalAmount += amount;
+            pendingPayouts[campaign][token][key] -= amount;
             Campaign(campaign).sendTokens(token, recipient, amount);
-            emit PayoutsDistributed(campaign, token, recipient, amount, payouts[i].extraData);
+            emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
-    }
 
-    /// @notice Withdraw tokens from a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param token Address of the token to withdraw
-    /// @param hookData Data for the campaign hook
-    function withdrawFunds(address campaign, address token, bytes calldata hookData)
-        external
-        nonReentrant
-        onlyCampaignExists(campaign)
-    {
-        Payout memory payout = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
-        _canReserve(campaign, token, payout.amount);
-        Campaign(campaign).sendTokens(token, payout.recipient, payout.amount);
-        emit FundsWithdrawn(campaign, token, payout.recipient, payout.amount, payout.extraData);
+        _updateTotalReserved(campaign, token, totalReserved[campaign][token] + fee.amount - totalAmount);
     }
 
     /// @notice Collects fees from a campaign
@@ -346,20 +344,39 @@ contract Flywheel is ReentrancyGuardTransient {
     function collectFees(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
-        onlyCampaignExists(campaign)
+        onlyExists(campaign)
+        returns (Distribution[] memory distributions)
     {
-        KeyedPayout[] memory payouts = _campaigns[campaign].hooks.onCollectFees(msg.sender, campaign, token, hookData);
+        distributions = _campaigns[campaign].hooks.onCollectFees(msg.sender, campaign, token, hookData);
 
-        (uint256 count, uint256 totalAmount) = _aggregate(payouts);
-        totalReserved[campaign][token] -= totalAmount;
-
+        (uint256 totalAmount, uint256 count) = (0, distributions.length);
         for (uint256 i = 0; i < count; i++) {
-            (bytes32 key, address recipient, uint256 amount) =
-                (payouts[i].key, payouts[i].payout.recipient, payouts[i].payout.amount);
-            fees[campaign][token][key] -= amount;
+            (address recipient, bytes32 key, uint256 amount) =
+                (distributions[i].recipient, distributions[i].key, distributions[i].amount);
+            pendingFees[campaign][token][key] -= amount;
+            totalAmount += amount;
             Campaign(campaign).sendTokens(token, recipient, amount);
-            emit FeesCollected(campaign, token, key, recipient, amount, payouts[i].payout.extraData);
+            emit FeesCollected(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
+
+        _updateTotalReserved(campaign, token, totalReserved[campaign][token] - totalAmount);
+    }
+
+    /// @notice Withdraw tokens from a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to withdraw
+    /// @param hookData Data for the campaign hook
+    function withdrawFunds(address campaign, address token, bytes calldata hookData)
+        external
+        nonReentrant
+        onlyExists(campaign)
+    {
+        Payout memory payout = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
+        (address recipient, uint256 amount) = (payout.recipient, payout.amount);
+        Campaign(campaign).sendTokens(token, recipient, amount);
+        emit FundsWithdrawn(campaign, token, recipient, amount, payout.extraData);
+        if (IERC20(token).balanceOf(campaign) < totalReserved[campaign][token]) revert InsufficientCampaignFunds();
     }
 
     /// @notice Updates the status of a campaign
@@ -370,7 +387,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function updateStatus(address campaign, CampaignStatus newStatus, bytes calldata hookData)
         external
         nonReentrant
-        onlyCampaignExists(campaign)
+        onlyExists(campaign)
     {
         CampaignStatus oldStatus = _campaigns[campaign].status;
         if (
@@ -390,11 +407,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
-    function updateMetadata(address campaign, bytes calldata hookData)
-        external
-        nonReentrant
-        onlyCampaignExists(campaign)
-    {
+    function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant onlyExists(campaign) {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
@@ -429,7 +442,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     ///
     /// @return hooks of the campaign
-    function campaignHooks(address campaign) public view onlyCampaignExists(campaign) returns (address hooks) {
+    function campaignHooks(address campaign) public view onlyExists(campaign) returns (address hooks) {
         return address(_campaigns[campaign].hooks);
     }
 
@@ -438,12 +451,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     ///
     /// @return status of the campaign
-    function campaignStatus(address campaign)
-        public
-        view
-        onlyCampaignExists(campaign)
-        returns (CampaignStatus status)
-    {
+    function campaignStatus(address campaign) public view onlyExists(campaign) returns (CampaignStatus status) {
         return _campaigns[campaign].status;
     }
 
@@ -452,64 +460,30 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     ///
     /// @return uri The URI for the campaign
-    function campaignURI(address campaign) public view onlyCampaignExists(campaign) returns (string memory uri) {
+    function campaignURI(address campaign) public view onlyExists(campaign) returns (string memory uri) {
         return _campaigns[campaign].hooks.campaignURI(campaign);
     }
 
-    /// @notice Allocates fees to a recipient for a campaign
+    /// @notice Allocates a fee to a key
     ///
     /// @param campaign Address of the campaign
-    /// @param token Address of the payout token
-    /// @param feeKey Key for the fees
-    /// @param feeAmount Amount of tokens to allocate
-    /// @param feeExtraData Extra data for the fee to attach in events
-    ///
-    /// @dev Fees are allocated to the recipient
-    function _allocateFee(address campaign, address token, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData)
-        internal
-    {
-        if (feeAmount > 0) {
-            fees[campaign][token][feeKey] += feeAmount;
-            emit FeeAllocated(campaign, token, feeKey, feeAmount, feeExtraData);
+    /// @param token Address of the token to allocate the fee from
+    /// @param fee Allocation of the fee
+    function _allocateFee(address campaign, address token, Allocation memory fee) internal {
+        if (fee.amount > 0) {
+            pendingFees[campaign][token][fee.key] += fee.amount;
+            emit FeeAllocated(campaign, token, fee.key, fee.amount, fee.extraData);
         }
     }
 
-    /// @notice Checks if a campaign has sufficient balance for an operation
+    /// @notice Enforces that a campaign has enough reserved funds for an operation
     ///
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to check balance of
-    /// @param amount Amount of tokens to check balance of
-    ///
-    /// @dev Reverts if the campaign does not have sufficient balance
-    function _canReserve(address campaign, address token, uint256 amount) internal view returns (uint256 reserved) {
-        reserved = totalReserved[campaign][token];
-        if (IERC20(token).balanceOf(campaign) < reserved + amount) revert InsufficientCampaignFunds();
-    }
-
-    /// @notice Aggregates a list of payouts into a count and total amount
-    ///
-    /// @param payouts List of payouts
-    ///
-    /// @return count Number of payouts
-    /// @return totalAmount Sum of the payouts' amounts
-    function _aggregate(Payout[] memory payouts) internal pure returns (uint256 count, uint256 totalAmount) {
-        count = payouts.length;
-        for (uint256 i = 0; i < count; i++) {
-            totalAmount += payouts[i].amount;
-        }
-    }
-
-    /// @notice Aggregates a list of payouts into a count and total amount
-    ///
-    /// @param payouts List of payouts
-    ///
-    /// @return count Number of payouts
-    /// @return totalAmount Sum of the payouts' amounts
-    function _aggregate(KeyedPayout[] memory payouts) internal pure returns (uint256 count, uint256 totalAmount) {
-        count = payouts.length;
-        for (uint256 i = 0; i < count; i++) {
-            totalAmount += payouts[i].payout.amount;
-        }
+    /// @param token Address of the token to check
+    /// @param amount Amount of tokens to check
+    function _updateTotalReserved(address campaign, address token, uint256 amount) internal {
+        if (IERC20(token).balanceOf(campaign) < amount) revert InsufficientCampaignFunds();
+        totalReserved[campaign][token] = amount;
     }
 
     /// @dev Override to use transient reentrancy guard on all chains

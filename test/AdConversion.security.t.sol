@@ -151,12 +151,12 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         bytes memory emptyData = abi.encode(new AdConversion.Attribution[](0));
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee) =
             hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), emptyData);
         assertEq(payouts.length, 0);
-        assertEq(feeKey, bytes32(bytes20(ATTRIBUTION_PROVIDER)));
-        assertEq(feeAmount, 0);
-        assertEq(keccak256(feeExtraData), keccak256(""));
+        assertEq(fee.key, bytes32(bytes20(ATTRIBUTION_PROVIDER)));
+        assertEq(fee.amount, 0);
+        assertEq(keccak256(fee.extraData), keccak256(""));
 
         // Test malformed attribution data - use try/catch to handle graceful errors
         vm.prank(address(flywheel));

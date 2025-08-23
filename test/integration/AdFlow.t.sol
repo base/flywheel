@@ -180,7 +180,7 @@ contract AdFlowTest is PublisherTestSetup {
         // With reward(), payments are sent immediately, so check balances
         assertEq(usdc.balanceOf(publisher1), expectedPayoutAmount);
         assertEq(usdc.balanceOf(publisher2), expectedPayoutAmount);
-        assertEq(flywheel.fees(campaign, address(usdc), bytes32(bytes20(provider))), expectedFeeAmount * 2);
+        assertEq(flywheel.pendingFees(campaign, address(usdc), bytes32(bytes20(provider))), expectedFeeAmount * 2);
 
         // 6. Provider collects fees
         vm.startPrank(provider);

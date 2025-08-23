@@ -130,7 +130,11 @@ contract OnAllocateTest is CashbackRewardsBase {
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutAllocated(
-            unlimitedCashbackCampaign, address(usdc), buyer, allocateAmount, abi.encodePacked(paymentInfoHash)
+            unlimitedCashbackCampaign,
+            address(usdc),
+            bytes32(bytes20(buyer)),
+            allocateAmount,
+            abi.encodePacked(paymentInfoHash)
         );
 
         vm.prank(manager);
@@ -216,7 +220,11 @@ contract OnAllocateTest is CashbackRewardsBase {
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutAllocated(
-            unlimitedCashbackCampaign, address(usdc), buyer, allocateAmount, abi.encodePacked(paymentInfoHash)
+            unlimitedCashbackCampaign,
+            address(usdc),
+            bytes32(bytes20(buyer)),
+            allocateAmount,
+            abi.encodePacked(paymentInfoHash)
         );
 
         vm.prank(manager);

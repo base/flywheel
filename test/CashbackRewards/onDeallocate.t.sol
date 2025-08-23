@@ -281,7 +281,11 @@ contract OnDeallocateTest is CashbackRewardsBase {
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutsDeallocated(
-            unlimitedCashbackCampaign, address(usdc), buyer, deallocateAmount, abi.encodePacked(paymentInfoHash)
+            unlimitedCashbackCampaign,
+            address(usdc),
+            bytes32(bytes20(buyer)),
+            deallocateAmount,
+            abi.encodePacked(paymentInfoHash)
         );
 
         bytes memory deallocateHookData = createCashbackHookData(paymentInfo, deallocateAmount);

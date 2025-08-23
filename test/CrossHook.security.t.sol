@@ -474,13 +474,12 @@ contract CrossHookSecurityTest is Test {
         // Allocate in SimpleRewards campaign
         Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({recipient: victim, amount: ATTACK_AMOUNT, extraData: ""});
-        bytes memory hookData = abi.encode(payouts);
 
         vm.prank(simpleRewardsManager);
-        flywheel.allocate(simpleCampaign, address(rewardToken), hookData);
+        flywheel.allocate(simpleCampaign, address(rewardToken), abi.encode(payouts));
 
         // Verify allocation in flywheel core
-        assertEq(flywheel.allocations(simpleCampaign, address(rewardToken), victim), ATTACK_AMOUNT);
+        assertEq(flywheel.pendingPayouts(simpleCampaign, address(rewardToken), bytes32(bytes20(victim))), ATTACK_AMOUNT);
 
         // Attacker tries to distribute from different campaign's allocation
         // This should fail because allocations are campaign-specific
@@ -507,7 +506,7 @@ contract CrossHookSecurityTest is Test {
         );
 
         // CashbackRewards campaign has no allocation for victim
-        assertEq(flywheel.allocations(buyerCampaign, address(rewardToken), victim), 0);
+        assertEq(flywheel.pendingPayouts(buyerCampaign, address(rewardToken), bytes32(bytes20(victim))), 0);
 
         CashbackRewards.PaymentReward[] memory buyerDistributeRewards = new CashbackRewards.PaymentReward[](1);
         buyerDistributeRewards[0] =
@@ -603,13 +602,13 @@ contract CrossHookSecurityTest is Test {
         uint256 providerBalanceBefore = token.balanceOf(attributionProvider);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, bytes32 feeKey, uint256 feeAmount, bytes memory feeExtraData) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee) =
             adHook.onReward(attributionProvider, adCampaign, address(rewardToken), adHookData);
 
         // Fee should be 50% of 200e18 = 100e18
-        assertEq(feeKey, bytes32(bytes20(attributionProvider)));
-        assertEq(feeAmount, 100e18);
-        assertEq(keccak256(feeExtraData), keccak256(""));
+        assertEq(fee.key, bytes32(bytes20(attributionProvider)));
+        assertEq(fee.amount, 100e18);
+        assertEq(keccak256(fee.extraData), keccak256(""));
 
         // Other hooks (CashbackRewards, SimpleRewards) don't have fees
         // This creates economic imbalance that could be exploited
