@@ -275,7 +275,7 @@ contract AdConversion is CampaignHooks {
         external
         override
         onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
         // Validate that the caller is the authorized attribution provider for this campaign
         if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
@@ -371,7 +371,9 @@ contract AdConversion is CampaignHooks {
             payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: ""});
         }
 
-        fee = Flywheel.Allocation({key: bytes32(bytes20(attributionProvider)), amount: feeAmount, extraData: ""});
+        // Create the fees array with only the attribution provider fee
+        fees = new Flywheel.Allocation[](1);
+        fees[0] = Flywheel.Allocation({key: bytes32(bytes20(attributionProvider)), amount: feeAmount, extraData: ""});
     }
 
     /// @inheritdoc CampaignHooks

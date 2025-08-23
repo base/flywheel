@@ -238,10 +238,10 @@ contract Flywheel is ReentrancyGuardTransient {
         external
         nonReentrant
         acceptingPayouts(campaign)
-        returns (Payout[] memory payouts, Allocation memory fee)
+        returns (Payout[] memory payouts, Allocation[] memory fees)
     {
-        (payouts, fee) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
-        _allocateFee(campaign, token, fee);
+        (payouts, fees) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
+        uint256 totalFeeAmount = _allocateFees(campaign, token, fees);
 
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
@@ -250,7 +250,7 @@ contract Flywheel is ReentrancyGuardTransient {
             emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
         }
 
-        _updateTotalReserved(campaign, token, totalReserved[campaign][token] + fee.amount);
+        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalFeeAmount);
     }
 
     /// @notice Allocates payouts to a key for a campaign
@@ -277,7 +277,7 @@ contract Flywheel is ReentrancyGuardTransient {
             emit PayoutAllocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
-        _updateTotalReserved(campaign, token, totalReserved[campaign][token] + totalAmount);
+        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalAmount);
     }
 
     /// @notice Deallocates allocated payouts from a key for a campaign
@@ -302,7 +302,7 @@ contract Flywheel is ReentrancyGuardTransient {
             emit PayoutsDeallocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
-        _updateTotalReserved(campaign, token, totalReserved[campaign][token] - totalAmount);
+        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] - totalAmount);
     }
 
     /// @notice Distributes allocated payouts to recipients for a campaign
@@ -318,10 +318,10 @@ contract Flywheel is ReentrancyGuardTransient {
         nonReentrant
         onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (Distribution[] memory distributions, Allocation memory fee)
+        returns (Distribution[] memory distributions, Allocation[] memory fees)
     {
-        (distributions, fee) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
-        _allocateFee(campaign, token, fee);
+        (distributions, fees) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
+        uint256 totalFeeAmount = _allocateFees(campaign, token, fees);
 
         (uint256 totalAmount, uint256 count) = (0, distributions.length);
         for (uint256 i = 0; i < count; i++) {
@@ -333,7 +333,7 @@ contract Flywheel is ReentrancyGuardTransient {
             emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
-        _updateTotalReserved(campaign, token, totalReserved[campaign][token] + fee.amount - totalAmount);
+        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalFeeAmount - totalAmount);
     }
 
     /// @notice Collects fees from a campaign
@@ -359,7 +359,7 @@ contract Flywheel is ReentrancyGuardTransient {
             emit FeesDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
-        _updateTotalReserved(campaign, token, totalReserved[campaign][token] - totalAmount);
+        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] - totalAmount);
     }
 
     /// @notice Withdraw tokens from a campaign
@@ -376,7 +376,7 @@ contract Flywheel is ReentrancyGuardTransient {
         (address recipient, uint256 amount) = (payout.recipient, payout.amount);
         Campaign(campaign).sendTokens(token, recipient, amount);
         emit FundsWithdrawn(campaign, token, recipient, amount, payout.extraData);
-        if (IERC20(token).balanceOf(campaign) < totalReserved[campaign][token]) revert InsufficientCampaignFunds();
+        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token]);
     }
 
     /// @notice Updates the status of a campaign
@@ -468,11 +468,19 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to allocate the fee from
-    /// @param fee Allocation of the fee
-    function _allocateFee(address campaign, address token, Allocation memory fee) internal {
-        if (fee.amount > 0) {
-            pendingFees[campaign][token][fee.key] += fee.amount;
-            emit FeeAllocated(campaign, token, fee.key, fee.amount, fee.extraData);
+    /// @param fees Allocation of the fees
+    function _allocateFees(address campaign, address token, Allocation[] memory fees)
+        internal
+        returns (uint256 totalFeeAmount)
+    {
+        uint256 count = fees.length;
+        for (uint256 i = 0; i < count; i++) {
+            (bytes32 key, uint256 amount) = (fees[i].key, fees[i].amount);
+            if (amount > 0) {
+                totalFeeAmount += amount;
+                pendingFees[campaign][token][key] += amount;
+                emit FeeAllocated(campaign, token, key, amount, fees[i].extraData);
+            }
         }
     }
 
@@ -480,10 +488,12 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to check
-    /// @param amount Amount of tokens to check
-    function _updateTotalReserved(address campaign, address token, uint256 amount) internal {
-        if (IERC20(token).balanceOf(campaign) < amount) revert InsufficientCampaignFunds();
-        totalReserved[campaign][token] = amount;
+    /// @param newTotalReserved New total reserved amount
+    ///
+    /// @dev Sometimes the `newTotalReserved` is the same which adds a negligble gas overhead (100 gas)
+    function _assertTotalReservedSolvency(address campaign, address token, uint256 newTotalReserved) internal {
+        if (IERC20(token).balanceOf(campaign) < newTotalReserved) revert InsufficientCampaignFunds();
+        totalReserved[campaign][token] = newTotalReserved;
     }
 
     /// @dev Override to use transient reentrancy guard on all chains

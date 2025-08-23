@@ -42,14 +42,14 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return payouts Array of payouts to be rewarded
-    /// @return fee Fee to be paid
+    /// @return fees Array of fees to be paid
     ///
     /// @dev Only callable by the flywheel contract
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
         revert Unsupported();
     }
@@ -96,14 +96,14 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return distributions Array of distributions to be distributed
-    /// @return fee Fee to be paid
+    /// @return fees Array of fees to be paid
     ///
     /// @dev Only callable by the flywheel contract
     function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
-        returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation memory fee)
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
     {
         revert Unsupported();
     }

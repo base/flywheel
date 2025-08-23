@@ -92,16 +92,17 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Call onReward through flywheel
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
             hook.onReward(attributionProvider, campaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 90 ether); // 100 - 10% fee
-        assertEq(fee.key, bytes32(bytes20(attributionProvider)));
-        assertEq(fee.amount, 10 ether);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 1);
+        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(fees[0].amount, 10 ether);
+        assertEq(keccak256(fees[0].extraData), keccak256(""));
     }
 
     function test_onReward_valid_offchainConversion() public {
@@ -131,16 +132,17 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Call onReward through flywheel
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
             hook.onReward(attributionProvider, campaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 90 ether); // 100 - 10% fee
-        assertEq(fee.key, bytes32(bytes20(attributionProvider)));
-        assertEq(fee.amount, 10 ether);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 1);
+        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(fees[0].amount, 10 ether);
+        assertEq(keccak256(fees[0].extraData), keccak256(""));
     }
 
     function test_onReward_revert_onchainConversionWithoutLogBytes() public {
@@ -241,16 +243,17 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Call onReward through flywheel
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
             hook.onReward(attributionProvider, campaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, burnAddress);
         assertEq(payouts[0].amount, 1000 ether); // Full amount sent to burn
-        assertEq(fee.key, bytes32(bytes20(attributionProvider)));
-        assertEq(fee.amount, 0);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 1);
+        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(fees[0].amount, 0);
+        assertEq(keccak256(fees[0].extraData), keccak256(""));
     }
 
     function test_createCampaign_emitsConversionConfigAddedEvents() public {
@@ -710,7 +713,7 @@ contract AdConversionTest is PublisherTestSetup {
         bytes memory hookData = abi.encode(attributions);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation memory fee) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
             hook.onReward(attributionProvider, campaign, address(token), hookData);
 
         // Verify results
@@ -729,9 +732,10 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(payouts[2].amount, 142.5 ether); // 150 - 5%
 
         // Total fee: 5% of (100 + 200 + 150) = 22.5 ether
-        assertEq(fee.key, bytes32(bytes20(attributionProvider)));
-        assertEq(fee.amount, 22.5 ether);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 1);
+        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(fees[0].amount, 22.5 ether);
+        assertEq(keccak256(fees[0].extraData), keccak256(""));
     }
 
     // =============================================================

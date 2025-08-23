@@ -384,16 +384,14 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Test distribute operation
         vm.prank(manager);
-        (Flywheel.Distribution[] memory distributeResult, Flywheel.Allocation memory fee) =
+        (Flywheel.Distribution[] memory distributeResult, Flywheel.Allocation[] memory fees) =
             flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
 
         // Verify distribution results
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 150e18);
         // SimpleRewards charges no fees
-        assertEq(fee.key, bytes32(0));
-        assertEq(fee.amount, 0);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 0);
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient), 150e18);
@@ -738,13 +736,11 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Test distribute operation
         vm.prank(feeManager);
-        (Flywheel.Distribution[] memory distributeResult, Flywheel.Allocation memory fee) =
+        (Flywheel.Distribution[] memory distributeResult, Flywheel.Allocation[] memory fees) =
             flywheel.distribute(feeCampaign, address(feeToken), abi.encode(payouts));
 
         // Verify no fees charged during distribution
-        assertEq(fee.key, bytes32(0));
-        assertEq(fee.amount, 0);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 0);
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 100e18);
 
@@ -1115,7 +1111,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Step 2: Test distribute() - the core missing functionality
         vm.prank(manager);
-        (Flywheel.Distribution[] memory distributionsResult, Flywheel.Allocation memory fee) =
+        (Flywheel.Distribution[] memory distributionsResult, Flywheel.Allocation[] memory fees) =
             flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
 
         // Verify distribute() results
@@ -1125,9 +1121,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         assertEq(distributionsResult[1].recipient, recipient2);
         assertEq(distributionsResult[1].amount, 150e18);
         // SimpleRewards has no fees
-        assertEq(fee.key, bytes32(0));
-        assertEq(fee.amount, 0);
-        assertEq(keccak256(fee.extraData), keccak256(""));
+        assertEq(fees.length, 0);
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient1), 100e18);
