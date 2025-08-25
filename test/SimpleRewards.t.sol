@@ -80,24 +80,28 @@ contract SimpleRewardsTest is Test {
         Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({recipient: recipient1, amount: PAYOUT_AMOUNT, extraData: ""});
 
-        bytes memory hookData = abi.encode(payouts);
+        Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);
+        allocations[0] = Flywheel.Payout({recipient: recipient1, amount: PAYOUT_AMOUNT, extraData: ""});
+
+        Flywheel.Payout[] memory distributions = new Flywheel.Payout[](1);
+        distributions[0] = Flywheel.Payout({recipient: recipient1, amount: PAYOUT_AMOUNT, extraData: ""});
 
         // Random user cannot call payout functions
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.reward(campaign, address(token), abi.encode(payouts));
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
-        flywheel.allocate(campaign, address(token), hookData);
+        flywheel.allocate(campaign, address(token), abi.encode(allocations));
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
-        flywheel.distribute(campaign, address(token), hookData);
+        flywheel.distribute(campaign, address(token), abi.encode(distributions));
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
-        flywheel.deallocate(campaign, address(token), hookData);
+        flywheel.deallocate(campaign, address(token), abi.encode(allocations));
     }
 
     function test_onlyManager_canUpdateStatus() public {
@@ -231,45 +235,44 @@ contract SimpleRewardsTest is Test {
         // Create payout data
         Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({recipient: recipient1, amount: 50e18, extraData: ""});
-        bytes memory hookData = abi.encode(payouts);
 
         // Test in ACTIVE state
         vm.prank(manager);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.reward(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.allocate(campaign, address(token), hookData);
+        flywheel.allocate(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.deallocate(campaign, address(token), hookData);
+        flywheel.deallocate(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.allocate(campaign, address(token), hookData);
+        flywheel.allocate(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.distribute(campaign, address(token), hookData);
+        flywheel.distribute(campaign, address(token), abi.encode(payouts));
 
         // Test in FINALIZING state
         vm.prank(manager);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.reward(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.allocate(campaign, address(token), hookData);
+        flywheel.allocate(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.deallocate(campaign, address(token), hookData);
+        flywheel.deallocate(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.allocate(campaign, address(token), hookData);
+        flywheel.allocate(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
-        flywheel.distribute(campaign, address(token), hookData);
+        flywheel.distribute(campaign, address(token), abi.encode(payouts));
 
         // Verify recipient received tokens from multiple operations
         assertEq(token.balanceOf(recipient1), 200e18); // 4 reward + distribute operations × 50e18
@@ -401,36 +404,48 @@ contract SimpleRewardsTest is Test {
         assertEq(rewardToken.balanceOf(recipient2), BASE_REWARD * 2);
 
         // 4. Allocated rewards for pending review
-        Flywheel.Payout[] memory pendingPayouts = new Flywheel.Payout[](2);
-        pendingPayouts[0] = Flywheel.Payout({
+        Flywheel.Payout[] memory allocations = new Flywheel.Payout[](2);
+        allocations[0] = Flywheel.Payout({
             recipient: recipient2,
             amount: BASE_REWARD / 2, // Additional contribution
             extraData: "github-pr-789"
         });
-        pendingPayouts[1] = Flywheel.Payout({
+        allocations[1] = Flywheel.Payout({
             recipient: recipient3,
             amount: BASE_REWARD * 3, // Large contribution under review
             extraData: "github-pr-101112"
         });
 
         vm.prank(manager);
-        flywheel.allocate(campaign, address(rewardToken), abi.encode(pendingPayouts));
+        flywheel.allocate(campaign, address(rewardToken), abi.encode(allocations));
 
         // Verify allocation (no tokens transferred yet)
         assertEq(rewardToken.balanceOf(recipient2), BASE_REWARD * 2); // Still only initial reward
         assertEq(rewardToken.balanceOf(recipient3), 0); // No tokens yet
 
+        Flywheel.Payout[] memory distributions = new Flywheel.Payout[](2);
+        distributions[0] = Flywheel.Payout({
+            recipient: recipient2,
+            amount: BASE_REWARD / 2, // Additional contribution
+            extraData: "github-pr-789"
+        });
+        distributions[1] = Flywheel.Payout({
+            recipient: recipient3,
+            amount: BASE_REWARD * 3, // Large contribution under review
+            extraData: "github-pr-101112"
+        });
+
         // 5. Approve and distribute pending rewards
         vm.prank(manager);
-        flywheel.distribute(campaign, address(rewardToken), abi.encode(pendingPayouts));
+        flywheel.distribute(campaign, address(rewardToken), abi.encode(distributions));
 
         // Verify distribution
         assertEq(rewardToken.balanceOf(recipient2), BASE_REWARD * 2 + BASE_REWARD / 2);
         assertEq(rewardToken.balanceOf(recipient3), BASE_REWARD * 3);
 
         // 6. Rejected contribution (allocate then deallocate)
-        Flywheel.Payout[] memory rejectedPayout = new Flywheel.Payout[](1);
-        rejectedPayout[0] = Flywheel.Payout({
+        Flywheel.Payout[] memory rejectedAllocation = new Flywheel.Payout[](1);
+        rejectedAllocation[0] = Flywheel.Payout({
             recipient: recipient1,
             amount: BASE_REWARD * 5, // Large reward for major feature
             extraData: "github-pr-131415"
@@ -438,13 +453,13 @@ contract SimpleRewardsTest is Test {
 
         // Allocate the reward
         vm.prank(manager);
-        flywheel.allocate(campaign, address(rewardToken), abi.encode(rejectedPayout));
+        flywheel.allocate(campaign, address(rewardToken), abi.encode(rejectedAllocation));
 
         uint256 recipient1BalanceBeforeRejection = rewardToken.balanceOf(recipient1);
 
         // Reject the contribution (deallocate)
         vm.prank(manager);
-        flywheel.deallocate(campaign, address(rewardToken), abi.encode(rejectedPayout));
+        flywheel.deallocate(campaign, address(rewardToken), abi.encode(rejectedAllocation));
 
         // Verify deallocation (no change in recipient1's balance)
         assertEq(rewardToken.balanceOf(recipient1), recipient1BalanceBeforeRejection);
@@ -591,8 +606,8 @@ contract SimpleRewardsTest is Test {
         flywheel.reward(campaign, address(token), abi.encode(govRewards));
 
         // Use case 3: Educational content creation (allocate/distribute workflow)
-        Flywheel.Payout[] memory eduContent = new Flywheel.Payout[](1);
-        eduContent[0] = Flywheel.Payout({
+        Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);
+        allocations[0] = Flywheel.Payout({
             recipient: recipient1,
             amount: BASE_REWARD * 2,
             extraData: "educational-tutorial-creation"
@@ -600,13 +615,20 @@ contract SimpleRewardsTest is Test {
 
         // Allocate for review
         vm.prank(manager);
-        flywheel.allocate(campaign, address(token), abi.encode(eduContent));
+        flywheel.allocate(campaign, address(token), abi.encode(allocations));
+
+        Flywheel.Payout[] memory distributions = new Flywheel.Payout[](1);
+        distributions[0] = Flywheel.Payout({
+            recipient: recipient1,
+            amount: BASE_REWARD * 2,
+            extraData: "educational-tutorial-creation"
+        });
 
         uint256 balanceBeforeDistribution = token.balanceOf(recipient1);
 
         // Approve and distribute after review
         vm.prank(manager);
-        flywheel.distribute(campaign, address(token), abi.encode(eduContent));
+        flywheel.distribute(campaign, address(token), abi.encode(distributions));
 
         // Verify all rewards
         assertEq(token.balanceOf(recipient1), balanceBeforeDistribution + BASE_REWARD * 2);

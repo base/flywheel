@@ -42,14 +42,14 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return payouts Array of payouts to be rewarded
-    /// @return fee Amount of fee to be paid
+    /// @return fees Array of fees to be paid
     ///
     /// @dev Only callable by the flywheel contract
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
         revert Unsupported();
     }
@@ -61,30 +61,29 @@ abstract contract CampaignHooks {
     /// @param token Address of the token to be distributed
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payouts Array of payouts to be distributed
-    /// @return fee Amount of fee to be paid
+    /// @return allocations Array of allocations to be distributed
     ///
     /// @dev Only callable by the flywheel contract
     function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Allocation[] memory allocations)
     {
         revert Unsupported();
     }
 
-    /// @notice Deallocates allocated payouts from a recipient for a campaign
+    /// @notice Deallocates allocated rewards from a key for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to deallocate
+    /// @param token Address of the token to deallocate from the key
     /// @param hookData Data for the campaign hook
     function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Allocation[] memory allocations)
     {
         revert Unsupported();
     }
@@ -96,15 +95,34 @@ abstract contract CampaignHooks {
     /// @param token Address of the token to be distributed
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payouts Array of payouts to be distributed
-    /// @return fee Amount of fee to be paid
+    /// @return distributions Array of distributions to be distributed
+    /// @return fees Array of fees to be paid
     ///
     /// @dev Only callable by the flywheel contract
     function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
         virtual
         onlyFlywheel
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
+    {
+        revert Unsupported();
+    }
+
+    /// @notice Distribute fees earned from a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to collect fees from
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return distributions Array of distributions for the fees
+    ///
+    /// @dev Only callable by the flywheel contract
+    function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
+        external
+        virtual
+        onlyFlywheel
+        returns (Flywheel.Distribution[] memory distributions)
     {
         revert Unsupported();
     }

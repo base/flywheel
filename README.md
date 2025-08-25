@@ -43,6 +43,36 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 - **BuilderCodes**: Optional referral code system, initially used for publisher-based campaigns
 - **Participants**: Shows the flow between sponsors and recipients based on hook-specific validation
 
+## Core Data Structures
+
+**Payout**: Direct token transfer to a recipient
+```solidity
+struct Payout {
+    address recipient;  // Address receiving the payout
+    uint256 amount;     // Amount of tokens to be paid out
+    bytes extraData;    // Extra data for the payout
+}
+```
+
+**Allocation**: Reserved payout identified by a key for future distribution
+```solidity
+struct Allocation {
+    bytes32 key;        // Key for the allocation
+    uint256 amount;     // Amount of tokens to be allocated
+    bytes extraData;    // Extra data for the allocation
+}
+```
+
+**Distribution**: Claiming of allocated tokens identified by key to a recipient
+```solidity
+struct Distribution {
+    address recipient;  // Address receiving the distribution
+    bytes32 key;        // Key for the allocation being distributed
+    uint256 amount;     // Amount of tokens to be distributed
+    bytes extraData;    // Extra data for the distribution
+}
+```
+
 ## Core Components
 
 #### 1. **Flywheel.sol** - Core Protocol
@@ -51,8 +81,9 @@ The main contract that manages:
 
 - Campaign lifecycle (Inactive → Active → Finalizing → Finalized)
 - Reward, allocation, distribution, and deallocation of payouts
-- Fee collection and distribution
+- Enhanced fee collection and distribution with `bytes32` key support
 - Campaign deployment for each campaign
+- Key-based allocation system for flexible payout tracking
 
 #### 2. **Campaign.sol** - Campaign Treasury
 
@@ -452,15 +483,15 @@ Transfers tokens directly to recipients immediately. Used for real-time rewards 
 
 ### **allocate()** - Reserve Future Payout
 
-Reserves tokens for recipients without immediate transfer. Creates a "pending" state that can be claimed later or reversed.
+Reserves tokens for future distribution using `bytes32` keys for organization. Creates a "pending" state that can be claimed later or reversed. The key-based system allows for flexible tracking of different allocation types.
 
 ### **deallocate()** - Cancel Allocated Payout
 
-Cancels previously allocated tokens, returning them to the campaign treasury. Only works on unclaimed allocations.
+Cancels previously allocated tokens identified by `bytes32` keys, returning them to the campaign treasury. Only works on unclaimed allocations.
 
 ### **distribute()** - Claim Allocated Payout
 
-Allows recipients to claim previously allocated tokens. Converts "pending" allocations to actual token transfers.
+Allows recipients to claim previously allocated tokens identified by `bytes32` keys. Converts "pending" allocations to actual token transfers. Can also generate fees during distribution.
 
 ## Hook Implementation Comparison
 
@@ -472,11 +503,11 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Use Case**        | Publisher performance marketing                             | E-commerce cashback                                              | Flexible reward distribution                        |
 | **Validation**      | Complex (ref codes, configs)                                | Medium (payment verification)                                    | Minimal (pass-through)                              |
 | **Fees**            | ✅ Attribution provider fees                                | ❌ No fees                                                       | ❌ No fees                                          |
-| **Publishers**      | ✅ Via BuilderCodes                                        | ❌ Direct to users                                               | ❌ Direct to recipients                             |
+| **Publishers**      | ✅ Via BuilderCodes                                         | ❌ Direct to users                                               | ❌ Direct to recipients                             |
 | **Fund Withdrawal** | Advertiser only (FINALIZED + deadline)                      | Owner only (FINALIZED)                                           | Manager only (FINALIZED)                            |
-| **reward()**        | ✅ Immediate publisher payouts<br/>Deducts attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
+| **reward()**        | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts          | ✅ Direct recipient payouts<br/>Simple pass-through |
 | **allocate()**      | ❌ Not implemented                                          | ✅ Reserve cashback for claims<br/>Tracks allocated amounts      | ✅ Reserve payouts for claims                       |
-| **distribute()**    | ❌ Not implemented                                          | ✅ Claim allocated cashback<br/>Moves from allocated→distributed | ✅ Claim allocated rewards                          |
+| **distribute()**    | ❌ Not implemented                                          | ✅ Claim allocated cashback<br/>Supports fees on distribution   | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                          | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds       | ✅ Cancel unclaimed rewards                         |
 
 ## Use Case Examples
@@ -666,10 +697,10 @@ flywheel.reward(campaign, token, hookData);
 #### Allocate Payouts
 
 ```solidity
-// Reserve payouts for future distribution
+// Reserve payouts for future distribution using bytes32 keys
 bytes memory hookData = abi.encode(
-    recipients,
-    amounts,
+    keys,        // bytes32[] - Keys to identify allocations
+    amounts,     // uint256[] - Amounts to allocate
     // hook-specific data
 );
 
@@ -679,10 +710,10 @@ flywheel.allocate(campaign, token, hookData);
 #### Deallocate Payouts
 
 ```solidity
-// Remove allocated payouts (cancel allocations)
+// Remove allocated payouts (cancel allocations) by key
 bytes memory hookData = abi.encode(
-    recipients,
-    amounts,
+    keys,        // bytes32[] - Keys identifying allocations to cancel
+    amounts,     // uint256[] - Amounts to deallocate
     // hook-specific data
 );
 
@@ -692,10 +723,11 @@ flywheel.deallocate(campaign, token, hookData);
 #### Distribute Allocated Payouts
 
 ```solidity
-// Distribute previously allocated payouts
+// Distribute previously allocated payouts to recipients
 bytes memory hookData = abi.encode(
-    recipients,
-    amounts,
+    recipients,  // address[] - Recipients to receive distributions
+    keys,        // bytes32[] - Keys identifying allocations to distribute
+    amounts,     // uint256[] - Amounts to distribute
     // hook-specific data
 );
 
@@ -704,10 +736,25 @@ flywheel.distribute(campaign, token, hookData);
 
 ### Collecting Fees
 
+The enhanced fee system supports multiple fee streams identified by `bytes32` keys, allowing for granular fee tracking and collection:
+
 ```solidity
-// Attribution providers collect accumulated fees
-flywheel.collectFees(campaign, token, feeRecipient);
+// Distribute accumulated fees to recipients
+bytes memory hookData = abi.encode(
+    recipients,  // address[] - Fee recipients
+    keys,        // bytes32[] - Keys identifying fee allocations
+    amounts,     // uint256[] - Fee amounts to distribute
+    // hook-specific data
+);
+
+flywheel.distributeFees(campaign, token, hookData);
 ```
+
+**Enhanced Fee Features:**
+- **Multiple Fee Streams**: Support for different fee types using `bytes32` keys
+- **Flexible Fee Collection**: Fees can be collected on both `reward()` and `distribute()` operations
+- **Granular Tracking**: Each fee stream is tracked separately for better accounting
+- **Batch Distribution**: Multiple fees can be distributed in a single transaction
 
 ## Campaign Lifecycle
 
@@ -730,12 +777,12 @@ Each hook type has different access control patterns for state transitions and o
 
 ##### AdConversion Campaigns
 
-| State          | Who Can Transition To                                                                                             | Available Functions | Special Behaviors                                                                                   |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser                          | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)                          |
-| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser                                                                 | reward() only       | Live campaign processing conversions                                                                |
-| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                                       | reward() only       | Sets attribution deadline based on campaign's configured duration (max 180 days)                   |
-| **FINALIZED**  | None (terminal state)                                                                                             | None                | Only Advertiser can withdraw remaining funds                                                        |
+| State          | Who Can Transition To                                                                    | Available Functions | Special Behaviors                                                                |
+| -------------- | ---------------------------------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZING: Attribution Provider or Advertiser | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)       |
+| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser                                         | reward() only       | Live campaign processing conversions                                             |
+| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                | reward() only       | Sets attribution deadline based on campaign's configured duration (max 180 days) |
+| **FINALIZED**  | None (terminal state)                                                                    | None                | Only Advertiser can withdraw remaining funds                                     |
 
 ##### CashbackRewards & SimpleRewards Campaigns
 

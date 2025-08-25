@@ -260,7 +260,12 @@ contract OnDistributeTest is CashbackRewardsBase {
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutsDistributed(
-            unlimitedCashbackCampaign, address(usdc), buyer, distributeAmount, abi.encodePacked(paymentInfoHash)
+            unlimitedCashbackCampaign,
+            address(usdc),
+            bytes32(bytes20(buyer)),
+            buyer,
+            distributeAmount,
+            abi.encodePacked(paymentInfoHash)
         );
 
         vm.prank(manager);

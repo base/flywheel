@@ -179,19 +179,6 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
         return attributions;
     }
 
-    /// @notice Processes attribution and returns payouts/fees
-    function _processAttribution(address campaign, AdConversion.Attribution[] memory attributions)
-        internal
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
-    {
-        bytes memory attributionData = abi.encode(attributions);
-
-        vm.prank(ATTRIBUTION_PROVIDER);
-        (payouts, fee) = hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), attributionData);
-
-        return (payouts, fee);
-    }
-
     /// @notice Processes attribution through Flywheel reward function
     function _processAttributionThroughFlywheel(address campaign, AdConversion.Attribution[] memory attributions)
         internal

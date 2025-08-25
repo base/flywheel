@@ -96,7 +96,7 @@ contract CashbackRewards is SimpleRewards {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
         PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
         uint256 len = paymentRewards.length;
@@ -105,7 +105,11 @@ contract CashbackRewards is SimpleRewards {
         // For each payment reward, distribute the payout amount
         for (uint256 i = 0; i < len; i++) {
             bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.REWARD);
-            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
+            payouts[i] = Flywheel.Payout({
+                recipient: paymentRewards[i].paymentInfo.payer,
+                amount: paymentRewards[i].payoutAmount,
+                extraData: abi.encodePacked(paymentInfoHash)
+            });
 
             // Add the payout amount to the distributed amount
             rewards[campaign][paymentInfoHash].distributed += paymentRewards[i].payoutAmount;
@@ -118,17 +122,21 @@ contract CashbackRewards is SimpleRewards {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Allocation[] memory allocations)
     {
         PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
         uint256 len = paymentRewards.length;
-        payouts = new Flywheel.Payout[](len);
+        allocations = new Flywheel.Allocation[](len);
 
         // For each payment reward, allocate the payout amount
         for (uint256 i = 0; i < len; i++) {
             bytes32 paymentInfoHash =
                 _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.ALLOCATE);
-            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
+            allocations[i] = Flywheel.Allocation({
+                key: bytes32(bytes20(paymentRewards[i].paymentInfo.payer)),
+                amount: paymentRewards[i].payoutAmount,
+                extraData: abi.encodePacked(paymentInfoHash)
+            });
 
             // Add the payout amount to the allocated amount
             rewards[campaign][paymentInfoHash].allocated += paymentRewards[i].payoutAmount;
@@ -141,11 +149,11 @@ contract CashbackRewards is SimpleRewards {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts)
+        returns (Flywheel.Allocation[] memory allocations)
     {
         PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
         uint256 len = paymentRewards.length;
-        payouts = new Flywheel.Payout[](len);
+        allocations = new Flywheel.Allocation[](len);
 
         // For each payment reward, deduct the payout amount (or the entire remaining allocated amount if payout amount is 0) from allocated
         for (uint256 i = 0; i < len; i++) {
@@ -165,9 +173,12 @@ contract CashbackRewards is SimpleRewards {
             // Deduct the payout amount from allocated
             rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
 
-            // Prepare the payout and assign the correct payout amount in case of max uint120
-            payouts[i] = _preparePayout(paymentReward, paymentInfoHash);
-            payouts[i].amount = payoutAmount;
+            // Prepare the allocation and assign the correct payout amount in case of max uint120
+            allocations[i] = Flywheel.Allocation({
+                key: bytes32(bytes20(paymentRewards[i].paymentInfo.payer)),
+                amount: payoutAmount,
+                extraData: abi.encodePacked(paymentInfoHash)
+            });
         }
     }
 
@@ -177,18 +188,23 @@ contract CashbackRewards is SimpleRewards {
         override
         onlyFlywheel
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, uint256 fee)
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
     {
         PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
         uint256 len = paymentRewards.length;
-        payouts = new Flywheel.Payout[](len);
+        distributions = new Flywheel.Distribution[](len);
 
         // For each payment reward, shift the payout amount from allocated to distributed
         for (uint256 i = 0; i < len; i++) {
             bytes32 paymentInfoHash =
                 _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.DISTRIBUTE);
-            payouts[i] = _preparePayout(paymentRewards[i], paymentInfoHash);
             uint120 payoutAmount = paymentRewards[i].payoutAmount;
+            distributions[i] = Flywheel.Distribution({
+                recipient: paymentRewards[i].paymentInfo.payer,
+                key: bytes32(bytes20(paymentRewards[i].paymentInfo.payer)),
+                amount: payoutAmount,
+                extraData: abi.encodePacked(paymentInfoHash)
+            });
 
             // Check sufficient allocation
             uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
@@ -249,22 +265,5 @@ contract CashbackRewards is SimpleRewards {
                 paymentInfoHash, maxAllowedRewardAmount, totalRewardAmount - maxAllowedRewardAmount
             );
         }
-    }
-
-    /// @dev Prepares a Flywheel.Payout for a given payment reward
-    ///
-    /// @param paymentReward The payment reward
-    ///
-    /// @return payout The Flywheel.Payout
-    function _preparePayout(PaymentReward memory paymentReward, bytes32 paymentInfoHash)
-        internal
-        pure
-        returns (Flywheel.Payout memory payout)
-    {
-        return Flywheel.Payout({
-            recipient: paymentReward.paymentInfo.payer,
-            amount: paymentReward.payoutAmount,
-            extraData: abi.encodePacked(paymentInfoHash)
-        });
     }
 }
