@@ -237,6 +237,7 @@ contract Flywheel is ReentrancyGuardTransient {
     function reward(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
+        onlyExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, Allocation[] memory fees)
     {
