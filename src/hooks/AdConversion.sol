@@ -111,15 +111,17 @@ contract AdConversion is CampaignHooks {
     /// @notice Emitted when an offchain attribution event occurred
     ///
     /// @param campaign Address of the campaign
+    /// @param isPublisherPayout True if original payout address was zero (publisher payout via registry)
     /// @param conversion The conversion data
-    event OffchainConversionProcessed(address indexed campaign, Conversion conversion);
+    event OffchainConversionProcessed(address indexed campaign, bool isPublisherPayout, Conversion conversion);
 
     /// @notice Emitted when an onchain attribution event occurred
     ///
     /// @param campaign Address of the campaign
+    /// @param isPublisherPayout True if original payout address was zero (publisher payout via registry)
     /// @param conversion The conversion data
     /// @param log The onchain log data
-    event OnchainConversionProcessed(address indexed campaign, Conversion conversion, Log log);
+    event OnchainConversionProcessed(address indexed campaign, bool isPublisherPayout, Conversion conversion, Log log);
 
     /// @notice Emitted when attribution deadline is updated
     ///
@@ -327,8 +329,11 @@ contract AdConversion is CampaignHooks {
 
             address payoutAddress = attributions[i].conversion.payoutRecipient;
 
+            // Determine if attribution was for a publisher (original payout address was zero)
+            bool isPublisherPayout = (payoutAddress == address(0));
+
             // If the recipient is the zero address, we use the referral code registry to get the payout address
-            if (payoutAddress == address(0)) {
+            if (isPublisherPayout) {
                 payoutAddress = publisherCodesRegistry.payoutAddress(publisherRefCode);
                 attributions[i].conversion.payoutRecipient = payoutAddress;
             }
@@ -359,9 +364,9 @@ contract AdConversion is CampaignHooks {
             Conversion memory conversion = attributions[i].conversion;
 
             if (logBytes.length > 0) {
-                emit OnchainConversionProcessed(campaign, conversion, abi.decode(logBytes, (Log)));
+                emit OnchainConversionProcessed(campaign, isPublisherPayout, conversion, abi.decode(logBytes, (Log)));
             } else {
-                emit OffchainConversionProcessed(campaign, conversion);
+                emit OffchainConversionProcessed(campaign, isPublisherPayout, conversion);
             }
         }
 
