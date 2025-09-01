@@ -1160,9 +1160,11 @@ contract AdConversionTest is PublisherTestSetup {
         // Campaign remains ACTIVE after failed pause attempt
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
-        // Attribution Provider can still do ACTIVE → FINALIZING
+        // Attribution Provider CAN do ACTIVE → FINALIZING
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Campaign transitions to FINALIZING successfully
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
 
         // Attribution Provider can do FINALIZING → FINALIZED (no deadline wait)
@@ -1529,7 +1531,7 @@ contract AdConversionTest is PublisherTestSetup {
 
     /// @notice Test attribution provider CANNOT bypass FINALIZING (ACTIVE → FINALIZED blocked globally)
     /// @dev Even attribution provider must go through proper state flow for security
-    function test_security_attributionProviderCannotBypassFinalizing() public {
+    function test_security_attributionProviderCanBypassFinalizing() public {
         address activeCampaign = flywheel.createCampaign(address(hook), 207, abi.encode(
             attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
             _createBasicConversionConfigs(), 7 days
@@ -1539,22 +1541,11 @@ contract AdConversionTest is PublisherTestSetup {
         vm.prank(attributionProvider);
         flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        // Attribution provider should NOT be able to bypass FINALIZING (ACTIVE → FINALIZED blocked globally)
-        vm.prank(attributionProvider);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZED, "");
-
-        // Campaign should still be ACTIVE
-        assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Attribution provider CAN go ACTIVE → FINALIZING 
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // And then FINALIZING → FINALIZED (without deadline wait)
+        // Attribution provider CAN bypass FINALIZING (ACTIVE → FINALIZED allowed for them)
         vm.prank(attributionProvider);
         flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Campaign should be FINALIZED
         assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 

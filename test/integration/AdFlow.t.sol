@@ -301,10 +301,8 @@ contract AdFlowTest is PublisherTestSetup {
         vm.prank(advertiser);
         usdc.transfer(campaign, INITIAL_FUNDING);
 
-        // Activate and then finalize campaign
-        vm.startPrank(provider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        vm.warp(block.timestamp + 1 days + 1); // Wait for attribution deadline
+        // Finalize campaign (advertiser can do INACTIVE → FINALIZED directly for fund recovery)
+        vm.startPrank(advertiser);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
         vm.stopPrank();
 
