@@ -416,27 +416,95 @@ contract AdConversion is CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) external override onlyFlywheel {
-        // Prevent ACTIVE → INACTIVE transitions for ALL parties (no one can pause active campaigns)
+        address attributionProvider = state[campaign].attributionProvider;
+        address advertiser = state[campaign].advertiser;
+        
+        // =================================================================
+        // GLOBAL RESTRICTIONS (apply to everyone)
+        // =================================================================
+        
+        // No one can pause active campaigns (ACTIVE → INACTIVE blocked for security)
         if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.INACTIVE) {
             revert Unauthorized();
         }
-
-        // Attribution provider can perform other valid state transitions
-        if (sender == state[campaign].attributionProvider) return;
-
-        // Otherwise only advertiser allowed to update status
-        if (sender != state[campaign].advertiser) revert Unauthorized();
-
-        // Advertiser always allowed to start finalization delay
-        if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
-            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
-            emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
-            return;
+        
+        // No one can bypass FINALIZING state (ACTIVE → FINALIZED blocked for security)
+        // This prevents bypassing attribution windows - everyone must go ACTIVE → FINALIZING → FINALIZED
+        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+            revert Unauthorized();
         }
-
-        // Advertiser only allowed to finalize, but only if delay has passed
-        if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
-        if (state[campaign].attributionDeadline > block.timestamp) revert Unauthorized();
+        
+        // =================================================================
+        // ATTRIBUTION PROVIDER PERMISSIONS
+        // =================================================================
+        
+        if (sender == attributionProvider) {
+            // Attribution provider CAN do:
+            if (oldStatus == Flywheel.CampaignStatus.INACTIVE && newStatus == Flywheel.CampaignStatus.ACTIVE) {
+                return; // ✅ INACTIVE → ACTIVE (activate campaign)
+            }
+            if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZING) {
+                return; // ✅ ACTIVE → FINALIZING 
+            }
+            if (oldStatus == Flywheel.CampaignStatus.FINALIZING && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+                return; // ✅ FINALIZING → FINALIZED (no deadline wait)
+            }
+            
+            // Attribution provider CANNOT do:
+            if (oldStatus == Flywheel.CampaignStatus.INACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+                revert Unauthorized(); // ❌ INACTIVE → FINALIZED (fund recovery is advertiser-only)
+            }
+            // Note: ACTIVE → FINALIZED and ACTIVE → INACTIVE blocked globally for security
+            
+            // Block any other attribution provider transitions
+            revert Unauthorized();
+        }
+        
+        // =================================================================
+        // ADVERTISER PERMISSIONS  
+        // =================================================================
+        
+        if (sender == advertiser) {
+            // Advertiser CAN do:
+            if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZING) {
+                // Set attribution deadline and allow transition
+                state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
+                emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
+                return; // ✅ ACTIVE → FINALIZING (with deadline set)
+            }
+            if (oldStatus == Flywheel.CampaignStatus.INACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZING) {
+                // Set attribution deadline and allow transition
+                state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
+                emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
+                return; // ✅ INACTIVE → FINALIZING (for never-activated campaigns)
+            }
+            if (oldStatus == Flywheel.CampaignStatus.INACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+                return; // ✅ INACTIVE → FINALIZED (direct fund recovery, no deadline needed)
+            }
+            if (oldStatus == Flywheel.CampaignStatus.FINALIZING && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+                // Check attribution deadline has passed
+                if (state[campaign].attributionDeadline > block.timestamp) {
+                    revert Unauthorized(); // ❌ Deadline not reached yet
+                }
+                return; // ✅ FINALIZING → FINALIZED (after deadline)
+            }
+            
+            // Advertiser CANNOT do:
+            if (oldStatus == Flywheel.CampaignStatus.INACTIVE && newStatus == Flywheel.CampaignStatus.ACTIVE) {
+                revert Unauthorized(); // ❌ INACTIVE → ACTIVE (only attribution provider can activate)
+            }
+            // Note: ACTIVE → FINALIZED blocked globally for security
+            
+            // Block any other advertiser transitions
+            revert Unauthorized();
+        }
+        
+        // =================================================================
+        // UNAUTHORIZED SENDERS
+        // =================================================================
+        
+        // Only attribution provider and advertiser can update campaign status
+        revert Unauthorized();
     }
 
     /// @inheritdoc CampaignHooks

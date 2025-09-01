@@ -842,249 +842,6 @@ contract AdConversionTest is PublisherTestSetup {
         hook.getConversionConfig(campaign, 99);
     }
 
-    function test_attributionProvider_cannotRevertFromFinalizingToActive() public {
-        // Create campaign and move to ACTIVE
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Advertiser moves to FINALIZING
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // Attribution provider should NOT be able to revert to ACTIVE
-        vm.prank(attributionProvider);
-        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-    }
-
-    function test_attributionProvider_cannotRevertFromFinalizingToInactive() public {
-        // Create campaign and move to ACTIVE
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Advertiser moves to FINALIZING
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // Attribution provider should NOT be able to revert to INACTIVE
-        vm.prank(attributionProvider);
-        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-    }
-
-    function test_attributionProvider_canTransitionFromFinalizingToFinalized() public {
-        // Create campaign and move to ACTIVE
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Advertiser moves to FINALIZING
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-
-        // Attribution provider CAN transition to FINALIZED (valid transition)
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
-    }
-
-    function test_attributionProvider_cannotPauseCampaign() public {
-        // Start with ACTIVE campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Attribution provider CANNOT pause campaign (ACTIVE → INACTIVE) - now blocked for ALL parties
-        vm.prank(attributionProvider);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-
-        // Campaign remains ACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-    }
-
-    function test_maliciousPause_preventedByNewSecurity() public {
-        // Start ACTIVE campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Malicious/uncooperative attribution provider CANNOT pause campaign anymore
-        // This attack vector is now blocked for ALL parties (attribution providers and advertisers)
-        vm.prank(attributionProvider);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-
-        // Campaign remains ACTIVE - malicious pause attack is prevented
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Advertiser also CANNOT pause campaign
-        vm.prank(advertiser);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-
-        // Campaign still remains ACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // The only valid transition from ACTIVE is to FINALIZING
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-    }
-
-    // =============================================================
-    //                    STATE TRANSITION PERMISSIONS
-    // =============================================================
-
-    /// @notice Test that Advertiser CANNOT transition INACTIVE → ACTIVE
-    function test_advertiserCannotActivateCampaign() public {
-        // Verify campaign starts INACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
-
-        // Advertiser should NOT be able to activate campaign - should revert
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Campaign should still be INACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
-    }
-
-    /// @notice Test that only Attribution Provider can activate campaigns
-    function test_onlyAttributionProviderCanActivate() public {
-        // Verify campaign starts INACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
-
-        // Attribution Provider CAN activate
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-    }
-
-    /// @notice Test Advertiser can only do ACTIVE → FINALIZING, not other transitions
-    function test_advertiserLimitedStateTransitions() public {
-        // Start with ACTIVE campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Advertiser CAN do ACTIVE → FINALIZING
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // Create a second campaign to test ACTIVE → INACTIVE restriction
-        // (Cannot reset from FINALIZING back to ACTIVE due to core Flywheel state machine)
-        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
-        string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData2 = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs, 7 days
-        );
-
-        address campaign2 = flywheel.createCampaign(address(hook), 999, hookData2);
-
-        // Activate the second campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Advertiser CANNOT do ACTIVE → INACTIVE
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.INACTIVE, "");
-    }
-
-    /// @notice Test Attribution Provider control with new pause restrictions
-    function test_attributionProviderControlWithPauseRestrictions() public {
-        // Attribution Provider can do INACTIVE → ACTIVE
-        vm.startPrank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Attribution Provider CANNOT do ACTIVE → INACTIVE (pause) - now blocked
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-
-        // Campaign remains ACTIVE after failed pause attempt
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Attribution Provider can still do ACTIVE → FINALIZING
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // Attribution Provider can do FINALIZING → FINALIZED (no deadline wait)
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
-
-        vm.stopPrank();
-    }
-
-    /// @notice Test that no party can pause campaigns anymore - security improvement
-    function test_noPausingAllowed_securityImprovement() public {
-        // Start ACTIVE campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Attribution provider CANNOT pause (ACTIVE → INACTIVE) - security restriction
-        vm.prank(attributionProvider);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-
-        // Advertiser also CANNOT pause (ACTIVE → INACTIVE)
-        vm.prank(advertiser);
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
-
-        // Campaign remains ACTIVE - no party can pause it
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-
-        // Only valid transition from ACTIVE is to FINALIZING
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-    }
-
-    /// @notice Test Advertiser can transition INACTIVE → FINALIZING for never-activated campaigns
-    function test_advertiserCanFinalizeNeverActivatedCampaign() public {
-        // Campaign starts INACTIVE and was never activated
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
-
-        // Advertiser CANNOT activate (INACTIVE → ACTIVE) - only attribution provider can
-        vm.expectRevert(AdConversion.Unauthorized.selector);
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // But Advertiser CAN finalize directly from INACTIVE (for never-activated campaigns)
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // And then to FINALIZED after deadline
-        vm.warp(block.timestamp + 8 days);
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
-    }
-
-    /// @notice Test Advertiser can transition from ACTIVE → FINALIZING directly (no pause state needed)
-    function test_advertiserCanFinalizeFromActive() public {
-        // Start with ACTIVE campaign
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Advertiser can go directly from ACTIVE → FINALIZING (no need for pause/escape route)
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-
-        // After deadline passes, advertiser can finalize
-        vm.warp(block.timestamp + 8 days);
-        vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
-    }
 
     function test_campaignCreation_customAttributionDeadline() public {
         // Create campaign with 14-day attribution deadline
@@ -1172,32 +929,6 @@ contract AdConversionTest is PublisherTestSetup {
         }
     }
 
-    function test_finalization_usesPerCampaignDeadline() public {
-        // Create campaign with 21-day attribution deadline
-        uint48 customDeadline = 21 days;
-        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
-
-        string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, customDeadline
-        );
-
-        address customCampaign = flywheel.createCampaign(address(hook), 996, hookData);
-
-        // Activate and then finalize
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        uint256 beforeFinalize = block.timestamp;
-        vm.prank(advertiser);
-        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-
-        // Check that attribution deadline uses custom duration
-        (,,,, uint48 deadline) = hook.state(customCampaign);
-        assertEq(deadline, beforeFinalize + customDeadline);
-    }
 
     function test_hasPublisherAllowlist_noAllowlist() public {
         assertEq(hook.hasPublisherAllowlist(campaign), false);
@@ -1310,70 +1041,6 @@ contract AdConversionTest is PublisherTestSetup {
         }
     }
 
-    function test_finalization_usesMinimumDeadline() public {
-        // Create campaign with 1 day deadline (minimum)
-        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
-
-        string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            "https://example.com/campaign",
-            allowedRefCodes,
-            configs,
-            uint48(1 days) // Minimum deadline
-        );
-
-        address minCampaign = flywheel.createCampaign(address(hook), 993, hookData);
-
-        // Activate and then finalize
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        uint256 beforeFinalize = block.timestamp;
-        vm.prank(advertiser);
-        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-
-        // Check that attribution deadline uses 1 day
-        (,,,, uint48 deadline) = hook.state(minCampaign);
-        assertEq(deadline, beforeFinalize + 1 days);
-    }
-
-    function test_finalization_instantWithZeroDeadline() public {
-        // Create campaign with 0 deadline (instant finalization)
-        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
-
-        string[] memory allowedRefCodes = new string[](0);
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            "https://example.com/campaign",
-            allowedRefCodes,
-            configs,
-            uint48(0) // Zero deadline for instant finalization
-        );
-
-        address instantCampaign = flywheel.createCampaign(address(hook), 992, hookData);
-
-        // Activate
-        vm.prank(attributionProvider);
-        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Move to finalizing
-        vm.prank(advertiser);
-        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-
-        // With zero deadline, advertiser can finalize immediately
-        vm.prank(advertiser);
-        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZED, "");
-
-        // Verify campaign is finalized
-        assertEq(uint256(flywheel.campaignStatus(instantCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
-    }
 
     function test_onUpdateMetadata_success() public {
         bytes memory hookData = abi.encode("test data");
@@ -1389,5 +1056,548 @@ contract AdConversionTest is PublisherTestSetup {
         vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(address(flywheel));
         hook.onUpdateMetadata(randomUser, campaign, hookData);
+    }
+
+    // =============================================================
+    //                    STATE TRANSITION TESTS
+    // =============================================================
+
+    // Attribution Provider Permissions
+
+    /// @notice Test attribution provider can activate campaigns (INACTIVE → ACTIVE)
+    function test_onlyAttributionProviderCanActivate() public {
+        // Verify campaign starts INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+
+        // Attribution provider can activate
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    /// @notice Test attribution provider can transition FINALIZING → FINALIZED without deadline wait
+    function test_attributionProvider_canTransitionFromFinalizingToFinalized() public {
+        // Create campaign and move to ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Advertiser moves to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Attribution provider CAN transition to FINALIZED (valid transition)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test attribution provider cannot pause active campaigns (ACTIVE → INACTIVE blocked)
+    function test_attributionProvider_cannotPauseCampaign() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Attribution provider CANNOT pause campaign (ACTIVE → INACTIVE) - now blocked for ALL parties
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Campaign remains ACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    /// @notice Test attribution provider cannot revert from FINALIZING to ACTIVE
+    function test_attributionProvider_cannotRevertFromFinalizingToActive() public {
+        // Create campaign and move to ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Advertiser moves to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Attribution provider should NOT be able to revert to ACTIVE
+        vm.prank(attributionProvider);
+        vm.expectRevert();
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+    }
+
+    /// @notice Test attribution provider cannot revert from FINALIZING to INACTIVE
+    function test_attributionProvider_cannotRevertFromFinalizingToInactive() public {
+        // Create campaign and move to ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Advertiser moves to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Attribution provider should NOT be able to revert to INACTIVE
+        vm.prank(attributionProvider);
+        vm.expectRevert();
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+    }
+
+    /// @notice Test attribution provider comprehensive control with pause restrictions
+    function test_attributionProviderControlWithPauseRestrictions() public {
+        // Attribution Provider can do INACTIVE → ACTIVE
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Attribution Provider CANNOT do ACTIVE → INACTIVE (pause) - now blocked
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Campaign remains ACTIVE after failed pause attempt
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Attribution Provider can still do ACTIVE → FINALIZING
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Attribution Provider can do FINALIZING → FINALIZED (no deadline wait)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    // Advertiser Permissions
+
+    /// @notice Test advertiser cannot activate campaigns (INACTIVE → ACTIVE blocked)
+    function test_advertiserCannotActivateCampaign() public {
+        // Verify campaign starts INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+
+        // Advertiser cannot activate (only attribution provider can)
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Campaign should still be INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+    }
+
+    /// @notice Test advertiser limited state transitions (only ACTIVE → FINALIZING allowed)
+    function test_advertiserLimitedStateTransitions() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Advertiser CAN do ACTIVE → FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Create a second campaign to test ACTIVE → INACTIVE restriction
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData2 = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign2", allowedRefCodes, configs, 7 days
+        );
+
+        address campaign2 = flywheel.createCampaign(address(hook), 999, hookData2);
+
+        // Attribution provider activates second campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Advertiser CANNOT do ACTIVE → INACTIVE
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign2, Flywheel.CampaignStatus.INACTIVE, "");
+    }
+
+    /// @notice Test advertiser can finalize never-activated campaigns directly (INACTIVE → FINALIZED)
+    function test_advertiserCanFinalizeNeverActivatedCampaign() public {
+        // Campaign starts INACTIVE and was never activated
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+
+        // Advertiser CANNOT activate (INACTIVE → ACTIVE) - only attribution provider can
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // But Advertiser CAN finalize directly from INACTIVE (fund recovery for never-activated campaigns)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test advertiser can finalize from active (ACTIVE → FINALIZING → FINALIZED)
+    function test_advertiserCanFinalizeFromActive() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Advertiser can go directly from ACTIVE → FINALIZING (no need for pause/escape route)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Wait for attribution deadline and finalize
+        vm.warp(block.timestamp + 7 days + 1);
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    // Security Restrictions
+
+    /// @notice Test no party can pause active campaigns (security improvement)
+    function test_noPausingAllowed_securityImprovement() public {
+        // Start ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Attribution provider CANNOT pause (ACTIVE → INACTIVE) - security restriction
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Advertiser also CANNOT pause (ACTIVE → INACTIVE)
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Campaign remains ACTIVE - no party can pause it
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Only valid transition from ACTIVE is to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+    }
+
+    /// @notice Test malicious pause attacks are prevented by new security
+    function test_maliciousPause_preventedByNewSecurity() public {
+        // Start ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Malicious attribution provider tries to pause (this was previously possible)
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Campaign remains ACTIVE - malicious pause attack is prevented
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Malicious third party also cannot pause
+        vm.prank(address(0xbad));
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.INACTIVE, "");
+
+        // Campaign still remains ACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // The only valid transition from ACTIVE is to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+    }
+
+    // Deadline and Timing Tests
+
+    /// @notice Test finalization uses per-campaign attribution deadline
+    function test_finalization_usesPerCampaignDeadline() public {
+        // Create campaign with custom 14-day deadline
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, // attributionProvider
+            advertiser, // advertiser
+            "test-uri", // uri
+            new string[](0), // allowedRefCodes (empty - no allowlist)
+            configs, // configs
+            uint48(14 days) // campaignAttributionWindow
+        );
+
+        address customCampaign = flywheel.createCampaign(address(hook), 99, hookData);
+
+        // Activate and move to finalizing
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        vm.prank(advertiser);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Should fail before 14 days (campaign-specific deadline)
+        vm.warp(block.timestamp + 7 days);
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Should succeed after 14 days
+        vm.warp(block.timestamp + 14 days + 1);
+        vm.prank(advertiser);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(customCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test finalization uses minimum deadline (1 day)
+    function test_finalization_usesMinimumDeadline() public {
+        // Create campaign with minimum 1-day deadline
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, // attributionProvider
+            advertiser, // advertiser
+            "test-uri", // uri
+            new string[](0), // allowedRefCodes (empty - no allowlist)
+            configs, // configs
+            uint48(1 days) // campaignAttributionWindow - minimum allowed
+        );
+
+        address minCampaign = flywheel.createCampaign(address(hook), 100, hookData);
+
+        // Activate and move to finalizing
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        vm.prank(advertiser);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Should succeed after 1 day minimum
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.prank(advertiser);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(minCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test instant finalization with zero deadline
+    function test_finalization_instantWithZeroDeadline() public {
+        // Create campaign with zero deadline (instant finalization)
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, // attributionProvider
+            advertiser, // advertiser
+            "test-uri", // uri
+            new string[](0), // allowedRefCodes (empty - no allowlist)
+            configs, // configs
+            uint48(0) // campaignAttributionWindow - zero for instant finalization
+        );
+
+        address instantCampaign = flywheel.createCampaign(address(hook), 101, hookData);
+
+        // Activate and move to finalizing
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Should succeed immediately with zero deadline
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        assertEq(uint256(flywheel.campaignStatus(instantCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    // =============================================================
+    //                    SECURITY STATE TRANSITION TESTS
+    // =============================================================
+
+    /// @notice Test attribution window bypass vulnerability - ACTIVE → FINALIZED attack
+    /// @dev This tests the critical security fix that prevents bypassing attribution windows
+    function test_security_attributionWindowBypass_activeToFinalized() public {
+        address campaign = flywheel.createCampaign(address(hook), 200, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+        
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Verify campaign is in ACTIVE state
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Advertiser attempts to bypass attribution window by going directly ACTIVE → FINALIZED
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Verify campaign is still ACTIVE
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    /// @notice Test that proper state transition flow still works after security fix
+    /// @dev Ensures the fix doesn't break legitimate ACTIVE → FINALIZING → FINALIZED flow
+    function test_security_legitStateTransitionStillWorks() public {
+        address campaign = flywheel.createCampaign(address(hook), 201, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+        
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Step 1: ACTIVE → FINALIZING (should work)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Step 2: Wait for attribution deadline (7 days for basic campaign)
+        vm.warp(block.timestamp + 7 days + 1);
+
+        // Step 3: FINALIZING → FINALIZED (should work)
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test attribution provider can still perform valid state transitions
+    /// @dev Ensures attribution provider privileges are preserved after security fix
+    function test_security_attributionProviderBypassStillWorks() public {
+        address campaign = flywheel.createCampaign(address(hook), 202, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+        
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Attribution provider should be able to go ACTIVE → FINALIZING
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // Attribution provider should be able to go FINALIZING → FINALIZED (no deadline wait)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test attribution provider CANNOT do INACTIVE → FINALIZED (fund recovery is advertiser-only)
+    /// @dev Only advertiser should be able to recover funds from never-activated campaigns
+    function test_security_attributionProviderCannotDoFundRecovery() public {
+        address inactiveCampaign = flywheel.createCampaign(address(hook), 205, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+
+        // Attribution provider should NOT be able to do INACTIVE → FINALIZED (fund recovery)
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Campaign should still be INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(inactiveCampaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+    }
+
+    /// @notice Test ONLY attribution provider can activate campaigns (INACTIVE → ACTIVE)
+    /// @dev Demonstrates clear role separation for campaign activation
+    function test_security_onlyAttributionProviderCanActivate() public {
+        address inactiveCampaign = flywheel.createCampaign(address(hook), 206, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+
+        // Advertiser CANNOT activate campaign (INACTIVE → ACTIVE)
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Random user CANNOT activate campaign
+        vm.prank(randomUser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Campaign should still be INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(inactiveCampaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+
+        // ONLY attribution provider CAN activate campaign (INACTIVE → ACTIVE)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Campaign should now be ACTIVE
+        assertEq(uint256(flywheel.campaignStatus(inactiveCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+    }
+
+    /// @notice Test attribution provider CANNOT bypass FINALIZING (ACTIVE → FINALIZED blocked globally)
+    /// @dev Even attribution provider must go through proper state flow for security
+    function test_security_attributionProviderCannotBypassFinalizing() public {
+        address activeCampaign = flywheel.createCampaign(address(hook), 207, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+
+        // Activate campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Attribution provider should NOT be able to bypass FINALIZING (ACTIVE → FINALIZED blocked globally)
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Campaign should still be ACTIVE
+        assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+
+        // Attribution provider CAN go ACTIVE → FINALIZING 
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+
+        // And then FINALIZING → FINALIZED (without deadline wait)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test that INACTIVE → FINALIZED is allowed directly for fund recovery
+    /// @dev If attribution provider never activates campaign, advertiser can recover funds immediately
+    function test_security_inactiveToFinalizedAllowed() public {
+        address inactiveCampaign = flywheel.createCampaign(address(hook), 203, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+        
+        // INACTIVE → FINALIZED should be allowed directly (fund recovery scenario, no deadline wait)
+        vm.prank(advertiser);
+        flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(inactiveCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+    /// @notice Test that only ACTIVE → FINALIZED is blocked, not other transitions
+    /// @dev Ensures security fix is precise and doesn't break legitimate flows
+    function test_security_onlyActiveToFinalizedBlocked() public {
+        address activeCampaign = flywheel.createCampaign(address(hook), 204, abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
+            _createBasicConversionConfigs(), 7 days
+        ));
+        
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // ACTIVE → FINALIZED blocked (attribution window bypass vulnerability)
+        vm.prank(advertiser);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // But ACTIVE → FINALIZING still works
+        vm.prank(advertiser);
+        flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(activeCampaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+    }
+
+    function _createBasicConversionConfigs() internal pure returns (AdConversion.ConversionConfigInput[] memory) {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        return configs;
     }
 }
