@@ -450,11 +450,6 @@ contract AdConversion is CampaignHooks {
                 return; // ✅ FINALIZING → FINALIZED (no deadline wait)
             }
 
-            // Attribution provider CANNOT do:
-            // - INACTIVE → FINALIZING (advertiser uses INACTIVE → FINALIZED for fund recovery)
-            // - INACTIVE → FINALIZED (fund recovery is advertiser-only)
-            // - ACTIVE → INACTIVE (globally blocked for security)
-
             // Block any other attribution provider transitions
             revert Unauthorized();
         }
