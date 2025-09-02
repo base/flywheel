@@ -1310,6 +1310,135 @@ contract AdConversionTest is PublisherTestSetup {
 
     // Deadline and Timing Tests
 
+    /// @notice Test attribution provider sets deadline when entering FINALIZING state
+    function test_attributionProvider_setsDeadlineWhenEnteringFinalizing() public {
+        // Start with ACTIVE campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        uint256 transitionTime = block.timestamp;
+        uint48 expectedDeadline = uint48(transitionTime + 7 days);
+        
+        // Expect AttributionDeadlineUpdated event to be emitted
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.AttributionDeadlineUpdated(campaign, expectedDeadline);
+        
+        // Attribution provider transitions to FINALIZING
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Verify campaign is in FINALIZING state
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Verify deadline was set correctly
+        (,,,, uint48 actualDeadline) = hook.state(campaign);
+        assertEq(actualDeadline, expectedDeadline);
+    }
+
+    /// @notice Test advertiser sets deadline when entering FINALIZING state  
+    function test_advertiser_setsDeadlineWhenEnteringFinalizing() public {
+        // Start with ACTIVE campaign (attribution provider activates)
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        uint256 transitionTime = block.timestamp;
+        uint48 expectedDeadline = uint48(transitionTime + 7 days);
+        
+        // Expect AttributionDeadlineUpdated event to be emitted
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.AttributionDeadlineUpdated(campaign, expectedDeadline);
+        
+        // Advertiser transitions to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Verify campaign is in FINALIZING state
+        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        
+        // Verify deadline was set correctly
+        (,,,, uint48 actualDeadline) = hook.state(campaign);
+        assertEq(actualDeadline, expectedDeadline);
+    }
+
+    /// @notice Test deadline calculation with custom attribution window
+    function test_deadlineSetting_customAttributionWindow() public {
+        // Create campaign with 14-day attribution window
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
+        
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser, 
+            "test-uri",
+            new string[](0),
+            configs,
+            uint48(14 days) // Custom 14-day window
+        );
+        
+        address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
+        
+        // Activate campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        uint256 transitionTime = block.timestamp;
+        uint48 expectedDeadline = uint48(transitionTime + 14 days);
+        
+        // Expect event with 14-day deadline
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.AttributionDeadlineUpdated(customCampaign, expectedDeadline);
+        
+        // Advertiser transitions to FINALIZING
+        vm.prank(advertiser);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Verify 14-day deadline was set
+        (,,,, uint48 actualDeadline) = hook.state(customCampaign);
+        assertEq(actualDeadline, expectedDeadline);
+    }
+
+    /// @notice Test deadline setting with zero attribution window (instant finalization)
+    function test_deadlineSetting_zeroAttributionWindow() public {
+        // Create campaign with zero attribution window
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
+        
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "test-uri", 
+            new string[](0),
+            configs,
+            uint48(0) // Zero attribution window
+        );
+        
+        address zeroCampaign = flywheel.createCampaign(address(hook), 998, hookData);
+        
+        // Activate campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(zeroCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        
+        uint256 transitionTime = block.timestamp;
+        uint48 expectedDeadline = uint48(transitionTime + 0); // Should be current timestamp
+        
+        // Expect event with zero deadline (current timestamp)
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.AttributionDeadlineUpdated(zeroCampaign, expectedDeadline);
+        
+        // Attribution provider transitions to FINALIZING
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(zeroCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        
+        // Verify zero deadline was set (should equal transition timestamp)
+        (,,,, uint48 actualDeadline) = hook.state(zeroCampaign);
+        assertEq(actualDeadline, expectedDeadline);
+        
+        // Advertiser should be able to finalize immediately since deadline = current timestamp
+        vm.prank(advertiser);
+        flywheel.updateStatus(zeroCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(zeroCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
     /// @notice Test finalization uses per-campaign attribution deadline
     function test_finalization_usesPerCampaignDeadline() public {
         // Create campaign with custom 14-day deadline
