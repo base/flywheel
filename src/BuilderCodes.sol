@@ -266,8 +266,9 @@ contract BuilderCodes is
     ///
     /// @return True if the referral code is valid
     function isValidCode(string memory code) public pure returns (bool) {
-        // Early return invalid if code is zero
-        if (bytes(code).length == 0) return false;
+        // Early return invalid if code is zero or over 32 bytes/characters
+        uint256 length = bytes(code).length;
+        if (length == 0 || length > 32) return false;
 
         // Return if code is 7-bit ASCII matching the allowed characters
         return LibString.is7BitASCII(code, ALLOWED_CHARACTERS_LOOKUP);
