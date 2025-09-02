@@ -330,6 +330,13 @@ contract BuilderCodes is
         version = "1";
     }
 
+    /// @notice Returns if the domain name and version may change
+    ///
+    /// @return True if the domain name and version may change
+    function _domainNameAndVersionMayChange() internal pure override returns (bool) {
+        return true;
+    }
+
     /// @notice Gets the storage reference for the registry
     ///
     /// @return $ Storage reference for the registry
