@@ -257,6 +257,10 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_createCampaign_emitsConversionConfigAddedEvents() public {
+        // Set predictable timestamp for test
+        uint48 testTimestamp = 1000000;
+        vm.warp(testTimestamp);
+
         // Create conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
         configs[0] =
@@ -273,13 +277,14 @@ contract AdConversionTest is PublisherTestSetup {
         // Calculate expected campaign address
         address expectedCampaign = flywheel.predictCampaignAddress(address(hook), 2, hookData);
 
-        // Expect events for each config (with isActive: true added automatically)
+        // Expect events for each config (with timestamp fields)
         vm.expectEmit(true, true, false, true);
         emit AdConversion.ConversionConfigAdded(
             expectedCampaign,
             1,
             AdConversion.ConversionConfig({
-                isActive: true,
+                createdAt: testTimestamp,
+                disabledAt: 0,
                 isEventOnchain: true,
                 metadataURI: "https://example.com/config0"
             })
@@ -290,7 +295,8 @@ contract AdConversionTest is PublisherTestSetup {
             expectedCampaign,
             2,
             AdConversion.ConversionConfig({
-                isActive: true,
+                createdAt: testTimestamp,
+                disabledAt: 0,
                 isEventOnchain: false,
                 metadataURI: "https://example.com/config1"
             })
@@ -440,6 +446,10 @@ contract AdConversionTest is PublisherTestSetup {
     // =============================================================
 
     function test_addConversionConfig_success() public {
+        // Set predictable timestamp for test
+        uint48 testTimestamp = 2000000;
+        vm.warp(testTimestamp);
+
         AdConversion.ConversionConfigInput memory newConfig =
             AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/new-config"});
 
@@ -448,7 +458,8 @@ contract AdConversionTest is PublisherTestSetup {
             campaign,
             3, // Next ID
             AdConversion.ConversionConfig({
-                isActive: true,
+                createdAt: testTimestamp,
+                disabledAt: 0,
                 isEventOnchain: true,
                 metadataURI: "https://example.com/new-config"
             })
@@ -459,9 +470,11 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Verify config was added
         AdConversion.ConversionConfig memory retrievedConfig = hook.getConversionConfig(campaign, 3);
-        assertTrue(retrievedConfig.isActive);
+        assertTrue(hook.isConfigActive(campaign, 3));
         assertTrue(retrievedConfig.isEventOnchain);
         assertEq(retrievedConfig.metadataURI, "https://example.com/new-config");
+        assertEq(retrievedConfig.createdAt, testTimestamp);
+        assertEq(retrievedConfig.disabledAt, 0);
     }
 
     function test_addConversionConfig_revert_unauthorized() public {
@@ -474,14 +487,20 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_disableConversionConfig_success() public {
+        // Set predictable timestamp for test
+        uint48 testTimestamp = 3000000;
+        vm.warp(testTimestamp);
+
         vm.expectEmit(true, true, false, true);
-        emit AdConversion.ConversionConfigStatusChanged(campaign, 1, false);
+        emit AdConversion.ConversionConfigStatusChanged(campaign, 1, testTimestamp);
 
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 1);
 
         AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
-        assertFalse(config.isActive);
+        assertFalse(hook.isConfigActive(campaign, 1));
+        assertEq(config.disabledAt, testTimestamp);
+        assertTrue(config.createdAt > 0); // Should still have creation timestamp
     }
 
     function test_disableConversionConfig_revert_unauthorized() public {
@@ -494,6 +513,20 @@ contract AdConversionTest is PublisherTestSetup {
         vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 99); // uint8 max is 255
+    }
+
+    function test_disableConversionConfig_revert_alreadyDisabled() public {
+        // First disable should succeed
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 1);
+
+        // Verify it's disabled
+        assertFalse(hook.isConfigActive(campaign, 1));
+
+        // Second disable should fail
+        vm.expectRevert(AdConversion.InvalidAction.selector);
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 1);
     }
 
     // Note: There's no enableConversionConfig function - configs cannot be re-enabled once disabled
@@ -546,7 +579,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                configId: 99, // Invalid config ID
+                configId: 99, // Invalid config ID (higher than count)
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -562,7 +595,52 @@ contract AdConversionTest is PublisherTestSetup {
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
 
-    function test_onReward_revert_disabledConversionConfig() public {
+    function test_onReward_revert_nonexistentConversionConfig() public {
+        // This test simulates a scenario where a config ID is within valid range 
+        // but the config was never actually created (createdAt = 0)
+        // Note: This is mainly for defensive programming as the current implementation
+        // assigns configIds sequentially, but it's good to test the existence check
+        
+        vm.prank(owner);
+        publisherRegistry.register("code1", address(0x1001), address(0x1001));
+
+        // Create a campaign with only 1 config, but try to use configId 2
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false, 
+            metadataURI: "https://example.com/single-config"
+        });
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/test-campaign", allowedRefCodes, configs, 7 days
+        );
+
+        address testCampaign = flywheel.createCampaign(address(hook), 999, hookData);
+
+        // Try to use configId 2 (which doesn't exist - only configId 1 was created)
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123", 
+                configId: 2, // Nonexistent config ID (within possible range but never created)
+                publisherRefCode: "code1",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory rewardData = abi.encode(attributions);
+
+        vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
+        vm.prank(address(flywheel));
+        hook.onReward(attributionProvider, testCampaign, address(token), rewardData);
+    }
+
+    function test_onReward_success_disabledConversionConfig() public {
         // Disable config 1
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 1);
@@ -575,7 +653,7 @@ contract AdConversionTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                configId: 1, // Disabled config
+                configId: 1, // Disabled config - should still work
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -586,9 +664,16 @@ contract AdConversionTest is PublisherTestSetup {
 
         bytes memory hookData = abi.encode(attributions);
 
-        vm.expectRevert(AdConversion.ConversionConfigDisabled.selector);
+        // Should succeed - disabled configs no longer cause reverts
+        // Attribution providers can validate timing offchain
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
+            hook.onReward(attributionProvider, campaign, address(token), hookData);
+
+        // Verify the payout was processed normally
+        assertEq(payouts.length, 1);
+        assertEq(payouts[0].recipient, address(0x1001));
+        assertEq(payouts[0].amount, 100 ether);
     }
 
     function test_onReward_revert_publisherNotInAllowlist() public {
@@ -827,14 +912,18 @@ contract AdConversionTest is PublisherTestSetup {
 
     function test_getConversionConfig_returnsCorrectConfig() public {
         AdConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
-        assertTrue(config1.isActive);
+        assertTrue(hook.isConfigActive(campaign, 1));
         assertTrue(config1.isEventOnchain);
         assertEq(config1.metadataURI, "https://example.com/config0");
+        assertTrue(config1.createdAt > 0);
+        assertEq(config1.disabledAt, 0);
 
         AdConversion.ConversionConfig memory config2 = hook.getConversionConfig(campaign, 2);
-        assertTrue(config2.isActive);
+        assertTrue(hook.isConfigActive(campaign, 2));
         assertFalse(config2.isEventOnchain);
         assertEq(config2.metadataURI, "https://example.com/config1");
+        assertTrue(config2.createdAt > 0);
+        assertEq(config2.disabledAt, 0);
     }
 
     function test_getConversionConfig_revert_invalidId() public {

@@ -15,8 +15,10 @@ import {BuilderCodes} from "../BuilderCodes.sol";
 contract AdConversion is CampaignHooks {
     // Conversion configuration structure
     struct ConversionConfig {
-        /// @dev Whether the conversion config is active
-        bool isActive;
+        /// @dev Timestamp when config was created (0 = doesn't exist)
+        uint48 createdAt;
+        /// @dev Timestamp when config was disabled (0 = active)
+        uint48 disabledAt;
         /// @dev Whether the conversion event is onchain
         bool isEventOnchain;
         /// @dev URI to extra metadata for offchain events
@@ -131,7 +133,7 @@ contract AdConversion is CampaignHooks {
     event ConversionConfigAdded(address indexed campaign, uint16 indexed configId, ConversionConfig config);
 
     /// @notice Emitted when a conversion config is disabled
-    event ConversionConfigStatusChanged(address indexed campaign, uint16 indexed configId, bool isActive);
+    event ConversionConfigStatusChanged(address indexed campaign, uint16 indexed configId, uint48 disabledAt);
 
     /// @notice Emitted when a publisher is added to campaign allowlist
     event PublisherAddedToAllowlist(address indexed campaign, string publisherRefCode);
@@ -171,8 +173,8 @@ contract AdConversion is CampaignHooks {
     /// @notice Error thrown when conversion config ID is invalid
     error InvalidConversionConfigId();
 
-    /// @notice Error thrown when conversion config is disabled
-    error ConversionConfigDisabled();
+    /// @notice Error thrown when trying to perform an invalid action
+    error InvalidAction();
 
     /// @notice Error thrown when conversion type doesn't match config
     error InvalidConversionType();
@@ -256,9 +258,10 @@ contract AdConversion is CampaignHooks {
         uint256 count = configs.length;
         for (uint16 i = 0; i < count; i++) {
             uint16 configId = i + 1;
-            // Always set isActive to true for new configs
+            // Set creation timestamp and leave disabledAt as 0 (active)
             ConversionConfig memory activeConfig = ConversionConfig({
-                isActive: true,
+                createdAt: uint48(block.timestamp),
+                disabledAt: 0,
                 isEventOnchain: configs[i].isEventOnchain,
                 metadataURI: configs[i].metadataURI
             });
@@ -318,7 +321,9 @@ contract AdConversion is CampaignHooks {
                 }
 
                 ConversionConfig memory config = conversionConfigs[campaign][configId];
-                if (!config.isActive) revert ConversionConfigDisabled();
+
+                // Ensure the config was actually created (exists)
+                if (config.createdAt == 0) revert InvalidConversionConfigId();
 
                 // Validate that the conversion type matches the config
                 if (config.isEventOnchain && logBytes.length == 0) revert InvalidConversionType();
@@ -482,10 +487,14 @@ contract AdConversion is CampaignHooks {
         uint16 currentCount = conversionConfigCount[campaign];
         if (currentCount >= type(uint16).max) revert TooManyConversionConfigs();
 
-        // Add the new config - always set isActive to true
+        // Add the new config - set creation timestamp and leave disabledAt as 0 (active)
         uint16 newConfigId = currentCount + 1;
-        ConversionConfig memory activeConfig =
-            ConversionConfig({isActive: true, isEventOnchain: config.isEventOnchain, metadataURI: config.metadataURI});
+        ConversionConfig memory activeConfig = ConversionConfig({
+            createdAt: uint48(block.timestamp),
+            disabledAt: 0,
+            isEventOnchain: config.isEventOnchain,
+            metadataURI: config.metadataURI
+        });
         conversionConfigs[campaign][newConfigId] = activeConfig;
         conversionConfigCount[campaign] = newConfigId;
 
@@ -503,10 +512,16 @@ contract AdConversion is CampaignHooks {
             revert InvalidConversionConfigId();
         }
 
-        // Disable the config
-        conversionConfigs[campaign][configId].isActive = false;
+        // Check if config is already disabled
+        if (conversionConfigs[campaign][configId].disabledAt != 0) {
+            revert InvalidAction();
+        }
 
-        emit ConversionConfigStatusChanged(campaign, configId, false);
+        // Disable the config
+        uint48 disabledAt = uint48(block.timestamp);
+        conversionConfigs[campaign][configId].disabledAt = disabledAt;
+
+        emit ConversionConfigStatusChanged(campaign, configId, disabledAt);
     }
 
     /// @notice Checks if a campaign has a publisher allowlist
@@ -537,5 +552,22 @@ contract AdConversion is CampaignHooks {
             revert InvalidConversionConfigId();
         }
         return conversionConfigs[campaign][configId];
+    }
+
+    /// @notice Checks if a conversion config exists and is active
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config
+    /// @return True if the config exists and is active (not disabled)
+    function isConfigActive(address campaign, uint16 configId) external view returns (bool) {
+        ConversionConfig memory config = conversionConfigs[campaign][configId];
+        return config.createdAt > 0 && config.disabledAt == 0;
+    }
+
+    /// @notice Checks if a conversion config exists
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config
+    /// @return True if the config exists (was created)
+    function configExists(address campaign, uint16 configId) external view returns (bool) {
+        return conversionConfigs[campaign][configId].createdAt > 0;
     }
 }

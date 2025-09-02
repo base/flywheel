@@ -326,13 +326,19 @@ contract AdFlowTest is PublisherTestSetup {
         // Test adding a new conversion config
         // Only advertiser can add conversion configs
         vm.startPrank(advertiser);
+        
+        // Set predictable timestamp for test
+        uint48 testTimestamp = 4000000;
+        vm.warp(testTimestamp);
+        
         vm.expectEmit(true, true, false, true);
-        // The emitted config will have isActive: true
+        // The emitted config will have timestamp fields
         emit AdConversion.ConversionConfigAdded(
             campaign,
             3,
             AdConversion.ConversionConfig({
-                isActive: true,
+                createdAt: testTimestamp,
+                disabledAt: 0,
                 isEventOnchain: false,
                 metadataURI: "https://campaign.com/new-config-metadata"
             })
@@ -348,20 +354,29 @@ contract AdFlowTest is PublisherTestSetup {
 
         // Verify the new config was added
         AdConversion.ConversionConfig memory retrievedConfig = adHook.getConversionConfig(campaign, 3);
-        assertEq(retrievedConfig.isActive, true);
+        assertTrue(adHook.isConfigActive(campaign, 3));
         assertEq(retrievedConfig.isEventOnchain, false);
         assertEq(retrievedConfig.metadataURI, "https://campaign.com/new-config-metadata");
+        assertEq(retrievedConfig.createdAt, testTimestamp);
+        assertEq(retrievedConfig.disabledAt, 0);
 
         // Test disabling a conversion config
         vm.startPrank(advertiser);
+        
+        // Set predictable timestamp for disable test
+        uint48 disableTimestamp = 5000000;
+        vm.warp(disableTimestamp);
+        
         vm.expectEmit(true, true, false, true);
-        emit AdConversion.ConversionConfigStatusChanged(campaign, 1, false);
+        emit AdConversion.ConversionConfigStatusChanged(campaign, 1, disableTimestamp);
         adHook.disableConversionConfig(campaign, 1);
         vm.stopPrank();
 
         // Verify the config was disabled
         AdConversion.ConversionConfig memory disabledConfig = adHook.getConversionConfig(campaign, 1);
-        assertEq(disabledConfig.isActive, false);
+        assertFalse(adHook.isConfigActive(campaign, 1));
+        assertEq(disabledConfig.disabledAt, disableTimestamp);
+        assertTrue(disabledConfig.createdAt > 0);
 
         // Test that unauthorized users cannot manage configs
         vm.startPrank(makeAddr("unauthorized"));
@@ -378,7 +393,8 @@ contract AdFlowTest is PublisherTestSetup {
         adHook.disableConversionConfig(campaign, 2);
         vm.stopPrank();
 
-        // Test trying to use disabled config in attribution should fail
+        // Test that disabled config can still be used in attribution (no longer reverts)
+        // Attribution providers can validate timing offchain
         vm.startPrank(provider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
         vm.stopPrank();
@@ -388,7 +404,7 @@ contract AdFlowTest is PublisherTestSetup {
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click_disabled_config",
-                configId: 1, // This config was disabled
+                configId: 1, // This config was disabled but should still work
                 publisherRefCode: pub1RefCode,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
@@ -399,7 +415,7 @@ contract AdFlowTest is PublisherTestSetup {
 
         vm.startPrank(provider);
         bytes memory attributionData = abi.encode(attributions);
-        vm.expectRevert(AdConversion.ConversionConfigDisabled.selector);
+        // Should succeed - no revert expected with disabled config
         flywheel.reward(campaign, address(usdc), attributionData);
         vm.stopPrank();
 

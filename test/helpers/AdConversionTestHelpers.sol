@@ -205,9 +205,17 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
     ) internal view {
         AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, uint16(configId));
 
-        assertEq(config.isActive, expectedIsActive);
+        assertEq(hook.isConfigActive(campaign, uint16(configId)), expectedIsActive);
         assertEq(config.isEventOnchain, expectedIsEventOnchain);
         assertEq(config.metadataURI, expectedMetadataUrl);
+        
+        // Additional checks for new timestamp fields
+        assertTrue(config.createdAt > 0); // Should always have a creation timestamp
+        if (expectedIsActive) {
+            assertEq(config.disabledAt, 0); // Active configs should have disabledAt = 0
+        } else {
+            assertTrue(config.disabledAt > 0); // Disabled configs should have disabledAt > 0
+        }
     }
 
     /// @notice Asserts publisher is allowed in campaign
