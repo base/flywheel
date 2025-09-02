@@ -70,9 +70,19 @@ contract AdConversionTest is PublisherTestSetup {
         vm.prank(owner);
         publisherRegistry.register("code1", randomUser, randomUser);
 
-        // Set attribution provider fee
+        // Set attribution provider fee BEFORE creating campaign
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(1000); // 10%
+
+        // Create new campaign with the fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config0"});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config1"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory campaignHookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 1001, campaignHookData);
 
         // Create attribution with logBytes for ONCHAIN config
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -94,7 +104,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Call onReward through flywheel
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, campaign, address(token), hookData);
+            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
@@ -110,9 +120,19 @@ contract AdConversionTest is PublisherTestSetup {
         vm.prank(owner);
         publisherRegistry.register("code1", randomUser, randomUser);
 
-        // Set attribution provider fee
+        // Set attribution provider fee BEFORE creating campaign
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(1000); // 10%
+
+        // Create new campaign with the fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config0"});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config1"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory campaignHookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 1002, campaignHookData);
 
         // Create attribution without logBytes for OFFCHAIN config
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -134,7 +154,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Call onReward through flywheel
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, campaign, address(token), hookData);
+            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
@@ -482,6 +502,181 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(hook.attributionProviderFees(attributionProvider), 10000);
     }
 
+    function test_feeCaching_cachesCorrectFeeAtCampaignCreation() public {
+        // Set attribution provider fee BEFORE campaign creation
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(500); // 5%
+
+        // Create new campaign - should cache the 5% fee
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/new-campaign", allowedRefCodes, configs, 7 days
+        );
+        
+        address newCampaign = flywheel.createCampaign(address(hook), 500, hookData);
+        
+        // Verify the fee was cached correctly in campaign state
+        (,,,,, uint16 cachedFee) = hook.state(newCampaign);
+        assertEq(cachedFee, 500); // Should be 5%
+    }
+
+    function test_feeCaching_midCampaignFeeUpdateDoesNotAffectExistingCampaign() public {
+        // Set initial attribution provider fee
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(500); // 5%
+
+        // Create campaign with 5% fee
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/test-campaign", allowedRefCodes, configs, 7 days
+        );
+        
+        address testCampaign = flywheel.createCampaign(address(hook), 501, hookData);
+        
+        // Register publisher for testing
+        vm.prank(owner);
+        publisherRegistry.register("testpub", randomUser, randomUser);
+        
+        // Attribution provider updates their fee mid-campaign
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(1500); // Change to 15%
+        
+        // Verify global fee mapping was updated
+        assertEq(hook.attributionProviderFees(attributionProvider), 1500);
+        
+        // But campaign should still use cached 5% fee
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click123",
+                configId: 1,
+                publisherRefCode: "testpub",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory rewardData = abi.encode(attributions);
+
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
+            hook.onReward(attributionProvider, testCampaign, address(token), rewardData);
+
+        // Should use original 5% fee, not the updated 15%
+        assertEq(payouts[0].amount, 95 ether); // 100 - 5% = 95
+        assertEq(fees[0].amount, 5 ether); // 5% fee
+    }
+
+    function test_feeCaching_newCampaignsUseUpdatedFees() public {
+        // Set initial attribution provider fee
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(500); // 5%
+
+        // Update fee before creating new campaign
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(1000); // 10%
+
+        // Create new campaign - should use the updated 10% fee
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/updated-campaign", allowedRefCodes, configs, 7 days
+        );
+        
+        address updatedCampaign = flywheel.createCampaign(address(hook), 502, hookData);
+        
+        // Verify the new campaign cached the updated fee
+        (,,,,, uint16 cachedFee) = hook.state(updatedCampaign);
+        assertEq(cachedFee, 1000); // Should be 10%
+        
+        // Test that reward uses the new fee
+        vm.prank(owner);
+        publisherRegistry.register("newpub", randomUser, randomUser);
+        
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click456",
+                configId: 1,
+                publisherRefCode: "newpub",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory rewardData = abi.encode(attributions);
+
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
+            hook.onReward(attributionProvider, updatedCampaign, address(token), rewardData);
+
+        // Should use updated 10% fee
+        assertEq(payouts[0].amount, 90 ether); // 100 - 10% = 90
+        assertEq(fees[0].amount, 10 ether); // 10% fee
+    }
+
+    function test_feeCaching_zeroFeeCachedCorrectly() public {
+        // Don't set any fee (defaults to 0%)
+        assertEq(hook.attributionProviderFees(attributionProvider), 0);
+
+        // Create campaign - should cache 0% fee
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+        
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/zero-fee-campaign", allowedRefCodes, configs, 7 days
+        );
+        
+        address zeroFeeCampaign = flywheel.createCampaign(address(hook), 503, hookData);
+        
+        // Verify 0% fee was cached
+        (,,,,, uint16 cachedFee) = hook.state(zeroFeeCampaign);
+        assertEq(cachedFee, 0);
+        
+        // Test that reward uses 0% fee
+        vm.prank(owner);
+        publisherRegistry.register("zeropub", randomUser, randomUser);
+        
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click789",
+                configId: 1,
+                publisherRefCode: "zeropub",
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: address(0),
+                payoutAmount: 100 ether
+            }),
+            logBytes: ""
+        });
+
+        bytes memory rewardData = abi.encode(attributions);
+
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
+            hook.onReward(attributionProvider, zeroFeeCampaign, address(token), rewardData);
+
+        // Should use 0% fee - full amount to publisher
+        assertEq(payouts[0].amount, 100 ether); // 100 - 0% = 100
+        assertEq(fees[0].amount, 0 ether); // 0% fee
+    }
+
     // =============================================================
     //                    CONVERSION CONFIG MANAGEMENT
     // =============================================================
@@ -741,9 +936,19 @@ contract AdConversionTest is PublisherTestSetup {
         publisherRegistry.register("code2", address(0x1002), address(0x1002));
         vm.stopPrank();
 
-        // Set attribution provider fee
+        // Set attribution provider fee BEFORE creating campaign
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(500); // 5%
+
+        // Create new campaign with the fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config0"});
+        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config1"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory campaignHookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 1003, campaignHookData);
 
         // Create batch of attributions
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](3);
@@ -791,12 +996,12 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, campaign, address(token), hookData);
+            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 3);
 
-        // First attribution: "code3" publisher (randomUser)
+        // First attribution: "random" publisher (randomUser)
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5%
 
@@ -934,7 +1139,7 @@ contract AdConversionTest is PublisherTestSetup {
         address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
 
         // Get campaign state to verify custom attribution window duration
-        (,,, uint48 storedDuration,) = hook.state(customCampaign);
+        (,,, uint48 storedDuration,,) = hook.state(customCampaign);
         assertEq(storedDuration, customDeadline);
     }
 
@@ -957,7 +1162,7 @@ contract AdConversionTest is PublisherTestSetup {
         address zeroCampaign = flywheel.createCampaign(address(hook), 998, hookData);
 
         // Verify zero deadline is stored correctly
-        (,,, uint48 storedDuration,) = hook.state(zeroCampaign);
+        (,,, uint48 storedDuration,,) = hook.state(zeroCampaign);
         assertEq(storedDuration, 0);
     }
 
@@ -1005,6 +1210,36 @@ contract AdConversionTest is PublisherTestSetup {
         }
     }
 
+<<<<<<< HEAD
+=======
+    function test_finalization_usesPerCampaignDeadline() public {
+        // Create campaign with 21-day attribution deadline
+        uint48 customDeadline = 21 days;
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, customDeadline
+        );
+
+        address customCampaign = flywheel.createCampaign(address(hook), 996, hookData);
+
+        // Activate and then finalize
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        uint256 beforeFinalize = block.timestamp;
+        vm.prank(advertiser);
+        flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Check that attribution deadline uses custom duration
+        (,,,, uint48 deadline,) = hook.state(customCampaign);
+        assertEq(deadline, beforeFinalize + customDeadline);
+    }
+
+>>>>>>> b86b6c0 (added ap fee caching per campaign)
     function test_hasPublisherAllowlist_noAllowlist() public {
         assertEq(hook.hasPublisherAllowlist(campaign), false);
     }
@@ -1050,7 +1285,7 @@ contract AdConversionTest is PublisherTestSetup {
         address minCampaign = flywheel.createCampaign(address(hook), 995, hookData);
 
         // Should use 1 day
-        (,,, uint48 storedDuration,) = hook.state(minCampaign);
+        (,,, uint48 storedDuration,,) = hook.state(minCampaign);
         assertEq(storedDuration, 1 days);
     }
 
@@ -1069,7 +1304,7 @@ contract AdConversionTest is PublisherTestSetup {
         address maxCampaign = flywheel.createCampaign(address(hook), 994, hookData);
 
         // Should use the maximum deadline
-        (,,, uint48 storedDuration,) = hook.state(maxCampaign);
+        (,,, uint48 storedDuration,,) = hook.state(maxCampaign);
         assertEq(storedDuration, maxDeadline);
         assertEq(storedDuration, 180 days); // Verify it's exactly 180 days (6 months)
     }
@@ -1191,7 +1426,7 @@ contract AdConversionTest is PublisherTestSetup {
         flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         // Check that attribution deadline uses 1 day
-        (,,,, uint48 deadline) = hook.state(minCampaign);
+        (,,,, uint48 deadline,) = hook.state(minCampaign);
         assertEq(deadline, beforeFinalize + 1 days);
     }
 

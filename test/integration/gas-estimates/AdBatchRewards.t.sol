@@ -72,6 +72,10 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         vm.prank(owner);
         publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
 
+        // Set attribution provider fee BEFORE campaign creation (for fee caching)
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
 
@@ -86,10 +90,6 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         // Set campaign to ACTIVE status
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution provider fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
     }
 
     function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint16 configId, uint256 txHashSeed)

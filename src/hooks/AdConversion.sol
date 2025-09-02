@@ -79,6 +79,8 @@ contract AdConversion is CampaignHooks {
         uint48 attributionWindow;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
+        /// @dev Attribution provider fee in basis points, cached at campaign creation
+        uint16 attributionProviderFeeBps;
     }
 
     /// @notice Maximum basis points
@@ -240,7 +242,8 @@ contract AdConversion is CampaignHooks {
             advertiser: advertiser,
             attributionDeadline: 0,
             attributionWindow: campaignAttributionWindow,
-            hasAllowlist: hasAllowlist
+            hasAllowlist: hasAllowlist,
+            attributionProviderFeeBps: attributionProviderFees[attributionProvider]
         });
         campaignURI[campaign] = uri;
 
@@ -286,8 +289,8 @@ contract AdConversion is CampaignHooks {
         // Validate that the caller is the authorized attribution provider for this campaign
         if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
 
-        // Get the fee from the stored attribution provider fees
-        uint16 feeBps = attributionProviderFees[attributionProvider];
+        // Get the fee from the cached campaign state
+        uint16 feeBps = state[campaign].attributionProviderFeeBps;
 
         // Decode only the attributions from hookData
         Attribution[] memory attributions = abi.decode(hookData, (Attribution[]));

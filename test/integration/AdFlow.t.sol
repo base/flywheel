@@ -65,13 +65,13 @@ contract AdFlowTest is PublisherTestSetup {
         // Register publishers
         _registerPublishers();
 
-        // Create campaign
-        _createCampaign();
-
-        // Set attribution provider fee
+        // Set attribution provider fee BEFORE campaign creation (for fee caching)
         vm.startPrank(provider);
         adHook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
         vm.stopPrank();
+
+        // Create campaign
+        _createCampaign();
 
         // Fund campaign
         _fundCampaign();
