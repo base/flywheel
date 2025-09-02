@@ -248,6 +248,10 @@ contract AdConversion is CampaignHooks {
         if (hasAllowlist) {
             uint256 count = allowedPublisherRefCodes.length;
             for (uint256 i = 0; i < count; i++) {
+                // Validate referral code exists in registry
+                if (!publisherCodesRegistry.isRegistered(allowedPublisherRefCodes[i])) {
+                    revert InvalidPublisherRefCode();
+                }
                 allowedPublishers[campaign][allowedPublisherRefCodes[i]] = true;
                 emit PublisherAddedToAllowlist(campaign, allowedPublisherRefCodes[i]);
             }

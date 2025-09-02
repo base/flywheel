@@ -214,12 +214,12 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
     /// @notice Test allowlist bypass attempts
     function test_security_allowlistBypass() public {
+        // Register the allowed publisher FIRST
+        setupPublisher(referralCodeRegistry, "code1", address(0x1001), address(0x1001), OWNER);
+
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "code1";
         address allowlistCampaign = _createCampaignWithAllowlist(2, allowedRefCodes);
-
-        // Register the allowed publisher
-        setupPublisher(referralCodeRegistry, "code1", address(0x1001), address(0x1001), OWNER);
 
         AllowlistBypassAttacker bypassAttacker = new AllowlistBypassAttacker(address(hook), allowlistCampaign);
 

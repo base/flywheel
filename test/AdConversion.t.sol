@@ -309,6 +309,7 @@ contract AdConversionTest is PublisherTestSetup {
         vm.startPrank(owner);
         publisherRegistry.register("code1", address(0x1001), address(0x1001));
         publisherRegistry.register("code2", address(0x1002), address(0x1002));
+        publisherRegistry.register("code3", address(0x1003), address(0x1003));
         vm.stopPrank();
 
         // Create empty conversion configs
@@ -344,6 +345,10 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_createCampaign_emitsAdCampaignCreatedEvent() public {
+        // Register the ref code first
+        vm.prank(owner);
+        publisherRegistry.register("code1", address(0x1001), address(0x1001));
+
         // Create conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] =
@@ -373,10 +378,14 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_addAllowedPublisherRefCode_emitsEvent() public {
+        // Register the ref code before creating campaign
+        vm.prank(owner);
+        publisherRegistry.register("test_ref_code", address(0x5001), address(0x5001));
+
         // First create a campaign with allowlist enabled
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
         string[] memory allowedRefCodes = new string[](1);
-        allowedRefCodes[0] = "TEST_REF_CODE";
+        allowedRefCodes[0] = "test_ref_code";
 
         bytes memory hookData = abi.encode(
             attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
@@ -658,9 +667,11 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_onReward_revert_publisherNotInAllowlist() public {
-        // Register a publisher that will NOT be in the allowlist
-        vm.prank(owner);
+        // Register publishers
+        vm.startPrank(owner);
         publisherRegistry.register("notonallowlist", address(0x9999), address(0x9999));
+        publisherRegistry.register("code1", address(0x7001), address(0x7001)); // Register the allowlisted code
+        vm.stopPrank();
 
         // Create campaign with specific allowlist that DOESN'T include the registered publisher
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
@@ -999,9 +1010,13 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_hasPublisherAllowlist_withAllowlist() public {
+        // Register the ref code before creating campaign
+        vm.prank(owner);
+        publisherRegistry.register("test_ref_code", address(0x6001), address(0x6001));
+
         // Create campaign with allowlist using ref codes
         string[] memory allowedRefCodes = new string[](1);
-        allowedRefCodes[0] = "TEST_REF_CODE";
+        allowedRefCodes[0] = "test_ref_code";
 
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] =
@@ -1105,6 +1120,116 @@ contract AdConversionTest is PublisherTestSetup {
         }
     }
 
+<<<<<<< HEAD
+=======
+    function test_campaignCreation_revert_unregisteredRefCodeInAllowlist() public {
+        // Try to create campaign with unregistered ref code in allowlist
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "unregistered_code"; // This code is not registered
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
+
+        vm.expectRevert(AdConversion.InvalidPublisherRefCode.selector);
+        flywheel.createCampaign(address(hook), 999, hookData);
+    }
+
+    function test_campaignCreation_success_registeredRefCodeInAllowlist() public {
+        // Register ref code first
+        vm.prank(owner);
+        publisherRegistry.register("registered_code", address(0x8001), address(0x8001));
+
+        // Create campaign with registered ref code in allowlist - should succeed
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "registered_code"; // This code is registered
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
+
+        address newCampaign = flywheel.createCampaign(address(hook), 998, hookData);
+
+        // Verify campaign was created successfully
+        assertTrue(newCampaign != address(0));
+        assertTrue(hook.hasPublisherAllowlist(newCampaign));
+        assertTrue(hook.isPublisherRefCodeAllowed(newCampaign, "registered_code"));
+    }
+
+    function test_finalization_usesMinimumDeadline() public {
+        // Create campaign with 1 day deadline (minimum)
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(1 days) // Minimum deadline
+        );
+
+        address minCampaign = flywheel.createCampaign(address(hook), 993, hookData);
+
+        // Activate and then finalize
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        uint256 beforeFinalize = block.timestamp;
+        vm.prank(advertiser);
+        flywheel.updateStatus(minCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Check that attribution deadline uses 1 day
+        (,,,, uint48 deadline) = hook.state(minCampaign);
+        assertEq(deadline, beforeFinalize + 1 days);
+    }
+
+    function test_finalization_instantWithZeroDeadline() public {
+        // Create campaign with 0 deadline (instant finalization)
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(0) // Zero deadline for instant finalization
+        );
+
+        address instantCampaign = flywheel.createCampaign(address(hook), 992, hookData);
+
+        // Activate
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Move to finalizing
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // With zero deadline, advertiser can finalize immediately
+        vm.prank(advertiser);
+        flywheel.updateStatus(instantCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+
+        // Verify campaign is finalized
+        assertEq(uint256(flywheel.campaignStatus(instantCampaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+    }
+
+>>>>>>> f22d1ee (p1)
     function test_onUpdateMetadata_success() public {
         bytes memory hookData = abi.encode("test data");
 

@@ -68,6 +68,10 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_2_URL});
         configs[2] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: OFFCHAIN_CONFIG_1_URL});
 
+        // Register publisher FIRST before creating campaign
+        vm.prank(owner);
+        publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
+
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
 
@@ -86,10 +90,6 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         // Set attribution provider fee
         vm.prank(attributionProvider);
         hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
-
-        // Register publisher
-        vm.prank(owner);
-        publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
     }
 
     function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint16 configId, uint256 txHashSeed)
