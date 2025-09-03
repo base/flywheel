@@ -966,9 +966,12 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Allocate again before deallocate
         flywheel.allocate(stateCampaign, address(token), abi.encode(payouts));
         flywheel.deallocate(stateCampaign, address(token), abi.encode(payouts));
+
+        // allocate again to set up for deallocate in FINALIZED state
+        flywheel.allocate(stateCampaign, address(token), abi.encode(payouts));
         vm.stopPrank();
 
-        // Move to FINALIZED - no payout functions should work
+        // Move to FINALIZED - only deallocate should work
         vm.prank(stateManager);
         flywheel.updateStatus(stateCampaign, Flywheel.CampaignStatus.FINALIZED, "");
 
@@ -984,7 +987,6 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.prank(stateManager);
         flywheel.distribute(stateCampaign, address(token), abi.encode(payouts));
 
-        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(stateManager);
         flywheel.deallocate(stateCampaign, address(token), abi.encode(payouts));
     }

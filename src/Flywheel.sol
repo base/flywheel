@@ -290,9 +290,11 @@ contract Flywheel is ReentrancyGuardTransient {
         external
         nonReentrant
         onlyExists(campaign)
-        acceptingPayouts(campaign)
         returns (Allocation[] memory allocations)
     {
+        // Check campaign is not INACTIVE, allowing deallocation to occur for FINALIZED campaigns
+        if (_campaigns[campaign].status == CampaignStatus.INACTIVE) revert InvalidCampaignStatus();
+
         allocations = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, allocations.length);
