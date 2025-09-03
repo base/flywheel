@@ -9,10 +9,27 @@ import {CampaignHooks} from "../src/CampaignHooks.sol";
 contract TestCampaignHooks is CampaignHooks {
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
-    /// @notice Override onCreateCampaign to make it testable
-    function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
-        // Simple implementation for testing
+    function campaignURI(address campaign) external view override returns (string memory uri) {
+        return "";
     }
+
+    function _onCreateCampaign(address campaign, bytes calldata hookData) internal override {}
+
+    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        override
+        returns (Flywheel.Payout memory payout)
+    {}
+
+    function _onUpdateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
+    ) internal override {}
+
+    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal override {}
 }
 
 /// @notice Test contract for CampaignHooks abstract base contract
@@ -62,15 +79,6 @@ contract CampaignHooksTest is Test {
         hooks.onCreateCampaign(campaign, hookData);
     }
 
-    /// @notice Test onUpdateMetadata reverts with Unsupported
-    function test_onUpdateMetadata_revertsUnsupported() public {
-        bytes memory hookData = abi.encode("metadata");
-
-        vm.prank(address(flywheel));
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onUpdateMetadata(user, campaign, hookData);
-    }
-
     /// @notice Test onUpdateMetadata reverts when not called by flywheel
     function test_onUpdateMetadata_revertsWhenNotFlywheel() public {
         bytes memory hookData = abi.encode("metadata");
@@ -78,17 +86,6 @@ contract CampaignHooksTest is Test {
         vm.prank(user);
         vm.expectRevert();
         hooks.onUpdateMetadata(user, campaign, hookData);
-    }
-
-    /// @notice Test onUpdateStatus reverts with Unsupported
-    function test_onUpdateStatus_revertsUnsupported() public {
-        bytes memory hookData = "";
-
-        vm.prank(address(flywheel));
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onUpdateStatus(
-            user, campaign, Flywheel.CampaignStatus.ACTIVE, Flywheel.CampaignStatus.FINALIZED, hookData
-        );
     }
 
     /// @notice Test onUpdateStatus reverts when not called by flywheel
@@ -174,16 +171,6 @@ contract CampaignHooksTest is Test {
         hooks.onDistribute(user, campaign, token, hookData);
     }
 
-    /// @notice Test onWithdrawFunds reverts with Unsupported
-    function test_onWithdrawFunds_revertsUnsupported() public {
-        bytes memory hookData = "";
-        uint256 amount = 1000;
-
-        vm.prank(address(flywheel));
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onWithdrawFunds(user, campaign, token, hookData);
-    }
-
     /// @notice Test onWithdrawFunds reverts when not called by flywheel
     function test_onWithdrawFunds_revertsWhenNotFlywheel() public {
         bytes memory hookData = "";
@@ -192,12 +179,6 @@ contract CampaignHooksTest is Test {
         vm.prank(user);
         vm.expectRevert();
         hooks.onWithdrawFunds(user, campaign, token, hookData);
-    }
-
-    /// @notice Test campaignURI reverts with Unsupported
-    function test_campaignURI_revertsUnsupported() public {
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.campaignURI(campaign);
     }
 
     /// @notice Test onlyFlywheel modifier with different addresses
@@ -225,64 +206,5 @@ contract CampaignHooksTest is Test {
         // Should be able to create with zero address (no validation in constructor)
         TestCampaignHooks hooksWithZero = new TestCampaignHooks(address(0));
         assertEq(address(hooksWithZero.flywheel()), address(0));
-    }
-
-    /// @notice Test multiple hook function calls in sequence
-    function test_multipleHookCalls_sequence() public {
-        bytes memory hookData = abi.encode(user);
-
-        vm.startPrank(address(flywheel));
-
-        // onCreateCampaign should work
-        hooks.onCreateCampaign(campaign, hookData);
-
-        // All other functions should revert with Unsupported
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onUpdateMetadata(user, campaign, hookData);
-
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onUpdateStatus(
-            user, campaign, Flywheel.CampaignStatus.ACTIVE, Flywheel.CampaignStatus.FINALIZED, hookData
-        );
-
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onReward(user, campaign, token, hookData);
-
-        vm.stopPrank();
-    }
-
-    /// @notice Test hook functions with empty hook data
-    function test_hookFunctions_withEmptyData() public {
-        bytes memory emptyData = "";
-
-        vm.startPrank(address(flywheel));
-
-        // onCreateCampaign with empty data should work
-        hooks.onCreateCampaign(campaign, emptyData);
-
-        // Other functions should still revert with Unsupported
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onUpdateMetadata(user, campaign, emptyData);
-
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onReward(user, campaign, token, emptyData);
-
-        vm.stopPrank();
-    }
-
-    /// @notice Test hook functions with malformed hook data
-    function test_hookFunctions_withMalformedData() public {
-        bytes memory malformedData = abi.encode("malformed", 123, true);
-
-        vm.startPrank(address(flywheel));
-
-        // onCreateCampaign should work even with malformed data
-        hooks.onCreateCampaign(campaign, malformedData);
-
-        // Other functions should revert with Unsupported (not because of data)
-        vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onUpdateMetadata(user, campaign, malformedData);
-
-        vm.stopPrank();
     }
 }

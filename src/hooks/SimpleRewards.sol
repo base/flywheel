@@ -44,14 +44,8 @@ contract SimpleRewards is CampaignHooks {
     /// @param flywheel_ Address of the flywheel contract
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
-    /// @notice Creates a campaign
-    ///
-    /// @param campaign Address of the campaign
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
     /// @inheritdoc CampaignHooks
-    function onCreateCampaign(address campaign, bytes calldata hookData) external virtual override onlyFlywheel {
+    function _onCreateCampaign(address campaign, bytes calldata hookData) internal virtual override {
         (address owner, address manager, string memory uri) = abi.decode(hookData, (address, address, string));
         owners[campaign] = owner;
         managers[campaign] = manager;
@@ -60,11 +54,10 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onReward(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onReward(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         virtual
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
@@ -72,11 +65,10 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onAllocate(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         virtual
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
@@ -93,11 +85,10 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         virtual
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
@@ -114,11 +105,10 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         virtual
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
     {
@@ -136,11 +126,10 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         virtual
         override
-        onlyFlywheel
         returns (Flywheel.Payout memory payout)
     {
         if (sender != owners[campaign]) revert Unauthorized();
@@ -148,20 +137,19 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onUpdateStatus(
+    function _onUpdateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) external virtual override onlyFlywheel onlyManager(sender, campaign) {}
+    ) internal virtual override onlyManager(sender, campaign) {}
 
     /// @inheritdoc CampaignHooks
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
+    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
+        internal
         virtual
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
     {}
 }

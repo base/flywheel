@@ -80,7 +80,7 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {
+    function _onCreateCampaign(address campaign, bytes calldata hookData) internal override {
         (address owner, address manager, string memory uri, uint16 maxRewardBasisPoints_) =
             abi.decode(hookData, (address, address, string, uint16));
         owners[campaign] = owner;
@@ -91,10 +91,9 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function onReward(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onReward(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
@@ -117,10 +116,9 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onAllocate(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
@@ -144,10 +142,9 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
@@ -183,10 +180,9 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         onlyManager(sender, campaign)
         returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
     {
