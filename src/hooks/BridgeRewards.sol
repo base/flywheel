@@ -91,15 +91,19 @@ contract BridgeRewards is CampaignHooks {
         // Compute fee amount
         uint256 feeAmount = (unreservedAmount * feeBasisPoints[code]) / 1e4;
 
-        // Prepare payout and fee
+        // Prepare payout
         payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({
             recipient: user,
             amount: unreservedAmount - feeAmount,
             extraData: abi.encode(code, feeAmount)
         });
-        fees = new Flywheel.Allocation[](1);
-        fees[0] = Flywheel.Allocation({key: code, amount: feeAmount, extraData: ""});
+
+        // Prepare fee if applicable
+        if (feeAmount > 0) {
+            fees = new Flywheel.Allocation[](1);
+            fees[0] = Flywheel.Allocation({key: code, amount: feeAmount, extraData: ""});
+        }
     }
 
     /// @inheritdoc CampaignHooks
@@ -109,12 +113,17 @@ contract BridgeRewards is CampaignHooks {
         onlyFlywheel
         returns (Flywheel.Distribution[] memory distributions)
     {
-        distributions = new Flywheel.Distribution[](1);
         bytes32 code = bytes32(hookData);
+
+        // Early return if no fees are pending
+        uint256 amount = flywheel.pendingFees(campaign, token, code);
+        if (amount == 0) return distributions;
+
+        distributions = new Flywheel.Distribution[](1);
         distributions[0] = Flywheel.Distribution({
             key: code,
             recipient: builderCodes.payoutAddress(uint256(code)),
-            amount: flywheel.pendingFees(campaign, token, code),
+            amount: amount,
             extraData: ""
         });
     }
