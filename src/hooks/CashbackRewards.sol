@@ -71,6 +71,9 @@ contract CashbackRewards is SimpleRewards {
         bytes32 paymentInfoHash, uint120 maxAllowedRewardAmount, uint120 excessRewardAmount
     );
 
+    /// @notice Emitted when a reward operation fails but revertOnError is false
+    event RewardFailed(bytes32 indexed paymentInfoHash, uint256 payoutAmount, bytes error);
+
     /// @notice Constructor
     ///
     /// @param flywheel_ The Flywheel core protocol contract address
@@ -98,14 +101,26 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
-        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         uint256 len = paymentRewards.length;
-        payouts = new Flywheel.Payout[](len);
 
-        // For each payment reward, distribute the payout amount
+        // Create return array with full length, will resize at the end
+        payouts = new Flywheel.Payout[](len);
+        uint256 successCount = 0;
+
+        // Process each payment reward
         for (uint256 i = 0; i < len; i++) {
-            bytes32 paymentInfoHash = _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.REWARD);
-            payouts[i] = Flywheel.Payout({
+            (bytes32 paymentInfoHash, bytes memory err) =
+                _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.REWARD);
+
+            // Skip this payment if there was an error and we're not reverting
+            if (err.length > 0) {
+                _revertOrEmitError(err, revertOnError, paymentInfoHash, paymentRewards[i].payoutAmount);
+                continue;
+            }
+
+            // Process successful payment
+            payouts[successCount] = Flywheel.Payout({
                 recipient: paymentRewards[i].paymentInfo.payer,
                 amount: paymentRewards[i].payoutAmount,
                 extraData: abi.encodePacked(paymentInfoHash)
@@ -113,6 +128,12 @@ contract CashbackRewards is SimpleRewards {
 
             // Add the payout amount to the distributed amount
             rewards[campaign][paymentInfoHash].distributed += paymentRewards[i].payoutAmount;
+            successCount++;
+        }
+
+        // Resize array to actual success count using assembly
+        assembly {
+            mstore(payouts, successCount)
         }
     }
 
@@ -124,15 +145,26 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
-        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         uint256 len = paymentRewards.length;
-        allocations = new Flywheel.Allocation[](len);
 
-        // For each payment reward, allocate the payout amount
+        // Create return array with full length, will resize at the end
+        allocations = new Flywheel.Allocation[](len);
+        uint256 successCount = 0;
+
+        // Process each payment reward
         for (uint256 i = 0; i < len; i++) {
-            bytes32 paymentInfoHash =
+            (bytes32 paymentInfoHash, bytes memory err) =
                 _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.ALLOCATE);
-            allocations[i] = Flywheel.Allocation({
+
+            // Skip this payment if there was an error and we're not reverting
+            if (err.length > 0) {
+                _revertOrEmitError(err, revertOnError, paymentInfoHash, paymentRewards[i].payoutAmount);
+                continue;
+            }
+
+            // Process successful payment
+            allocations[successCount] = Flywheel.Allocation({
                 key: bytes32(bytes20(paymentRewards[i].paymentInfo.payer)),
                 amount: paymentRewards[i].payoutAmount,
                 extraData: abi.encodePacked(paymentInfoHash)
@@ -140,6 +172,12 @@ contract CashbackRewards is SimpleRewards {
 
             // Add the payout amount to the allocated amount
             rewards[campaign][paymentInfoHash].allocated += paymentRewards[i].payoutAmount;
+            successCount++;
+        }
+
+        // Resize array to actual success count using assembly
+        assembly {
+            mstore(allocations, successCount)
         }
     }
 
@@ -151,16 +189,26 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
-        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         uint256 len = paymentRewards.length;
-        allocations = new Flywheel.Allocation[](len);
 
-        // For each payment reward, deduct the payout amount (or the entire remaining allocated amount if payout amount is 0) from allocated
+        // Create return array with full length, will resize at the end
+        allocations = new Flywheel.Allocation[](len);
+        uint256 successCount = 0;
+
+        // Process each payment reward
         for (uint256 i = 0; i < len; i++) {
             PaymentReward memory paymentReward = paymentRewards[i];
 
             // Basic validation (payment collected, token match) - skip percentage validation for deallocate
-            bytes32 paymentInfoHash = _validatePaymentReward(paymentReward, campaign, token, RewardOperation.DEALLOCATE);
+            (bytes32 paymentInfoHash, bytes memory err) =
+                _validatePaymentReward(paymentReward, campaign, token, RewardOperation.DEALLOCATE);
+
+            // Skip this payment if there was an error and we're not reverting
+            if (err.length > 0) {
+                _revertOrEmitError(err, revertOnError, paymentInfoHash, paymentRewards[i].payoutAmount);
+                continue;
+            }
 
             // Determine correct deallocation amount (special case of max uint120 means deallocate all allocated)
             uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
@@ -170,15 +218,20 @@ contract CashbackRewards is SimpleRewards {
             // Check sufficient allocation
             if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
 
-            // Deduct the payout amount from allocated
+            // Process successful payment
             rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
 
-            // Prepare the allocation and assign the correct payout amount in case of max uint120
-            allocations[i] = Flywheel.Allocation({
+            allocations[successCount] = Flywheel.Allocation({
                 key: bytes32(bytes20(paymentRewards[i].paymentInfo.payer)),
                 amount: payoutAmount,
                 extraData: abi.encodePacked(paymentInfoHash)
             });
+            successCount++;
+        }
+
+        // Resize array to actual success count using assembly
+        assembly {
+            mstore(allocations, successCount)
         }
     }
 
@@ -190,29 +243,47 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
     {
-        PaymentReward[] memory paymentRewards = abi.decode(hookData, (PaymentReward[]));
+        (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         uint256 len = paymentRewards.length;
-        distributions = new Flywheel.Distribution[](len);
 
-        // For each payment reward, shift the payout amount from allocated to distributed
+        // Create return array with full length, will resize at the end
+        distributions = new Flywheel.Distribution[](len);
+        uint256 successCount = 0;
+
+        // Process each payment reward
         for (uint256 i = 0; i < len; i++) {
-            bytes32 paymentInfoHash =
+            (bytes32 paymentInfoHash, bytes memory err) =
                 _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.DISTRIBUTE);
+
+            // Skip this payment if there was an error and we're not reverting
+            if (err.length > 0) {
+                _revertOrEmitError(err, revertOnError, paymentInfoHash, paymentRewards[i].payoutAmount);
+                continue;
+            }
+
             uint120 payoutAmount = paymentRewards[i].payoutAmount;
-            distributions[i] = Flywheel.Distribution({
+
+            // Check sufficient allocation
+            uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
+            if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
+
+            // Process successful payment
+            distributions[successCount] = Flywheel.Distribution({
                 recipient: paymentRewards[i].paymentInfo.payer,
                 key: bytes32(bytes20(paymentRewards[i].paymentInfo.payer)),
                 amount: payoutAmount,
                 extraData: abi.encodePacked(paymentInfoHash)
             });
 
-            // Check sufficient allocation
-            uint120 allocated = rewards[campaign][paymentInfoHash].allocated;
-            if (allocated < payoutAmount) revert InsufficientAllocation(payoutAmount, allocated);
-
             // Shift the payout amount from allocated to distributed
             rewards[campaign][paymentInfoHash].allocated = allocated - payoutAmount;
             rewards[campaign][paymentInfoHash].distributed += payoutAmount;
+            successCount++;
+        }
+
+        // Resize array to actual success count using assembly
+        assembly {
+            mstore(distributions, successCount)
         }
     }
 
@@ -227,25 +298,29 @@ contract CashbackRewards is SimpleRewards {
         address campaign,
         address token,
         RewardOperation operation
-    ) internal view returns (bytes32 paymentInfoHash) {
+    ) internal view returns (bytes32 paymentInfoHash, bytes memory err) {
         // Check payout amount non-zero
-        if (paymentReward.payoutAmount == 0) revert ZeroPayoutAmount();
+        if (paymentReward.payoutAmount == 0) {
+            return (paymentInfoHash, abi.encodeWithSelector(ZeroPayoutAmount.selector));
+        }
 
         // Check the token matches the payment token
-        if (paymentReward.paymentInfo.token != token) revert TokenMismatch();
+        if (paymentReward.paymentInfo.token != token) {
+            return (paymentInfoHash, abi.encodeWithSelector(TokenMismatch.selector));
+        }
 
         // Check payment has been collected
         paymentInfoHash = escrow.getHash(paymentReward.paymentInfo);
         (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
             escrow.paymentState(paymentInfoHash);
-        if (!hasCollectedPayment) revert PaymentNotCollected();
+        if (!hasCollectedPayment) return (paymentInfoHash, abi.encodeWithSelector(PaymentNotCollected.selector));
 
         // Early return if deallocating, skips percentage validation
-        if (operation == RewardOperation.DEALLOCATE) return paymentInfoHash;
+        if (operation == RewardOperation.DEALLOCATE) return (paymentInfoHash, "");
 
         // Early return if no max reward percentage is configured
         uint256 maxRewardBps = maxRewardBasisPoints[campaign];
-        if (maxRewardBps == 0) return paymentInfoHash;
+        if (maxRewardBps == 0) return (paymentInfoHash, "");
 
         // Payment amount is the captured amount that has not been refunded i.e. "refundable" amount
         uint120 paymentAmount = refundableAmount;
@@ -261,9 +336,31 @@ contract CashbackRewards is SimpleRewards {
         uint120 totalRewardAmount = previouslyRewardedAmount + paymentReward.payoutAmount;
         uint120 maxAllowedRewardAmount = uint120(paymentAmount * maxRewardBps / BASIS_POINTS_100_PERCENT);
         if (totalRewardAmount > maxAllowedRewardAmount) {
-            revert RewardExceedsMaxPercentage(
-                paymentInfoHash, maxAllowedRewardAmount, totalRewardAmount - maxAllowedRewardAmount
+            err = abi.encodeWithSelector(
+                RewardExceedsMaxPercentage.selector,
+                paymentInfoHash,
+                maxAllowedRewardAmount,
+                totalRewardAmount - maxAllowedRewardAmount
             );
+        }
+    }
+
+    /// @dev Reverts with raw error bytes using assembly if error exists and revertOnError is true,
+    ///      otherwise emits RewardFailed event if error exists
+    ///
+    /// @param err The error bytes to revert with or emit
+    /// @param revertOnError Whether to revert on error or emit RewardFailed event
+    /// @param paymentInfoHash The payment info hash for the failed reward
+    /// @param payoutAmount The payout amount that failed
+    function _revertOrEmitError(bytes memory err, bool revertOnError, bytes32 paymentInfoHash, uint256 payoutAmount)
+        internal
+    {
+        if (revertOnError) {
+            assembly {
+                revert(add(err, 0x20), mload(err))
+            }
+        } else {
+            emit RewardFailed(paymentInfoHash, payoutAmount, err);
         }
     }
 }
