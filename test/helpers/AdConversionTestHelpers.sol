@@ -67,7 +67,8 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
             "https://example.com/campaign",
             allowedRefCodes,
             configs,
-            attributionWindow
+            attributionWindow,
+            uint16(500) // 5% default attribution provider fee
         );
 
         return flywheel.createCampaign(address(hook), nonce, hookData);
@@ -92,16 +93,29 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
             "https://example.com/campaign",
             allowedRefCodes,
             configs,
-            attributionWindow
+            attributionWindow,
+            uint16(500) // 5% default attribution provider fee
         );
 
         return flywheel.createCampaign(address(hook), nonce, hookData);
     }
 
-    /// @notice Sets attribution provider fee for the hook
-    function _setAttributionProviderFee(uint16 feeBps) internal {
-        vm.prank(ATTRIBUTION_PROVIDER);
-        hook.setAttributionProviderFee(feeBps);
+    /// @notice Creates a basic campaign with custom attribution provider fee
+    function _createBasicCampaignWithFee(uint256 nonce, uint16 attributionProviderFeeBps) internal returns (address) {
+        AdConversion.ConversionConfigInput[] memory configs = _createBasicConversionConfigs();
+        string[] memory allowedRefCodes = new string[](0);
+
+        bytes memory hookData = abi.encode(
+            ATTRIBUTION_PROVIDER,
+            ADVERTISER,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            uint48(7 days), // Default attribution window
+            attributionProviderFeeBps
+        );
+
+        return flywheel.createCampaign(address(hook), nonce, hookData);
     }
 
     /// @notice Creates an offchain attribution with default values
@@ -223,7 +237,6 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
         uint16 feeBps
     ) internal {
         // Setup
-        _setAttributionProviderFee(feeBps);
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
@@ -262,7 +275,6 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
         uint16 feeBps
     ) internal {
         // Setup
-        _setAttributionProviderFee(feeBps);
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
@@ -296,7 +308,6 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
     /// @notice Runs OFAC re-routing test scenario
     function _runOfacReroutingTest(address campaign, uint256 amount) internal {
         // Setup - no fee for burn transaction
-        _setAttributionProviderFee(0);
         _fundCampaign(campaign, amount);
         _activateCampaign(campaign);
 

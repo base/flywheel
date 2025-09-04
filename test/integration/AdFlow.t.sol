@@ -65,10 +65,7 @@ contract AdFlowTest is PublisherTestSetup {
         // Register publishers
         _registerPublishers();
 
-        // Set attribution provider fee BEFORE campaign creation (for fee caching)
-        vm.startPrank(provider);
-        adHook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
-        vm.stopPrank();
+        // Attribution fee is now set during campaign creation
 
         // Create campaign
         _createCampaign();
@@ -104,8 +101,9 @@ contract AdFlowTest is PublisherTestSetup {
             metadataURI: "https://campaign.com/onchain-metadata"
         });
 
-        bytes memory hookData =
-            abi.encode(provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs, 7 days);
+        bytes memory hookData = abi.encode(
+            provider, advertiser, "https://campaign.com/metadata", allowedRefCodes, configs, 7 days, ATTRIBUTION_FEE_BPS
+        );
 
         // Create campaign
         campaign = flywheel.createCampaign(address(adHook), CAMPAIGN_NONCE, hookData);

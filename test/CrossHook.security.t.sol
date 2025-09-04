@@ -152,9 +152,7 @@ contract CrossHookSecurityTest is Test {
         publisherRegistry.register("victim", victim, victim); // For security tests
         vm.stopPrank();
 
-        // Set attribution fee BEFORE campaign creation (for fee caching)
-        vm.prank(attributionProvider);
-        adHook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        // Attribution fee is now set during campaign creation
 
         // Create AdConversion campaign
         string[] memory allowedRefCodes = new string[](0);
@@ -162,8 +160,15 @@ contract CrossHookSecurityTest is Test {
         configs[0] =
             AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://ad-campaign.com/metadata"});
 
-        bytes memory adHookData =
-            abi.encode(attributionProvider, advertiser, "https://ad-campaign.com", allowedRefCodes, configs, 7 days);
+        bytes memory adHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://ad-campaign.com",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
         adCampaign = flywheel.createCampaign(address(adHook), 1, adHookData);
 
         // Create CashbackRewards campaign
@@ -579,16 +584,27 @@ contract CrossHookSecurityTest is Test {
     function test_security_crossHookFeeManipulation() public {
         // Set high attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        adHook.setAttributionProviderFee(5000); // 50% fee
+        // Attribution fee (50%) is now set during campaign creation
 
         // Create new campaign with 50% fee cached
         string[] memory allowedRefCodes = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://high-fee-campaign.com/metadata"});
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            metadataURI: "https://high-fee-campaign.com/metadata"
+        });
 
-        bytes memory highFeeHookData = abi.encode(attributionProvider, advertiser, "https://high-fee-campaign.com", allowedRefCodes, configs, 7 days);
+        bytes memory highFeeHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://high-fee-campaign.com",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(5000)
+        );
         address highFeeCampaign = flywheel.createCampaign(address(adHook), 999, highFeeHookData);
-        
+
         // Fund the new campaign
         vm.prank(advertiser);
         rewardToken.transfer(highFeeCampaign, CAMPAIGN_FUNDING);

@@ -72,15 +72,19 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         vm.prank(owner);
         publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
 
-        // Set attribution provider fee BEFORE campaign creation (for fee caching)
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
-
+        // Attribution fee is now set during campaign creation
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            CAMPAIGN_METADATA_URL,
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
 
@@ -257,8 +261,15 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         bytes32[] memory allowedRefCodes = new bytes32[](0); // Empty = allow all publishers
 
-        bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
+        bytes memory newHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            CAMPAIGN_METADATA_URL,
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         address multiPublisherCampaign = flywheel.createCampaign(address(hook), 2, newHookData);
 
@@ -349,8 +360,15 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 
-        bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
+        bytes memory newHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            CAMPAIGN_METADATA_URL,
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         address userCampaign = flywheel.createCampaign(address(hook), 3, newHookData);
 

@@ -77,7 +77,13 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
@@ -117,15 +123,23 @@ contract FlywheelTest is FlywheelTestHelpers {
     function test_offchainAttribution() public {
         // Set attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        // Attribution fee is now set during campaign creation
 
         // Create new campaign with fee cached
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
         address testCampaign = flywheel.createCampaign(address(hook), 101, hookData);
 
@@ -179,15 +193,23 @@ contract FlywheelTest is FlywheelTestHelpers {
     function test_onchainAttribution() public {
         // Set attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        // Attribution fee is now set during campaign creation
 
         // Create new campaign with fee cached
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
         address testCampaign = flywheel.createCampaign(address(hook), 102, hookData);
 
@@ -246,15 +268,23 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Set attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        // Attribution fee is now set during campaign creation
 
         // Create new campaign with fee cached
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
         address testCampaign = flywheel.createCampaign(address(hook), 104, hookData);
 
@@ -324,15 +354,23 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Set attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        // Attribution fee is now set during campaign creation
 
         // Create new campaign with fee cached
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
         address testCampaign = flywheel.createCampaign(address(hook), 103, hookData);
 
@@ -368,7 +406,8 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Check that fees are available
         uint256 payoutAmount4 = 100 * 10 ** 18;
         uint256 expectedFee = payoutAmount4 * ATTRIBUTION_FEE_BPS / 10000;
-        uint256 availableFees = flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider)));
+        uint256 availableFees =
+            flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider)));
         assertEq(availableFees, expectedFee, "Should have correct attribution fee allocated");
 
         // Collect fees as attribution provider
@@ -380,7 +419,8 @@ contract FlywheelTest is FlywheelTestHelpers {
         assertEq(balanceAfter - balanceBefore, expectedFee, "Attribution provider should receive fee tokens");
 
         // Check that fees are cleared
-        uint256 remainingFees = flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider)));
+        uint256 remainingFees =
+            flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider)));
         assertEq(remainingFees, 0, "Fees should be cleared after collection");
         vm.stopPrank();
     }
@@ -536,9 +576,11 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.reward(campaign, address(token2), abi.encode(attributions2));
         vm.stopPrank();
 
-        // Verify both recipients received their respective tokens
-        assertEq(token.balanceOf(recipient1), 50e18, "Recipient1 should receive token1");
-        assertEq(token2.balanceOf(recipient2), 25e18, "Recipient2 should receive token2");
+        // Verify both recipients received their respective tokens (minus 5% fee)
+        uint256 expectedRecipient1Amount = 50e18 * (10000 - 500) / 10000; // 47.5e18 (5% fee deducted)
+        uint256 expectedRecipient2Amount = 25e18 * (10000 - 500) / 10000; // 23.75e18 (5% fee deducted)
+        assertEq(token.balanceOf(recipient1), expectedRecipient1Amount, "Recipient1 should receive token1");
+        assertEq(token2.balanceOf(recipient2), expectedRecipient2Amount, "Recipient2 should receive token2");
     }
 
     function test_multiTokenFeeCollection() public {
@@ -549,15 +591,23 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Set 10% fee for this test and create new campaign
         vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(1000); // 10%
+        // Attribution fee (10%) is now set during campaign creation
 
         // Create new campaign with 10% fee cached
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
         address multiTokenCampaign = flywheel.createCampaign(address(hook), 999, hookData);
 
@@ -593,9 +643,14 @@ contract FlywheelTest is FlywheelTestHelpers {
         vm.stopPrank();
 
         // Verify fees are collected for both tokens
-        uint256 expectedFee = 100e18 * 1000 / 10000; // 10%
-        assertEq(flywheel.pendingFees(multiTokenCampaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee);
-        assertEq(flywheel.pendingFees(multiTokenCampaign, address(token2), bytes32(bytes20(attributionProvider))), expectedFee);
+        uint256 expectedFee = 100e18 * 500 / 10000; // 5%
+        assertEq(
+            flywheel.pendingFees(multiTokenCampaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee
+        );
+        assertEq(
+            flywheel.pendingFees(multiTokenCampaign, address(token2), bytes32(bytes20(attributionProvider))),
+            expectedFee
+        );
 
         // Collect fees for both tokens
         vm.startPrank(attributionProvider);
@@ -658,8 +713,15 @@ contract FlywheelTest is FlywheelTestHelpers {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://test.com"});
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://test-campaign.com",
+            allowedRefs,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         // Predict the campaign address
         address predictedAddress = flywheel.predictCampaignAddress(address(hook), 999, hookData);
@@ -675,8 +737,10 @@ contract FlywheelTest is FlywheelTestHelpers {
         string[] memory allowedRefs = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
 
-        bytes memory hookData1 = abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs, 7 days);
-        bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days);
+        bytes memory hookData1 =
+            abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs, 7 days, ATTRIBUTION_FEE_BPS);
+        bytes memory hookData2 =
+            abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days, ATTRIBUTION_FEE_BPS);
 
         // Same nonce, different data should produce different addresses
         address addr1 = flywheel.predictCampaignAddress(address(hook), 100, hookData1);
@@ -1422,15 +1486,23 @@ contract FlywheelTest is FlywheelTestHelpers {
     function test_reward_emitsPayoutRewardedEvent() public {
         // Set attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        // Attribution fee is now set during campaign creation
 
         // Create new campaign with fee cached
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
         address testCampaign = flywheel.createCampaign(address(hook), 105, hookData);
 
