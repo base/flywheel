@@ -55,7 +55,12 @@ contract CashbackRewards is SimpleRewards {
     mapping(address campaign => mapping(bytes32 paymentHash => RewardState rewardState)) public rewards;
 
     /// @notice Emitted when a reward operation fails but revertOnError is false
-    event RewardFailed(bytes32 indexed paymentInfoHash, uint256 payoutAmount, RewardOperation operation, bytes error);
+    ///
+    /// @param paymentInfoHash The attempted payment
+    /// @param amount The attempted reward amount
+    /// @param operation The attempted reward operation
+    /// @param error The error bytes
+    event RewardFailed(bytes32 indexed paymentInfoHash, uint256 amount, RewardOperation operation, bytes error);
 
     /// @notice Thrown when the allocated amount is less than the amount being deallocated or distributed
     error InsufficientAllocation(uint120 amount, uint120 allocated);
@@ -268,12 +273,12 @@ contract CashbackRewards is SimpleRewards {
     /// @param err The error bytes to revert with or emit
     /// @param revertOnError Whether to revert on error or emit RewardFailed event
     /// @param paymentInfoHash The payment info hash for the failed reward
-    /// @param payoutAmount The payout amount that failed
+    /// @param amount The payout amount that failed
     /// @param operation The RewardOperation type
     function _revertOrEmitError(
         bool revertOnError,
         bytes32 paymentInfoHash,
-        uint256 payoutAmount,
+        uint256 amount,
         RewardOperation operation,
         bytes memory err
     ) internal {
@@ -282,7 +287,7 @@ contract CashbackRewards is SimpleRewards {
                 revert(add(err, 0x20), mload(err))
             }
         } else {
-            emit RewardFailed(paymentInfoHash, payoutAmount, operation, err);
+            emit RewardFailed(paymentInfoHash, amount, operation, err);
         }
     }
 
