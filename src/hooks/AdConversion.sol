@@ -73,14 +73,14 @@ contract AdConversion is CampaignHooks {
         address advertiser;
         /// @dev Whether this campaign has a publisher allowlist
         bool hasAllowlist;
+        /// @dev Attribution provider fee in basis points, cached at campaign creation
+        uint16 attributionProviderFeeBps;
         /// @dev Address of the attribution provider
         address attributionProvider;
         /// @dev Duration for attribution deadline specific to this campaign
         uint48 attributionWindow;
         /// @dev Timestamp when finalization can occur
         uint48 attributionDeadline;
-        /// @dev Attribution provider fee in basis points, cached at campaign creation
-        uint16 attributionProviderFeeBps;
     }
 
     /// @notice Maximum basis points
@@ -251,10 +251,6 @@ contract AdConversion is CampaignHooks {
         if (hasAllowlist) {
             uint256 count = allowedPublisherRefCodes.length;
             for (uint256 i = 0; i < count; i++) {
-                // Validate referral code exists in registry
-                if (!publisherCodesRegistry.isRegistered(allowedPublisherRefCodes[i])) {
-                    revert InvalidPublisherRefCode();
-                }
                 allowedPublishers[campaign][allowedPublisherRefCodes[i]] = true;
                 emit PublisherAddedToAllowlist(campaign, allowedPublisherRefCodes[i]);
             }
