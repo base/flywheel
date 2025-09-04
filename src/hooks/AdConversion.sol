@@ -424,47 +424,43 @@ contract AdConversion is CampaignHooks {
             revert Unauthorized();
         }
 
+        // Advertiser constraints from INACTIVE: only INACTIVE → FINALIZED allowed
         if (oldStatus == Flywheel.CampaignStatus.INACTIVE) {
-            if (newStatus == Flywheel.CampaignStatus.ACTIVE) {
-                // Only attribution provider can activate campaigns
-                if (sender != attributionProvider) revert Unauthorized();
-            } else if (newStatus == Flywheel.CampaignStatus.FINALIZED) {
-                // Only advertiser can do fund recovery from never-activated campaigns
-                if (sender != advertiser) revert Unauthorized();
-            } else {
-                // Invalid transition from INACTIVE
+            if (sender == advertiser && newStatus != Flywheel.CampaignStatus.FINALIZED) {
                 revert Unauthorized();
             }
-        } else if (oldStatus == Flywheel.CampaignStatus.ACTIVE) {
-            if (newStatus == Flywheel.CampaignStatus.INACTIVE) {
-                // No one can pause active campaigns (security restriction)
-                revert Unauthorized();
-            } else if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
-                // Both attribution provider and advertiser can move to finalizing
-                // Set attribution deadline when entering FINALIZING state
-                state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
-                emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
-            } else if (newStatus == Flywheel.CampaignStatus.FINALIZED) {
-                // Only attribution provider can bypass FINALIZING step
-                if (sender != attributionProvider) revert Unauthorized();
-            } else {
-                // Invalid transition from ACTIVE
+            // Attribution provider constraint: cannot do INACTIVE → FINALIZING/FINALIZED (fund recovery is advertiser-only)
+            if (
+                sender == attributionProvider
+                    && (newStatus == Flywheel.CampaignStatus.FINALIZED || newStatus == Flywheel.CampaignStatus.FINALIZING)
+            ) {
                 revert Unauthorized();
             }
-        } else if (oldStatus == Flywheel.CampaignStatus.FINALIZING) {
-            if (newStatus == Flywheel.CampaignStatus.FINALIZED) {
-                // Attribution provider can finalize anytime, advertiser must wait for deadline
-                if (sender == advertiser && state[campaign].attributionDeadline > block.timestamp) {
-                    revert Unauthorized();
-                }
-                // If attribution provider OR advertiser after deadline, allow transition
-            } else {
-                // Invalid transition from FINALIZING
-                revert Unauthorized();
-            }
-        } else {
-            // FINALIZED is terminal state, no transitions allowed
+        }
+
+        // Security restriction: No one can pause active campaigns (ACTIVE → INACTIVE)
+        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.INACTIVE) {
             revert Unauthorized();
+        }
+
+        // Attribution window protection: Advertiser cannot bypass FINALIZING (ACTIVE → FINALIZED) but Attribution Provider can
+        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+            if (sender == advertiser) {
+                revert Unauthorized();
+            }
+        }
+
+        // Set attribution deadline when entering FINALIZING
+        if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
+            state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
+            emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
+        }
+
+        // Attribution deadline enforcement for FINALIZING → FINALIZED for Advertiser
+        if (oldStatus == Flywheel.CampaignStatus.FINALIZING && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+            if (sender == advertiser && state[campaign].attributionDeadline > block.timestamp) {
+                revert Unauthorized();
+            }
         }
     }
 

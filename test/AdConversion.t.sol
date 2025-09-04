@@ -842,7 +842,6 @@ contract AdConversionTest is PublisherTestSetup {
         hook.getConversionConfig(campaign, 99);
     }
 
-
     function test_campaignCreation_customAttributionDeadline() public {
         // Create campaign with 14-day attribution deadline
         uint48 customDeadline = 14 days;
@@ -928,7 +927,6 @@ contract AdConversionTest is PublisherTestSetup {
             flywheel.createCampaign(address(hook), 996 - i, hookData);
         }
     }
-
 
     function test_hasPublisherAllowlist_noAllowlist() public {
         assertEq(hook.hasPublisherAllowlist(campaign), false);
@@ -1040,7 +1038,6 @@ contract AdConversionTest is PublisherTestSetup {
             flywheel.createCampaign(address(hook), 996 - i, hookData);
         }
     }
-
 
     function test_onUpdateMetadata_success() public {
         bytes memory hookData = abi.encode("test data");
@@ -1315,46 +1312,46 @@ contract AdConversionTest is PublisherTestSetup {
         // Start with ACTIVE campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-        
+
         uint256 transitionTime = block.timestamp;
         uint48 expectedDeadline = uint48(transitionTime + 7 days);
-        
+
         // Expect AttributionDeadlineUpdated event to be emitted
         vm.expectEmit(true, false, false, true);
         emit AdConversion.AttributionDeadlineUpdated(campaign, expectedDeadline);
-        
+
         // Attribution provider transitions to FINALIZING
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        
+
         // Verify campaign is in FINALIZING state
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-        
+
         // Verify deadline was set correctly
         (,,,, uint48 actualDeadline) = hook.state(campaign);
         assertEq(actualDeadline, expectedDeadline);
     }
 
-    /// @notice Test advertiser sets deadline when entering FINALIZING state  
+    /// @notice Test advertiser sets deadline when entering FINALIZING state
     function test_advertiser_setsDeadlineWhenEnteringFinalizing() public {
         // Start with ACTIVE campaign (attribution provider activates)
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-        
+
         uint256 transitionTime = block.timestamp;
         uint48 expectedDeadline = uint48(transitionTime + 7 days);
-        
+
         // Expect AttributionDeadlineUpdated event to be emitted
         vm.expectEmit(true, false, false, true);
         emit AdConversion.AttributionDeadlineUpdated(campaign, expectedDeadline);
-        
+
         // Advertiser transitions to FINALIZING
         vm.prank(advertiser);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        
+
         // Verify campaign is in FINALIZING state
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
-        
+
         // Verify deadline was set correctly
         (,,,, uint48 actualDeadline) = hook.state(campaign);
         assertEq(actualDeadline, expectedDeadline);
@@ -1365,33 +1362,33 @@ contract AdConversionTest is PublisherTestSetup {
         // Create campaign with 14-day attribution window
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
-        
+
         bytes memory hookData = abi.encode(
             attributionProvider,
-            advertiser, 
+            advertiser,
             "test-uri",
             new string[](0),
             configs,
             uint48(14 days) // Custom 14-day window
         );
-        
+
         address customCampaign = flywheel.createCampaign(address(hook), 999, hookData);
-        
+
         // Activate campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-        
+
         uint256 transitionTime = block.timestamp;
         uint48 expectedDeadline = uint48(transitionTime + 14 days);
-        
+
         // Expect event with 14-day deadline
         vm.expectEmit(true, false, false, true);
         emit AdConversion.AttributionDeadlineUpdated(customCampaign, expectedDeadline);
-        
+
         // Advertiser transitions to FINALIZING
         vm.prank(advertiser);
         flywheel.updateStatus(customCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-        
+
         // Verify 14-day deadline was set
         (,,,, uint48 actualDeadline) = hook.state(customCampaign);
         assertEq(actualDeadline, expectedDeadline);
@@ -1402,37 +1399,37 @@ contract AdConversionTest is PublisherTestSetup {
         // Create campaign with zero attribution window
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "test"});
-        
+
         bytes memory hookData = abi.encode(
             attributionProvider,
             advertiser,
-            "test-uri", 
+            "test-uri",
             new string[](0),
             configs,
             uint48(0) // Zero attribution window
         );
-        
+
         address zeroCampaign = flywheel.createCampaign(address(hook), 998, hookData);
-        
+
         // Activate campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(zeroCampaign, Flywheel.CampaignStatus.ACTIVE, "");
-        
+
         uint256 transitionTime = block.timestamp;
         uint48 expectedDeadline = uint48(transitionTime + 0); // Should be current timestamp
-        
+
         // Expect event with zero deadline (current timestamp)
         vm.expectEmit(true, false, false, true);
         emit AdConversion.AttributionDeadlineUpdated(zeroCampaign, expectedDeadline);
-        
+
         // Attribution provider transitions to FINALIZING
         vm.prank(attributionProvider);
         flywheel.updateStatus(zeroCampaign, Flywheel.CampaignStatus.FINALIZING, "");
-        
+
         // Verify zero deadline was set (should equal transition timestamp)
         (,,,, uint48 actualDeadline) = hook.state(zeroCampaign);
         assertEq(actualDeadline, expectedDeadline);
-        
+
         // Advertiser should be able to finalize immediately since deadline = current timestamp
         vm.prank(advertiser);
         flywheel.updateStatus(zeroCampaign, Flywheel.CampaignStatus.FINALIZED, "");
@@ -1545,11 +1542,19 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test attribution window bypass vulnerability - ACTIVE → FINALIZED attack
     /// @dev This tests the critical security fix that prevents bypassing attribution windows
     function test_security_attributionWindowBypass_activeToFinalized() public {
-        address campaign = flywheel.createCampaign(address(hook), 200, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
-        
+        address campaign = flywheel.createCampaign(
+            address(hook),
+            200,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
+
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
@@ -1568,11 +1573,19 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test that proper state transition flow still works after security fix
     /// @dev Ensures the fix doesn't break legitimate ACTIVE → FINALIZING → FINALIZED flow
     function test_security_legitStateTransitionStillWorks() public {
-        address campaign = flywheel.createCampaign(address(hook), 201, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
-        
+        address campaign = flywheel.createCampaign(
+            address(hook),
+            201,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
+
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
@@ -1593,11 +1606,19 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test attribution provider can still perform valid state transitions
     /// @dev Ensures attribution provider privileges are preserved after security fix
     function test_security_attributionProviderBypassStillWorks() public {
-        address campaign = flywheel.createCampaign(address(hook), 202, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
-        
+        address campaign = flywheel.createCampaign(
+            address(hook),
+            202,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
+
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
@@ -1615,10 +1636,18 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test attribution provider CANNOT do INACTIVE → FINALIZED (fund recovery is advertiser-only)
     /// @dev Only advertiser should be able to recover funds from never-activated campaigns
     function test_security_attributionProviderCannotDoFundRecovery() public {
-        address inactiveCampaign = flywheel.createCampaign(address(hook), 205, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
+        address inactiveCampaign = flywheel.createCampaign(
+            address(hook),
+            205,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
 
         // Attribution provider should NOT be able to do INACTIVE → FINALIZED (fund recovery)
         vm.prank(attributionProvider);
@@ -1629,13 +1658,46 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(uint256(flywheel.campaignStatus(inactiveCampaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
     }
 
+    /// @notice Test attribution provider CANNOT do INACTIVE → FINALIZING (must activate first)
+    /// @dev Attribution provider cannot skip the ACTIVE phase by going directly to FINALIZING
+    function test_security_attributionProviderCannotSkipActivePhase() public {
+        address inactiveCampaign = flywheel.createCampaign(
+            address(hook),
+            208,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
+
+        // Attribution provider should NOT be able to do INACTIVE → FINALIZING (skip ACTIVE phase)
+        vm.prank(attributionProvider);
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+
+        // Campaign should still be INACTIVE
+        assertEq(uint256(flywheel.campaignStatus(inactiveCampaign)), uint256(Flywheel.CampaignStatus.INACTIVE));
+    }
+
     /// @notice Test ONLY attribution provider can activate campaigns (INACTIVE → ACTIVE)
     /// @dev Demonstrates clear role separation for campaign activation
     function test_security_onlyAttributionProviderCanActivate() public {
-        address inactiveCampaign = flywheel.createCampaign(address(hook), 206, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
+        address inactiveCampaign = flywheel.createCampaign(
+            address(hook),
+            206,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
 
         // Advertiser CANNOT activate campaign (INACTIVE → ACTIVE)
         vm.prank(advertiser);
@@ -1661,10 +1723,18 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test attribution provider CANNOT bypass FINALIZING (ACTIVE → FINALIZED blocked globally)
     /// @dev Even attribution provider must go through proper state flow for security
     function test_security_attributionProviderCanBypassFinalizing() public {
-        address activeCampaign = flywheel.createCampaign(address(hook), 207, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
+        address activeCampaign = flywheel.createCampaign(
+            address(hook),
+            207,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
 
         // Activate campaign
         vm.prank(attributionProvider);
@@ -1681,11 +1751,19 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test that INACTIVE → FINALIZED is allowed directly for fund recovery
     /// @dev If attribution provider never activates campaign, advertiser can recover funds immediately
     function test_security_inactiveToFinalizedAllowed() public {
-        address inactiveCampaign = flywheel.createCampaign(address(hook), 203, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
-        
+        address inactiveCampaign = flywheel.createCampaign(
+            address(hook),
+            203,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
+
         // INACTIVE → FINALIZED should be allowed directly (fund recovery scenario, no deadline wait)
         vm.prank(advertiser);
         flywheel.updateStatus(inactiveCampaign, Flywheel.CampaignStatus.FINALIZED, "");
@@ -1695,11 +1773,19 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test that only ACTIVE → FINALIZED is blocked, not other transitions
     /// @dev Ensures security fix is precise and doesn't break legitimate flows
     function test_security_onlyActiveToFinalizedBlocked() public {
-        address activeCampaign = flywheel.createCampaign(address(hook), 204, abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", new string[](0), 
-            _createBasicConversionConfigs(), 7 days
-        ));
-        
+        address activeCampaign = flywheel.createCampaign(
+            address(hook),
+            204,
+            abi.encode(
+                attributionProvider,
+                advertiser,
+                "https://example.com/campaign",
+                new string[](0),
+                _createBasicConversionConfigs(),
+                7 days
+            )
+        );
+
         vm.prank(attributionProvider);
         flywheel.updateStatus(activeCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
@@ -1716,8 +1802,10 @@ contract AdConversionTest is PublisherTestSetup {
 
     function _createBasicConversionConfigs() internal pure returns (AdConversion.ConversionConfigInput[] memory) {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
-        configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
-        configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         return configs;
     }
 }
