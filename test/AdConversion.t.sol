@@ -496,6 +496,21 @@ contract AdConversionTest is PublisherTestSetup {
         hook.disableConversionConfig(campaign, 99); // uint8 max is 255
     }
 
+    function test_disableConversionConfig_revert_alreadyDisabled() public {
+        // First disable the config
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 1);
+
+        // Verify it's disabled
+        AdConversion.ConversionConfig memory config = hook.getConversionConfig(campaign, 1);
+        assertFalse(config.isActive);
+
+        // Try to disable it again - should revert
+        vm.expectRevert(AdConversion.ConversionConfigDisabled.selector);
+        vm.prank(advertiser);
+        hook.disableConversionConfig(campaign, 1);
+    }
+
     // Note: There's no enableConversionConfig function - configs cannot be re-enabled once disabled
     // This is by design to prevent accidental re-activation of disabled conversion types
 

@@ -503,6 +503,9 @@ contract AdConversion is CampaignHooks {
             revert InvalidConversionConfigId();
         }
 
+        // Check if config is already disabled
+        if (!conversionConfigs[campaign][configId].isActive) revert ConversionConfigDisabled();
+
         // Disable the config
         conversionConfigs[campaign][configId].isActive = false;
 
