@@ -562,7 +562,7 @@ contract AdConversionTest is PublisherTestSetup {
         hook.onReward(attributionProvider, campaign, address(token), hookData);
     }
 
-    function test_onReward_revert_disabledConversionConfig() public {
+    function test_onReward_allowsDisabledConversionConfig() public {
         // Disable config 1
         vm.prank(advertiser);
         hook.disableConversionConfig(campaign, 1);
@@ -570,12 +570,16 @@ contract AdConversionTest is PublisherTestSetup {
         vm.prank(owner);
         publisherRegistry.register("code1", address(0x1001), address(0x1001));
 
+        // Set attribution provider fee
+        vm.prank(attributionProvider);
+        hook.setAttributionProviderFee(1000); // 10%
+
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
         attributions[0] = AdConversion.Attribution({
             conversion: AdConversion.Conversion({
                 eventId: bytes16(uint128(1)),
                 clickId: "click123",
-                configId: 1, // Disabled config
+                configId: 1, // Disabled config - should still work
                 publisherRefCode: "code1",
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: address(0),
@@ -586,9 +590,18 @@ contract AdConversionTest is PublisherTestSetup {
 
         bytes memory hookData = abi.encode(attributions);
 
-        vm.expectRevert(AdConversion.ConversionConfigDisabled.selector);
+        // Should succeed even with disabled config
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
+            hook.onReward(attributionProvider, campaign, address(token), hookData);
+
+        // Verify results
+        assertEq(payouts.length, 1);
+        assertEq(payouts[0].recipient, address(0x1001));
+        assertEq(payouts[0].amount, 90 ether); // 100 - 10% fee
+        assertEq(fees.length, 1);
+        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(fees[0].amount, 10 ether);
     }
 
     function test_onReward_revert_publisherNotInAllowlist() public {
