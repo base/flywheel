@@ -223,7 +223,7 @@ contract OnDistributeTest is CashbackRewardsBase {
         CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](2);
         paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: firstPayment, payoutAmount: firstDistribute});
         paymentRewards[1] = CashbackRewards.PaymentReward({paymentInfo: secondPayment, payoutAmount: secondDistribute});
-        bytes memory batchHookData = abi.encode(paymentRewards);
+        bytes memory batchHookData = abi.encode(paymentRewards, true);
 
         // Get initial states
         CashbackRewards.RewardState memory firstRewardsBefore = getRewardsInfo(firstPayment, unlimitedCashbackCampaign);

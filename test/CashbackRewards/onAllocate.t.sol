@@ -187,7 +187,7 @@ contract OnAllocateTest is CashbackRewardsBase {
         CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](2);
         paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: firstPayment, payoutAmount: firstAllocation});
         paymentRewards[1] = CashbackRewards.PaymentReward({paymentInfo: secondPayment, payoutAmount: secondAllocation});
-        bytes memory batchHookData = abi.encode(paymentRewards);
+        bytes memory batchHookData = abi.encode(paymentRewards, true);
 
         // Get initial states
         CashbackRewards.RewardState memory firstRewardsBefore = getRewardsInfo(firstPayment, unlimitedCashbackCampaign);
