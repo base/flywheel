@@ -194,7 +194,7 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onCreateCampaign(address campaign, bytes calldata hookData) internal override {
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
         (
             address attributionProvider,
             address advertiser,

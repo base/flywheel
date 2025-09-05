@@ -29,11 +29,12 @@ abstract contract CampaignHooks {
     /// @notice Creates a campaign in the hook
     ///
     /// @param campaign Address of the campaign
+    /// @param nonce Nonce used to create the campaign
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function onCreateCampaign(address campaign, bytes calldata hookData) external onlyFlywheel {
-        _onCreateCampaign(campaign, hookData);
+    function onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) external onlyFlywheel {
+        _onCreateCampaign(campaign, nonce, hookData);
     }
 
     /// @notice Processes reward for a campaign
@@ -184,8 +185,9 @@ abstract contract CampaignHooks {
     /// @notice Creates a campaign in the hook
     ///
     /// @param campaign Address of the campaign
+    /// @param nonce Nonce used to create the campaign
     /// @param hookData Data for the campaign hook
-    function _onCreateCampaign(address campaign, bytes calldata hookData) internal virtual;
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal virtual;
 
     /// @notice Processes reward for a campaign
     ///

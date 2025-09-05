@@ -13,7 +13,7 @@ contract TestCampaignHooks is CampaignHooks {
         return "";
     }
 
-    function _onCreateCampaign(address campaign, bytes calldata hookData) internal override {}
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {}
 
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
@@ -62,21 +62,21 @@ contract CampaignHooksTest is Test {
     }
 
     /// @notice Test onCreateCampaign can be called by flywheel
-    function test_onCreateCampaign_calledByFlywheel() public {
+    function test_onCreateCampaign_calledByFlywheel(uint256 nonce) public {
         bytes memory hookData = abi.encode(user);
 
         vm.prank(address(flywheel));
-        hooks.onCreateCampaign(campaign, hookData);
+        hooks.onCreateCampaign(campaign, nonce, hookData);
         // Should not revert
     }
 
     /// @notice Test onCreateCampaign reverts when not called by flywheel
-    function test_onCreateCampaign_revertsWhenNotFlywheel() public {
+    function test_onCreateCampaign_revertsWhenNotFlywheel(uint256 nonce) public {
         bytes memory hookData = abi.encode(user);
 
         vm.prank(user);
         vm.expectRevert();
-        hooks.onCreateCampaign(campaign, hookData);
+        hooks.onCreateCampaign(campaign, nonce, hookData);
     }
 
     /// @notice Test onUpdateMetadata reverts when not called by flywheel
@@ -182,23 +182,23 @@ contract CampaignHooksTest is Test {
     }
 
     /// @notice Test onlyFlywheel modifier with different addresses
-    function test_onlyFlywheel_modifier() public {
+    function test_onlyFlywheel_modifier(uint256 nonce) public {
         address notFlywheel = makeAddr("notFlywheel");
         bytes memory hookData = abi.encode(user);
 
         // Should work with flywheel address
         vm.prank(address(flywheel));
-        hooks.onCreateCampaign(campaign, hookData);
+        hooks.onCreateCampaign(campaign, nonce, hookData);
 
         // Should revert with non-flywheel address
         vm.prank(notFlywheel);
         vm.expectRevert();
-        hooks.onCreateCampaign(campaign, hookData);
+        hooks.onCreateCampaign(campaign, nonce, hookData);
 
         // Should revert with zero address
         vm.prank(address(0));
         vm.expectRevert();
-        hooks.onCreateCampaign(campaign, hookData);
+        hooks.onCreateCampaign(campaign, nonce, hookData);
     }
 
     /// @notice Test constructor with zero address

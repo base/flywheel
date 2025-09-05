@@ -229,7 +229,7 @@ contract Flywheel is ReentrancyGuardTransient {
         campaign = Clones.cloneDeterministic(campaignImplementation, keccak256(abi.encode(hooks, nonce, hookData)));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.INACTIVE, hooks: CampaignHooks(hooks)});
         emit CampaignCreated(campaign, hooks);
-        CampaignHooks(hooks).onCreateCampaign(campaign, hookData);
+        CampaignHooks(hooks).onCreateCampaign(campaign, nonce, hookData);
     }
 
     /// @notice Rewards a recipient with an immediate payout for a campaign

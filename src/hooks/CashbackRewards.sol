@@ -88,7 +88,7 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onCreateCampaign(address campaign, bytes calldata hookData) internal override {
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
         (address owner, address manager, string memory uri, uint16 maxRewardBasisPoints_) =
             abi.decode(hookData, (address, address, string, uint16));
         owners[campaign] = owner;

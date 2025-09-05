@@ -45,7 +45,7 @@ contract SimpleRewards is CampaignHooks {
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
     /// @inheritdoc CampaignHooks
-    function _onCreateCampaign(address campaign, bytes calldata hookData) internal virtual override {
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal virtual override {
         (address owner, address manager, string memory uri) = abi.decode(hookData, (address, address, string));
         owners[campaign] = owner;
         managers[campaign] = manager;
