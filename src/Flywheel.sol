@@ -251,7 +251,7 @@ contract Flywheel is ReentrancyGuardTransient {
         for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             if (amount == 0) continue;
-            Campaign(campaign).sendTokens(token, recipient, amount);
+            Campaign(payable(campaign)).sendTokens(token, recipient, amount);
             emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
         }
 
@@ -340,7 +340,7 @@ contract Flywheel is ReentrancyGuardTransient {
             if (amount == 0) continue;
             totalAmount += amount;
             _pendingPayouts[key] -= amount;
-            Campaign(campaign).sendTokens(token, recipient, amount);
+            Campaign(payable(campaign)).sendTokens(token, recipient, amount);
             emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
@@ -368,7 +368,7 @@ contract Flywheel is ReentrancyGuardTransient {
             if (amount == 0) continue;
             totalAmount += amount;
             _pendingFees[key] -= amount;
-            Campaign(campaign).sendTokens(token, recipient, amount);
+            Campaign(payable(campaign)).sendTokens(token, recipient, amount);
             emit FeesDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
@@ -388,7 +388,7 @@ contract Flywheel is ReentrancyGuardTransient {
         Payout memory payout = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
         (address recipient, uint256 amount) = (payout.recipient, payout.amount);
         if (amount == 0) revert ZeroAmount();
-        Campaign(campaign).sendTokens(token, recipient, amount);
+        Campaign(payable(campaign)).sendTokens(token, recipient, amount);
         emit FundsWithdrawn(campaign, token, recipient, amount, payout.extraData);
         _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token]);
     }

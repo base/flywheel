@@ -691,11 +691,11 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Try to call Campaign directly (should fail)
         vm.expectRevert();
-        Campaign(campaign).sendTokens(address(token), advertiser, 100e18);
+        Campaign(payable(campaign)).sendTokens(address(token), advertiser, 100e18);
 
         // Only Flywheel should be able to call Campaign
         vm.prank(address(flywheel));
-        Campaign(campaign).sendTokens(address(token), advertiser, 100e18);
+        Campaign(payable(campaign)).sendTokens(address(token), advertiser, 100e18);
 
         // Verify the transfer worked - advertiser should have received the tokens back
         // Note: advertiser's balance should have the 100e18 transferred back plus remaining initial balance
