@@ -3,6 +3,8 @@ pragma solidity ^0.8.29;
 
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {Flywheel} from "./Flywheel.sol";
+
 /// @title Campaign
 ///
 /// @notice Holds funds for a single campaign
@@ -11,6 +13,9 @@ import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 contract Campaign {
     /// @notice Address that created this token store
     address public immutable flywheel;
+
+    /// @notice Emitted when the contract URI is updated
+    event ContractURIUpdated();
 
     /// @notice Call sender is not flywheel
     error OnlyFlywheel();
@@ -31,5 +36,18 @@ contract Campaign {
         if (msg.sender != flywheel) revert OnlyFlywheel();
         SafeERC20.safeTransfer(IERC20(token), recipient, amount);
         return true;
+    }
+
+    /// @notice Updates the metadata for the contract
+    function updateContractURI() external {
+        if (msg.sender != flywheel) revert OnlyFlywheel();
+        emit ContractURIUpdated();
+    }
+
+    /// @notice Returns the URI for the contract
+    ///
+    /// @return uri The URI for the contract
+    function contractURI() external view returns (string memory uri) {
+        return Flywheel(flywheel).campaignURI(address(this));
     }
 }
