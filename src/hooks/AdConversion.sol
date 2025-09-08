@@ -430,10 +430,7 @@ contract AdConversion is CampaignHooks {
                 revert Unauthorized();
             }
             // Attribution provider constraint: cannot do INACTIVE → FINALIZING/FINALIZED (fund recovery is advertiser-only)
-            if (
-                sender == attributionProvider
-                    && (newStatus == Flywheel.CampaignStatus.FINALIZED || newStatus == Flywheel.CampaignStatus.FINALIZING)
-            ) {
+            if (sender == attributionProvider && (newStatus != Flywheel.CampaignStatus.ACTIVE)) {
                 revert Unauthorized();
             }
         }
