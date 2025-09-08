@@ -385,7 +385,7 @@ contract AdConversion is CampaignHooks {
     {
         if (sender != state[campaign].attributionProvider) revert Unauthorized();
         bytes32 key = bytes32(bytes20(sender));
-        uint256 amount = flywheel.pendingFees(campaign, token, key);
+        uint256 amount = flywheel.allocatedFee(campaign, token, key);
         address recipient = abi.decode(hookData, (address));
 
         distributions = new Flywheel.Distribution[](1);

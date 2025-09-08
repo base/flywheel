@@ -484,7 +484,9 @@ contract CrossHookSecurityTest is Test {
         flywheel.allocate(simpleCampaign, address(rewardToken), abi.encode(payouts));
 
         // Verify allocation in flywheel core
-        assertEq(flywheel.pendingPayouts(simpleCampaign, address(rewardToken), bytes32(bytes20(victim))), ATTACK_AMOUNT);
+        assertEq(
+            flywheel.allocatedPayout(simpleCampaign, address(rewardToken), bytes32(bytes20(victim))), ATTACK_AMOUNT
+        );
 
         // Attacker tries to distribute from different campaign's allocation
         // This should fail because allocations are campaign-specific
@@ -511,7 +513,7 @@ contract CrossHookSecurityTest is Test {
         );
 
         // CashbackRewards campaign has no allocation for victim
-        assertEq(flywheel.pendingPayouts(buyerCampaign, address(rewardToken), bytes32(bytes20(victim))), 0);
+        assertEq(flywheel.allocatedPayout(buyerCampaign, address(rewardToken), bytes32(bytes20(victim))), 0);
 
         CashbackRewards.PaymentReward[] memory buyerDistributeRewards = new CashbackRewards.PaymentReward[](1);
         buyerDistributeRewards[0] =
