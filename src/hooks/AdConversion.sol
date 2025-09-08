@@ -314,13 +314,13 @@ contract AdConversion is CampaignHooks {
             uint16 configId = attributions[i].conversion.configId;
             bytes memory logBytes = attributions[i].logBytes;
 
+            // Validating that the config exists
             if (configId != 0) {
                 if (configId > conversionConfigCount[campaign]) {
                     revert InvalidConversionConfigId();
                 }
 
                 ConversionConfig memory config = conversionConfigs[campaign][configId];
-                if (!config.isActive) revert ConversionConfigDisabled();
 
                 // Validate that the conversion type matches the config
                 if (config.isEventOnchain && logBytes.length == 0) revert InvalidConversionType();
@@ -534,6 +534,9 @@ contract AdConversion is CampaignHooks {
         if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
+
+        // Check if config is already disabled
+        if (!conversionConfigs[campaign][configId].isActive) revert ConversionConfigDisabled();
 
         // Disable the config
         conversionConfigs[campaign][configId].isActive = false;
