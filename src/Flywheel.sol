@@ -425,7 +425,7 @@ contract Flywheel is ReentrancyGuardTransient {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
-        Campaign(campaign).updateContractURI();
+        Campaign(payable(campaign)).updateContractURI();
     }
 
     /// @notice Returns the address of a campaign given its creation parameters
