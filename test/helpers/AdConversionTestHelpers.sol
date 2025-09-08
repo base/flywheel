@@ -305,7 +305,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
 
         // Expect event emission
         vm.expectEmit(true, false, false, true);
-        emit AdConversion.OffchainConversionProcessed(campaign, attributions[0].conversion);
+        emit AdConversion.OffchainConversionProcessed(campaign, true, attributions[0].conversion);
 
         _processAttributionThroughFlywheel(campaign, attributions);
 

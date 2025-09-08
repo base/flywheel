@@ -230,6 +230,7 @@ contract AdConversionTest is PublisherTestSetup {
         vm.expectEmit(true, false, false, true);
         emit AdConversion.OffchainConversionProcessed(
             campaign,
+            false,
             AdConversion.Conversion({
                 eventId: bytes16(uint128(999)),
                 clickId: "ofac_sanctioned_funds",

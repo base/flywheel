@@ -244,7 +244,7 @@ contract AdFlowTest is PublisherTestSetup {
 
         // Expect OnchainConversion event
         vm.expectEmit(true, false, false, true);
-        emit AdConversion.OnchainConversionProcessed(campaign, attributions[0].conversion, logData);
+        emit AdConversion.OnchainConversionProcessed(campaign, false, attributions[0].conversion, logData);
 
         flywheel.reward(campaign, address(usdc), attributionData);
         vm.stopPrank();
