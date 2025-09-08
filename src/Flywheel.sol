@@ -271,10 +271,11 @@ contract Flywheel is ReentrancyGuardTransient {
         allocations = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, allocations.length);
+        mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (allocations[i].key, allocations[i].amount);
             totalAmount += amount;
-            pendingPayouts[campaign][token][key] += amount;
+            _pendingPayouts[key] += amount;
             emit PayoutAllocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
@@ -296,10 +297,11 @@ contract Flywheel is ReentrancyGuardTransient {
         allocations = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, allocations.length);
+        mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (allocations[i].key, allocations[i].amount);
             totalAmount += amount;
-            pendingPayouts[campaign][token][key] -= amount;
+            _pendingPayouts[key] -= amount;
             emit PayoutsDeallocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
@@ -325,11 +327,12 @@ contract Flywheel is ReentrancyGuardTransient {
         uint256 totalFeeAmount = _allocateFees(campaign, token, fees);
 
         (uint256 totalAmount, uint256 count) = (0, distributions.length);
+        mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (address recipient, bytes32 key, uint256 amount) =
                 (distributions[i].recipient, distributions[i].key, distributions[i].amount);
             totalAmount += amount;
-            pendingPayouts[campaign][token][key] -= amount;
+            _pendingPayouts[key] -= amount;
             Campaign(campaign).sendTokens(token, recipient, amount);
             emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
@@ -351,11 +354,12 @@ contract Flywheel is ReentrancyGuardTransient {
         distributions = _campaigns[campaign].hooks.onDistributeFees(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, distributions.length);
+        mapping(bytes32 key => uint256 amount) storage _pendingFees = pendingFees[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (address recipient, bytes32 key, uint256 amount) =
                 (distributions[i].recipient, distributions[i].key, distributions[i].amount);
-            pendingFees[campaign][token][key] -= amount;
             totalAmount += amount;
+            _pendingFees[key] -= amount;
             Campaign(campaign).sendTokens(token, recipient, amount);
             emit FeesDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
@@ -475,11 +479,12 @@ contract Flywheel is ReentrancyGuardTransient {
         returns (uint256 totalFeeAmount)
     {
         uint256 count = fees.length;
+        mapping(bytes32 key => uint256 amount) storage _pendingFees = pendingFees[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (fees[i].key, fees[i].amount);
             if (amount > 0) {
                 totalFeeAmount += amount;
-                pendingFees[campaign][token][key] += amount;
+                _pendingFees[key] += amount;
                 emit FeeAllocated(campaign, token, key, amount, fees[i].extraData);
             }
         }

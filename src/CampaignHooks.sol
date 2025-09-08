@@ -32,7 +32,9 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function onCreateCampaign(address campaign, bytes calldata hookData) external virtual onlyFlywheel {}
+    function onCreateCampaign(address campaign, bytes calldata hookData) external onlyFlywheel {
+        _onCreateCampaign(campaign, hookData);
+    }
 
     /// @notice Processes reward for a campaign
     ///
@@ -47,11 +49,10 @@ abstract contract CampaignHooks {
     /// @dev Only callable by the flywheel contract
     function onReward(address sender, address campaign, address token, bytes calldata hookData)
         external
-        virtual
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
-        revert Unsupported();
+        return _onReward(sender, campaign, token, hookData);
     }
 
     /// @notice Processes attribution for a campaign
@@ -66,11 +67,10 @@ abstract contract CampaignHooks {
     /// @dev Only callable by the flywheel contract
     function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
         external
-        virtual
         onlyFlywheel
         returns (Flywheel.Allocation[] memory allocations)
     {
-        revert Unsupported();
+        return _onAllocate(sender, campaign, token, hookData);
     }
 
     /// @notice Deallocates allocated rewards from a key for a campaign
@@ -79,13 +79,16 @@ abstract contract CampaignHooks {
     /// @param campaign Address of the campaign
     /// @param token Address of the token to deallocate from the key
     /// @param hookData Data for the campaign hook
+    ///
+    /// @return allocations Array of allocations to be deallocated
+    ///
+    /// @dev Only callable by the flywheel contract
     function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
         external
-        virtual
         onlyFlywheel
         returns (Flywheel.Allocation[] memory allocations)
     {
-        revert Unsupported();
+        return _onDeallocate(sender, campaign, token, hookData);
     }
 
     /// @notice Distributes payouts for a campaign
@@ -101,11 +104,10 @@ abstract contract CampaignHooks {
     /// @dev Only callable by the flywheel contract
     function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
-        virtual
         onlyFlywheel
         returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
     {
-        revert Unsupported();
+        return _onDistribute(sender, campaign, token, hookData);
     }
 
     /// @notice Distribute fees earned from a campaign
@@ -120,11 +122,10 @@ abstract contract CampaignHooks {
     /// @dev Only callable by the flywheel contract
     function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         external
-        virtual
         onlyFlywheel
         returns (Flywheel.Distribution[] memory distributions)
     {
-        revert Unsupported();
+        return _onDistributeFees(sender, campaign, token, hookData);
     }
 
     /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
@@ -134,14 +135,15 @@ abstract contract CampaignHooks {
     /// @param token Address of the token to withdraw
     /// @param hookData Data for the campaign hook
     ///
+    /// @return payout The payout to be withdrawn
+    ///
     /// @dev Only callable by the flywheel contract
     function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         external
-        virtual
         onlyFlywheel
         returns (Flywheel.Payout memory payout)
     {
-        revert Unsupported();
+        return _onWithdrawFunds(sender, campaign, token, hookData);
     }
 
     /// @notice Updates the campaign status
@@ -158,8 +160,8 @@ abstract contract CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) external virtual onlyFlywheel {
-        revert Unsupported();
+    ) external onlyFlywheel {
+        _onUpdateStatus(sender, campaign, oldStatus, newStatus, hookData);
     }
 
     /// @notice Updates the metadata for a campaign
@@ -169,19 +171,135 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @dev Only callable by the flywheel contract
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
-        virtual
-        onlyFlywheel
-    {
-        revert Unsupported();
+    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData) external onlyFlywheel {
+        _onUpdateMetadata(sender, campaign, hookData);
     }
 
     /// @notice Returns the URI for a campaign
     ///
     /// @param campaign Address of the campaign
     /// @return uri The URI for the campaign
-    function campaignURI(address campaign) external view virtual returns (string memory uri) {
+    function campaignURI(address campaign) external view virtual returns (string memory uri);
+
+    /// @notice Creates a campaign in the hook
+    ///
+    /// @param campaign Address of the campaign
+    /// @param hookData Data for the campaign hook
+    function _onCreateCampaign(address campaign, bytes calldata hookData) internal virtual;
+
+    /// @notice Processes reward for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to be rewarded
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return payouts Array of payouts to be rewarded
+    /// @return fees Array of fees to be paid
+    function _onReward(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        virtual
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
+    {
         revert Unsupported();
     }
+
+    /// @notice Processes attribution for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to be distributed
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return allocations Array of allocations to be distributed
+    function _onAllocate(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        virtual
+        returns (Flywheel.Allocation[] memory allocations)
+    {
+        revert Unsupported();
+    }
+
+    /// @notice Deallocates allocated rewards from a key for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to deallocate from the key
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return allocations Array of allocations to be deallocated
+    function _onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        virtual
+        returns (Flywheel.Allocation[] memory allocations)
+    {
+        revert Unsupported();
+    }
+
+    /// @notice Distributes payouts for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to be distributed
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return distributions Array of distributions to be distributed
+    /// @return fees Array of fees to be paid
+    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        virtual
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Allocation[] memory fees)
+    {
+        revert Unsupported();
+    }
+
+    /// @notice Distribute fees earned from a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to collect fees from
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return distributions Array of distributions for the fees
+    function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        virtual
+        returns (Flywheel.Distribution[] memory distributions)
+    {
+        revert Unsupported();
+    }
+
+    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param token Address of the token to withdraw
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return payout The payout to be withdrawn
+    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        virtual
+        returns (Flywheel.Payout memory payout);
+
+    /// @notice Updates the campaign status
+    ///
+    /// @param campaign Address of the campaign
+    /// @param oldStatus Old status of the campaign
+    /// @param newStatus New status of the campaign
+    /// @param hookData Data for the campaign hook
+    function _onUpdateStatus(
+        address sender,
+        address campaign,
+        Flywheel.CampaignStatus oldStatus,
+        Flywheel.CampaignStatus newStatus,
+        bytes calldata hookData
+    ) internal virtual;
+
+    /// @notice Updates the metadata for a campaign
+    ///
+    /// @param sender Address of the sender
+    /// @param campaign Address of the campaign
+    /// @param hookData Data for the campaign hook
+    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal virtual;
 }

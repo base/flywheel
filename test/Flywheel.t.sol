@@ -64,7 +64,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Deploy hook
         hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
 
-        // Create a basic campaign for tests
+        // Create a basic campaign for tests (without fees)
         _createCampaign();
     }
 
@@ -77,7 +77,13 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         string[] memory allowedRefCodes = new string[](0);
         bytes memory hookData = abi.encode(
-            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
         );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
@@ -115,17 +121,35 @@ contract FlywheelTest is FlywheelTestHelpers {
     }
 
     function test_offchainAttribution() public {
+        // Set attribution provider fee and create new campaign for this test
+        vm.prank(attributionProvider);
+        // Attribution fee is now set during campaign creation
+
+        // Create new campaign with fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 101, hookData);
+
         // Activate campaign
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(testCampaign, INITIAL_BALANCE);
 
         // Create offchain attribution data
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -149,7 +173,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution with reward (immediate payout)
         vm.prank(attributionProvider);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.reward(testCampaign, address(token), attributionData);
 
         // Check that publisher received tokens immediately
         uint256 payoutAmount = 100e18;
@@ -160,24 +184,42 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Check attribution provider fee is allocated
         uint256 expectedFee = feeAmount;
         assertEq(
-            flywheel.pendingFees(campaign, address(token), bytes32(bytes20(attributionProvider))),
+            flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider should have fee allocated"
         );
     }
 
     function test_onchainAttribution() public {
+        // Set attribution provider fee and create new campaign for this test
+        vm.prank(attributionProvider);
+        // Attribution fee is now set during campaign creation
+
+        // Create new campaign with fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 102, hookData);
+
         // Activate campaign
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(testCampaign, INITIAL_BALANCE);
 
         // Create onchain attribution data
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -204,7 +246,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution with reward (immediate payout)
         vm.prank(attributionProvider);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.reward(testCampaign, address(token), attributionData);
 
         // Check that publisher received tokens immediately
         uint256 payoutAmount2 = 200 * 10 ** 18;
@@ -215,7 +257,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         // Check attribution provider fee is allocated
         uint256 expectedFee = feeAmount2;
         assertEq(
-            flywheel.pendingFees(campaign, address(token), bytes32(bytes20(attributionProvider))),
+            flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider))),
             expectedFee,
             "Attribution provider should have fee allocated"
         );
@@ -224,17 +266,35 @@ contract FlywheelTest is FlywheelTestHelpers {
     function test_distributeAndWithdraw() public {
         address payoutRecipient = address(0x1222);
 
+        // Set attribution provider fee and create new campaign for this test
+        vm.prank(attributionProvider);
+        // Attribution fee is now set during campaign creation
+
+        // Create new campaign with fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 104, hookData);
+
         // Activate campaign
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(testCampaign, INITIAL_BALANCE);
 
         // Create attribution data
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -255,7 +315,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution with reward (immediate payout)
         vm.prank(attributionProvider);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.reward(testCampaign, address(token), attributionData);
 
         // Verify payoutRecipient received tokens
         uint256 payoutAmount3 = 50 * 10 ** 18;
@@ -265,20 +325,20 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Finalize campaign
         vm.startPrank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.FINALIZED, "");
         vm.stopPrank();
 
         // First, attribution provider collects their fee
         vm.startPrank(attributionProvider);
-        flywheel.distributeFees(campaign, address(token), abi.encode(attributionProvider));
+        flywheel.distributeFees(testCampaign, address(token), abi.encode(attributionProvider));
         vm.stopPrank();
 
         // Withdraw remaining tokens
-        uint256 campaignBalance = token.balanceOf(campaign);
+        uint256 campaignBalance = token.balanceOf(testCampaign);
         vm.startPrank(advertiser);
         uint256 advertiserBalanceBefore = token.balanceOf(advertiser);
-        flywheel.withdrawFunds(campaign, address(token), abi.encode(advertiser, campaignBalance));
+        flywheel.withdrawFunds(testCampaign, address(token), abi.encode(advertiser, campaignBalance));
         uint256 advertiserBalanceAfter = token.balanceOf(advertiser);
 
         assertEq(
@@ -292,17 +352,35 @@ contract FlywheelTest is FlywheelTestHelpers {
     function test_distributeFees() public {
         address payoutRecipient = address(0x1222);
 
+        // Set attribution provider fee and create new campaign for this test
+        vm.prank(attributionProvider);
+        // Attribution fee is now set during campaign creation
+
+        // Create new campaign with fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 103, hookData);
+
         // Activate campaign
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(testCampaign, INITIAL_BALANCE);
 
         // Create attribution data to generate fees
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -323,24 +401,26 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution to generate fees
         vm.prank(attributionProvider);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.reward(testCampaign, address(token), attributionData);
 
         // Check that fees are available
         uint256 payoutAmount4 = 100 * 10 ** 18;
         uint256 expectedFee = payoutAmount4 * ATTRIBUTION_FEE_BPS / 10000;
-        uint256 availableFees = flywheel.pendingFees(campaign, address(token), bytes32(bytes20(attributionProvider)));
+        uint256 availableFees =
+            flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider)));
         assertEq(availableFees, expectedFee, "Should have correct attribution fee allocated");
 
         // Collect fees as attribution provider
         vm.startPrank(attributionProvider);
         uint256 balanceBefore = token.balanceOf(attributionProvider);
-        flywheel.distributeFees(campaign, address(token), abi.encode(attributionProvider));
+        flywheel.distributeFees(testCampaign, address(token), abi.encode(attributionProvider));
         uint256 balanceAfter = token.balanceOf(attributionProvider);
 
         assertEq(balanceAfter - balanceBefore, expectedFee, "Attribution provider should receive fee tokens");
 
         // Check that fees are cleared
-        uint256 remainingFees = flywheel.pendingFees(campaign, address(token), bytes32(bytes20(attributionProvider)));
+        uint256 remainingFees =
+            flywheel.pendingFees(testCampaign, address(token), bytes32(bytes20(attributionProvider)));
         assertEq(remainingFees, 0, "Fees should be cleared after collection");
         vm.stopPrank();
     }
@@ -496,9 +576,11 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.reward(campaign, address(token2), abi.encode(attributions2));
         vm.stopPrank();
 
-        // Verify both recipients received their respective tokens
-        assertEq(token.balanceOf(recipient1), 50e18, "Recipient1 should receive token1");
-        assertEq(token2.balanceOf(recipient2), 25e18, "Recipient2 should receive token2");
+        // Verify both recipients received their respective tokens (minus 5% fee)
+        uint256 expectedRecipient1Amount = 50e18 * (10000 - 500) / 10000; // 47.5e18 (5% fee deducted)
+        uint256 expectedRecipient2Amount = 25e18 * (10000 - 500) / 10000; // 23.75e18 (5% fee deducted)
+        assertEq(token.balanceOf(recipient1), expectedRecipient1Amount, "Recipient1 should receive token1");
+        assertEq(token2.balanceOf(recipient2), expectedRecipient2Amount, "Recipient2 should receive token2");
     }
 
     function test_multiTokenFeeCollection() public {
@@ -507,16 +589,36 @@ contract FlywheelTest is FlywheelTestHelpers {
         holders[0] = advertiser;
         DummyERC20 token2 = new DummyERC20(holders);
 
-        // Activate campaign and set fee
-        vm.startPrank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-        hook.setAttributionProviderFee(1000); // 10%
-        vm.stopPrank();
+        // Set 10% fee for this test and create new campaign
+        vm.prank(attributionProvider);
+        // Attribution fee (10%) is now set during campaign creation
+
+        // Create new campaign with 10% fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
+        address multiTokenCampaign = flywheel.createCampaign(address(hook), 999, hookData);
+
+        // Activate the new campaign
+        vm.prank(attributionProvider);
+        flywheel.updateStatus(multiTokenCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Fund campaign with both tokens
         vm.startPrank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
-        token2.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(multiTokenCampaign, INITIAL_BALANCE);
+        token2.transfer(multiTokenCampaign, INITIAL_BALANCE);
         vm.stopPrank();
 
         // Create attributions that generate fees in both tokens
@@ -536,19 +638,24 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attributions for both tokens
         vm.startPrank(attributionProvider);
-        flywheel.reward(campaign, address(token), abi.encode(attributions));
-        flywheel.reward(campaign, address(token2), abi.encode(attributions));
+        flywheel.reward(multiTokenCampaign, address(token), abi.encode(attributions));
+        flywheel.reward(multiTokenCampaign, address(token2), abi.encode(attributions));
         vm.stopPrank();
 
         // Verify fees are collected for both tokens
-        uint256 expectedFee = 100e18 * 1000 / 10000; // 10%
-        assertEq(flywheel.pendingFees(campaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee);
-        assertEq(flywheel.pendingFees(campaign, address(token2), bytes32(bytes20(attributionProvider))), expectedFee);
+        uint256 expectedFee = 100e18 * 500 / 10000; // 5%
+        assertEq(
+            flywheel.pendingFees(multiTokenCampaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee
+        );
+        assertEq(
+            flywheel.pendingFees(multiTokenCampaign, address(token2), bytes32(bytes20(attributionProvider))),
+            expectedFee
+        );
 
         // Collect fees for both tokens
         vm.startPrank(attributionProvider);
-        flywheel.distributeFees(campaign, address(token), abi.encode(attributionProvider));
-        flywheel.distributeFees(campaign, address(token2), abi.encode(attributionProvider));
+        flywheel.distributeFees(multiTokenCampaign, address(token), abi.encode(attributionProvider));
+        flywheel.distributeFees(multiTokenCampaign, address(token2), abi.encode(attributionProvider));
         vm.stopPrank();
 
         // Verify attribution provider received fees in both tokens
@@ -606,8 +713,15 @@ contract FlywheelTest is FlywheelTestHelpers {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://test.com"});
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, "https://test-campaign.com", allowedRefs, configs, 7 days);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://test-campaign.com",
+            allowedRefs,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         // Predict the campaign address
         address predictedAddress = flywheel.predictCampaignAddress(address(hook), 999, hookData);
@@ -623,8 +737,10 @@ contract FlywheelTest is FlywheelTestHelpers {
         string[] memory allowedRefs = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
 
-        bytes memory hookData1 = abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs, 7 days);
-        bytes memory hookData2 = abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days);
+        bytes memory hookData1 =
+            abi.encode(attributionProvider, advertiser, "campaign1", allowedRefs, configs, 7 days, ATTRIBUTION_FEE_BPS);
+        bytes memory hookData2 =
+            abi.encode(attributionProvider, advertiser, "campaign2", allowedRefs, configs, 7 days, ATTRIBUTION_FEE_BPS);
 
         // Same nonce, different data should produce different addresses
         address addr1 = flywheel.predictCampaignAddress(address(hook), 100, hookData1);
@@ -1368,17 +1484,35 @@ contract FlywheelTest is FlywheelTestHelpers {
     }
 
     function test_reward_emitsPayoutRewardedEvent() public {
+        // Set attribution provider fee and create new campaign for this test
+        vm.prank(attributionProvider);
+        // Attribution fee is now set during campaign creation
+
+        // Create new campaign with fee cached
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
+        configs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
+        string[] memory allowedRefCodes = new string[](0);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
+        address testCampaign = flywheel.createCampaign(address(hook), 105, hookData);
+
         // Activate campaign first
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Fund campaign by transferring tokens directly to the Campaign
         vm.prank(advertiser);
-        token.transfer(campaign, INITIAL_BALANCE);
+        token.transfer(testCampaign, INITIAL_BALANCE);
 
         // Create attribution
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -1399,10 +1533,10 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Expect the payout rewarded event
         vm.expectEmit(true, false, false, true);
-        emit Flywheel.PayoutRewarded(campaign, address(token), publisher1Payout, 95e18, ""); // Amount minus 5% fee
+        emit Flywheel.PayoutRewarded(testCampaign, address(token), publisher1Payout, 95e18, ""); // Amount minus 5% fee
 
         // Process attribution with reward
         vm.prank(attributionProvider);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.reward(testCampaign, address(token), attributionData);
     }
 }

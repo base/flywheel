@@ -276,7 +276,7 @@ contract OnRewardTest is CashbackRewardsBase {
         CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](2);
         paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: firstPayment, payoutAmount: firstReward});
         paymentRewards[1] = CashbackRewards.PaymentReward({paymentInfo: secondPayment, payoutAmount: secondReward});
-        bytes memory batchHookData = abi.encode(paymentRewards);
+        bytes memory batchHookData = abi.encode(paymentRewards, true);
 
         // Get initial states
         CashbackRewards.RewardState memory firstRewardsBefore = getRewardsInfo(firstPayment, unlimitedCashbackCampaign);

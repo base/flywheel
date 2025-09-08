@@ -134,7 +134,7 @@ contract CashbackRewardsBase is Test {
     {
         CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
         paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: rewardAmount});
-        return abi.encode(paymentRewards);
+        return abi.encode(paymentRewards, true);
     }
 
     /// @notice Sign ERC3009 receiveWithAuthorization for payment
