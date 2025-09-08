@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {Flywheel} from "../src/Flywheel.sol";
 import {BuilderCodes} from "../src/BuilderCodes.sol";
 import {AdConversion} from "../src/hooks/AdConversion.sol";
@@ -396,6 +397,42 @@ contract AdConversionTest is PublisherTestSetup {
         hook.addAllowedPublisherRefCode(allowlistCampaign, "code1");
 
         // Verify it was added
+        assertTrue(hook.isPublisherRefCodeAllowed(allowlistCampaign, "code1"));
+    }
+
+    function test_addAllowedPublisherRefCode_redundantCall() public {
+        // First create a campaign with allowlist enabled
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](0);
+        string[] memory allowedRefCodes = new string[](1);
+        allowedRefCodes[0] = "TEST_REF_CODE";
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, "https://example.com/campaign", allowedRefCodes, configs, 7 days
+        );
+
+        address allowlistCampaign = flywheel.createCampaign(address(hook), 4, hookData);
+
+        // Register a new publisher
+        vm.prank(owner);
+        publisherRegistry.register("code1", address(0x2001), address(0x2001));
+
+        // Add publisher to allowlist first time
+        vm.prank(advertiser);
+        hook.addAllowedPublisherRefCode(allowlistCampaign, "code1");
+
+        // Verify it was added
+        assertTrue(hook.isPublisherRefCodeAllowed(allowlistCampaign, "code1"));
+
+        // Try to add the same publisher again - should not emit event
+        vm.recordLogs();
+        vm.prank(advertiser);
+        hook.addAllowedPublisherRefCode(allowlistCampaign, "code1");
+
+        // Verify no events were emitted (redundant call should be no-op)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 0, "No events should be emitted for redundant calls");
+
+        // Verify publisher is still allowed
         assertTrue(hook.isPublisherRefCodeAllowed(allowlistCampaign, "code1"));
     }
 

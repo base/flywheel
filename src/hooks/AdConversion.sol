@@ -494,6 +494,11 @@ contract AdConversion is CampaignHooks {
             revert Unauthorized();
         }
 
+        // Check if already allowed to avoid redundant operations
+        if (allowedPublishers[campaign][publisherRefCode]) {
+            return; // Already allowed, no-op
+        }
+
         // Add to mapping
         allowedPublishers[campaign][publisherRefCode] = true;
         emit PublisherAddedToAllowlist(campaign, publisherRefCode);
