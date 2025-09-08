@@ -152,6 +152,6 @@ contract SimpleRewards is CampaignHooks {
         override
         onlyManager(sender, campaign)
     {
-        campaignURI[campaign] = string(hookData);
+        if (hookData.length > 0) campaignURI[campaign] = string(hookData);
     }
 }
