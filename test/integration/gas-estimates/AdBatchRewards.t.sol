@@ -68,11 +68,23 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         configs[1] = AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: ONCHAIN_CONFIG_2_URL});
         configs[2] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: OFFCHAIN_CONFIG_1_URL});
 
+        // Register publisher FIRST before creating campaign
+        vm.prank(owner);
+        publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
+
+        // Attribution fee is now set during campaign creation
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = PUBLISHER_REF_CODE;
 
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            CAMPAIGN_METADATA_URL,
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
 
@@ -82,14 +94,6 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         // Set campaign to ACTIVE status
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Set attribution provider fee
-        vm.prank(attributionProvider);
-        hook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
-
-        // Register publisher
-        vm.prank(owner);
-        publisherRegistry.register(PUBLISHER_REF_CODE, publisherTba, publisherTba);
     }
 
     function _createAttribution(uint256 eventId, string memory clickIdPrefix, uint16 configId, uint256 txHashSeed)
@@ -257,8 +261,15 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         bytes32[] memory allowedRefCodes = new bytes32[](0); // Empty = allow all publishers
 
-        bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
+        bytes memory newHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            CAMPAIGN_METADATA_URL,
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         address multiPublisherCampaign = flywheel.createCampaign(address(hook), 2, newHookData);
 
@@ -349,8 +360,15 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         string[] memory allowedRefCodes = new string[](0); // Empty = allow all publishers
 
-        bytes memory newHookData =
-            abi.encode(attributionProvider, advertiser, CAMPAIGN_METADATA_URL, allowedRefCodes, configs, 7 days);
+        bytes memory newHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            CAMPAIGN_METADATA_URL,
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
 
         address userCampaign = flywheel.createCampaign(address(hook), 3, newHookData);
 

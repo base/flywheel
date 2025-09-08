@@ -24,7 +24,6 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
     /// @notice Test reentrancy protection in attribution processing
     function test_security_reentrancyProtection() public {
         address campaign = _createBasicCampaign(1);
-        _setAttributionProviderFee(500);
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
@@ -39,7 +38,6 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
     /// @notice Test cross-function reentrancy scenarios
     function test_security_crossFunctionReentrancy() public {
         address campaign = _createBasicCampaign(1);
-        _setAttributionProviderFee(250);
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
@@ -59,11 +57,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         address campaign = _createBasicCampaign(1);
         address maliciousUser = address(0xbad);
 
-        // Test that anyone can set their own attribution provider fee (this is intended behavior)
-        vm.prank(maliciousUser);
-        hook.setAttributionProviderFee(1000); // This should succeed - malicious user sets their own fee
-
-        // Test unauthorized access (function removed - no test needed)
+        // Fee management is now done at campaign creation time, not through global setting
 
         // Test unauthorized addAllowedPublisherRefCode
         vm.expectRevert(AdConversion.Unauthorized.selector);
@@ -94,7 +88,6 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
     /// @notice Test economic attack scenarios
     function test_security_economicAttacks() public {
         address campaign = _createBasicCampaign(1);
-        _setAttributionProviderFee(500);
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
@@ -107,26 +100,47 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         _processAttributionThroughFlywheel(campaign, attributions);
     }
 
-    /// @notice Test fee manipulation attacks
-    function test_security_feeManipulation() public {
+    /// @notice Test fee validation during campaign creation
+    function test_security_feeValidation() public {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+        string[] memory allowedRefCodes = new string[](0);
+
         // Test maximum fee attack - should revert with fee too high
+        bytes memory invalidHookData = abi.encode(
+            ATTRIBUTION_PROVIDER,
+            ADVERTISER,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(10001)
+        );
         vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidFeeBps.selector, 10001));
-        vm.prank(ATTRIBUTION_PROVIDER);
-        hook.setAttributionProviderFee(10001); // 100.01%
+        flywheel.createCampaign(address(hook), 123, invalidHookData);
 
         // Test that 100% fee is actually allowed (10000 BPS is valid)
-        vm.prank(ATTRIBUTION_PROVIDER);
-        hook.setAttributionProviderFee(10000); // 100% - this should succeed
+        bytes memory validHookData = abi.encode(
+            ATTRIBUTION_PROVIDER,
+            ADVERTISER,
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(10000)
+        );
+        address campaign = flywheel.createCampaign(address(hook), 124, validHookData);
 
-        // Test that anyone can set their own fee (this is intended behavior)
-        FeeManipulationAttacker feeAttacker = new FeeManipulationAttacker(address(hook));
-        feeAttacker.attemptFeeManipulation(); // This should succeed - attacker sets their own fee
+        // Verify fee was stored correctly
+        (,, uint16 storedFee,,,) = hook.state(campaign);
+        assertEq(storedFee, 10000);
     }
 
     /// @notice Test flash loan attack simulation
     function test_security_flashLoanResistance() public {
         address campaign = _createBasicCampaign(1);
-        _setAttributionProviderFee(0); // No fees to maximize extraction attempt
+        // No fees to maximize extraction attempt
         _fundCampaign(campaign, INITIAL_TOKEN_BALANCE);
         _activateCampaign(campaign);
 
@@ -214,12 +228,12 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
     /// @notice Test allowlist bypass attempts
     function test_security_allowlistBypass() public {
+        // Register the allowed publisher FIRST
+        setupPublisher(referralCodeRegistry, "code1", address(0x1001), address(0x1001), OWNER);
+
         string[] memory allowedRefCodes = new string[](1);
         allowedRefCodes[0] = "code1";
         address allowlistCampaign = _createCampaignWithAllowlist(2, allowedRefCodes);
-
-        // Register the allowed publisher
-        setupPublisher(referralCodeRegistry, "code1", address(0x1001), address(0x1001), OWNER);
 
         AllowlistBypassAttacker bypassAttacker = new AllowlistBypassAttacker(address(hook), allowlistCampaign);
 
@@ -345,20 +359,6 @@ contract PrivilegeEscalationAttacker {
     function attemptRoleImpersonation(address campaign) external {
         // Try to add publisher without being advertiser
         hook.addAllowedPublisherRefCode(campaign, "malicious_code");
-    }
-}
-
-/// @notice Mock fee manipulation attacker
-contract FeeManipulationAttacker {
-    AdConversion hook;
-
-    constructor(address _hook) {
-        hook = AdConversion(_hook);
-    }
-
-    function attemptFeeManipulation() external {
-        // Try to manipulate fees
-        hook.setAttributionProviderFee(10000); // Should fail due to access control
     }
 }
 

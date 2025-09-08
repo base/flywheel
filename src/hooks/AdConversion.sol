@@ -73,6 +73,8 @@ contract AdConversion is CampaignHooks {
         address advertiser;
         /// @dev Whether this campaign has a publisher allowlist
         bool hasAllowlist;
+        /// @dev Attribution provider fee in basis points, cached at campaign creation
+        uint16 attributionProviderFeeBps;
         /// @dev Address of the attribution provider
         address attributionProvider;
         /// @dev Duration for attribution deadline specific to this campaign
@@ -96,9 +98,6 @@ contract AdConversion is CampaignHooks {
     /// @notice Mapping of campaign addresses to finalization information
     mapping(address campaign => CampaignState) public state;
 
-    /// @notice Mapping of attribution provider addresses to their fee in basis points
-    mapping(address attributionProvider => uint16 feeBps) public attributionProviderFees;
-
     /// @notice Mapping from campaign to allowed publisher ref codes
     mapping(address campaign => mapping(string publisherRefCode => bool allowed)) public allowedPublishers;
 
@@ -111,15 +110,17 @@ contract AdConversion is CampaignHooks {
     /// @notice Emitted when an offchain attribution event occurred
     ///
     /// @param campaign Address of the campaign
+    /// @param isPublisherPayout True if original payout address was zero (publisher payout via registry)
     /// @param conversion The conversion data
-    event OffchainConversionProcessed(address indexed campaign, Conversion conversion);
+    event OffchainConversionProcessed(address indexed campaign, bool isPublisherPayout, Conversion conversion);
 
     /// @notice Emitted when an onchain attribution event occurred
     ///
     /// @param campaign Address of the campaign
+    /// @param isPublisherPayout True if original payout address was zero (publisher payout via registry)
     /// @param conversion The conversion data
     /// @param log The onchain log data
-    event OnchainConversionProcessed(address indexed campaign, Conversion conversion, Log log);
+    event OnchainConversionProcessed(address indexed campaign, bool isPublisherPayout, Conversion conversion, Log log);
 
     /// @notice Emitted when attribution deadline is updated
     ///
@@ -146,13 +147,6 @@ contract AdConversion is CampaignHooks {
     event AdCampaignCreated(
         address indexed campaign, address attributionProvider, address advertiser, string uri, uint48 attributionWindow
     );
-
-    /// @notice Emitted when an attribution provider updates their fee
-    ///
-    /// @param attributionProvider The attribution provider address
-    /// @param oldFeeBps The previous fee in basis points
-    /// @param newFeeBps The new fee in basis points
-    event AttributionProviderFeeUpdated(address indexed attributionProvider, uint16 oldFeeBps, uint16 newFeeBps);
 
     /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
@@ -199,20 +193,6 @@ contract AdConversion is CampaignHooks {
         publisherCodesRegistry = BuilderCodes(publisherCodesRegistry_);
     }
 
-    /// @notice Sets the fee for an attribution provider
-    ///
-    /// @param feeBps The fee in basis points (0 to 10000, where 10000 = 100%)
-    ///
-    /// @dev Only the attribution provider themselves can set their fee
-    function setAttributionProviderFee(uint16 feeBps) external {
-        if (feeBps > MAX_BPS) revert InvalidFeeBps(feeBps);
-
-        uint16 oldFeeBps = attributionProviderFees[msg.sender];
-        attributionProviderFees[msg.sender] = feeBps;
-
-        emit AttributionProviderFeeUpdated(msg.sender, oldFeeBps, feeBps);
-    }
-
     /// @inheritdoc CampaignHooks
     function _onCreateCampaign(address campaign, bytes calldata hookData) internal override {
         (
@@ -221,14 +201,18 @@ contract AdConversion is CampaignHooks {
             string memory uri,
             string[] memory allowedPublisherRefCodes,
             ConversionConfigInput[] memory configs,
-            uint48 campaignAttributionWindow
-        ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48));
+            uint48 campaignAttributionWindow,
+            uint16 attributionProviderFeeBps
+        ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48, uint16));
 
         // Validate attribution deadline duration (if non-zero, must be in days precision)
         if (campaignAttributionWindow % 1 days != 0) revert InvalidAttributionWindow(campaignAttributionWindow);
 
         // Validate attribution window is between 0 and 6 months (180 days)
         if (campaignAttributionWindow > 180 days) revert InvalidAttributionWindow(campaignAttributionWindow);
+
+        // Validate attribution provider fee
+        if (attributionProviderFeeBps > MAX_BPS) revert InvalidFeeBps(attributionProviderFeeBps);
 
         bool hasAllowlist = allowedPublisherRefCodes.length > 0;
 
@@ -238,14 +222,15 @@ contract AdConversion is CampaignHooks {
             advertiser: advertiser,
             attributionDeadline: 0,
             attributionWindow: campaignAttributionWindow,
-            hasAllowlist: hasAllowlist
+            hasAllowlist: hasAllowlist,
+            attributionProviderFeeBps: attributionProviderFeeBps
         });
         campaignURI[campaign] = uri;
 
         // Set up allowed publishers mapping if allowlist exists
         if (hasAllowlist) {
-            uint256 count = allowedPublisherRefCodes.length;
-            for (uint256 i = 0; i < count; i++) {
+            uint256 publisherCount = allowedPublisherRefCodes.length;
+            for (uint256 i = 0; i < publisherCount; i++) {
                 allowedPublishers[campaign][allowedPublisherRefCodes[i]] = true;
                 emit PublisherAddedToAllowlist(campaign, allowedPublisherRefCodes[i]);
             }
@@ -279,8 +264,8 @@ contract AdConversion is CampaignHooks {
         // Validate that the caller is the authorized attribution provider for this campaign
         if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
 
-        // Get the fee from the stored attribution provider fees
-        uint16 feeBps = attributionProviderFees[attributionProvider];
+        // Get the fee from the cached campaign state
+        uint16 feeBps = state[campaign].attributionProviderFeeBps;
 
         // Decode only the attributions from hookData
         Attribution[] memory attributions = abi.decode(hookData, (Attribution[]));
@@ -311,13 +296,13 @@ contract AdConversion is CampaignHooks {
             uint16 configId = attributions[i].conversion.configId;
             bytes memory logBytes = attributions[i].logBytes;
 
+            // Validating that the config exists
             if (configId != 0) {
                 if (configId > conversionConfigCount[campaign]) {
                     revert InvalidConversionConfigId();
                 }
 
                 ConversionConfig memory config = conversionConfigs[campaign][configId];
-                if (!config.isActive) revert ConversionConfigDisabled();
 
                 // Validate that the conversion type matches the config
                 if (config.isEventOnchain && logBytes.length == 0) revert InvalidConversionType();
@@ -326,8 +311,11 @@ contract AdConversion is CampaignHooks {
 
             address payoutAddress = attributions[i].conversion.payoutRecipient;
 
+            // Determine if attribution was for a publisher (original payout address was zero)
+            bool isPublisherPayout = (payoutAddress == address(0));
+
             // If the recipient is the zero address, we use the referral code registry to get the payout address
-            if (payoutAddress == address(0)) {
+            if (isPublisherPayout) {
                 payoutAddress = publisherCodesRegistry.payoutAddress(publisherRefCode);
                 attributions[i].conversion.payoutRecipient = payoutAddress;
             }
@@ -358,9 +346,9 @@ contract AdConversion is CampaignHooks {
             Conversion memory conversion = attributions[i].conversion;
 
             if (logBytes.length > 0) {
-                emit OnchainConversionProcessed(campaign, conversion, abi.decode(logBytes, (Log)));
+                emit OnchainConversionProcessed(campaign, isPublisherPayout, conversion, abi.decode(logBytes, (Log)));
             } else {
-                emit OffchainConversionProcessed(campaign, conversion);
+                emit OffchainConversionProcessed(campaign, isPublisherPayout, conversion);
             }
         }
 
@@ -413,27 +401,49 @@ contract AdConversion is CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) internal override {
-        // Prevent ACTIVE → INACTIVE transitions for ALL parties (no one can pause active campaigns)
+        address attributionProvider = state[campaign].attributionProvider;
+        address advertiser = state[campaign].advertiser;
+
+        // Only attribution provider and advertiser can update status
+        if (sender != attributionProvider && sender != advertiser) {
+            revert Unauthorized();
+        }
+
+        // Advertiser constraints from INACTIVE: only INACTIVE → FINALIZED allowed
+        if (oldStatus == Flywheel.CampaignStatus.INACTIVE) {
+            if (sender == advertiser && newStatus != Flywheel.CampaignStatus.FINALIZED) {
+                revert Unauthorized();
+            }
+            // Attribution provider constraint: cannot do INACTIVE → FINALIZING/FINALIZED (fund recovery is advertiser-only)
+            if (sender == attributionProvider && (newStatus != Flywheel.CampaignStatus.ACTIVE)) {
+                revert Unauthorized();
+            }
+        }
+
+        // Security restriction: No one can pause active campaigns (ACTIVE → INACTIVE)
         if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.INACTIVE) {
             revert Unauthorized();
         }
 
-        // Attribution provider can perform other valid state transitions
-        if (sender == state[campaign].attributionProvider) return;
+        // Attribution window protection: Advertiser cannot bypass FINALIZING (ACTIVE → FINALIZED) but Attribution Provider can
+        if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+            if (sender == advertiser) {
+                revert Unauthorized();
+            }
+        }
 
-        // Otherwise only advertiser allowed to update status
-        if (sender != state[campaign].advertiser) revert Unauthorized();
-
-        // Advertiser always allowed to start finalization delay
+        // Set attribution deadline when entering FINALIZING
         if (newStatus == Flywheel.CampaignStatus.FINALIZING) {
             state[campaign].attributionDeadline = uint48(block.timestamp) + state[campaign].attributionWindow;
             emit AttributionDeadlineUpdated(campaign, state[campaign].attributionDeadline);
-            return;
         }
 
-        // Advertiser only allowed to finalize, but only if delay has passed
-        if (newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
-        if (state[campaign].attributionDeadline > block.timestamp) revert Unauthorized();
+        // Attribution deadline enforcement for FINALIZING → FINALIZED for Advertiser
+        if (oldStatus == Flywheel.CampaignStatus.FINALIZING && newStatus == Flywheel.CampaignStatus.FINALIZED) {
+            if (sender == advertiser && state[campaign].attributionDeadline > block.timestamp) {
+                revert Unauthorized();
+            }
+        }
     }
 
     /// @inheritdoc CampaignHooks
@@ -458,6 +468,11 @@ contract AdConversion is CampaignHooks {
         // @notice: if the allowlist is not enabled during campaign creation, we revert
         if (!state[campaign].hasAllowlist) {
             revert Unauthorized();
+        }
+
+        // Check if already allowed to avoid redundant operations
+        if (allowedPublishers[campaign][publisherRefCode]) {
+            return; // Already allowed, no-op
         }
 
         // Add to mapping
@@ -495,6 +510,9 @@ contract AdConversion is CampaignHooks {
         if (configId == 0 || configId > conversionConfigCount[campaign]) {
             revert InvalidConversionConfigId();
         }
+
+        // Check if config is already disabled
+        if (!conversionConfigs[campaign][configId].isActive) revert ConversionConfigDisabled();
 
         // Disable the config
         conversionConfigs[campaign][configId].isActive = false;

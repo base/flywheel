@@ -68,7 +68,7 @@ abstract contract PublisherTestSetup is Test {
     /// @return code The generated code with value left-aligned and padded with zeros on the right
     function generateCode(uint256 value) public pure returns (string memory code) {
         if (value == 0) return "0";
-        vm.assume(value < 10 ** 33);
+        vm.assume(value < 10 ** 32);
 
         bytes memory alphabet = "0123456789";
 

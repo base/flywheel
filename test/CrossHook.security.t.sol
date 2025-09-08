@@ -152,14 +152,23 @@ contract CrossHookSecurityTest is Test {
         publisherRegistry.register("victim", victim, victim); // For security tests
         vm.stopPrank();
 
+        // Attribution fee is now set during campaign creation
+
         // Create AdConversion campaign
         string[] memory allowedRefCodes = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] =
             AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://ad-campaign.com/metadata"});
 
-        bytes memory adHookData =
-            abi.encode(attributionProvider, advertiser, "https://ad-campaign.com", allowedRefCodes, configs, 7 days);
+        bytes memory adHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://ad-campaign.com",
+            allowedRefCodes,
+            configs,
+            7 days,
+            ATTRIBUTION_FEE_BPS
+        );
         adCampaign = flywheel.createCampaign(address(adHook), 1, adHookData);
 
         // Create CashbackRewards campaign
@@ -183,10 +192,6 @@ contract CrossHookSecurityTest is Test {
         rewardToken.transfer(simpleCampaign, CAMPAIGN_FUNDING);
         bonusToken.transfer(simpleCampaign, CAMPAIGN_FUNDING / 2);
         vm.stopPrank();
-
-        // Set attribution fee
-        vm.prank(attributionProvider);
-        adHook.setAttributionProviderFee(ATTRIBUTION_FEE_BPS);
 
         // Activate all campaigns for security tests
         vm.prank(paymentManager);
@@ -577,9 +582,32 @@ contract CrossHookSecurityTest is Test {
 
     /// @notice Test cross-hook fee manipulation
     function test_security_crossHookFeeManipulation() public {
-        // Set high attribution provider fee for ad campaign
+        // Set high attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
-        adHook.setAttributionProviderFee(5000); // 50% fee
+        // Attribution fee (50%) is now set during campaign creation
+
+        // Create new campaign with 50% fee cached
+        string[] memory allowedRefCodes = new string[](0);
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false,
+            metadataURI: "https://high-fee-campaign.com/metadata"
+        });
+
+        bytes memory highFeeHookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            "https://high-fee-campaign.com",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(5000)
+        );
+        address highFeeCampaign = flywheel.createCampaign(address(adHook), 999, highFeeHookData);
+
+        // Fund the new campaign
+        vm.prank(advertiser);
+        rewardToken.transfer(highFeeCampaign, CAMPAIGN_FUNDING);
 
         // Create attribution using registered publisher
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
@@ -603,7 +631,7 @@ contract CrossHookSecurityTest is Test {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            adHook.onReward(attributionProvider, adCampaign, address(rewardToken), adHookData);
+            adHook.onReward(attributionProvider, highFeeCampaign, address(rewardToken), adHookData);
 
         // Fee should be 50% of 200e18 = 100e18
         assertEq(fees.length, 1);

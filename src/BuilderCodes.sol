@@ -41,7 +41,7 @@ contract BuilderCodes is
 
     /// @notice EIP-712 typehash for registration
     bytes32 public constant REGISTRATION_TYPEHASH =
-        keccak256("BuilderCodeRegistration(string code,address initialOwner,address payoutAddress)");
+        keccak256("BuilderCodeRegistration(string code,address initialOwner,address payoutAddress,uint48 deadline)");
 
     /// @notice Allowed characters for referral codes
     string public constant ALLOWED_CHARACTERS = "0123456789abcdefghijklmonpqrstuvwxyz_";
@@ -75,6 +75,9 @@ contract BuilderCodes is
 
     /// @notice Thrown when provided address is invalid (usually zero address)
     error ZeroAddress();
+
+    /// @notice Thrown when signed registration deadline has passed
+    error AfterRegistrationDeadline(uint48 deadline);
 
     /// @notice Thrown when builder code is invalid
     error InvalidCode(string code);
@@ -124,21 +127,26 @@ contract BuilderCodes is
     /// @param code Custom builder code for the builder code
     /// @param initialOwner Owner of the builder code
     /// @param payoutAddress Default payout address for all chains
+    /// @param deadline Deadline to submit the registration
     /// @param registrar Address of the registrar
     /// @param signature Signature of the registrar
     function registerWithSignature(
         string memory code,
         address initialOwner,
         address payoutAddress,
+        uint48 deadline,
         address registrar,
         bytes memory signature
     ) external {
+        // Check deadline has not passed
+        if (block.timestamp > deadline) revert AfterRegistrationDeadline(deadline);
+
         // Check registrar has role
         _checkRole(REGISTER_ROLE, registrar);
 
         // Check signature is valid
         bytes32 structHash =
-            keccak256(abi.encode(REGISTRATION_TYPEHASH, keccak256(bytes(code)), initialOwner, payoutAddress));
+            keccak256(abi.encode(REGISTRATION_TYPEHASH, keccak256(bytes(code)), initialOwner, payoutAddress, deadline));
         if (!SignatureCheckerLib.isValidSignatureNow(registrar, _hashTypedData(structHash), signature)) {
             revert Unauthorized();
         }
@@ -258,8 +266,9 @@ contract BuilderCodes is
     ///
     /// @return True if the referral code is valid
     function isValidCode(string memory code) public pure returns (bool) {
-        // Early return invalid if code is zero
-        if (bytes(code).length == 0) return false;
+        // Early return invalid if code is zero or over 32 bytes/characters
+        uint256 length = bytes(code).length;
+        if (length == 0 || length > 32) return false;
 
         // Return if code is 7-bit ASCII matching the allowed characters
         return LibString.is7BitASCII(code, ALLOWED_CHARACTERS_LOOKUP);
@@ -328,6 +337,13 @@ contract BuilderCodes is
     function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {
         name = "Builder Codes";
         version = "1";
+    }
+
+    /// @notice Returns if the domain name and version may change
+    ///
+    /// @return True if the domain name and version may change
+    function _domainNameAndVersionMayChange() internal pure override returns (bool) {
+        return true;
     }
 
     /// @notice Gets the storage reference for the registry
