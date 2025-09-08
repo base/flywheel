@@ -168,7 +168,7 @@ contract AdFlowTest is PublisherTestSetup {
         // 4. Process attributions
         vm.startPrank(provider);
         bytes memory attributionData = abi.encode(attributions);
-        flywheel.reward(campaign, address(usdc), attributionData);
+        flywheel.send(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // 5. Verify attributions were processed
@@ -244,7 +244,7 @@ contract AdFlowTest is PublisherTestSetup {
         vm.expectEmit(true, false, false, true);
         emit AdConversion.OnchainConversionProcessed(campaign, false, attributions[0].conversion, logData);
 
-        flywheel.reward(campaign, address(usdc), attributionData);
+        flywheel.send(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // Verify attribution processed correctly
@@ -282,7 +282,7 @@ contract AdFlowTest is PublisherTestSetup {
         vm.startPrank(makeAddr("unauthorized_provider"));
         bytes memory attributionData = abi.encode(attributions);
         vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.reward(campaign, address(usdc), attributionData);
+        flywheel.send(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         // Try to withdraw funds as unauthorized user
@@ -396,7 +396,7 @@ contract AdFlowTest is PublisherTestSetup {
         vm.startPrank(provider);
         bytes memory attributionData = abi.encode(attributions);
         // Should succeed even with disabled config
-        flywheel.reward(campaign, address(usdc), attributionData);
+        flywheel.send(campaign, address(usdc), attributionData);
         vm.stopPrank();
 
         console2.log("Conversion config management tests completed successfully!");

@@ -166,7 +166,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), emptyData);
+            hook.onSend(ATTRIBUTION_PROVIDER, campaign, address(token), emptyData);
         assertEq(payouts.length, 0);
         assertEq(fees.length, 1);
         assertEq(fees[0].key, bytes32(bytes20(ATTRIBUTION_PROVIDER)));
@@ -175,7 +175,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
         // Test malformed attribution data - use try/catch to handle graceful errors
         vm.prank(address(flywheel));
-        try hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), "invalid_data") {
+        try hook.onSend(ATTRIBUTION_PROVIDER, campaign, address(token), "invalid_data") {
             // If it succeeds, that's also valid (graceful error handling)
             assertTrue(true, "Contract handled malformed data gracefully");
         } catch {
@@ -186,7 +186,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
         // Test oversized data attack - use try/catch approach
         bytes memory oversizedData = new bytes(1024 * 1024); // 1MB of data
         vm.prank(address(flywheel));
-        try hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), oversizedData) {
+        try hook.onSend(ATTRIBUTION_PROVIDER, campaign, address(token), oversizedData) {
             // If it succeeds, verify reasonable behavior
             assertTrue(true, "Contract handled oversized data gracefully");
         } catch {
@@ -219,7 +219,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
         vm.expectRevert(); // Should handle boundary conditions safely
         vm.prank(address(flywheel));
-        hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), abi.encode(boundaryAttacks));
+        hook.onSend(ATTRIBUTION_PROVIDER, campaign, address(token), abi.encode(boundaryAttacks));
     }
 
     // =============================================================
@@ -295,7 +295,7 @@ contract AdConversionSecurityTest is AdConversionTestHelpers {
 
         // Should either succeed with reasonable gas or fail gracefully
         vm.prank(address(flywheel));
-        try hook.onReward(ATTRIBUTION_PROVIDER, campaign, address(token), abi.encode(massiveAttributions)) {
+        try hook.onSend(ATTRIBUTION_PROVIDER, campaign, address(token), abi.encode(massiveAttributions)) {
             // If it succeeds, verify gas usage is reasonable
             assertTrue(gasleft() > 100000, "Should not exhaust all gas");
         } catch {

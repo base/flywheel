@@ -105,7 +105,7 @@ contract CampaignHooksTest is Test {
 
         vm.prank(address(flywheel));
         vm.expectRevert(CampaignHooks.Unsupported.selector);
-        hooks.onReward(user, campaign, token, hookData);
+        hooks.onSend(user, campaign, token, hookData);
     }
 
     /// @notice Test onReward reverts when not called by flywheel
@@ -114,7 +114,7 @@ contract CampaignHooksTest is Test {
 
         vm.prank(user);
         vm.expectRevert();
-        hooks.onReward(user, campaign, token, hookData);
+        hooks.onSend(user, campaign, token, hookData);
     }
 
     /// @notice Test onAllocate reverts with Unsupported

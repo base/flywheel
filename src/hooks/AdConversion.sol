@@ -256,7 +256,7 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onReward(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
+    function _onSend(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         internal
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)

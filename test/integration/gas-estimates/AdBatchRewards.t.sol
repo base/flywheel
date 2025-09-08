@@ -205,7 +205,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Execute batch attribution
         vm.prank(attributionProvider);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Calculate expected amounts
         uint256 totalPayout = numEvents * PAYOUT_PER_EVENT;
@@ -317,7 +317,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Execute batch attribution
         vm.prank(attributionProvider);
-        flywheel.reward(multiPublisherCampaign, address(token), hookData);
+        flywheel.send(multiPublisherCampaign, address(token), hookData);
 
         // Calculate expected amounts
         uint256 totalPayout = numEvents * PAYOUT_PER_EVENT;
@@ -408,7 +408,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
 
         // Execute batch attribution
         vm.prank(attributionProvider);
-        flywheel.reward(userCampaign, address(token), hookData);
+        flywheel.send(userCampaign, address(token), hookData);
 
         // Calculate expected amounts
         uint256 totalPayout = numEvents * PAYOUT_PER_EVENT;

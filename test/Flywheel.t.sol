@@ -173,7 +173,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution with reward (immediate payout)
         vm.prank(attributionProvider);
-        flywheel.reward(testCampaign, address(token), attributionData);
+        flywheel.send(testCampaign, address(token), attributionData);
 
         // Check that publisher received tokens immediately
         uint256 payoutAmount = 100e18;
@@ -246,7 +246,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution with reward (immediate payout)
         vm.prank(attributionProvider);
-        flywheel.reward(testCampaign, address(token), attributionData);
+        flywheel.send(testCampaign, address(token), attributionData);
 
         // Check that publisher received tokens immediately
         uint256 payoutAmount2 = 200 * 10 ** 18;
@@ -315,7 +315,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution with reward (immediate payout)
         vm.prank(attributionProvider);
-        flywheel.reward(testCampaign, address(token), attributionData);
+        flywheel.send(testCampaign, address(token), attributionData);
 
         // Verify payoutRecipient received tokens
         uint256 payoutAmount3 = 50 * 10 ** 18;
@@ -401,7 +401,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attribution to generate fees
         vm.prank(attributionProvider);
-        flywheel.reward(testCampaign, address(token), attributionData);
+        flywheel.send(testCampaign, address(token), attributionData);
 
         // Check that fees are available
         uint256 payoutAmount4 = 100 * 10 ** 18;
@@ -572,8 +572,8 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process both attributions
         vm.startPrank(attributionProvider);
-        flywheel.reward(campaign, address(token), abi.encode(attributions1));
-        flywheel.reward(campaign, address(token2), abi.encode(attributions2));
+        flywheel.send(campaign, address(token), abi.encode(attributions1));
+        flywheel.send(campaign, address(token2), abi.encode(attributions2));
         vm.stopPrank();
 
         // Verify both recipients received their respective tokens (minus 5% fee)
@@ -638,8 +638,8 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Process attributions for both tokens
         vm.startPrank(attributionProvider);
-        flywheel.reward(multiTokenCampaign, address(token), abi.encode(attributions));
-        flywheel.reward(multiTokenCampaign, address(token2), abi.encode(attributions));
+        flywheel.send(multiTokenCampaign, address(token), abi.encode(attributions));
+        flywheel.send(multiTokenCampaign, address(token2), abi.encode(attributions));
         vm.stopPrank();
 
         // Verify fees are collected for both tokens
@@ -1037,7 +1037,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(stateManager);
-        flywheel.reward(stateCampaign, address(token), abi.encode(payouts));
+        flywheel.send(stateCampaign, address(token), abi.encode(payouts));
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(stateManager);
@@ -1057,7 +1057,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Test all payout functions in ACTIVE state
         vm.startPrank(stateManager);
-        flywheel.reward(stateCampaign, address(token), abi.encode(payouts));
+        flywheel.send(stateCampaign, address(token), abi.encode(payouts));
 
         // Test allocate/distribute/deallocate cycle properly
         flywheel.allocate(stateCampaign, address(token), abi.encode(payouts));
@@ -1073,7 +1073,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.updateStatus(stateCampaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         vm.startPrank(stateManager);
-        flywheel.reward(stateCampaign, address(token), abi.encode(payouts));
+        flywheel.send(stateCampaign, address(token), abi.encode(payouts));
 
         // Test allocate/distribute/deallocate cycle properly in FINALIZING state
         flywheel.allocate(stateCampaign, address(token), abi.encode(payouts));
@@ -1090,7 +1090,7 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(stateManager);
-        flywheel.reward(stateCampaign, address(token), abi.encode(payouts));
+        flywheel.send(stateCampaign, address(token), abi.encode(payouts));
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(stateManager);
@@ -1483,7 +1483,7 @@ contract FlywheelTest is FlywheelTestHelpers {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
     }
 
-    function test_reward_emitsPayoutRewardedEvent() public {
+    function test_send_emitsPayoutSentEvent() public {
         // Set attribution provider fee and create new campaign for this test
         vm.prank(attributionProvider);
         // Attribution fee is now set during campaign creation
@@ -1533,10 +1533,10 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Expect the payout rewarded event
         vm.expectEmit(true, false, false, true);
-        emit Flywheel.PayoutRewarded(testCampaign, address(token), publisher1Payout, 95e18, ""); // Amount minus 5% fee
+        emit Flywheel.PayoutSent(testCampaign, address(token), publisher1Payout, 95e18, ""); // Amount minus 5% fee
 
         // Process attribution with reward
         vm.prank(attributionProvider);
-        flywheel.reward(testCampaign, address(token), attributionData);
+        flywheel.send(testCampaign, address(token), attributionData);
     }
 }

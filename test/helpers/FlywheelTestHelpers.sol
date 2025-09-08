@@ -167,7 +167,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
 
         // Process attribution
         vm.prank(ATTRIBUTION_PROVIDER);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.send(campaign, address(token), attributionData);
 
         // Verify payout was distributed
         _assertTokenBalance(expectedRecipient, initialRecipientBalance + expectedPayout);
