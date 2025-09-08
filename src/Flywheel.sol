@@ -181,6 +181,9 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @notice Thrown when address is zero
     error ZeroAddress();
 
+    /// @notice Thrown when amount is zero
+    error ZeroAmount();
+
     /// @notice Thrown when campaign does not have enough balance for an operation
     error InsufficientCampaignFunds();
 
@@ -384,7 +387,7 @@ contract Flywheel is ReentrancyGuardTransient {
     {
         Payout memory payout = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
         (address recipient, uint256 amount) = (payout.recipient, payout.amount);
-        if (amount == 0) return;
+        if (amount == 0) revert ZeroAmount();
         Campaign(campaign).sendTokens(token, recipient, amount);
         emit FundsWithdrawn(campaign, token, recipient, amount, payout.extraData);
         _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token]);
