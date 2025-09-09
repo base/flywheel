@@ -14,8 +14,8 @@ import {CampaignHooks} from "../CampaignHooks.sol";
 ///         allows the builder to start receiving rewards for each usage of the code during a bridge operation that
 ///         involves a transfer of tokens.
 contract BridgeRewards is CampaignHooks {
-    /// @notice The ERC-7528 pseudo-address representing native ETH in token operations
-    address public constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    /// @notice ERC-7528 address for native token
+    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @notice Maximum fee basis points (2.00%)
     uint256 public constant MAX_FEE_BASIS_POINTS = 2_00;
@@ -34,6 +34,9 @@ contract BridgeRewards is CampaignHooks {
     /// @param code The builder code configured
     /// @param feeBps The fee basis points for the builder code
     event FeeBasisPointsSet(bytes32 indexed code, uint256 feeBps);
+
+    /// @notice Error thrown to enforce only one campaign can be initialized
+    error InvalidCampaignInitialization();
 
     /// @notice Error thrown when the sender is not the owner of the builder code
     error SenderIsNotBuilderCodeOwner();
@@ -69,19 +72,25 @@ contract BridgeRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onCreateCampaign(address campaign, bytes calldata hookData) external override onlyFlywheel {}
+    function campaignURI(address campaign) external view override returns (string memory uri) {
+        return metadataURI;
+    }
 
     /// @inheritdoc CampaignHooks
-    function onReward(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
+        if (nonce != 0 || hookData.length > 0) revert InvalidCampaignInitialization();
+    }
+
+    /// @inheritdoc CampaignHooks
+    function _onSend(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
         (address user, bytes32 code) = abi.decode(hookData, (address, bytes32));
 
         // Check balance is greater than total reserved for the campaign
-        uint256 balance = token == ETH_ADDRESS ? campaign.balance : IERC20(token).balanceOf(campaign);
+        uint256 balance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
         uint256 unreservedAmount = balance - flywheel.totalReserved(campaign, token);
         require(unreservedAmount > 0, ZeroAmount());
 
@@ -107,10 +116,9 @@ contract BridgeRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         returns (Flywheel.Distribution[] memory distributions)
     {
         bytes32 code = bytes32(hookData);
@@ -129,10 +137,9 @@ contract BridgeRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
-        external
+    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        internal
         override
-        onlyFlywheel
         returns (Flywheel.Payout memory payout)
     {
         // Anyone can withdraw, emphasizing that funds are meant to be atomically distributed after sending to campaign
@@ -140,28 +147,19 @@ contract BridgeRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function onUpdateStatus(
+    function _onUpdateStatus(
         address sender,
         address campaign,
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) external override onlyFlywheel {
+    ) internal override {
         // Anyone can set to ACTIVE to turn on the campaign
         if (newStatus != Flywheel.CampaignStatus.ACTIVE) revert Flywheel.InvalidCampaignStatus();
     }
 
     /// @inheritdoc CampaignHooks
-    function onUpdateMetadata(address sender, address campaign, bytes calldata hookData)
-        external
-        override
-        onlyFlywheel
-    {
+    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal override {
         // Anyone can prompt metadata cache updates
-    }
-
-    /// @inheritdoc CampaignHooks
-    function campaignURI(address campaign) external view override returns (string memory uri) {
-        return metadataURI;
     }
 }
