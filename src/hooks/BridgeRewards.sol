@@ -32,6 +32,9 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Error thrown when the balance is zero
     error ZeroAmount();
 
+    /// @notice Error thrown when the fee basis points is too high
+    error FeeBasisPointsTooHigh();
+
     /// @notice Error thrown when the builder code is not registered
     error BuilderCodeNotRegistered();
 
@@ -65,24 +68,21 @@ contract BridgeRewards is CampaignHooks {
     {
         (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
-        // Check balance is greater than total reserved for the campaign
+        // Check balance is nonzero
         uint256 balance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
-        uint256 unreservedAmount = balance - flywheel.totalReserved(campaign, token);
-        require(unreservedAmount > 0, ZeroAmount());
+        require(balance > 0, ZeroAmount());
 
         // Check builder code is registered
         require(builderCodes.ownerOf(uint256(code)) != address(0), BuilderCodeNotRegistered());
 
         // Compute fee amount
-        uint256 feeAmount = (unreservedAmount * feeBps) / 1e4;
+        require(feeBps <= MAX_FEE_BASIS_POINTS, FeeBasisPointsTooHigh());
+        uint256 feeAmount = (balance * feeBps) / 1e4;
 
         // Prepare payout
         payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
-            recipient: user,
-            amount: unreservedAmount - feeAmount,
-            extraData: abi.encode(code, feeAmount)
-        });
+        payouts[0] =
+            Flywheel.Payout({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
