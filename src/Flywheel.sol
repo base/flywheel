@@ -512,7 +512,7 @@ contract Flywheel is ReentrancyGuardTransient {
         address token,
         Payout[] memory immediateFees,
         Allocation[] memory delayedFees
-    ) internal returns (uint256 totalFeeAmount) {
+    ) internal {
         uint256 count = immediateFees.length;
         for (uint256 i = 0; i < count; i++) {
             (address recipient, uint256 amount) = (immediateFees[i].recipient, immediateFees[i].amount);
@@ -526,11 +526,10 @@ contract Flywheel is ReentrancyGuardTransient {
         mapping(bytes32 key => uint256 amount) storage _allocatedFee = allocatedFee[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (delayedFees[i].key, delayedFees[i].amount);
-            if (amount > 0) {
-                totalFeeAmount += amount;
-                _allocatedFee[key] += amount;
-                emit FeeAllocated(campaign, token, key, amount, delayedFees[i].extraData);
-            }
+            if (amount == 0) continue;
+            totalFeeAmount += amount;
+            _allocatedFee[key] += amount;
+            emit FeeAllocated(campaign, token, key, amount, delayedFees[i].extraData);
         }
         totalAllocatedFees[campaign][token] += totalFeeAmount;
     }
