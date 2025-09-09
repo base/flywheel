@@ -61,7 +61,7 @@ contract SimpleRewardsSecurityTest is Test {
         // Direct attack: Attacker tries to call payout functions
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
@@ -94,7 +94,7 @@ contract SimpleRewardsSecurityTest is Test {
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
     }
 
     /// @notice Test zero address manager exploitation
@@ -116,12 +116,12 @@ contract SimpleRewardsSecurityTest is Test {
         // Attacker cannot exploit zero address manager - campaign remains inactive
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(attacker);
-        flywheel.reward(zeroCampaign, address(token), payoutData);
+        flywheel.send(zeroCampaign, address(token), payoutData);
 
         // Even msg.sender = address(0) fails - campaign remains inactive
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(address(0));
-        flywheel.reward(zeroCampaign, address(token), payoutData);
+        flywheel.send(zeroCampaign, address(token), payoutData);
     }
 
     // =============================================================
@@ -140,7 +140,7 @@ contract SimpleRewardsSecurityTest is Test {
         // Malicious recipient receives tokens normally (ERC20 doesn't trigger callbacks)
         // The reentrancy protection is at the Flywheel level for state-modifying functions
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Verify the malicious recipient received tokens
         assertEq(token.balanceOf(address(maliciousRecipient)), PAYOUT_AMOUNT);
@@ -178,7 +178,7 @@ contract SimpleRewardsSecurityTest is Test {
 
         // Manager (could be compromised) drains campaign
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Verify drainage succeeded (this is expected behavior with compromised manager)
         assertEq(token.balanceOf(attacker), attackerBalanceBefore + INITIAL_TOKEN_BALANCE);
@@ -207,7 +207,7 @@ contract SimpleRewardsSecurityTest is Test {
         uint256 attackerBalanceBefore = token.balanceOf(attacker);
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Attacker received large hidden payout
         assertEq(token.balanceOf(attacker), attackerBalanceBefore + 900e18);
@@ -280,7 +280,7 @@ contract SimpleRewardsSecurityTest is Test {
 
         vm.prank(manager);
         vm.expectRevert(); // Should revert on decode
-        flywheel.reward(campaign, address(token), malformedData);
+        flywheel.send(campaign, address(token), malformedData);
     }
 
     /// @notice Test empty payouts array exploitation
@@ -292,7 +292,7 @@ contract SimpleRewardsSecurityTest is Test {
 
         // Empty payouts should not cause issues
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Campaign balance should be unchanged
         assertEq(token.balanceOf(campaign), campaignBalanceBefore);
@@ -322,11 +322,11 @@ contract SimpleRewardsSecurityTest is Test {
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
-        flywheel.reward(campaign, address(token), hookData); // Should fail - different campaign
+        flywheel.send(campaign, address(token), hookData); // Should fail - different campaign
 
         // But attacker can control their own campaign
         vm.prank(attacker);
-        flywheel.reward(attackerCampaign, address(token), hookData); // Should succeed
+        flywheel.send(attackerCampaign, address(token), hookData); // Should succeed
     }
 }
 
@@ -375,7 +375,7 @@ contract CrossFunctionReentrancyAttacker {
         payouts[0] = Flywheel.Payout({recipient: address(this), amount: 100e18, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
-        flywheel.reward(campaign, address(0x1), hookData);
+        flywheel.send(campaign, address(0x1), hookData);
     }
 
     receive() external payable {

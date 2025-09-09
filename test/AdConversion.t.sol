@@ -114,7 +114,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Call onReward through flywheel
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
+            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
@@ -168,7 +168,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Call onReward through flywheel
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
+            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
@@ -201,7 +201,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Expect revert
         vm.expectRevert(AdConversion.InvalidConversionType.selector);
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        hook.onSend(attributionProvider, campaign, address(token), hookData);
     }
 
     function test_onReward_revert_offchainConversionWithLogBytes() public {
@@ -225,7 +225,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Expect revert
         vm.expectRevert(AdConversion.InvalidConversionType.selector);
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        hook.onSend(attributionProvider, campaign, address(token), hookData);
     }
 
     function test_onReward_ofacFundsRerouting() public {
@@ -292,7 +292,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Call onReward through flywheel
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, ofacCampaign, address(token), hookData);
+            hook.onSend(attributionProvider, ofacCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
@@ -642,14 +642,14 @@ contract AdConversionTest is PublisherTestSetup {
         // Campaign 1 should use 5% fee
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts1, Flywheel.Allocation[] memory fees1) =
-            hook.onReward(attributionProvider, campaign1, address(token), rewardData);
+            hook.onSend(attributionProvider, campaign1, address(token), rewardData);
         assertEq(payouts1[0].amount, 95 ether); // 100 - 5% = 95
         assertEq(fees1[0].amount, 5 ether); // 5% fee
 
         // Campaign 2 should use 15% fee
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts2, Flywheel.Allocation[] memory fees2) =
-            hook.onReward(attributionProvider, campaign2, address(token), rewardData);
+            hook.onSend(attributionProvider, campaign2, address(token), rewardData);
         assertEq(payouts2[0].amount, 85 ether); // 100 - 15% = 85
         assertEq(fees2[0].amount, 15 ether); // 15% fee
     }
@@ -699,7 +699,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, zeroFeeCampaign, address(token), rewardData);
+            hook.onSend(attributionProvider, zeroFeeCampaign, address(token), rewardData);
 
         // Should use 0% fee - full amount to publisher
         assertEq(payouts[0].amount, 100 ether); // 100 - 0% = 100
@@ -820,7 +820,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(address(flywheel)); // Called from flywheel but with wrong attribution provider
-        hook.onReward(randomUser, campaign, address(token), hookData); // randomUser not the campaign's attribution provider
+        hook.onSend(randomUser, campaign, address(token), hookData); // randomUser not the campaign's attribution provider
     }
 
     function test_onReward_revert_invalidConversionConfigId() public {
@@ -845,7 +845,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.expectRevert(AdConversion.InvalidConversionConfigId.selector);
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        hook.onSend(attributionProvider, campaign, address(token), hookData);
     }
 
     function test_onReward_allowsDisabledConversionConfig() public {
@@ -893,7 +893,7 @@ contract AdConversionTest is PublisherTestSetup {
         // Should succeed even with disabled config
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
+            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
@@ -949,7 +949,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.expectRevert(AdConversion.PublisherNotAllowed.selector);
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, limitedCashbackCampaign, address(token), rewardData);
+        hook.onSend(attributionProvider, limitedCashbackCampaign, address(token), rewardData);
     }
 
     function test_onReward_revert_publisherNotRegistered() public {
@@ -971,7 +971,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.expectRevert(AdConversion.InvalidPublisherRefCode.selector);
         vm.prank(address(flywheel));
-        hook.onReward(attributionProvider, campaign, address(token), hookData);
+        hook.onSend(attributionProvider, campaign, address(token), hookData);
     }
 
     // =============================================================
@@ -1049,7 +1049,7 @@ contract AdConversionTest is PublisherTestSetup {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onReward(attributionProvider, testCampaign, address(token), hookData);
+            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 3);

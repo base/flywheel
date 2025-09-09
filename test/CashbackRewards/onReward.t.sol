@@ -22,7 +22,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(unauthorizedCaller);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnZeroAmount(uint120 paymentAmount) public {
@@ -35,7 +35,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         vm.expectRevert(CashbackRewards.ZeroPayoutAmount.selector);
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnWrongToken(uint120 paymentAmount, uint120 rewardAmount, address wrongToken) public {
@@ -50,7 +50,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         vm.prank(manager);
         vm.expectRevert(abi.encodeWithSelector(CashbackRewards.TokenMismatch.selector));
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnUnauthorizedPayment(uint120 paymentAmount, uint120 rewardAmount) public {
@@ -62,7 +62,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         vm.expectRevert(CashbackRewards.PaymentNotCollected.selector);
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnInsufficientFunds(uint120 paymentAmount, uint120 excessiveReward) public {
@@ -76,7 +76,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         vm.expectRevert();
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_revertsOnMaxRewardPercentageExceeded() public {
@@ -101,7 +101,7 @@ contract OnRewardTest is CashbackRewardsBase {
             )
         );
         vm.prank(manager);
-        flywheel.reward(limitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(limitedCashbackCampaign, address(usdc), hookData);
     }
 
     function test_successfulReward(uint120 paymentAmount, uint120 rewardAmount) public {
@@ -116,7 +116,7 @@ contract OnRewardTest is CashbackRewardsBase {
         CashbackRewards.RewardState memory rewardsBefore = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
 
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
 
         CashbackRewards.RewardState memory rewardsAfter = getRewardsInfo(paymentInfo, unlimitedCashbackCampaign);
 
@@ -137,7 +137,7 @@ contract OnRewardTest is CashbackRewardsBase {
         chargePayment(paymentInfo);
 
         vm.prank(manager);
-        flywheel.reward(limitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(limitedCashbackCampaign, address(usdc), hookData);
 
         CashbackRewards.RewardState memory rewards = getRewardsInfo(paymentInfo, limitedCashbackCampaign);
         assertEq(rewards.distributed, rewardAmount);
@@ -165,7 +165,7 @@ contract OnRewardTest is CashbackRewardsBase {
         chargePayment(rewardPaymentInfo);
         bytes memory rewardHookData = createCashbackHookData(rewardPaymentInfo, rewardAmount);
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), rewardHookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), rewardHookData);
 
         CashbackRewards.RewardState memory allocationRewards =
             getRewardsInfo(allocationPaymentInfo, unlimitedCashbackCampaign);
@@ -207,7 +207,7 @@ contract OnRewardTest is CashbackRewardsBase {
         chargePayment(rewardPaymentInfo);
         bytes memory rewardHookData = createCashbackHookData(rewardPaymentInfo, rewardAmount);
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), rewardHookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), rewardHookData);
 
         CashbackRewards.RewardState memory distributionRewards =
             getRewardsInfo(distributionPaymentInfo, unlimitedCashbackCampaign);
@@ -231,11 +231,11 @@ contract OnRewardTest is CashbackRewardsBase {
 
         bytes memory firstRewardHookData = createCashbackHookData(paymentInfo, firstReward);
         vm.prank(manager);
-        flywheel.reward(limitedCashbackCampaign, address(usdc), firstRewardHookData);
+        flywheel.send(limitedCashbackCampaign, address(usdc), firstRewardHookData);
 
         bytes memory secondRewardHookData = createCashbackHookData(paymentInfo, secondReward);
         vm.prank(manager);
-        flywheel.reward(limitedCashbackCampaign, address(usdc), secondRewardHookData);
+        flywheel.send(limitedCashbackCampaign, address(usdc), secondRewardHookData);
 
         uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_REWARD_BASIS_POINTS_DIVISOR;
 
@@ -246,7 +246,7 @@ contract OnRewardTest is CashbackRewardsBase {
             )
         );
         vm.prank(manager);
-        flywheel.reward(limitedCashbackCampaign, address(usdc), thirdRewardHookData);
+        flywheel.send(limitedCashbackCampaign, address(usdc), thirdRewardHookData);
     }
 
     function test_batchRewardMultiplePayments(
@@ -285,7 +285,7 @@ contract OnRewardTest is CashbackRewardsBase {
 
         // Execute batch reward
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), batchHookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), batchHookData);
 
         // Verify both rewards were processed
         CashbackRewards.RewardState memory firstRewardsAfter = getRewardsInfo(firstPayment, unlimitedCashbackCampaign);
@@ -308,11 +308,11 @@ contract OnRewardTest is CashbackRewardsBase {
 
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutRewarded(
+        emit Flywheel.PayoutSent(
             unlimitedCashbackCampaign, address(usdc), buyer, rewardAmount, abi.encodePacked(paymentInfoHash)
         );
 
         vm.prank(manager);
-        flywheel.reward(unlimitedCashbackCampaign, address(usdc), hookData);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 }

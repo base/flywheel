@@ -37,23 +37,23 @@ abstract contract CampaignHooks {
         _onCreateCampaign(campaign, nonce, hookData);
     }
 
-    /// @notice Processes reward for a campaign
+    /// @notice Processes immediate payouts for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to be rewarded
+    /// @param token Address of the token to be sent
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payouts Array of payouts to be rewarded
+    /// @return payouts Array of payouts to be sent
     /// @return fees Array of fees to be paid
     ///
     /// @dev Only callable by the flywheel contract
-    function onReward(address sender, address campaign, address token, bytes calldata hookData)
+    function onSend(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
     {
-        return _onReward(sender, campaign, token, hookData);
+        return _onSend(sender, campaign, token, hookData);
     }
 
     /// @notice Processes attribution for a campaign
@@ -189,16 +189,16 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal virtual;
 
-    /// @notice Processes reward for a campaign
+    /// @notice Processes immediate payouts for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to be rewarded
+    /// @param token Address of the token to be sent
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payouts Array of payouts to be rewarded
+    /// @return payouts Array of payouts to be sent
     /// @return fees Array of fees to be paid
-    function _onReward(address sender, address campaign, address token, bytes calldata hookData)
+    function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
         returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)

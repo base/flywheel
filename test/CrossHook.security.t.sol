@@ -326,7 +326,7 @@ contract CrossHookSecurityTest is Test {
         // SimpleRewards manager should NOT be able to control CashbackRewards campaign
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(simpleRewardsManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), hookData);
+        flywheel.send(buyerCampaign, address(rewardToken), hookData);
     }
 
     /// @notice Test attribution provider cross-hook privilege abuse
@@ -339,7 +339,7 @@ contract CrossHookSecurityTest is Test {
         // Attribution provider should NOT control SimpleRewards
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attributionProvider);
-        flywheel.reward(simpleCampaign, address(rewardToken), hookData);
+        flywheel.send(simpleCampaign, address(rewardToken), hookData);
 
         // Attribution provider should NOT control CashbackRewards
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
@@ -364,7 +364,7 @@ contract CrossHookSecurityTest is Test {
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attributionProvider);
-        flywheel.reward(buyerCampaign, address(rewardToken), buyerHookData);
+        flywheel.send(buyerCampaign, address(rewardToken), buyerHookData);
     }
 
     // =============================================================
@@ -381,7 +381,7 @@ contract CrossHookSecurityTest is Test {
         payouts1[0] = Flywheel.Payout({recipient: attacker, amount: INITIAL_TOKEN_BALANCE, extraData: ""});
 
         vm.prank(simpleRewardsManager);
-        flywheel.reward(simpleCampaign, address(rewardToken), abi.encode(payouts1));
+        flywheel.send(simpleCampaign, address(rewardToken), abi.encode(payouts1));
 
         // Drain CashbackRewards campaign (manager can't do this - only owner can withdraw after finalization)
         // But manager can allocate large amounts to attacker
@@ -412,7 +412,7 @@ contract CrossHookSecurityTest is Test {
             CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE)});
 
         vm.prank(cashbackRewardsManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(buyerDrainRewards));
+        flywheel.send(buyerCampaign, address(rewardToken), abi.encode(buyerDrainRewards));
 
         // Verify drainage
         uint256 attackerBalanceAfter = token.balanceOf(attacker);
@@ -446,7 +446,7 @@ contract CrossHookSecurityTest is Test {
         // Try to use SimpleRewards data on CashbackRewards campaign
         vm.expectRevert(); // Should fail due to data format mismatch
         vm.prank(cashbackRewardsManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), simpleRewardsData);
+        flywheel.send(buyerCampaign, address(rewardToken), simpleRewardsData);
 
         // Create CashbackRewards payment data
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = AuthCaptureEscrow.PaymentInfo({
@@ -471,7 +471,7 @@ contract CrossHookSecurityTest is Test {
         // Try to use CashbackRewards data on SimpleRewards campaign
         vm.expectRevert(); // Should fail due to data format mismatch
         vm.prank(simpleRewardsManager);
-        flywheel.reward(simpleCampaign, address(rewardToken), cashbackRewardsData);
+        flywheel.send(simpleCampaign, address(rewardToken), cashbackRewardsData);
     }
 
     /// @notice Test allocation/distribution cross-contamination
@@ -543,7 +543,7 @@ contract CrossHookSecurityTest is Test {
         payouts[0] = Flywheel.Payout({recipient: attacker, amount: INITIAL_TOKEN_BALANCE / 2, extraData: ""});
 
         vm.prank(simpleRewardsManager);
-        flywheel.reward(simpleCampaign, address(rewardToken), abi.encode(payouts));
+        flywheel.send(simpleCampaign, address(rewardToken), abi.encode(payouts));
         totalDrainAmount += INITIAL_TOKEN_BALANCE / 2;
 
         // Drain CashbackRewards (manager has control over payouts)
@@ -574,7 +574,7 @@ contract CrossHookSecurityTest is Test {
             CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: uint120(INITIAL_TOKEN_BALANCE / 2)});
 
         vm.prank(cashbackRewardsManager);
-        flywheel.reward(buyerCampaign, address(rewardToken), abi.encode(economicRewards));
+        flywheel.send(buyerCampaign, address(rewardToken), abi.encode(economicRewards));
         totalDrainAmount += INITIAL_TOKEN_BALANCE / 2;
 
         // Verify coordinated drainage
@@ -633,7 +633,7 @@ contract CrossHookSecurityTest is Test {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            adHook.onReward(attributionProvider, highFeeCampaign, address(rewardToken), adHookData);
+            adHook.onSend(attributionProvider, highFeeCampaign, address(rewardToken), adHookData);
 
         // Fee should be 50% of 200e18 = 100e18
         assertEq(fees.length, 1);
@@ -695,7 +695,7 @@ contract CrossHookReentrancyAttacker {
         payouts[0] = Flywheel.Payout({recipient: address(this), amount: 100e18, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
-        flywheel.reward(simpleCampaign, address(0x1), hookData);
+        flywheel.send(simpleCampaign, address(0x1), hookData);
     }
 
     receive() external payable {
