@@ -6,7 +6,7 @@ TLDR:
 
 - A modular, permissionless protocol for transparent attribution and ERC20 reward distribution
 - Enables any relationship where Users/Publishers drive conversions and get rewarded by Sponsors through various validation mechanisms
-- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (CashbackRewards), and custom rewards (SimpleRewards)
+- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (CashbackRewards), bridge rewards (BridgeRewards), and custom rewards (SimpleRewards)
 - Permissionless architecture allows third parties to create custom hooks for any use case
 - Each hook can customize payout models, fee structures, and attribution logic while leveraging the core Flywheel infrastructure for secure token management
 
@@ -17,7 +17,7 @@ Flywheel Protocol creates a decentralized incentive ecosystem where:
 - **Sponsors** create campaigns and fund them with tokens (advertisers, platforms, DAOs, etc.)
 - **Publishers (Optional)** drive traffic and earn rewards based on performance (only in AdConversion campaigns)
 - **Attribution Providers** track conversions and submit verified data that triggers payouts to earn fees (only in AdConversion campaigns)
-- **Managers** control campaign operations and submit payout data (in CashbackRewards and SimpleRewards campaigns)
+- **Managers** control campaign operations and submit payout data (in CashbackRewards, BridgeRewards, and SimpleRewards campaigns)
 - **Users** can receive incentives for completing desired actions across all campaign types
 
 The protocol uses a modular architecture with hooks, allowing for diverse campaign types without modifying the core protocol.
@@ -28,7 +28,7 @@ The protocol uses a modular architecture with hooks, allowing for diverse campai
 
 - Modular design with hooks for extensibility
 - Core `Flywheel.sol` protocol handles only essential functions
-- Campaign-specific logic isolated in hook contracts (i.e. `AdConversion.sol` and `CashbackRewards.sol` that are derived from `CampaignHooks.sol`)
+- Campaign-specific logic isolated in hook contracts (i.e. `AdConversion.sol`, `CashbackRewards.sol`, and `BridgeRewards.sol` that are derived from `CampaignHooks.sol`)
 - Clean separation between protocol and implementation
 
 ## Architecture Diagram
@@ -240,7 +240,7 @@ string[] memory allowedRefCodes = []; // Empty array = no restrictions
 ## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
-- for v1, we ship `AdConversion.sol`, `CashbackRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
+- for v1, we ship `AdConversion.sol`, `CashbackRewards.sol`, `BridgeRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
 
 ### **AdConversion.sol**
 
@@ -442,6 +442,70 @@ bytes memory hookData = abi.encode(
 - `deallocate()` - Cancel allocated rewards
 - `distribute()` - Distribute previously allocated rewards
 
+### **BridgeRewards.sol**
+
+Bridge incentive campaigns where users receive rewards for utilizing builder codes during bridge operations:
+
+**Core Features:**
+
+- Direct user rewards for bridge transactions using registered builder codes
+- Uses **send only model** - immediate payouts without allocation/distribution complexity
+- Integrates with BuilderCodes for fee distribution to code owners
+- Perpetual active campaigns (always available once activated)
+- Fee sharing between users and builder code owners with configurable basis points (max 2%)
+- Native token support (ETH) alongside ERC20 tokens
+
+**Campaign Creation:**
+
+```solidity
+// BridgeRewards campaigns have fixed initialization - no custom hookData needed
+bytes memory hookData = "";  // Empty hookData required
+
+// Create campaign with nonce 0 (only one campaign per BridgeRewards hook instance)
+address campaign = flywheel.createCampaign(
+    address(bridgeRewardsHook),
+    0,  // Must be 0 - only one campaign allowed
+    hookData
+);
+```
+
+**Bridge Reward Flow:**
+
+```solidity
+// When a user bridges with a builder code
+bytes memory hookData = abi.encode(
+    userAddress,        // User receiving the bridge reward
+    builderCode,        // bytes32 builder code used in the bridge
+    feeBasisPoints      // Fee percentage (in basis points, max 200 = 2%)
+);
+
+flywheel.send(campaign, token, hookData);
+```
+
+**Reward Distribution:**
+
+1. **User Reward**: User receives `(unreservedAmount - feeAmount)` where unreservedAmount is total campaign balance minus any reserved funds
+2. **Builder Fee**: Builder code owner receives `feeAmount` based on the fee basis points
+3. **Fee Calculation**: `feeAmount = (unreservedAmount * feeBps) / 10000`
+
+**Validation Rules:**
+
+- Builder code must be registered in BuilderCodes contract
+- Campaign balance must have unreserved funds available
+- Fee basis points cannot exceed 200 (2.00%)
+- Only supports `send()` payout function (no allocate/distribute)
+- Campaign must be in ACTIVE status (perpetual)
+
+**Fund Management:**
+
+- Anyone can trigger rewards (no access control on `send`)
+- Accidental tokens can be withdrawn using `withdrawFunds()` function
+- Campaign is designed for atomic: fund → immediate payout flow
+
+**Use Cases:**
+
+- Allow apps that facilitate bridging to take a fee on bridged assets
+
 ### **SimpleRewards.sol**
 
 Basic rewards hook with minimal logic for flexible campaign types:
@@ -502,18 +566,18 @@ Allows recipients to claim previously allocated tokens identified by `bytes32` k
 
 Comprehensive comparison of hook implementations, including payout functions, access control, and operational characteristics:
 
-| **Aspect**          | **AdConversion**                                             | **CashbackRewards**                                           | **SimpleRewards**                                            |
-| ------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Controller**      | Attribution Provider                                         | Manager                                                       | Manager                                                      |
-| **Use Case**        | Publisher performance marketing                              | E-commerce cashback                                           | Flexible reward distribution                                 |
-| **Validation**      | Complex (ref codes, configs)                                 | Medium (payment verification)                                 | Minimal (pass-through)                                       |
-| **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ❌ No fees                                                   |
-| **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ❌ Direct to recipients                                      |
-| **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Owner only                                                   |
-| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Direct recipient payouts<br/>Simple pass-through          |
-| **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ✅ Reserve payouts for claims                                |
-| **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ✅ Claim allocated rewards<br/>Supports fees on distribution |
-| **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ✅ Cancel unclaimed rewards                                  |
+| **Aspect**          | **AdConversion**                                             | **CashbackRewards**                                           | **BridgeRewards**                                         | **SimpleRewards**                                            |
+| ------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
+| **Controller**      | Attribution Provider                                         | Manager                                                       | No access control (anyone)                                | Manager                                                      |
+| **Use Case**        | Publisher performance marketing                              | E-commerce cashback                                           | Bridge transaction incentives                             | Flexible reward distribution                                 |
+| **Validation**      | Complex (ref codes, configs)                                 | Medium (payment verification)                                 | Medium (builder codes, perpetual active)                  | Minimal (pass-through)                                       |
+| **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ✅ Builder code owner fees (max 2%)                       | ❌ No fees                                                   |
+| **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ✅ Via BuilderCodes (fee recipients)                      | ❌ Direct to recipients                                      |
+| **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Anyone (withdrawFunds for accidents)                      | Owner only                                                   |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Bridge rewards + builder fees<br/>Native token support | ✅ Direct recipient payouts<br/>Simple pass-through          |
+| **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ❌ Not implemented                                        | ✅ Reserve payouts for claims                                |
+| **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ❌ Not implemented                                        | ✅ Claim allocated rewards<br/>Supports fees on distribution |
+| **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ❌ Not implemented                                        | ✅ Cancel unclaimed rewards                                  |
 
 ## Use Case Examples
 
@@ -532,6 +596,12 @@ The modular architecture supports diverse incentive programs:
 - **Sponsor**: E-commerce platform (e.g., Shopify or Base)
 - **Manager**: Payment processor or platform itself
 - **Flow**: Users make purchases → Payment confirmed → Payouts issued → Users receive cashback
+
+#### **Bridge Transaction Incentives** (`BridgeRewards`)
+
+- **Sponsor**: User bridging their assets
+- **Builder Code Owners**: Builders who registered codes in BuilderCodes contract
+- **Flow**: Users bridge with builder codes → Immediate payout → Users receive bridged assets, builders earn fees
 
 #### **Simple Reward Distribution** (`SimpleRewards`)
 
@@ -766,12 +836,12 @@ flywheel.distributeFees(campaign, token, hookData);
 
 ### State Transitions and Access Control
 
-| State                  | Next Valid States               | Payout Functions Available                       |
-| ---------------------- | ------------------------------- | ------------------------------------------------ |
-| **INACTIVE** (default) | ACTIVE, FINALIZING, FINALIZED   | None                                             |
+| State                  | Next Valid States               | Payout Functions Available                     |
+| ---------------------- | ------------------------------- | ---------------------------------------------- |
+| **INACTIVE** (default) | ACTIVE, FINALIZING, FINALIZED   | None                                           |
 | **ACTIVE**             | INACTIVE, FINALIZING, FINALIZED | `send`, `allocate`, `deallocate`, `distribute` |
 | **FINALIZING**         | FINALIZED                       | `send`, `allocate`, `deallocate`, `distribute` |
-| **FINALIZED**          | None                            | None                                             |
+| **FINALIZED**          | None                            | None                                           |
 
 ### Detailed State Descriptions
 
@@ -783,21 +853,21 @@ Each hook type has different access control patterns for state transitions and o
 
 ##### AdConversion Campaigns
 
-| State          | Who Can Transition To                                                                                                  | Available Functions | Special Behaviors                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------- |
-| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Advertiser only (fund recovery)                                   | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)          |
-| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser<br/>• FINALIZED: Attribution Provider only (bypass)                  | `send` only         | 🔒 Security: ACTIVE→FINALIZED blocked for Advertiser only (prevents attribution bypass) |
-| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                                              | `send` only         | Sets attribution deadline based on campaign's configured duration (max 180 days)    |
-| **FINALIZED**  | None (terminal state)                                                                                                  | None                | Only Advertiser can withdraw remaining funds                                        |
+| State          | Who Can Transition To                                                                                | Available Functions | Special Behaviors                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------- |
+| **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Advertiser only (fund recovery)                 | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)              |
+| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser<br/>• FINALIZED: Attribution Provider only (bypass) | `send` only         | 🔒 Security: ACTIVE→FINALIZED blocked for Advertiser only (prevents attribution bypass) |
+| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                            | `send` only         | Sets attribution deadline based on campaign's configured duration (max 180 days)        |
+| **FINALIZED**  | None (terminal state)                                                                                | None                | Only Advertiser can withdraw remaining funds                                            |
 
 ##### CashbackRewards & SimpleRewards Campaigns
 
-| State          | Who Can Transition To | Available Functions                              | Special Behaviors |
-| -------------- | --------------------- | ------------------------------------------------ | ----------------- |
-| **INACTIVE**   | Manager only          | None                                             | None              |
+| State          | Who Can Transition To | Available Functions                            | Special Behaviors |
+| -------------- | --------------------- | ---------------------------------------------- | ----------------- |
+| **INACTIVE**   | Manager only          | None                                           | None              |
 | **ACTIVE**     | Manager only          | `send`, `allocate`, `deallocate`, `distribute` | None              |
 | **FINALIZING** | Manager only          | `send`, `allocate`, `deallocate`, `distribute` | None              |
-| **FINALIZED**  | Manager only          | None                                             | None              |
+| **FINALIZED**  | Manager only          | None                                           | None              |
 
 #### Key Design Notes
 
