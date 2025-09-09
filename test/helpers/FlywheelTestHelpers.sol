@@ -121,7 +121,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
 
     /// @notice Asserts fee allocation for attribution provider
     function _assertFeeAllocation(address campaign, address attributionProvider, uint256 expectedFee) internal view {
-        assertEq(flywheel.pendingFees(campaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee);
+        assertEq(flywheel.allocatedFee(campaign, address(token), bytes32(bytes20(attributionProvider))), expectedFee);
     }
 
     /// @notice Calculates fee amount from payout amount and fee basis points

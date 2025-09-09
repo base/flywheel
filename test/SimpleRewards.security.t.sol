@@ -224,14 +224,14 @@ contract SimpleRewardsSecurityTest is Test {
         flywheel.allocate(campaign, address(token), hookData);
 
         // Verify allocation recorded in core flywheel
-        assertEq(flywheel.pendingPayouts(campaign, address(token), bytes32(bytes20(attacker))), PAYOUT_AMOUNT);
+        assertEq(flywheel.allocatedPayout(campaign, address(token), bytes32(bytes20(attacker))), PAYOUT_AMOUNT);
 
         // Manager could manipulate by deallocating before victim claims
         vm.prank(manager);
         flywheel.deallocate(campaign, address(token), hookData);
 
         // Verify deallocation
-        assertEq(flywheel.pendingPayouts(campaign, address(token), bytes32(bytes20(attacker))), 0);
+        assertEq(flywheel.allocatedPayout(campaign, address(token), bytes32(bytes20(attacker))), 0);
 
         // Attacker received no tokens despite initial allocation
         assertEq(token.balanceOf(attacker), 1000000e18); // Only initial balance from DummyERC20

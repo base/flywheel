@@ -9,8 +9,14 @@ import {BuilderCodes} from "../BuilderCodes.sol";
 ///
 /// @author Coinbase
 contract PseudoRandomRegistrar {
+    /// @notice Prefix for new permissionless referral codes
+    string public constant PREFIX = "rnd_";
+
+    /// @notice Prefix for new permissionless referral codes
+    string public constant ALPHANUMERIC = "0123456789abcdefghijklmonpqrstuvwxyz";
+
     /// @notice Default length of new permissionless referral codes
-    uint256 public constant CODE_LENGTH = 8;
+    uint256 public constant SUFFIX_LENGTH = 8;
 
     /// @notice Referral codes contract
     BuilderCodes public immutable codes;
@@ -43,19 +49,19 @@ contract PseudoRandomRegistrar {
     ///
     /// @return code Referral code for the referral code
     function computeCode(uint256 nonceValue) public view returns (string memory code) {
-        bytes memory allowedCharacters = bytes(codes.ALLOWED_CHARACTERS());
+        bytes memory allowedCharacters = bytes(ALPHANUMERIC);
         uint256 len = allowedCharacters.length;
-        bytes memory codeBytes = new bytes(CODE_LENGTH);
+        bytes memory suffix = new bytes(SUFFIX_LENGTH);
 
-        // Iteratively generate code with modulo arithmetic on nonce hash
+        // Iteratively generate code with modulo arithmetic on pseudo-random hash
         uint256 hashNum = uint256(
             keccak256(abi.encodePacked(nonceValue, block.timestamp, blockhash(block.number - 1), block.prevrandao))
         );
-        for (uint256 i; i < CODE_LENGTH; i++) {
-            codeBytes[i] = allowedCharacters[hashNum % len];
+        for (uint256 i; i < SUFFIX_LENGTH; i++) {
+            suffix[i] = allowedCharacters[hashNum % len];
             hashNum /= len;
         }
 
-        return string(codeBytes);
+        return string.concat(PREFIX, string(suffix));
     }
 }
