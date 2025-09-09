@@ -70,13 +70,16 @@ contract Flywheel is ReentrancyGuardTransient {
     address public immutable campaignImplementation;
 
     /// @notice Allocated rewards that are pending distribution
-    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public pendingPayouts;
+    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedPayout;
 
     /// @notice Fees that are pending collection
-    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public pendingFees;
+    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedFee;
 
-    /// @notice Total funds reserved for allocations and fees for a campaign
-    mapping(address campaign => mapping(address token => uint256 amount)) public totalReserved;
+    /// @notice Total funds reserved for a campaign's allocations
+    mapping(address campaign => mapping(address token => uint256 amount)) public totalAllocatedPayouts;
+
+    /// @notice Total funds reserved for a campaign's fees
+    mapping(address campaign => mapping(address token => uint256 amount)) public totalAllocatedFees;
 
     /// @notice Campaign state
     mapping(address campaign => CampaignInfo) internal _campaigns;
@@ -245,7 +248,7 @@ contract Flywheel is ReentrancyGuardTransient {
         returns (Payout[] memory payouts, Allocation[] memory fees)
     {
         (payouts, fees) = _campaigns[campaign].hooks.onSend(msg.sender, campaign, token, hookData);
-        uint256 totalFeeAmount = _allocateFees(campaign, token, fees);
+        _allocateFees(campaign, token, fees);
 
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
@@ -255,7 +258,7 @@ contract Flywheel is ReentrancyGuardTransient {
             emit PayoutSent(campaign, token, recipient, amount, payouts[i].extraData);
         }
 
-        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalFeeAmount);
+        _assertCampaignSolvency(campaign, token);
     }
 
     /// @notice Allocates payouts to a key for a campaign
@@ -275,16 +278,17 @@ contract Flywheel is ReentrancyGuardTransient {
         allocations = _campaigns[campaign].hooks.onAllocate(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, allocations.length);
-        mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
+        mapping(bytes32 key => uint256 amount) storage _allocatedPayout = allocatedPayout[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (allocations[i].key, allocations[i].amount);
             if (amount == 0) continue;
             totalAmount += amount;
-            _pendingPayouts[key] += amount;
+            _allocatedPayout[key] += amount;
             emit PayoutAllocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
-        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalAmount);
+        totalAllocatedPayouts[campaign][token] += totalAmount;
+        _assertCampaignSolvency(campaign, token);
     }
 
     /// @notice Deallocates allocated payouts from a key for a campaign
@@ -302,16 +306,17 @@ contract Flywheel is ReentrancyGuardTransient {
         allocations = _campaigns[campaign].hooks.onDeallocate(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, allocations.length);
-        mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
+        mapping(bytes32 key => uint256 amount) storage _allocatedPayout = allocatedPayout[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (allocations[i].key, allocations[i].amount);
             if (amount == 0) continue;
             totalAmount += amount;
-            _pendingPayouts[key] -= amount;
+            _allocatedPayout[key] -= amount;
             emit PayoutsDeallocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
-        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] - totalAmount);
+        totalAllocatedPayouts[campaign][token] -= totalAmount;
+        _assertCampaignSolvency(campaign, token);
     }
 
     /// @notice Distributes allocated payouts to recipients for a campaign
@@ -330,21 +335,22 @@ contract Flywheel is ReentrancyGuardTransient {
         returns (Distribution[] memory distributions, Allocation[] memory fees)
     {
         (distributions, fees) = _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
-        uint256 totalFeeAmount = _allocateFees(campaign, token, fees);
+        _allocateFees(campaign, token, fees);
 
         (uint256 totalAmount, uint256 count) = (0, distributions.length);
-        mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
+        mapping(bytes32 key => uint256 amount) storage _allocatedPayout = allocatedPayout[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (address recipient, bytes32 key, uint256 amount) =
                 (distributions[i].recipient, distributions[i].key, distributions[i].amount);
             if (amount == 0) continue;
             totalAmount += amount;
-            _pendingPayouts[key] -= amount;
+            _allocatedPayout[key] -= amount;
             Campaign(payable(campaign)).sendTokens(token, recipient, amount);
             emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
-        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalFeeAmount - totalAmount);
+        totalAllocatedPayouts[campaign][token] -= totalAmount;
+        _assertCampaignSolvency(campaign, token);
     }
 
     /// @notice Collects fees from a campaign
@@ -361,18 +367,19 @@ contract Flywheel is ReentrancyGuardTransient {
         distributions = _campaigns[campaign].hooks.onDistributeFees(msg.sender, campaign, token, hookData);
 
         (uint256 totalAmount, uint256 count) = (0, distributions.length);
-        mapping(bytes32 key => uint256 amount) storage _pendingFees = pendingFees[campaign][token];
+        mapping(bytes32 key => uint256 amount) storage _allocatedFee = allocatedFee[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (address recipient, bytes32 key, uint256 amount) =
                 (distributions[i].recipient, distributions[i].key, distributions[i].amount);
             if (amount == 0) continue;
             totalAmount += amount;
-            _pendingFees[key] -= amount;
+            _allocatedFee[key] -= amount;
             Campaign(payable(campaign)).sendTokens(token, recipient, amount);
             emit FeesDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
-        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] - totalAmount);
+        totalAllocatedFees[campaign][token] -= totalAmount;
+        _assertCampaignSolvency(campaign, token);
     }
 
     /// @notice Withdraw tokens from a campaign
@@ -390,7 +397,12 @@ contract Flywheel is ReentrancyGuardTransient {
         if (amount == 0) revert ZeroAmount();
         Campaign(payable(campaign)).sendTokens(token, recipient, amount);
         emit FundsWithdrawn(campaign, token, recipient, amount, payout.extraData);
-        _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token]);
+
+        // Assert campaign solvency, but ignore payouts if campaign is finalized
+        uint256 requiredSolvency = campaignStatus(campaign) == CampaignStatus.FINALIZED
+            ? totalAllocatedFees[campaign][token]
+            : totalAllocatedFees[campaign][token] + totalAllocatedPayouts[campaign][token];
+        if (IERC20(token).balanceOf(campaign) < requiredSolvency) revert InsufficientCampaignFunds();
     }
 
     /// @notice Updates the status of a campaign
@@ -484,32 +496,27 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     /// @param token Address of the token to allocate the fee from
     /// @param fees Allocation of the fees
-    function _allocateFees(address campaign, address token, Allocation[] memory fees)
-        internal
-        returns (uint256 totalFeeAmount)
-    {
-        uint256 count = fees.length;
-        mapping(bytes32 key => uint256 amount) storage _pendingFees = pendingFees[campaign][token];
+    function _allocateFees(address campaign, address token, Allocation[] memory fees) internal {
+        (uint256 totalFeeAmount, uint256 count) = (0, fees.length);
+        mapping(bytes32 key => uint256 amount) storage _allocatedFee = allocatedFee[campaign][token];
         for (uint256 i = 0; i < count; i++) {
             (bytes32 key, uint256 amount) = (fees[i].key, fees[i].amount);
             if (amount > 0) {
                 totalFeeAmount += amount;
-                _pendingFees[key] += amount;
+                _allocatedFee[key] += amount;
                 emit FeeAllocated(campaign, token, key, amount, fees[i].extraData);
             }
         }
+        totalAllocatedFees[campaign][token] += totalFeeAmount;
     }
 
     /// @notice Enforces that a campaign has enough reserved funds for an operation
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to check
-    /// @param newTotalReserved New total reserved amount
-    ///
-    /// @dev Sometimes the `newTotalReserved` is the same which adds a negligble gas overhead (100 gas)
-    function _assertTotalReservedSolvency(address campaign, address token, uint256 newTotalReserved) internal {
-        if (IERC20(token).balanceOf(campaign) < newTotalReserved) revert InsufficientCampaignFunds();
-        totalReserved[campaign][token] = newTotalReserved;
+    function _assertCampaignSolvency(address campaign, address token) internal {
+        uint256 totalAllocated = totalAllocatedPayouts[campaign][token] + totalAllocatedFees[campaign][token];
+        if (IERC20(token).balanceOf(campaign) < totalAllocated) revert InsufficientCampaignFunds();
     }
 
     /// @dev Override to use transient reentrancy guard on all chains

@@ -118,7 +118,7 @@ contract RefCodeAllocationTest is Test {
         // Builders can check allocations using recipient address keys
         for (uint256 i = 0; i < 3; i++) {
             bytes32 recipientKey = bytes32(bytes20(refCodeOwners[i]));
-            uint256 pending = flywheel.pendingPayouts(campaign, address(token), recipientKey);
+            uint256 pending = flywheel.allocatedPayout(campaign, address(token), recipientKey);
             assertEq(pending, amounts[i], "Should see correct allocation by recipient key");
         }
 
@@ -131,7 +131,7 @@ contract RefCodeAllocationTest is Test {
             assertEq(token.balanceOf(refCodeOwners[i]), amounts[i], "Should receive correct amount");
 
             bytes32 recipientKey = bytes32(bytes20(refCodeOwners[i]));
-            uint256 pending = flywheel.pendingPayouts(campaign, address(token), recipientKey);
+            uint256 pending = flywheel.allocatedPayout(campaign, address(token), recipientKey);
             assertEq(pending, 0, "No pending should remain");
         }
     }
@@ -174,7 +174,7 @@ contract RefCodeAllocationTest is Test {
         assertEq(myKey, refCodeKeys[0], "Builder should calculate correct key");
 
         // Builder can use this key to check pending payouts
-        // (In real scenario, this would query actual flywheel.pendingPayouts)
+        // (In real scenario, this would query actual flywheel.allocatedPayout)
     }
 
     function test_optimalCollectFeesHookWithRefCodeKeys() external {
@@ -215,7 +215,7 @@ contract RefCodeAllocationTest is Test {
         console.log("");
         console.log("For fee collection by ref code, builders would:");
         console.log("1. Calculate key: bytes32(builderCodes.toTokenId(myRefCode))  // OPTIMAL");
-        console.log("2. Check fees:    flywheel.pendingFees(campaign, token, refCodeKey)");
+        console.log("2. Check fees:    flywheel.allocatedFee(campaign, token, refCodeKey)");
         console.log("3. Collect fees:  Use same key in distributions");
         console.log("4. Recover code:  builderCodes.toCode(uint256(refCodeKey))  // If needed");
     }
@@ -247,7 +247,7 @@ contract RefCodeAllocationTest is Test {
             // 2. Create Distribution with key=refCodeKey, recipient=randoRecipient, amount=amounts[i]
 
             // This allows builders to check their allocations by refCode:
-            // pendingFees = flywheel.pendingPayouts(campaign, token, refCodeKey)
+            // allocatedFee = flywheel.allocatedPayout(campaign, token, refCodeKey)
 
             // But all payments actually go to randoRecipient
         }
