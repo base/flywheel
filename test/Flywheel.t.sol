@@ -464,14 +464,18 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Test distribute operation
         vm.prank(manager);
-        (Flywheel.Distribution[] memory distributeResult, Flywheel.Allocation[] memory fees) =
-            flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
+        (
+            Flywheel.Distribution[] memory distributeResult,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
 
         // Verify distribution results
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 150e18);
         // SimpleRewards charges no fees
-        assertEq(fees.length, 0);
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 0);
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient), 150e18);
@@ -852,11 +856,15 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Test distribute operation
         vm.prank(feeManager);
-        (Flywheel.Distribution[] memory distributeResult, Flywheel.Allocation[] memory fees) =
-            flywheel.distribute(feeCampaign, address(feeToken), abi.encode(payouts));
+        (
+            Flywheel.Distribution[] memory distributeResult,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = flywheel.distribute(feeCampaign, address(feeToken), abi.encode(payouts));
 
         // Verify no fees charged during distribution
-        assertEq(fees.length, 0);
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 0);
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 100e18);
 
@@ -1227,8 +1235,11 @@ contract FlywheelTest is FlywheelTestHelpers {
 
         // Step 2: Test distribute() - the core missing functionality
         vm.prank(manager);
-        (Flywheel.Distribution[] memory distributionsResult, Flywheel.Allocation[] memory fees) =
-            flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
+        (
+            Flywheel.Distribution[] memory distributionsResult,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
 
         // Verify distribute() results
         assertEq(distributionsResult.length, 2);
@@ -1237,7 +1248,8 @@ contract FlywheelTest is FlywheelTestHelpers {
         assertEq(distributionsResult[1].recipient, recipient2);
         assertEq(distributionsResult[1].amount, 150e18);
         // SimpleRewards has no fees
-        assertEq(fees.length, 0);
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 0);
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient1), 100e18);

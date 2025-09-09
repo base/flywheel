@@ -259,7 +259,11 @@ contract AdConversion is CampaignHooks {
     function _onSend(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
+        returns (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory, /*immediateFees*/
+            Flywheel.Allocation[] memory delayedFees
+        )
     {
         // Validate that the caller is the authorized attribution provider for this campaign
         if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
@@ -321,9 +325,12 @@ contract AdConversion is CampaignHooks {
             }
 
             // Deduct attribution fee from payout amount
-            uint256 attributionFee = (attributions[i].conversion.payoutAmount * feeBps) / MAX_BPS;
-            feeAmount += attributionFee;
-            uint256 netAmount = attributions[i].conversion.payoutAmount - attributionFee;
+            uint256 netAmount = attributions[i].conversion.payoutAmount;
+            if (feeBps > 0) {
+                uint256 attributionFee = (attributions[i].conversion.payoutAmount * feeBps) / MAX_BPS;
+                feeAmount += attributionFee;
+                netAmount -= attributionFee;
+            }
 
             // Find if this payoutAddress already exists in our tracking arrays
             bool found = false;
@@ -358,9 +365,12 @@ contract AdConversion is CampaignHooks {
             payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: ""});
         }
 
-        // Create the fees array with only the attribution provider fee
-        fees = new Flywheel.Allocation[](1);
-        fees[0] = Flywheel.Allocation({key: bytes32(bytes20(attributionProvider)), amount: feeAmount, extraData: ""});
+        // Add delayed fee for attribution provider to claim later
+        if (feeAmount > 0) {
+            delayedFees = new Flywheel.Allocation[](1);
+            delayedFees[0] =
+                Flywheel.Allocation({key: bytes32(bytes20(attributionProvider)), amount: feeAmount, extraData: ""});
+        }
     }
 
     /// @inheritdoc CampaignHooks

@@ -251,10 +251,10 @@ contract Flywheel is ReentrancyGuardTransient {
         nonReentrant
         onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (Payout[] memory payouts, Payout[] memory sendFees, Allocation[] memory allocateFees)
+        returns (Payout[] memory payouts, Payout[] memory immediateFees, Allocation[] memory delayedFees)
     {
-        (payouts, sendFees, allocateFees) = _campaigns[campaign].hooks.onSend(msg.sender, campaign, token, hookData);
-        uint256 totalFeeAmount = _processFees(campaign, token, sendFees, allocateFees);
+        (payouts, immediateFees, delayedFees) = _campaigns[campaign].hooks.onSend(msg.sender, campaign, token, hookData);
+        uint256 totalFeeAmount = _processFees(campaign, token, immediateFees, delayedFees);
 
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
@@ -336,11 +336,11 @@ contract Flywheel is ReentrancyGuardTransient {
         nonReentrant
         onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (Distribution[] memory distributions, Payout[] memory sendFees, Allocation[] memory allocateFees)
+        returns (Distribution[] memory distributions, Payout[] memory immediateFees, Allocation[] memory delayedFees)
     {
-        (distributions, sendFees, allocateFees) =
+        (distributions, immediateFees, delayedFees) =
             _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
-        uint256 totalFeeAmount = _processFees(campaign, token, sendFees, allocateFees);
+        uint256 totalFeeAmount = _processFees(campaign, token, immediateFees, delayedFees);
 
         (uint256 totalAmount, uint256 count) = (0, distributions.length);
         mapping(bytes32 key => uint256 amount) storage _pendingPayouts = pendingPayouts[campaign][token];
@@ -493,28 +493,30 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to allocate the fee from
-    /// @param sendFees Allocation of the fees to be sent immediately
-    /// @param allocateFees Allocation of the fees to be allocated
-    function _processFees(address campaign, address token, Payout[] memory sendFees, Allocation[] memory allocateFees)
-        internal
-        returns (uint256 totalFeeAmount)
-    {
-        uint256 count = sendFees.length;
+    /// @param immediateFees Allocation of the fees to be sent immediately
+    /// @param delayedFees Allocation of the fees to be allocated
+    function _processFees(
+        address campaign,
+        address token,
+        Payout[] memory immediateFees,
+        Allocation[] memory delayedFees
+    ) internal returns (uint256 totalFeeAmount) {
+        uint256 count = immediateFees.length;
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, uint256 amount) = (sendFees[i].recipient, sendFees[i].amount);
+            (address recipient, uint256 amount) = (immediateFees[i].recipient, immediateFees[i].amount);
             if (amount == 0) continue;
             Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit FeeSent(campaign, token, recipient, amount, sendFees[i].extraData);
+            emit FeeSent(campaign, token, recipient, amount, immediateFees[i].extraData);
         }
 
-        count = allocateFees.length;
+        count = delayedFees.length;
         mapping(bytes32 key => uint256 amount) storage _pendingFees = pendingFees[campaign][token];
         for (uint256 i = 0; i < count; i++) {
-            (bytes32 key, uint256 amount) = (allocateFees[i].key, allocateFees[i].amount);
+            (bytes32 key, uint256 amount) = (delayedFees[i].key, delayedFees[i].amount);
             if (amount > 0) {
                 totalFeeAmount += amount;
                 _pendingFees[key] += amount;
-                emit FeeAllocated(campaign, token, key, amount, allocateFees[i].extraData);
+                emit FeeAllocated(campaign, token, key, amount, delayedFees[i].extraData);
             }
         }
     }

@@ -113,17 +113,21 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Call onReward through flywheel
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
+        (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5% fee
-        assertEq(fees.length, 1);
-        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
-        assertEq(fees[0].amount, 5 ether);
-        assertEq(keccak256(fees[0].extraData), keccak256(""));
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 1);
+        assertEq(delayedFees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(delayedFees[0].amount, 5 ether);
+        assertEq(keccak256(delayedFees[0].extraData), keccak256(""));
     }
 
     function test_onReward_valid_offchainConversion() public {
@@ -167,17 +171,21 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Call onReward through flywheel
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
+        (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5% fee
-        assertEq(fees.length, 1);
-        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
-        assertEq(fees[0].amount, 5 ether);
-        assertEq(keccak256(fees[0].extraData), keccak256(""));
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 1);
+        assertEq(delayedFees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(delayedFees[0].amount, 5 ether);
+        assertEq(keccak256(delayedFees[0].extraData), keccak256(""));
     }
 
     function test_onReward_revert_onchainConversionWithoutLogBytes() public {
@@ -291,17 +299,18 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Call onReward through flywheel
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onSend(attributionProvider, ofacCampaign, address(token), hookData);
+        (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = hook.onSend(attributionProvider, ofacCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, burnAddress);
         assertEq(payouts[0].amount, 1000 ether); // Full amount sent to burn
-        assertEq(fees.length, 1);
-        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
-        assertEq(fees[0].amount, 0);
-        assertEq(keccak256(fees[0].extraData), keccak256(""));
+        assertEq(immediateFees.length, 0); // no fees
+        assertEq(delayedFees.length, 0); // no fees
     }
 
     function test_createCampaign_emitsConversionConfigAddedEvents() public {
@@ -641,17 +650,23 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Campaign 1 should use 5% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts1, Flywheel.Allocation[] memory fees1) =
-            hook.onSend(attributionProvider, campaign1, address(token), rewardData);
+        (
+            Flywheel.Payout[] memory payouts1,
+            Flywheel.Payout[] memory immediateFees1,
+            Flywheel.Allocation[] memory delayedFees1
+        ) = hook.onSend(attributionProvider, campaign1, address(token), rewardData);
         assertEq(payouts1[0].amount, 95 ether); // 100 - 5% = 95
-        assertEq(fees1[0].amount, 5 ether); // 5% fee
+        assertEq(delayedFees1[0].amount, 5 ether); // 5% fee
 
         // Campaign 2 should use 15% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts2, Flywheel.Allocation[] memory fees2) =
-            hook.onSend(attributionProvider, campaign2, address(token), rewardData);
+        (
+            Flywheel.Payout[] memory payouts2,
+            Flywheel.Payout[] memory immediateFees2,
+            Flywheel.Allocation[] memory delayedFees2
+        ) = hook.onSend(attributionProvider, campaign2, address(token), rewardData);
         assertEq(payouts2[0].amount, 85 ether); // 100 - 15% = 85
-        assertEq(fees2[0].amount, 15 ether); // 15% fee
+        assertEq(delayedFees2[0].amount, 15 ether); // 15% fee
     }
 
     function test_campaignSpecificFee_zeroFeeWorks() public {
@@ -698,12 +713,16 @@ contract AdConversionTest is PublisherTestSetup {
         bytes memory rewardData = abi.encode(attributions);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onSend(attributionProvider, zeroFeeCampaign, address(token), rewardData);
+        (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = hook.onSend(attributionProvider, zeroFeeCampaign, address(token), rewardData);
 
         // Should use 0% fee - full amount to publisher
         assertEq(payouts[0].amount, 100 ether); // 100 - 0% = 100
-        assertEq(fees[0].amount, 0 ether); // 0% fee
+        assertEq(immediateFees.length, 0); // no fees
+        assertEq(delayedFees.length, 0); // no fees
     }
 
     // =============================================================
@@ -892,16 +911,20 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Should succeed even with disabled config
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
+        (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, address(0x1001));
         assertEq(payouts[0].amount, 90 ether); // 100 - 10% fee
-        assertEq(fees.length, 1);
-        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
-        assertEq(fees[0].amount, 10 ether);
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 1);
+        assertEq(delayedFees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(delayedFees[0].amount, 10 ether);
     }
 
     function test_onReward_revert_publisherNotInAllowlist() public {
@@ -1048,8 +1071,11 @@ contract AdConversionTest is PublisherTestSetup {
         bytes memory hookData = abi.encode(attributions);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees) =
-            hook.onSend(attributionProvider, testCampaign, address(token), hookData);
+        (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        ) = hook.onSend(attributionProvider, testCampaign, address(token), hookData);
 
         // Verify results
         assertEq(payouts.length, 3);
@@ -1067,10 +1093,11 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(payouts[2].amount, 142.5 ether); // 150 - 5%
 
         // Total fee: 5% of (100 + 200 + 150) = 22.5 ether
-        assertEq(fees.length, 1);
-        assertEq(fees[0].key, bytes32(bytes20(attributionProvider)));
-        assertEq(fees[0].amount, 22.5 ether);
-        assertEq(keccak256(fees[0].extraData), keccak256(""));
+        assertEq(immediateFees.length, 0);
+        assertEq(delayedFees.length, 1);
+        assertEq(delayedFees[0].key, bytes32(bytes20(attributionProvider)));
+        assertEq(delayedFees[0].amount, 22.5 ether);
+        assertEq(keccak256(delayedFees[0].extraData), keccak256(""));
     }
 
     // =============================================================
