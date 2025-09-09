@@ -133,7 +133,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
 
         vm.expectRevert(); // Should revert due to insufficient funds or overflow
         vm.prank(ATTRIBUTION_PROVIDER);
-        flywheel.reward(campaign, address(token), massiveAttribution);
+        flywheel.send(campaign, address(token), massiveAttribution);
     }
 
     /// @notice Test front-running attacks
@@ -188,7 +188,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
 
         // Attempt to exploit with manipulated token
         vm.prank(ATTRIBUTION_PROVIDER);
-        try flywheel.reward(campaign, address(maliciousToken), _createBasicAttribution()) {
+        try flywheel.send(campaign, address(maliciousToken), _createBasicAttribution()) {
             // If it succeeds, verify no manipulation occurred
             assertTrue(maliciousToken.balanceOf(campaign) <= INITIAL_TOKEN_BALANCE);
         } catch {
@@ -249,7 +249,7 @@ contract FlywheelSecurityTest is FlywheelTestHelpers {
         bytes memory massiveData = new bytes(1024 * 1024); // 1MB
 
         vm.prank(ATTRIBUTION_PROVIDER);
-        try flywheel.reward(campaign, address(token), massiveData) {
+        try flywheel.send(campaign, address(token), massiveData) {
             // If it succeeds, verify reasonable gas usage
             assertTrue(gasleft() > 100000, "Should not exhaust all gas");
         } catch {

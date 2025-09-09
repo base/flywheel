@@ -103,14 +103,14 @@ contract Flywheel is ReentrancyGuardTransient {
         address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
     );
 
-    /// @notice Emitted when a payout is rewarded to a recipient
+    /// @notice Emitted when a payout is sent to a recipient
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the payout token
     /// @param recipient Address receiving the payout
-    /// @param amount Amount of tokens rewarded
+    /// @param amount Amount of tokens sent
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutRewarded(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
+    event PayoutSent(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
 
     /// @notice Emitted when a payout is allocated to a recipient
     ///
@@ -232,19 +232,19 @@ contract Flywheel is ReentrancyGuardTransient {
         CampaignHooks(hooks).onCreateCampaign(campaign, nonce, hookData);
     }
 
-    /// @notice Rewards a recipient with an immediate payout for a campaign
+    /// @notice Sends immediate payouts to recipients for a campaign
     ///
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to reward
+    /// @param token Address of the token to send
     /// @param hookData Data for the campaign hook
-    function reward(address campaign, address token, bytes calldata hookData)
+    function send(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
         onlyExists(campaign)
         acceptingPayouts(campaign)
         returns (Payout[] memory payouts, Allocation[] memory fees)
     {
-        (payouts, fees) = _campaigns[campaign].hooks.onReward(msg.sender, campaign, token, hookData);
+        (payouts, fees) = _campaigns[campaign].hooks.onSend(msg.sender, campaign, token, hookData);
         uint256 totalFeeAmount = _allocateFees(campaign, token, fees);
 
         uint256 count = payouts.length;
@@ -252,7 +252,7 @@ contract Flywheel is ReentrancyGuardTransient {
             (address recipient, uint256 amount) = (payouts[i].recipient, payouts[i].amount);
             if (amount == 0) continue;
             Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit PayoutRewarded(campaign, token, recipient, amount, payouts[i].extraData);
+            emit PayoutSent(campaign, token, recipient, amount, payouts[i].extraData);
         }
 
         _assertTotalReservedSolvency(campaign, token, totalReserved[campaign][token] + totalFeeAmount);

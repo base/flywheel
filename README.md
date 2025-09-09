@@ -83,7 +83,7 @@ struct Distribution {
 The main contract that manages:
 
 - Campaign lifecycle (Inactive → Active → Finalizing → Finalized)
-- Reward, allocation, distribution, and deallocation of payouts
+- Send, allocation, distribution, and deallocation of payouts
 - Enhanced fee collection and distribution with `bytes32` key support
 - Campaign deployment for each campaign
 - Key-based allocation system for flexible payout tracking
@@ -437,7 +437,7 @@ bytes memory hookData = abi.encode(
 
 **Payout Models Supported:**
 
-- `reward()` - Immediate payout to users
+- `send()` - Immediate payout to users
 - `allocate()` - Reserve rewards for future distribution
 - `deallocate()` - Cancel allocated rewards
 - `distribute()` - Distribute previously allocated rewards
@@ -471,7 +471,7 @@ bytes memory hookData = abi.encode(
 
 **Payout Models Supported:**
 
-- `reward()` - Immediate payout to recipients
+- `send()` - Immediate payout to recipients
 - `allocate()` - Reserve payouts for future distribution
 - `deallocate()` - Cancel allocated payouts
 - `distribute()` - Distribute previously allocated payouts
@@ -482,7 +482,7 @@ bytes memory hookData = abi.encode(
 
 Flywheel provides four fundamental payout operations that hooks can implement based on their requirements:
 
-### **reward()** - Immediate Payout
+### **send()** - Immediate Payout
 
 Transfers tokens directly to recipients immediately. Used for real-time rewards where no holding period is needed.
 
@@ -510,7 +510,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ❌ No fees                                                   |
 | **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ❌ Direct to recipients                                      |
 | **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Owner only                                                   |
-| **reward()**        | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Direct recipient payouts<br/>Simple pass-through          |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Direct recipient payouts<br/>Simple pass-through          |
 | **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ✅ Reserve payouts for claims                                |
 | **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ✅ Cancel unclaimed rewards                                  |
@@ -622,7 +622,7 @@ genhtml lcov.info -o coverage-report --rc derive_function_end_line=0 genhtml --i
 **Core Protocol Tests (`Flywheel.t.sol`)**:
 
 - Campaign lifecycle management (create, status transitions, finalize)
-- Core payout functions (allocate, distribute, deallocate, reward) using SimpleRewards for testing
+- Core payout functions (allocate, distribute, deallocate, send) using SimpleRewards for testing
 - Multi-token support and Campaign functionality
 - Fee collection and fund withdrawal mechanisms
 - Cross-hook state transition validation
@@ -696,7 +696,7 @@ bytes memory hookData = abi.encode(
     // hook-specific data
 );
 
-flywheel.reward(campaign, token, hookData);
+flywheel.send(campaign, token, hookData);
 ```
 
 #### Allocate Payouts
@@ -758,7 +758,7 @@ flywheel.distributeFees(campaign, token, hookData);
 **Enhanced Fee Features:**
 
 - **Multiple Fee Streams**: Support for different fee types using `bytes32` keys
-- **Flexible Fee Collection**: Fees can be collected on both `reward` and `distribute` operations
+- **Flexible Fee Collection**: Fees can be collected on both `send` and `distribute` operations
 - **Granular Tracking**: Each fee stream is tracked separately for better accounting
 - **Batch Distribution**: Multiple fees can be distributed in a single transaction
 
@@ -769,8 +769,8 @@ flywheel.distributeFees(campaign, token, hookData);
 | State                  | Next Valid States               | Payout Functions Available                       |
 | ---------------------- | ------------------------------- | ------------------------------------------------ |
 | **INACTIVE** (default) | ACTIVE, FINALIZING, FINALIZED   | None                                             |
-| **ACTIVE**             | INACTIVE, FINALIZING, FINALIZED | `reward`, `allocate`, `deallocate`, `distribute` |
-| **FINALIZING**         | FINALIZED                       | `reward`, `allocate`, `deallocate`, `distribute` |
+| **ACTIVE**             | INACTIVE, FINALIZING, FINALIZED | `send`, `allocate`, `deallocate`, `distribute` |
+| **FINALIZING**         | FINALIZED                       | `send`, `allocate`, `deallocate`, `distribute` |
 | **FINALIZED**          | None                            | None                                             |
 
 ### Detailed State Descriptions
@@ -786,8 +786,8 @@ Each hook type has different access control patterns for state transitions and o
 | State          | Who Can Transition To                                                                                                  | Available Functions | Special Behaviors                                                                   |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------- |
 | **INACTIVE**   | • ACTIVE: Attribution Provider only<br/>• FINALIZED: Advertiser only (fund recovery)                                   | None                | 🔒 Security: No party can pause active campaigns (ACTIVE→INACTIVE blocked)          |
-| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser<br/>• FINALIZED: Attribution Provider only (bypass)                  | `reward` only       | 🔒 Security: ACTIVE→FINALIZED blocked for Advertiser only (prevents attribution bypass) |
-| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                                              | `reward` only       | Sets attribution deadline based on campaign's configured duration (max 180 days)    |
+| **ACTIVE**     | • FINALIZING: Attribution Provider or Advertiser<br/>• FINALIZED: Attribution Provider only (bypass)                  | `send` only         | 🔒 Security: ACTIVE→FINALIZED blocked for Advertiser only (prevents attribution bypass) |
+| **FINALIZING** | • FINALIZED: Attribution Provider (any time), Advertiser (after deadline)                                              | `send` only         | Sets attribution deadline based on campaign's configured duration (max 180 days)    |
 | **FINALIZED**  | None (terminal state)                                                                                                  | None                | Only Advertiser can withdraw remaining funds                                        |
 
 ##### CashbackRewards & SimpleRewards Campaigns
@@ -795,8 +795,8 @@ Each hook type has different access control patterns for state transitions and o
 | State          | Who Can Transition To | Available Functions                              | Special Behaviors |
 | -------------- | --------------------- | ------------------------------------------------ | ----------------- |
 | **INACTIVE**   | Manager only          | None                                             | None              |
-| **ACTIVE**     | Manager only          | `reward`, `allocate`, `deallocate`, `distribute` | None              |
-| **FINALIZING** | Manager only          | `reward`, `allocate`, `deallocate`, `distribute` | None              |
+| **ACTIVE**     | Manager only          | `send`, `allocate`, `deallocate`, `distribute` | None              |
+| **FINALIZING** | Manager only          | `send`, `allocate`, `deallocate`, `distribute` | None              |
 | **FINALIZED**  | Manager only          | None                                             | None              |
 
 #### Key Design Notes

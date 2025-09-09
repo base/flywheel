@@ -40,7 +40,7 @@ contract SimpleRewardsTest is Test {
     // NOTE: Core campaign creation is tested in Flywheel.t.sol
     // This focuses on SimpleRewards-specific campaign setup
 
-    function test_reward_success() public {
+    function test_send_success() public {
         // Fund campaign
         vm.prank(manager);
         token.transfer(campaign, INITIAL_TOKEN_BALANCE);
@@ -58,7 +58,7 @@ contract SimpleRewardsTest is Test {
 
         // Process reward
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Verify recipients received tokens
         assertEq(token.balanceOf(recipient1), PAYOUT_AMOUNT);
@@ -89,7 +89,7 @@ contract SimpleRewardsTest is Test {
         // Random user cannot call payout functions
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
-        flywheel.reward(campaign, address(token), abi.encode(payouts));
+        flywheel.send(campaign, address(token), abi.encode(payouts));
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(randomUser);
@@ -162,7 +162,7 @@ contract SimpleRewardsTest is Test {
 
         // Process batch reward
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Verify all recipients received correct amounts
         assertEq(token.balanceOf(recipient1), 100e18);
@@ -184,7 +184,7 @@ contract SimpleRewardsTest is Test {
 
         // Should not revert with empty payouts
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // No tokens should be transferred
         assertEq(token.balanceOf(recipient1), 0);
@@ -215,10 +215,10 @@ contract SimpleRewardsTest is Test {
 
         // Process rewards for both tokens
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), abi.encode(payouts1));
+        flywheel.send(campaign, address(token), abi.encode(payouts1));
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token2), abi.encode(payouts2));
+        flywheel.send(campaign, address(token2), abi.encode(payouts2));
 
         // Verify correct token distributions
         assertEq(token.balanceOf(recipient1), 100e18);
@@ -241,7 +241,7 @@ contract SimpleRewardsTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), abi.encode(payouts));
+        flywheel.send(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
         flywheel.allocate(campaign, address(token), abi.encode(payouts));
@@ -260,7 +260,7 @@ contract SimpleRewardsTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), abi.encode(payouts));
+        flywheel.send(campaign, address(token), abi.encode(payouts));
 
         vm.prank(manager);
         flywheel.allocate(campaign, address(token), abi.encode(payouts));
@@ -295,7 +295,7 @@ contract SimpleRewardsTest is Test {
 
         // Should not revert with zero amounts
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Only non-zero amount should be transferred
         assertEq(token.balanceOf(recipient1), 0);
@@ -344,7 +344,7 @@ contract SimpleRewardsTest is Test {
 
         // Process reward
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), hookData);
+        flywheel.send(campaign, address(token), hookData);
 
         // Verify no fees were charged (full amount transferred)
         assertEq(token.balanceOf(recipient1), recipientBalance + PAYOUT_AMOUNT);
@@ -397,7 +397,7 @@ contract SimpleRewardsTest is Test {
         });
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(rewardToken), abi.encode(immediatePayouts));
+        flywheel.send(campaign, address(rewardToken), abi.encode(immediatePayouts));
 
         // Verify immediate rewards
         assertEq(rewardToken.balanceOf(recipient1), BASE_REWARD);
@@ -483,7 +483,7 @@ contract SimpleRewardsTest is Test {
         });
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(bonusToken), abi.encode(bonusPayouts));
+        flywheel.send(campaign, address(bonusToken), abi.encode(bonusPayouts));
 
         // Verify bonus token distribution
         assertEq(bonusToken.balanceOf(recipient1), 500e18);
@@ -557,7 +557,7 @@ contract SimpleRewardsTest is Test {
 
         // Process batch rewards
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), abi.encode(batchPayouts));
+        flywheel.send(campaign, address(token), abi.encode(batchPayouts));
 
         // Verify all contributors received their rewards
         for (uint256 i = 0; i < 10; i++) {
@@ -587,7 +587,7 @@ contract SimpleRewardsTest is Test {
         });
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), abi.encode(bugBounties));
+        flywheel.send(campaign, address(token), abi.encode(bugBounties));
 
         // Use case 2: Community governance participation
         Flywheel.Payout[] memory govRewards = new Flywheel.Payout[](2);
@@ -603,7 +603,7 @@ contract SimpleRewardsTest is Test {
         });
 
         vm.prank(manager);
-        flywheel.reward(campaign, address(token), abi.encode(govRewards));
+        flywheel.send(campaign, address(token), abi.encode(govRewards));
 
         // Use case 3: Educational content creation (allocate/distribute workflow)
         Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);

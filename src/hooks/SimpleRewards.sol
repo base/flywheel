@@ -54,7 +54,7 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onReward(address sender, address campaign, address token, bytes calldata hookData)
+    function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
         override

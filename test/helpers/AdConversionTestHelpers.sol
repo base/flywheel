@@ -200,7 +200,7 @@ abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
         bytes memory attributionData = abi.encode(attributions);
 
         vm.prank(ATTRIBUTION_PROVIDER);
-        flywheel.reward(campaign, address(token), attributionData);
+        flywheel.send(campaign, address(token), attributionData);
     }
 
     /// @notice Adds publisher to campaign allowlist

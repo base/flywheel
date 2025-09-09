@@ -99,7 +99,7 @@ contract CashbackRewards is SimpleRewards {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onReward(address sender, address campaign, address token, bytes calldata hookData)
+    function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
         onlyManager(sender, campaign)
