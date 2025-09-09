@@ -4,8 +4,8 @@ pragma solidity ^0.8.29;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {BuilderCodes} from "../BuilderCodes.sol";
-import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {Flywheel} from "../Flywheel.sol";
 
 /// @title BridgeRewards
 ///
@@ -88,7 +88,7 @@ contract BridgeRewards is CampaignHooks {
         if (feeAmount > 0) {
             immediateFees = new Flywheel.Payout[](1);
             immediateFees[0] = Flywheel.Payout({
-                recipient: builderCodes.payoutAddress(uint256(code)),
+                recipient: builderCodes.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
                 extraData: ""
             });
