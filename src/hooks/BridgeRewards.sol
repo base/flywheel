@@ -26,23 +26,8 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Metadata URI for the campaign
     string public metadataURI;
 
-    /// @notice Mapping of builder codes to fee percents
-    mapping(bytes32 code => uint256 bps) public feeBasisPoints;
-
-    /// @notice Emitted when the fee basis points is set
-    ///
-    /// @param code The builder code configured
-    /// @param feeBps The fee basis points for the builder code
-    event FeeBasisPointsSet(bytes32 indexed code, uint256 feeBps);
-
     /// @notice Error thrown to enforce only one campaign can be initialized
     error InvalidCampaignInitialization();
-
-    /// @notice Error thrown when the sender is not the owner of the builder code
-    error SenderIsNotBuilderCodeOwner();
-
-    /// @notice Error thrown when the fee basis points is too high
-    error FeeBasisPointsTooHigh();
 
     /// @notice Error thrown when the balance is zero
     error ZeroAmount();
@@ -56,19 +41,6 @@ contract BridgeRewards is CampaignHooks {
     constructor(address flywheel_, address builderCodes_, string memory metadataURI_) CampaignHooks(flywheel_) {
         builderCodes = BuilderCodes(builderCodes_);
         metadataURI = metadataURI_;
-    }
-
-    /// @notice Sets the fee basis points for a builder code
-    ///
-    /// @param code The builder code to configure
-    /// @param feeBps The fee basis points for the builder code
-    function setFeeBasisPoints(bytes32 code, uint256 feeBps) external {
-        address owner = builderCodes.ownerOf(uint256(code));
-        require(msg.sender == owner, SenderIsNotBuilderCodeOwner());
-        require(feeBps <= MAX_FEE_BASIS_POINTS, FeeBasisPointsTooHigh());
-
-        feeBasisPoints[code] = feeBps;
-        emit FeeBasisPointsSet(code, feeBps);
     }
 
     /// @inheritdoc CampaignHooks
@@ -87,11 +59,11 @@ contract BridgeRewards is CampaignHooks {
         override
         returns (
             Flywheel.Payout[] memory payouts,
-            Flywheel.Payout[] memory sendFees,
-            Flywheel.Allocation[] memory allocateFees
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory /*delayedFees*/
         )
     {
-        (address user, bytes32 code) = abi.decode(hookData, (address, bytes32));
+        (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
         // Check balance is greater than total reserved for the campaign
         uint256 balance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
@@ -102,7 +74,7 @@ contract BridgeRewards is CampaignHooks {
         require(builderCodes.ownerOf(uint256(code)) != address(0), BuilderCodeNotRegistered());
 
         // Compute fee amount
-        uint256 feeAmount = (unreservedAmount * feeBasisPoints[code]) / 1e4;
+        uint256 feeAmount = (unreservedAmount * feeBps) / 1e4;
 
         // Prepare payout
         payouts = new Flywheel.Payout[](1);
@@ -114,8 +86,8 @@ contract BridgeRewards is CampaignHooks {
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
-            sendFees = new Flywheel.Payout[](1);
-            sendFees[0] = Flywheel.Payout({
+            immediateFees = new Flywheel.Payout[](1);
+            immediateFees[0] = Flywheel.Payout({
                 recipient: builderCodes.payoutAddress(uint256(code)),
                 amount: feeAmount,
                 extraData: ""
@@ -129,7 +101,10 @@ contract BridgeRewards is CampaignHooks {
         override
         returns (Flywheel.Payout memory payout)
     {
-        // Anyone can withdraw, emphasizing that funds are meant to be atomically distributed after sending to campaign
+        // Intended use is for funds to be sent into the campaign and atomically sent out to recipients
+        // If tokens are sent into the campaign outside of this scope on accident, anyone can take them (no access control for `onSend` hook)
+        // To keep the event feed clean for payouts/fees, we leave open the ability to withdraw funds directly
+        // Those wishing to take accidental tokens left in the campaign should find this function easier
         payout = abi.decode(hookData, (Flywheel.Payout));
     }
 
@@ -141,12 +116,14 @@ contract BridgeRewards is CampaignHooks {
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
     ) internal override {
-        // Anyone can set to ACTIVE to turn on the campaign
+        // This is a perpetual campaign, so it should always be active
+        // Campaigns are created as INACTIVE, so still need to let someone turn it on
         if (newStatus != Flywheel.CampaignStatus.ACTIVE) revert Flywheel.InvalidCampaignStatus();
     }
 
     /// @inheritdoc CampaignHooks
     function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal override {
         // Anyone can prompt metadata cache updates
+        // Even though metadataURI is fixed, its returned data may change over time
     }
 }
