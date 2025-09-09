@@ -85,7 +85,11 @@ contract BridgeRewards is CampaignHooks {
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Payout[] memory payouts, Flywheel.Allocation[] memory fees)
+        returns (
+            Flywheel.Payout[] memory payouts,
+            Flywheel.Payout[] memory sendFees,
+            Flywheel.Allocation[] memory allocateFees
+        )
     {
         (address user, bytes32 code) = abi.decode(hookData, (address, bytes32));
 
@@ -110,30 +114,13 @@ contract BridgeRewards is CampaignHooks {
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
-            fees = new Flywheel.Allocation[](1);
-            fees[0] = Flywheel.Allocation({key: code, amount: feeAmount, extraData: ""});
+            sendFees = new Flywheel.Payout[](1);
+            sendFees[0] = Flywheel.Payout({
+                recipient: builderCodes.payoutAddress(uint256(code)),
+                amount: feeAmount,
+                extraData: ""
+            });
         }
-    }
-
-    /// @inheritdoc CampaignHooks
-    function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
-        internal
-        override
-        returns (Flywheel.Distribution[] memory distributions)
-    {
-        bytes32 code = bytes32(hookData);
-
-        // Early return if no fees are pending
-        uint256 amount = flywheel.pendingFees(campaign, token, code);
-        if (amount == 0) return distributions;
-
-        distributions = new Flywheel.Distribution[](1);
-        distributions[0] = Flywheel.Distribution({
-            key: code,
-            recipient: builderCodes.payoutAddress(uint256(code)),
-            amount: amount,
-            extraData: ""
-        });
     }
 
     /// @inheritdoc CampaignHooks
