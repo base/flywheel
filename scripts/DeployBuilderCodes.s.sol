@@ -11,9 +11,14 @@ import {BuilderCodes} from "../src/BuilderCodes.sol";
 contract DeployBuilderCodes is Script {
     /// @notice Deploys the BuilderCodes with proxy
     /// @param owner Address that will own the registry contract
-    /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
-    function run(address owner, address signerAddress, string memory uriPrefix) external returns (address) {
+    function run(address owner) external returns (address) {
         require(owner != address(0), "Owner cannot be zero address");
+
+        address signerAddress = 0x0000000000000000000000000000000000000000;
+        string memory uriPrefix = "https://flywheel.com/";
+
+        console.log("Signer address:", signerAddress);
+        console.log("URI Prefix:", uriPrefix);
 
         vm.startBroadcast();
 
@@ -28,8 +33,6 @@ contract DeployBuilderCodes is Script {
 
         console.log("BuilderCodes implementation deployed at:", address(implementation));
         console.log("BuilderCodes proxy deployed at:", address(proxy));
-        console.log("Owner:", owner);
-        console.log("Signer address:", signerAddress);
 
         vm.stopBroadcast();
 

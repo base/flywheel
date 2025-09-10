@@ -16,7 +16,7 @@ contract DeployFlywheel is Script {
         Flywheel flywheel = new Flywheel();
 
         console.log("Flywheel deployed at:", address(flywheel));
-        console.log("Campaign implementation at:", flywheel.campaignImplementation());
+        console.log("Campaign implementation deployed at:", flywheel.campaignImplementation());
 
         vm.stopBroadcast();
 

@@ -9,75 +9,66 @@ import {DeployBuilderCodes} from "./DeployBuilderCodes.s.sol";
 import {DeployAdConversion} from "./DeployAdConversion.s.sol";
 import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
 import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
+import {DeployBridgeRewards} from "./DeployBridgeRewards.s.sol";
 
 /// @notice Script for deploying all Flywheel protocol contracts in the correct order
 contract DeployAll is Script {
     /// @notice Deployment information structure
-    struct DeploymentInfo {
+    struct Deployments {
         address flywheel;
-        address referralCodes;
+        address builderCodes;
         address adConversion;
         address cashbackRewards;
+        address bridgeRewards;
         address simpleRewards;
     }
 
-    function run() external {
-        address owner = 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff;
-        address signerAddress = 0x0000000000000000000000000000000000000000;
-        string memory uriPrefix = "https://flywheel.com/";
-        run(owner, signerAddress, uriPrefix);
-    }
-
-    /// @notice Deploys all contracts in the correct order
-    /// @param owner Address that will own the contracts
-    /// @param signerAddress Address authorized to call registerPublisherCustom (can be zero address)
-    function run(address owner, address signerAddress, string memory uriPrefix)
-        public
-        returns (DeploymentInfo memory info)
-    {
-        address escrow = 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff;
-        require(owner != address(0), "Owner cannot be zero address");
+    function run() external returns (Deployments memory deployments) {
+        address owner = 0x0BFc799dF7e440b7C88cC2454f12C58f8a29D986; // dev wallet
 
         console.log("Starting deployment of Flywheel protocol contracts...");
         console.log("Owner address:", owner);
-        console.log("Signer address:", signerAddress);
-        console.log("URI Prefix:", uriPrefix);
-        console.log("AuthCaptureEscrow:", escrow);
         console.log("==========================================");
 
-        // Deploy Flywheel first (independent contract)
+        // Deploy Flywheel first (no dependencies)
         console.log("1. Deploying Flywheel...");
         DeployFlywheel flywheelDeployer = new DeployFlywheel();
-        info.flywheel = flywheelDeployer.run();
+        deployments.flywheel = flywheelDeployer.run();
 
-        // Deploy BuilderCodes (independent contract)
+        // Deploy BuilderCodes (depends on owner)
         console.log("2. Deploying BuilderCodes...");
-        DeployBuilderCodes registryDeployer = new DeployBuilderCodes();
-        info.referralCodes = registryDeployer.run(owner, signerAddress, uriPrefix);
+        DeployBuilderCodes builderCodesDeployer = new DeployBuilderCodes();
+        deployments.builderCodes = builderCodesDeployer.run(owner);
 
-        // Deploy AdConversion hook (depends on both Flywheel and BuilderCodes)
-        console.log("3. Deploying AdConversion hook...");
+        // Deploy AdConversion (depends on Flywheel, BuilderCodes, owner)
+        console.log("3. Deploying AdConversion...");
         DeployAdConversion adConversionDeployer = new DeployAdConversion();
-        info.adConversion = adConversionDeployer.run(info.flywheel, owner, info.referralCodes);
+        deployments.adConversion = adConversionDeployer.run(deployments.flywheel, deployments.builderCodes, owner);
 
-        // Deploy CashbackRewards hook (depends on Flywheel and AuthCaptureEscrow)
-        console.log("4. Deploying CashbackRewards hook...");
+        // Deploy CashbackRewards (depends on Flywheel)
+        console.log("4. Deploying CashbackRewards...");
         DeployCashbackRewards cashbackRewardsDeployer = new DeployCashbackRewards();
-        info.cashbackRewards = cashbackRewardsDeployer.run(info.flywheel, escrow);
+        deployments.cashbackRewards = cashbackRewardsDeployer.run(deployments.flywheel);
 
-        // Deploy SimpleRewards hook (depends on Flywheel)
-        console.log("5. Deploying SimpleRewards hook...");
+        // Deploy BridgeRewards (depends on Flywheel, BuilderCodes)
+        console.log("4. Deploying BridgeRewards...");
+        DeployBridgeRewards bridgeRewardsDeployer = new DeployBridgeRewards();
+        deployments.bridgeRewards = bridgeRewardsDeployer.run(deployments.flywheel, deployments.builderCodes);
+
+        // Deploy SimpleRewards (depends on Flywheel)
+        console.log("5. Deploying SimpleRewards...");
         DeploySimpleRewards simpleRewardsDeployer = new DeploySimpleRewards();
-        info.simpleRewards = simpleRewardsDeployer.run(info.flywheel);
+        deployments.simpleRewards = simpleRewardsDeployer.run(deployments.flywheel);
 
         console.log("==========================================");
         console.log("Deployment complete!");
-        console.log("Flywheel:", info.flywheel);
-        console.log("BuilderCodes:", info.referralCodes);
-        console.log("AdConversion:", info.adConversion);
-        console.log("CashbackRewards:", info.cashbackRewards);
-        console.log("SimpleRewards:", info.simpleRewards);
+        console.log("Flywheel:", deployments.flywheel);
+        console.log("BuilderCodes:", deployments.builderCodes);
+        console.log("AdConversion:", deployments.adConversion);
+        console.log("CashbackRewards:", deployments.cashbackRewards);
+        console.log("BridgeRewards:", deployments.bridgeRewards);
+        console.log("SimpleRewards:", deployments.simpleRewards);
 
-        return info;
+        return deployments;
     }
 }

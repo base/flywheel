@@ -17,7 +17,7 @@ contract DeploySimpleRewards is Script {
 
         // Deploy SimpleRewards hook
         SimpleRewards hook = new SimpleRewards(flywheel);
-        console.log("SimpleRewards hook deployed at:", address(hook));
+        console.log("SimpleRewards deployed at:", address(hook));
 
         vm.stopBroadcast();
 
