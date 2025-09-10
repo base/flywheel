@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {BridgeRewards} from "../src/hooks/BridgeRewards.sol";
+import {BridgeRewards} from "../../src/hooks/BridgeRewards.sol";
 
 /// @notice Script for deploying the BridgeRewards hook contract
 contract DeployBridgeRewards is Script {

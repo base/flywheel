@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {AdConversion} from "../src/hooks/AdConversion.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
 /// @notice Script for deploying the AdConversion hook contract
 contract DeployAdConversion is Script {

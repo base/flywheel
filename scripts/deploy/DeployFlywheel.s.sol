@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {Flywheel} from "../src/Flywheel.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
 
 /// @notice Script for deploying the Flywheel contract
 contract DeployFlywheel is Script {

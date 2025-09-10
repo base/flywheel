@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {BuilderCodes} from "../src/BuilderCodes.sol";
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
 /// @notice Script for deploying the BuilderCodes contract
 contract DeployBuilderCodes is Script {

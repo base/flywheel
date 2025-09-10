@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {CashbackRewards} from "../src/hooks/CashbackRewards.sol";
+import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 
 /// @notice Script for deploying the CashbackRewards hook contract
 contract DeployCashbackRewards is Script {
