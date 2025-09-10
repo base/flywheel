@@ -8,11 +8,9 @@ import {CashbackRewards} from "../src/hooks/CashbackRewards.sol";
 
 /// @notice Script for deploying the CashbackRewards hook contract
 contract DeployCashbackRewards is Script {
-    // function run(address flywheel, address escrow) external returns (address) {
-    function run() external returns (address) {
-        // require(flywheel != address(0), "Flywheel cannot be zero address");
-        address flywheel = 0xB04d55fCc15569B23B8B8C05068C7dAb2B9028D8;
-        address escrow = 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff;
+    function run(address flywheel, address escrow) external returns (address) {
+        require(flywheel != address(0), "Flywheel cannot be zero address");
+        require(escrow != address(0), "Escrow cannot be zero address");
 
         vm.startBroadcast();
 

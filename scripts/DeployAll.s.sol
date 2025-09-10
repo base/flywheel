@@ -22,7 +22,7 @@ contract DeployAll is Script {
     }
 
     function run() external {
-        address owner = 0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff;
+        address owner = 0x7116F87D6ff2ECa5e3b2D5C5224fc457978194B2; //  FOR TESTNET. DO NOT USE ...4B2 for mainnet
         address signerAddress = 0x0000000000000000000000000000000000000000;
         string memory uriPrefix = "https://flywheel.com/";
         run(owner, signerAddress, uriPrefix);
