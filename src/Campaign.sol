@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Flywheel} from "./Flywheel.sol";
 
@@ -38,14 +38,13 @@ contract Campaign {
     /// @param amount Amount of tokens to receive
     ///
     /// @return success True if the transfer was successful
-    function sendTokens(address token, address recipient, uint256 amount) external returns (bool) {
+    function sendTokens(address token, address recipient, uint256 amount) external returns (bool success) {
         if (msg.sender != flywheel) revert OnlyFlywheel();
         if (token == NATIVE_TOKEN) {
-            SafeTransferLib.safeTransferETH(recipient, amount);
+            (success,) = payable(recipient).call{value: amount}("");
         } else {
-            SafeTransferLib.safeTransfer(token, recipient, amount);
+            success = SafeERC20.trySafeTransfer(IERC20(token), recipient, amount);
         }
-        return true;
     }
 
     /// @notice Updates the metadata for the contract

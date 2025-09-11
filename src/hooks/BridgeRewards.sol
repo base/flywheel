@@ -75,8 +75,12 @@ contract BridgeRewards is CampaignHooks {
         // Prepare payout
         uint256 feeAmount = (balance * feeBps) / 1e4;
         payouts = new Flywheel.Payout[](1);
-        payouts[0] =
-            Flywheel.Payout({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});
+        payouts[0] = Flywheel.Payout({
+            recipient: user,
+            amount: balance - feeAmount,
+            extraData: abi.encode(code, feeAmount),
+            fallbackKey: bytes32(bytes20(user))
+        });
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
@@ -84,9 +88,49 @@ contract BridgeRewards is CampaignHooks {
             immediateFees[0] = Flywheel.Payout({
                 recipient: builderCodes.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
-                extraData: ""
+                extraData: "",
+                fallbackKey: code
             });
         }
+    }
+
+    /// @inheritdoc CampaignHooks
+    ///
+    /// @dev Will only need to use this function if the initial payout send fails
+    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        override
+        returns (
+            Flywheel.Distribution[] memory distributions,
+            Flywheel.Payout[] memory immediateFees,
+            Flywheel.Allocation[] memory delayedFees
+        )
+    {
+        distributions = new Flywheel.Distribution[](1);
+        distributions[0] = Flywheel.Distribution({
+            recipient: sender,
+            key: bytes32(bytes20(sender)),
+            amount: flywheel.allocatedPayout(campaign, token, bytes32(bytes20(sender))),
+            extraData: ""
+        });
+    }
+
+    /// @inheritdoc CampaignHooks
+    ///
+    /// @dev Will only need to use this function if the initial fee send fails
+    function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        override
+        returns (Flywheel.Distribution[] memory distributions)
+    {
+        bytes32 code = bytes32(hookData);
+        distributions = new Flywheel.Distribution[](1);
+        distributions[0] = Flywheel.Distribution({
+            recipient: builderCodes.payoutAddress(uint256(code)),
+            key: code,
+            amount: flywheel.allocatedFee(campaign, token, code),
+            extraData: ""
+        });
     }
 
     /// @inheritdoc CampaignHooks

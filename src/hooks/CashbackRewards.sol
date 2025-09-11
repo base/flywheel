@@ -128,8 +128,12 @@ contract CashbackRewards is SimpleRewards {
             rewards[campaign][paymentInfoHash].distributed += amount;
 
             // Append to return array
-            payouts[outputLen++] =
-                Flywheel.Payout({recipient: payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
+            payouts[outputLen++] = Flywheel.Payout({
+                recipient: payer,
+                amount: amount,
+                extraData: abi.encodePacked(paymentInfoHash),
+                fallbackKey: bytes32(bytes20(payer))
+            });
         }
 
         // Resize array to actual output length
