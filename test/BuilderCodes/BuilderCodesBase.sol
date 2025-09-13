@@ -32,6 +32,7 @@ abstract contract BuilderCodesBase is Test {
     }
 
     /// @notice Generates valid code
+    /// @param seed Random number to seed the valid code generation
     /// @return code Valid code
-    function _generateValidCode() internal returns (string code) {}
+    function _generateValidCode(uint256 seed) internal returns (string code) {}
 }

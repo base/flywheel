@@ -8,38 +8,59 @@ contract RegisterTest is BuilderCodesBase {
     /**
      * register reverts
      */
-    function test_register_revert_senderInvalidRole(address sender, address initialOwner, address payoutAddress)
-        public
-    {}
+    function test_register_revert_senderInvalidRole(
+        address sender,
+        uint256 codeSeed,
+        address initialOwner,
+        address payoutAddress
+    ) public {}
 
     /**
      * _register reverts
      */
     function test_register_revert_emptyCode(address initialOwner, address payoutAddress) public {}
 
-    function test_register_revert_codeOver32Characters(address initialOwner, address payoutAddress) public {}
+    function test_register_revert_codeOver32Characters(uint256 codeSeed, address initialOwner, address payoutAddress)
+        public
+    {}
 
-    function test_register_revert_codeContainsInvalidCharacters(address initialOwner, address payoutAddress) public {}
+    function test_register_revert_codeContainsInvalidCharacters(
+        uint256 codeSeed,
+        address initialOwner,
+        address payoutAddress
+    ) public {}
 
-    function test_register_revert_zeroInitialOwner(address payoutAddress) public {}
+    function test_register_revert_zeroInitialOwner(uint256 codeSeed, address payoutAddress) public {}
 
-    function test_register_revert_alreadyRegistered(address initialOwner, address payoutAddress) public {}
+    function test_register_revert_zeroPayoutAddress(uint256 codeSeed, address initialOwner) public {}
 
-    function test_register_revert_zeroPayoutAddress(address initialOwner) public {}
+    function test_register_revert_alreadyRegistered(uint256 codeSeed, address initialOwner, address payoutAddress)
+        public
+    {}
 
     /**
      * _register success conditions
      */
-    function test_register_success_mintsToken(address initialOwner, address payoutAddress) public {}
+    function test_register_success_mintsToken(uint256 codeSeed, address initialOwner, address payoutAddress) public {}
 
-    function test_register_success_setsPayoutAddress(address initialOwner, address payoutAddress) public {}
+    function test_register_success_setsPayoutAddress(uint256 codeSeed, address initialOwner, address payoutAddress)
+        public
+    {}
 
     /**
      * _register success events
      */
-    function test_register_success_emitsERC721Transfer(address initialOwner, address payoutAddress) public {}
+    function test_register_success_emitsERC721Transfer(uint256 codeSeed, address initialOwner, address payoutAddress)
+        public
+    {}
 
-    function test_register_success_emitsCodeRegistered(address initialOwner, address payoutAddress) public {}
+    function test_register_success_emitsCodeRegistered(uint256 codeSeed, address initialOwner, address payoutAddress)
+        public
+    {}
 
-    function test_register_success_emitsPayoutAddressUpdated(address initialOwner, address payoutAddress) public {}
+    function test_register_success_emitsPayoutAddressUpdated(
+        uint256 codeSeed,
+        address initialOwner,
+        address payoutAddress
+    ) public {}
 }
