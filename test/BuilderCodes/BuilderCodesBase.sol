@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.29;
+
+import {Test} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
+
+abstract contract BuilderCodesBase is Test {
+    uint256 internal constant OWNER_PK = uint256(keccak256("owner"));
+    uint256 internal constant REGISTRAR_PK = uint256(keccak256("registrar"));
+    string public constant URI_PREFIX = "https://example.com/builder-codes/metadata";
+
+    BuilderCodes public builderCodes;
+
+    address public owner;
+    address public registrar;
+
+    function setUp() public virtual {
+        owner = vm.addr(OWNER_PK);
+        registrar = vm.addr(REGISTRAR_PK);
+
+        implementation = new BuilderCodes();
+        bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, registrar, URI_PREFIX);
+        builderCodes = new ERC1967Proxy(implementation, initData);
+
+        builderCodes.grantRole(builderCodes.REGISTER_ROLE(), registrar);
+
+        vm.label(owner, "Owner");
+        vm.label(registrar, "Registrar");
+        vm.label(address(builderCodes), "BuilderCodes");
+    }
+
+    /// @notice Generates valid code
+    /// @return code Valid code
+    function _generateValidCode() internal returns (string code) {}
+}
