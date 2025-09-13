@@ -5,12 +5,12 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+import {PublisherTestSetup, PublisherSetupHelper} from "../lib/PublisherSetupHelper.sol";
+import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+
 import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
-import {DummyERC20} from "../mocks/DummyERC20.sol";
-
-import {PublisherTestSetup, PublisherSetupHelper} from "../helpers/PublisherSetupHelper.sol";
 
 contract AdFlowTest is PublisherTestSetup {
     // Contracts

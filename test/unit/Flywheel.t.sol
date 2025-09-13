@@ -2,15 +2,16 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
-import {Flywheel} from "../src/Flywheel.sol";
-import {BuilderCodes} from "../src/BuilderCodes.sol";
-import {Campaign} from "../src/Campaign.sol";
-import {AdConversion} from "../src/hooks/AdConversion.sol";
-import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
-import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {FlywheelTestHelpers} from "./helpers/FlywheelTestHelpers.sol";
+import {FlywheelTestHelpers} from "../lib/FlywheelTestHelpers.sol";
+import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+
+import {Campaign} from "../../src/Campaign.sol";
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
+import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 
 contract FlywheelTest is FlywheelTestHelpers {
     BuilderCodes public publisherRegistry;

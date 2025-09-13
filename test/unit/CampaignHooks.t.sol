@@ -2,8 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
-import {Flywheel} from "../src/Flywheel.sol";
-import {CampaignHooks} from "../src/CampaignHooks.sol";
+
+import {Flywheel} from "../../src/Flywheel.sol";
+import {CampaignHooks} from "../../src/CampaignHooks.sol";
 
 /// @notice Test implementation of CampaignHooks for testing the abstract base contract
 contract TestCampaignHooks is CampaignHooks {

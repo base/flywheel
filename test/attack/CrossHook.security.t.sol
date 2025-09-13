@@ -3,14 +3,15 @@ pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
-
-import {Flywheel} from "../src/Flywheel.sol";
-import {CashbackRewards} from "../src/hooks/CashbackRewards.sol";
-import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
-import {AdConversion} from "../src/hooks/AdConversion.sol";
-import {BuilderCodes} from "../src/BuilderCodes.sol";
-import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+
+import {Flywheel} from "../../src/Flywheel.sol";
+import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
+import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
 /// @title Cross-Hook Security & Integration Test Suite
 /// @notice Comprehensive testing for cross-hook interactions: baseline functionality and security attacks

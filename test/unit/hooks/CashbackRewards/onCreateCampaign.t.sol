@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {CashbackRewardsBase} from "./CashbackRewardsBase.sol";
-import {Flywheel} from "../../src/Flywheel.sol";
-import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
+import {CashbackRewardsBase} from "../../../lib/CashbackRewardsBase.sol";
+import {Flywheel} from "../../../../src/Flywheel.sol";
+import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 
 contract OnCreateCampaignTest is CashbackRewardsBase {
     function test_createCampaignWithZeroMaxReward(

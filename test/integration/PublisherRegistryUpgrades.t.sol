@@ -1,9 +1,11 @@
 pragma solidity ^0.8.29;
 
 import "forge-std/Test.sol";
-import {BuilderCodes} from "../src/BuilderCodes.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {BuilderCodesV2} from "./mocks/DummyUpgrades.sol";
+
+import {BuilderCodesV2} from "../lib/mocks/DummyUpgrades.sol";
+
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
 contract PublisherRegistryUpgradesTest is Test {
     BuilderCodes public implementation;

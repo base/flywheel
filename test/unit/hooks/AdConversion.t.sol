@@ -3,13 +3,14 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {Flywheel} from "../src/Flywheel.sol";
-import {BuilderCodes} from "../src/BuilderCodes.sol";
-import {AdConversion} from "../src/hooks/AdConversion.sol";
-import {DummyERC20} from "./mocks/DummyERC20.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {PublisherTestSetup, PublisherSetupHelper} from "./helpers/PublisherSetupHelper.sol";
+import {PublisherTestSetup, PublisherSetupHelper} from "../../lib/PublisherSetupHelper.sol";
+import {DummyERC20} from "../../lib/mocks/DummyERC20.sol";
+
+import {Flywheel} from "../../../src/Flywheel.sol";
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
+import {AdConversion} from "../../../src/hooks/AdConversion.sol";
 
 contract AdConversionTest is PublisherTestSetup {
     Flywheel public flywheel;

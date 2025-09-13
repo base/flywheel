@@ -1,12 +1,12 @@
 pragma solidity ^0.8.29;
 
-import "forge-std/console.sol";
 import {Test} from "forge-std/Test.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {BuilderCodes} from "../src/BuilderCodes.sol";
-import {PublisherTestSetup, PublisherSetupHelper} from "./helpers/PublisherSetupHelper.sol";
+import {PublisherTestSetup, PublisherSetupHelper} from "../lib/PublisherSetupHelper.sol";
+
+import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
 contract BuilderCodesTest is PublisherTestSetup {
     using PublisherSetupHelper for *;

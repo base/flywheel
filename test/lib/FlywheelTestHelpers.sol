@@ -2,12 +2,14 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import {PublisherTestSetup, PublisherSetupHelper} from "./PublisherSetupHelper.sol";
+import {DummyERC20} from "./mocks/DummyERC20.sol";
+
 import {Flywheel} from "../../src/Flywheel.sol";
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
-import {DummyERC20} from "../mocks/DummyERC20.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {PublisherTestSetup, PublisherSetupHelper} from "./PublisherSetupHelper.sol";
 
 /// @notice Common test helpers for Flywheel protocol testing
 abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {

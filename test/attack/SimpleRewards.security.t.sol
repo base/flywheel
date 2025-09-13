@@ -2,9 +2,11 @@
 pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
-import {Flywheel} from "../src/Flywheel.sol";
-import {SimpleRewards} from "../src/hooks/SimpleRewards.sol";
-import {DummyERC20} from "./mocks/DummyERC20.sol";
+
+import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+
+import {Flywheel} from "../../src/Flywheel.sol";
+import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 
 /// @title SimpleRewards Security Test Suite
 /// @notice Security-focused testing with attack scenarios targeting privilege escalation and access control
