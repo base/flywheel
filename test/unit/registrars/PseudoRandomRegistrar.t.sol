@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesBase} from "../BuilderCodes/BuilderCodesBase.sol";
+import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
-import {PseudoRandomRegistrar} from "../../src/registrars/PseudoRandomRegistrar.sol";
+import {PseudoRandomRegistrar} from "../../../src/registrars/PseudoRandomRegistrar.sol";
 
 /// @notice Tests for PseudoRandomRegistrar
-contract PseudoRandomRegistrarTest is BuilderCodesBase {
+contract PseudoRandomRegistrarTest is BuilderCodesCommon {
     PseudoRandomRegistrar pseudoRandomRegistrar;
 
     function setUp() public override {
-        super().setUp();
+        super.setUp();
 
         pseudoRandomRegistrar = new PseudoRandomRegistrar(address(builderCodes));
     }

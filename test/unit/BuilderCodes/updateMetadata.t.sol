@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesBase} from "./BuilderCodesBase.sol";
+import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
 /// @notice Tests for BuilderCodes.updateMetadata
-contract UpdateMetadataTest is BuilderCodesBase {
+contract UpdateMetadataTest is BuilderCodesCommon {
     /**
      * updateMetadata reverts
      */

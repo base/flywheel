@@ -6,7 +6,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
-abstract contract BuilderCodesBase is Test {
+abstract contract BuilderCodesCommon is Test {
     uint256 internal constant OWNER_PK = uint256(keccak256("owner"));
     uint256 internal constant REGISTRAR_PK = uint256(keccak256("registrar"));
     string public constant URI_PREFIX = "https://example.com/builder-codes/metadata";
@@ -20,9 +20,9 @@ abstract contract BuilderCodesBase is Test {
         owner = vm.addr(OWNER_PK);
         registrar = vm.addr(REGISTRAR_PK);
 
-        implementation = new BuilderCodes();
+        address implementation = address(new BuilderCodes());
         bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, registrar, URI_PREFIX);
-        builderCodes = new ERC1967Proxy(implementation, initData);
+        builderCodes = BuilderCodes(address(new ERC1967Proxy(implementation, initData)));
 
         builderCodes.grantRole(builderCodes.REGISTER_ROLE(), registrar);
 
@@ -34,5 +34,5 @@ abstract contract BuilderCodesBase is Test {
     /// @notice Generates valid code
     /// @param seed Random number to seed the valid code generation
     /// @return code Valid code
-    function _generateValidCode(uint256 seed) internal returns (string code) {}
+    function _generateValidCode(uint256 seed) internal returns (string memory code) {}
 }

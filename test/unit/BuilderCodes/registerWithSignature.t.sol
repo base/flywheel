@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesBase} from "./BuilderCodesBase.sol";
+import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
 /// @notice Tests for BuilderCodes.registerWithSignature
-contract RegisterWithSignatureTest is BuilderCodesBase {
+contract RegisterWithSignatureTest is BuilderCodesCommon {
     /**
      * registerWithSignature reverts
      */
@@ -74,7 +74,7 @@ contract RegisterWithSignatureTest is BuilderCodesBase {
     ) public {}
 
     /**
-     * registerWithSignature success variants
+     * registerWithSignature success conditions
      */
     function test_registerWithSignature_success_contractSignatureSupport(
         uint256 codeSeed,
@@ -83,10 +83,7 @@ contract RegisterWithSignatureTest is BuilderCodesBase {
         uint48 deadline
     ) public {}
 
-    /**
-     * registerWithSignature EIP-712 compliance
-     */
-    function test_registerWithSignature_success_contractSignatureSupport(
+    function test_registerWithSignature_success_eip712Compliance(
         uint256 codeSeed,
         address initialOwner,
         address payoutAddress,
