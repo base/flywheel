@@ -5,7 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
@@ -16,7 +16,7 @@ import {BuilderCodes} from "../../src/BuilderCodes.sol";
 /// @title Cross-Hook Security & Integration Test Suite
 /// @notice Comprehensive testing for cross-hook interactions: baseline functionality and security attacks
 /// @dev Tests hook interoperability, cross-campaign workflows, and multi-hook security vulnerabilities
-contract CrossHookSecurityTest is Test {
+contract CrossHookAttackTest is Test {
     // Core contracts
     Flywheel public flywheel;
     BuilderCodes public publisherRegistry;
@@ -28,9 +28,9 @@ contract CrossHookSecurityTest is Test {
     SimpleRewards public simpleHook;
 
     // Tokens
-    DummyERC20 public paymentToken; // USDC-like
-    DummyERC20 public rewardToken; // Platform token
-    DummyERC20 public bonusToken; // Bonus rewards
+    MockERC20 public paymentToken; // USDC-like
+    MockERC20 public rewardToken; // Platform token
+    MockERC20 public bonusToken; // Bonus rewards
 
     // Test accounts
     address public owner = makeAddr("owner");
@@ -62,7 +62,7 @@ contract CrossHookSecurityTest is Test {
     address public simpleRewardsManager = daoManager;
     address public cashbackRewardsManager = paymentManager;
     address public manager = owner;
-    DummyERC20 public token; // Alias for security tests
+    MockERC20 public token; // Alias for security tests
 
     // Campaign addresses
     address public adCampaign;
@@ -115,9 +115,9 @@ contract CrossHookSecurityTest is Test {
         rewardHolders[4] = attacker; // For security tests
         rewardHolders[5] = victim; // For security tests
 
-        paymentToken = new DummyERC20(paymentHolders);
-        rewardToken = new DummyERC20(rewardHolders);
-        bonusToken = new DummyERC20(rewardHolders);
+        paymentToken = new MockERC20(paymentHolders);
+        rewardToken = new MockERC20(rewardHolders);
+        bonusToken = new MockERC20(rewardHolders);
     }
 
     function _deployCoreContracts() internal {

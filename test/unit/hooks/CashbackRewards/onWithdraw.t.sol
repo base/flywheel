@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {CashbackRewardsBase} from "../../../lib/CashbackRewardsBase.sol";
+import {CashbackRewardsTest} from "../../../lib/CashbackRewardsTest.sol";
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../../src/hooks/SimpleRewards.sol";
 
-contract OnWithdrawTest is CashbackRewardsBase {
+contract OnWithdrawTest is CashbackRewardsTest {
     function test_ownerCanWithdrawFunds(uint256 withdrawAmount) public {
         withdrawAmount = bound(withdrawAmount, 1e6, DEFAULT_CAMPAIGN_BALANCE);
 

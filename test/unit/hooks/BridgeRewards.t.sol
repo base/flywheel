@@ -10,7 +10,7 @@ import {BridgeRewards} from "../../../src/hooks/BridgeRewards.sol";
 import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
 
-contract BridgeRewardsBase is Test {
+contract BridgeRewardsTest is Test {
     Flywheel public flywheel;
     BridgeRewards public bridgeRewards;
     BuilderCodes public builderCodes;

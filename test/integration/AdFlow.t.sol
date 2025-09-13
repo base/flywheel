@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "../lib/PublisherSetupHelper.sol";
-import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
@@ -17,7 +17,7 @@ contract AdFlowTest is PublisherTestSetup {
     Flywheel public flywheel;
     BuilderCodes public publisherRegistry;
     AdConversion public adHook;
-    DummyERC20 public usdc;
+    MockERC20 public usdc;
 
     // Test accounts
     address public advertiser = makeAddr("advertiser");
@@ -43,7 +43,7 @@ contract AdFlowTest is PublisherTestSetup {
         address[] memory initialHolders = new address[](2);
         initialHolders[0] = advertiser;
         initialHolders[1] = provider;
-        usdc = new DummyERC20(initialHolders);
+        usdc = new MockERC20(initialHolders);
 
         // Deploy Flywheel
         flywheel = new Flywheel();

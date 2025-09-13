@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 
-import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
@@ -11,10 +11,10 @@ import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 /// @title SimpleRewards Security Test Suite
 /// @notice Security-focused testing with attack scenarios targeting privilege escalation and access control
 /// @dev Tests manager authorization bypass, reentrancy, and economic attacks
-contract SimpleRewardsSecurityTest is Test {
+contract SimpleRewardsAttackTest is Test {
     Flywheel public flywheel;
     SimpleRewards public hook;
-    DummyERC20 public token;
+    MockERC20 public token;
 
     address public manager = address(0x1000);
     address public attacker = address(0xBAD);
@@ -36,7 +36,7 @@ contract SimpleRewardsSecurityTest is Test {
         initialHolders[1] = address(this);
         initialHolders[2] = attacker;
         initialHolders[3] = victim;
-        token = new DummyERC20(initialHolders);
+        token = new MockERC20(initialHolders);
 
         // Create campaign with manager
         bytes memory hookData = abi.encode(manager, manager, "");
@@ -236,7 +236,7 @@ contract SimpleRewardsSecurityTest is Test {
         assertEq(flywheel.allocatedPayout(campaign, address(token), bytes32(bytes20(attacker))), 0);
 
         // Attacker received no tokens despite initial allocation
-        assertEq(token.balanceOf(attacker), 1000000e18); // Only initial balance from DummyERC20
+        assertEq(token.balanceOf(attacker), 1000000e18); // Only initial balance from MockERC20
     }
 
     // =============================================================

@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 import "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {BuilderCodesV2} from "../lib/mocks/DummyUpgrades.sol";
+import {MockBuilderCodesV2} from "../lib/mocks/MockBuilderCodesV2.sol";
 
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
@@ -11,7 +11,7 @@ contract PublisherRegistryUpgradesTest is Test {
     BuilderCodes public implementation;
     BuilderCodes public pubRegistry;
     ERC1967Proxy public proxy;
-    BuilderCodesV2 public implementationV2;
+    MockBuilderCodesV2 public implementationV2;
     address private owner = address(this);
 
     function setUp() public {
@@ -28,7 +28,7 @@ contract PublisherRegistryUpgradesTest is Test {
         pubRegistry = BuilderCodes(address(proxy));
 
         // Deploy V2 implementation
-        implementationV2 = new BuilderCodesV2();
+        implementationV2 = new MockBuilderCodesV2();
 
         vm.stopPrank();
     }
@@ -40,7 +40,7 @@ contract PublisherRegistryUpgradesTest is Test {
         vm.stopPrank();
 
         // Test V2 functionality
-        BuilderCodesV2 registryV2 = BuilderCodesV2(address(proxy));
+        MockBuilderCodesV2 registryV2 = MockBuilderCodesV2(address(proxy));
         assertEq(registryV2.version(), "V2");
 
         // Verify state is preserved

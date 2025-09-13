@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import {DummyERC20} from "../lib/mocks/DummyERC20.sol";
+import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
@@ -18,7 +18,7 @@ contract RefCodeAllocationTest is Test {
     Flywheel public flywheel;
     BuilderCodes public builderCodes;
     SimpleRewards public simpleRewards;
-    DummyERC20 public token;
+    MockERC20 public token;
 
     address public randoRecipient = makeAddr("randoRecipient");
     address public manager = makeAddr("manager");
@@ -41,7 +41,7 @@ contract RefCodeAllocationTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         builderCodes = BuilderCodes(address(proxy));
 
-        token = new DummyERC20(new address[](0));
+        token = new MockERC20(new address[](0));
         simpleRewards = new SimpleRewards(address(flywheel));
 
         // Setup ref codes and calculate deterministic keys

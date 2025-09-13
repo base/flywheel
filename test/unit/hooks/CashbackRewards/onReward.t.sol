@@ -3,13 +3,13 @@ pragma solidity 0.8.29;
 
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
-import {CashbackRewardsBase} from "../../../lib/CashbackRewardsBase.sol";
+import {CashbackRewardsTest} from "../../../lib/CashbackRewardsTest.sol";
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
 import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../../../../src/hooks/SimpleRewards.sol";
 
-contract OnRewardTest is CashbackRewardsBase {
+contract OnRewardTest is CashbackRewardsTest {
     function test_revertsOnUnauthorizedCaller(uint120 paymentAmount, uint120 rewardAmount, address unauthorizedCaller)
         public
     {

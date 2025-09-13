@@ -12,7 +12,7 @@ import {MockERC3009Token} from "../../lib/commerce-payments/test/mocks/MockERC30
 import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 
-contract CashbackRewardsBase is Test {
+contract CashbackRewardsTest is Test {
     // Test bounds constants when necessary for fuzzing
     uint120 internal constant MIN_PAYMENT_AMOUNT = 1e4; // 0.01 USDC
     uint120 internal constant MAX_PAYMENT_AMOUNT = type(uint120).max; // Maximum possible payment in escrow system

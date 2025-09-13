@@ -5,20 +5,20 @@ import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "./PublisherSetupHelper.sol";
-import {DummyERC20} from "./mocks/DummyERC20.sol";
+import {MockERC20} from "./mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
 /// @notice Common test helpers for Flywheel protocol testing
-abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
+abstract contract FlywheelTest is Test, PublisherTestSetup {
     using PublisherSetupHelper for *;
     // Core contracts
 
     Flywheel public flywheel;
     BuilderCodes public referralCodeRegistry;
-    DummyERC20 public token;
+    MockERC20 public token;
 
     // Common test addresses
     address public constant OWNER = address(0x1000);
@@ -47,7 +47,7 @@ abstract contract FlywheelTestHelpers is Test, PublisherTestSetup {
         initialHolders[0] = ADVERTISER;
         initialHolders[1] = ATTRIBUTION_PROVIDER;
         initialHolders[2] = address(this);
-        token = new DummyERC20(initialHolders);
+        token = new MockERC20(initialHolders);
 
         // Deploy upgradeable PublisherRegistry
         BuilderCodes impl = new BuilderCodes();

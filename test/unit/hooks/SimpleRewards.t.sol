@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 
-import {DummyERC20} from "../../lib/mocks/DummyERC20.sol";
+import {MockERC20} from "../../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
@@ -11,7 +11,7 @@ import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 contract SimpleRewardsTest is Test {
     Flywheel public flywheel;
     SimpleRewards public hook;
-    DummyERC20 public token;
+    MockERC20 public token;
 
     address public manager = address(0x1000);
     address public randomUser = address(0x2000);
@@ -31,7 +31,7 @@ contract SimpleRewardsTest is Test {
         address[] memory initialHolders = new address[](2);
         initialHolders[0] = manager;
         initialHolders[1] = address(this);
-        token = new DummyERC20(initialHolders);
+        token = new MockERC20(initialHolders);
 
         // Create campaign
         bytes memory hookData = abi.encode(manager, manager, "");
@@ -196,7 +196,7 @@ contract SimpleRewardsTest is Test {
         // Deploy second token
         address[] memory initialHolders = new address[](1);
         initialHolders[0] = manager;
-        DummyERC20 token2 = new DummyERC20(initialHolders);
+        MockERC20 token2 = new MockERC20(initialHolders);
 
         // Fund campaign with both tokens
         vm.startPrank(manager);
@@ -363,8 +363,8 @@ contract SimpleRewardsTest is Test {
         address[] memory tokenHolders = new address[](1);
         tokenHolders[0] = manager;
 
-        DummyERC20 rewardToken = new DummyERC20(tokenHolders);
-        DummyERC20 bonusToken = new DummyERC20(tokenHolders);
+        MockERC20 rewardToken = new MockERC20(tokenHolders);
+        MockERC20 bonusToken = new MockERC20(tokenHolders);
 
         uint256 INITIAL_FUNDING = 100000e18; // 100,000 reward tokens
         uint256 BASE_REWARD = 1000e18; // 1,000 tokens per contribution

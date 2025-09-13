@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {FlywheelTestHelpers} from "./FlywheelTestHelpers.sol";
+import {FlywheelTest} from "./FlywheelTest.sol";
 
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 
 /// @notice Common test helpers for AdConversion hook testing
-abstract contract AdConversionTestHelpers is FlywheelTestHelpers {
+abstract contract AdConversionTest is FlywheelTest {
     AdConversion public hook;
 
     // Common event IDs for testing
