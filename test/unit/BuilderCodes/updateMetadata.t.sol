@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
-/// @notice Tests for BuilderCodes.updateMetadata
+/// @notice Unit tests for BuilderCodes.updateMetadata
 contract UpdateMetadataTest is BuilderCodesCommon {
     /**
      * updateMetadata reverts

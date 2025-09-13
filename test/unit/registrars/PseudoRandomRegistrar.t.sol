@@ -5,7 +5,7 @@ import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
 import {PseudoRandomRegistrar} from "../../../src/registrars/PseudoRandomRegistrar.sol";
 
-/// @notice Tests for PseudoRandomRegistrar
+/// @notice Unit tests for PseudoRandomRegistrar
 contract PseudoRandomRegistrarTest is BuilderCodesCommon {
     PseudoRandomRegistrar pseudoRandomRegistrar;
 

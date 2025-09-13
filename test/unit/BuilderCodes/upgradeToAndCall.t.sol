@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
-/// @notice Tests for BuilderCodes.updateToAndCall
+/// @notice Unit tests for BuilderCodes.updateToAndCall
 contract UpgradeToAndCallTest is BuilderCodesCommon {
     /**
      * upgradeToAndCall reverts

@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
 
-/// @notice Tests for BuilderCodes.initialize
+/// @notice Unit tests for BuilderCodes.initialize
 contract InitializeTest is BuilderCodesCommon {
     /**
      * initialize reverts
