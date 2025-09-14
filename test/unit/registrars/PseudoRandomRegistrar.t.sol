@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
+import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
 
 import {PseudoRandomRegistrar} from "../../../src/registrars/PseudoRandomRegistrar.sol";
 
 /// @notice Unit tests for PseudoRandomRegistrar
-contract PseudoRandomRegistrarTest is BuilderCodesCommon {
+contract PseudoRandomRegistrarTest is BuilderCodesTest {
     PseudoRandomRegistrar pseudoRandomRegistrar;
 
     function setUp() public override {

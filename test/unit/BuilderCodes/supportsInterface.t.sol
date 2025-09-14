@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
+import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
 
 /// @notice Unit tests for BuilderCodes.supportsInterface
-contract SupportsInterfaceTest is BuilderCodesCommon {
+contract SupportsInterfaceTest is BuilderCodesTest {
     function test_supportsInterface_true_ERC165() public {}
 
     function test_supportsInterface_true_ERC721() public {}

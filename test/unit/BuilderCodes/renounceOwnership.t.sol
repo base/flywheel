@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
+import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
 
 /// @notice Unit tests for BuilderCodes.renounceOwnership
-contract RenounceOwnershipTest is BuilderCodesCommon {
+contract RenounceOwnershipTest is BuilderCodesTest {
     function test_renounceOwnership_revert_disabled() public {}
 }

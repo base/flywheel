@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
+import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
 
 /// @notice Unit tests for BuilderCodes.hasRole
-contract HasRoleTest is BuilderCodesCommon {
+contract HasRoleTest is BuilderCodesTest {
     function test_hasRole_true_isOwner(bytes32 role) public {}
 
     function test_hasRole_true_hasRole(bytes32 role, address account) public {}

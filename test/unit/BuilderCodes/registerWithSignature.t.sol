@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesCommon} from "../../common/BuilderCodesCommon.sol";
+import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
 
 /// @notice Unit tests for BuilderCodes.registerWithSignature
-contract RegisterWithSignatureTest is BuilderCodesCommon {
+contract RegisterWithSignatureTest is BuilderCodesTest {
     /**
      * registerWithSignature reverts
      */

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesCommon} from "../common/BuilderCodesCommon.sol";
+import {BuilderCodesTest} from "../lib/BuilderCodesTest.sol";
 
 /// @notice Integration tests for BuilderCodes operations
-contract BuilderCodesOperationsTest is BuilderCodesCommon {
+contract BuilderCodesOperationsTest is BuilderCodesTest {
     function test_integration_transferedCodePreservesPayoutAddress(
         uint256 codeSeed,
         address initialOwner,
