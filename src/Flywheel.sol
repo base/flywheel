@@ -238,7 +238,12 @@ contract Flywheel is ReentrancyGuardTransient {
         returns (address campaign)
     {
         if (hooks == address(0)) revert ZeroAddress();
-        campaign = Clones.cloneDeterministic(campaignImplementation, keccak256(abi.encode(hooks, nonce, hookData)));
+
+        // Early return if campaign is already deployed
+        campaign = predictCampaignAddress(hooks, nonce, hookData);
+        if (campaign.code.length > 0) return campaign;
+
+        campaign = Clones.cloneDeterministic(campaignImplementation, _campaignSalt(hooks, nonce, hookData));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.INACTIVE, hooks: CampaignHooks(hooks)});
         emit CampaignCreated(campaign, hooks);
         CampaignHooks(hooks).onCreateCampaign(campaign, nonce, hookData);
@@ -458,11 +463,11 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @return campaign Address of the campaign
     function predictCampaignAddress(address hooks, uint256 nonce, bytes calldata hookData)
-        external
+        public
         view
         returns (address campaign)
     {
-        return Clones.predictDeterministicAddress(campaignImplementation, keccak256(abi.encode(hooks, nonce, hookData)));
+        return Clones.predictDeterministicAddress(campaignImplementation, _campaignSalt(hooks, nonce, hookData));
     }
 
     /// @notice Checks if a campaign exists
@@ -541,6 +546,21 @@ contract Flywheel is ReentrancyGuardTransient {
     function _assertCampaignSolvency(address campaign, address token) internal {
         uint256 totalAllocated = totalAllocatedPayouts[campaign][token] + totalAllocatedFees[campaign][token];
         if (IERC20(token).balanceOf(campaign) < totalAllocated) revert InsufficientCampaignFunds();
+    }
+
+    /// @notice Returns the salt for a campaign
+    ///
+    /// @param hooks Address of the campaign hooks contract
+    /// @param nonce Nonce used to create the campaign
+    /// @param hookData Data for the campaign hook
+    ///
+    /// @return salt The salt for the campaign
+    function _campaignSalt(address hooks, uint256 nonce, bytes calldata hookData)
+        internal
+        pure
+        returns (bytes32 salt)
+    {
+        return keccak256(abi.encode(hooks, nonce, hookData));
     }
 
     /// @dev Override to use transient reentrancy guard on all chains

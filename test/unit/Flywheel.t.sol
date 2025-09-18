@@ -66,10 +66,10 @@ contract FlywheelContractTest is FlywheelTest {
         hook = new AdConversion(address(flywheel), address(publisherRegistry));
 
         // Create a basic campaign for tests (without fees)
-        _createCampaign();
+        campaign = _createCampaign();
     }
 
-    function _createCampaign() internal {
+    function _createCampaign() internal returns (address) {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
         configs[0] =
             AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/offchain"});
@@ -87,7 +87,7 @@ contract FlywheelContractTest is FlywheelTest {
             ATTRIBUTION_FEE_BPS
         );
 
-        campaign = flywheel.createCampaign(address(hook), 1, hookData);
+        return flywheel.createCampaign(address(hook), 1, hookData);
     }
 
     function test_createCampaign() public {
@@ -96,6 +96,13 @@ contract FlywheelContractTest is FlywheelTest {
         assert(flywheel.campaignExists(campaign));
         assertEq(flywheel.campaignHooks(campaign), address(hook));
         assertEq(flywheel.campaignURI(campaign), "https://example.com/campaign");
+    }
+
+    function test_createCampaign_success_alreadyDeployed() public {
+        // Creating same campaign does not revert
+        address campaignAlreadyDeployed = _createCampaign();
+        // Returned campaign should be the same
+        assertEq(campaignAlreadyDeployed, campaign);
     }
 
     function test_campaignLifecycle() public {
