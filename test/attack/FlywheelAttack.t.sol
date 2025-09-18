@@ -22,7 +22,7 @@ contract FlywheelAttackTest is FlywheelTest {
         _registerDefaultPublishers();
 
         // Deploy test hook
-        testHook = new AdConversion(address(flywheel), OWNER, address(referralCodeRegistry));
+        testHook = new AdConversion(address(flywheel), address(referralCodeRegistry));
     }
 
     // =============================================================

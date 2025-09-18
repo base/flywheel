@@ -60,7 +60,7 @@ contract AdFlowTest is PublisherTestSetup {
         publisherRegistry = BuilderCodes(address(proxy));
 
         // Deploy ad conversion hook
-        adHook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
+        adHook = new AdConversion(address(flywheel), address(publisherRegistry));
 
         // Register publishers
         _registerPublishers();
