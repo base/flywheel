@@ -27,7 +27,7 @@ abstract contract AdConversionTest is FlywheelTest {
         _registerDefaultPublishers();
 
         // Deploy AdConversion hook
-        hook = new AdConversion(address(flywheel), OWNER, address(referralCodeRegistry));
+        hook = new AdConversion(address(flywheel), address(referralCodeRegistry));
     }
 
     /// @notice Sets up complete AdConversion test environment with custom registry
@@ -36,7 +36,7 @@ abstract contract AdConversionTest is FlywheelTest {
         _registerDefaultPublishers();
 
         // Deploy AdConversion hook
-        hook = new AdConversion(address(flywheel), OWNER, publisherRegistryAddress);
+        hook = new AdConversion(address(flywheel), publisherRegistryAddress);
     }
 
     /// @notice Creates basic conversion configs for testing

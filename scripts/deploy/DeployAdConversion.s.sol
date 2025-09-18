@@ -20,7 +20,7 @@ contract DeployAdConversion is Script {
         vm.startBroadcast();
 
         // Deploy AdConversion hook
-        AdConversion hook = new AdConversion(flywheel, owner, builderCodes);
+        AdConversion hook = new AdConversion(flywheel, builderCodes);
         console.log("AdConversion deployed at:", address(hook));
 
         vm.stopBroadcast();

@@ -136,7 +136,7 @@ contract CrossHookAttackTest is Test {
 
     function _deployHooks() internal {
         // Deploy AdConversion hook
-        adHook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
+        adHook = new AdConversion(address(flywheel), address(publisherRegistry));
 
         // Deploy CashbackRewards hook
         buyerHook = new CashbackRewards(address(flywheel), address(escrow));

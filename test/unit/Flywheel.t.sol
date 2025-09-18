@@ -63,7 +63,7 @@ contract FlywheelContractTest is FlywheelTest {
         vm.stopPrank();
 
         // Deploy hook
-        hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
+        hook = new AdConversion(address(flywheel), address(publisherRegistry));
 
         // Create a basic campaign for tests (without fees)
         _createCampaign();

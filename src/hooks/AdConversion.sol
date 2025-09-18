@@ -185,9 +185,8 @@ contract AdConversion is CampaignHooks {
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param protocol_ Address of the protocol contract
-    /// @param owner_ Address of the contract owner
     /// @param publisherCodesRegistry_ Address of the referral code registry contract
-    constructor(address protocol_, address owner_, address publisherCodesRegistry_) CampaignHooks(protocol_) {
+    constructor(address protocol_, address publisherCodesRegistry_) CampaignHooks(protocol_) {
         if (publisherCodesRegistry_ == address(0)) revert ZeroAddress();
 
         publisherCodesRegistry = BuilderCodes(publisherCodesRegistry_);

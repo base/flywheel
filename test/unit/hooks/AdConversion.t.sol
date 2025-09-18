@@ -40,7 +40,7 @@ contract AdConversionTest is PublisherTestSetup {
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         publisherRegistry = BuilderCodes(address(proxy));
 
-        hook = new AdConversion(address(flywheel), owner, address(publisherRegistry));
+        hook = new AdConversion(address(flywheel), address(publisherRegistry));
 
         // Deploy token with initial holders
         address[] memory initialHolders = new address[](1);

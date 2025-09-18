@@ -44,7 +44,7 @@ contract BuilderCodes is
         keccak256("BuilderCodeRegistration(string code,address initialOwner,address payoutAddress,uint48 deadline)");
 
     /// @notice Allowed characters for referral codes
-    string public constant ALLOWED_CHARACTERS = "0123456789abcdefghijklmonpqrstuvwxyz_";
+    string public constant ALLOWED_CHARACTERS = "0123456789abcdefghijklmnopqrstuvwxyz_";
 
     /// @notice Allowed characters for referral codes lookup
     /// @dev LibString.to7BitASCIIAllowedLookup(ALLOWED_CHARACTERS)
