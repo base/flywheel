@@ -161,7 +161,7 @@ referralCodes.register(
 
 **Requirements for Custom Codes:**
 
-- Must contain only allowed characters: `0123456789abcdefghijklmonpqrstuvwxyz_`
+- Must contain only allowed characters: `0123456789abcdefghijklmnopqrstuvwxyz_`
 - Cannot be empty
 - Must be unique across the entire system
 - Requires `REGISTER_ROLE` permission or valid signature

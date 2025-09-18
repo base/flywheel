@@ -13,7 +13,7 @@ contract PseudoRandomRegistrar {
     string public constant PREFIX = "rnd_";
 
     /// @notice Prefix for new permissionless referral codes
-    string public constant ALPHANUMERIC = "0123456789abcdefghijklmonpqrstuvwxyz";
+    string public constant ALPHANUMERIC = "0123456789abcdefghijklmnopqrstuvwxyz";
 
     /// @notice Default length of new permissionless referral codes
     uint256 public constant SUFFIX_LENGTH = 8;
