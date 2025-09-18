@@ -18,7 +18,7 @@ contract BridgeRewards is CampaignHooks {
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @notice Maximum fee basis points (2.00%)
-    uint256 public constant MAX_FEE_BASIS_POINTS = 2_00;
+    uint16 public constant MAX_FEE_BASIS_POINTS = 2_00;
 
     /// @notice Address of the BuilderCodes contract
     BuilderCodes public immutable builderCodes;
@@ -31,12 +31,6 @@ contract BridgeRewards is CampaignHooks {
 
     /// @notice Error thrown when the balance is zero
     error ZeroAmount();
-
-    /// @notice Error thrown when the fee basis points is too high
-    error FeeBasisPointsTooHigh();
-
-    /// @notice Error thrown when the builder code is not registered
-    error BuilderCodeNotRegistered();
 
     /// @notice Hooks constructor
     ///
@@ -72,14 +66,14 @@ contract BridgeRewards is CampaignHooks {
         uint256 balance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
         require(balance > 0, ZeroAmount());
 
-        // Check builder code is registered
-        require(builderCodes.ownerOf(uint256(code)) != address(0), BuilderCodeNotRegistered());
+        // set feeBps to 0 if builder code not registered
+        feeBps = builderCodes.isRegistered(builderCodes.toCode(uint256(code))) ? feeBps : 0;
 
-        // Compute fee amount
-        require(feeBps <= MAX_FEE_BASIS_POINTS, FeeBasisPointsTooHigh());
-        uint256 feeAmount = (balance * feeBps) / 1e4;
+        // set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
+        feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
 
         // Prepare payout
+        uint256 feeAmount = (balance * feeBps) / 1e4;
         payouts = new Flywheel.Payout[](1);
         payouts[0] =
             Flywheel.Payout({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});

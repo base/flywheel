@@ -90,31 +90,6 @@ contract BridgeRewardsTest is Test {
         flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
     }
 
-    function test_onSend_revert_builderCodeNotRegistered() public {
-        // Fund the campaign
-        usdc.mint(bridgeRewardsCampaign, 100e6);
-
-        // Use an unregistered code (just increment the bytes32 to make it different)
-        bytes32 unregisteredCode = bytes32(uint256(TEST_CODE) + 1);
-        bytes memory hookData = abi.encode(user, unregisteredCode, uint16(100));
-
-        // Should revert when builder code is not registered (will revert with ERC721NonexistentToken)
-        vm.expectRevert();
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
-    }
-
-    function test_onSend_revert_feeBasisPointsTooHigh() public {
-        // Fund the campaign
-        usdc.mint(bridgeRewardsCampaign, 100e6);
-
-        // Use fee higher than maximum (2%)
-        bytes memory hookData = abi.encode(user, TEST_CODE, uint16(201)); // 2.01%
-
-        // Should revert when fee is too high
-        vm.expectRevert(abi.encodeWithSelector(BridgeRewards.FeeBasisPointsTooHigh.selector));
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
-    }
-
     function test_onSend_success() public {
         // Fund the campaign
         uint256 campaignBalance = 100e6; // 100 USDC
@@ -159,6 +134,54 @@ contract BridgeRewardsTest is Test {
         // Check final balances
         assertEq(usdc.balanceOf(user), userBalanceBefore + campaignBalance, "User should receive full balance");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore, "Builder should receive no fee");
+        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+    }
+
+    function test_onSend_success_builderCodeNotRegistered() public {
+        // Fund the campaign
+        uint256 campaignBalance = 100e6; // 100 USDC
+        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+
+        // Prepare hook data with 1% fee
+        uint16 feeBps = 100; // 1%
+        bytes32 unregisteredCode = bytes32("unregistered");
+        bytes memory hookData = abi.encode(user, unregisteredCode, feeBps);
+
+        // Record balances before
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 builderPayoutBalanceBefore = usdc.balanceOf(builderPayout);
+
+        // Execute send
+        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+
+        // Check final balances
+        assertEq(usdc.balanceOf(user), userBalanceBefore + campaignBalance, "User should receive full balance");
+        assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore, "Builder should receive no fee");
+        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+    }
+
+    function test_onSend_success_feeBasisPointsTooHigh() public {
+        // Fund the campaign
+        uint256 campaignBalance = 100e6; // 100 USDC
+        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+
+        // Use fee higher than maximum (2%)
+        uint16 feeBps = uint16(bridgeRewards.MAX_FEE_BASIS_POINTS() + 1);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+
+        uint256 feeAmount = (campaignBalance * bridgeRewards.MAX_FEE_BASIS_POINTS()) / 10000;
+        uint256 userAmount = campaignBalance - feeAmount;
+
+        // Record balances before
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 builderPayoutBalanceBefore = usdc.balanceOf(builderPayout);
+
+        // Execute send
+        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+
+        // Check final balances
+        assertEq(usdc.balanceOf(user), userBalanceBefore + userAmount, "User should receive balance minus fee");
+        assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore + feeAmount, "Builder should receive fee");
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
     }
 
