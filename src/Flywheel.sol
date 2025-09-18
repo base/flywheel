@@ -198,6 +198,9 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @notice Thrown when amount is zero
     error ZeroAmount();
 
+    /// @notice Thrown when a token send fails without a fallback
+    error FailedTokenSend(address token, address recipient, uint256 amount);
+
     /// @notice Thrown when campaign does not have enough balance for an operation
     error InsufficientCampaignFunds();
 
@@ -275,9 +278,11 @@ contract Flywheel is ReentrancyGuardTransient {
             if (success) {
                 emit PayoutSent(campaign, token, recipient, amount, payouts[i].extraData);
             } else {
+                bytes32 fallbackKey = payouts[i].fallbackKey;
+                if (fallbackKey == bytes32(0)) revert FailedTokenSend(token, recipient, amount);
                 totalAllocated += amount;
-                allocatedPayout[campaign][token][payouts[i].fallbackKey] += amount;
-                emit PayoutAllocated(campaign, token, payouts[i].fallbackKey, amount, payouts[i].extraData);
+                allocatedPayout[campaign][token][fallbackKey] += amount;
+                emit PayoutAllocated(campaign, token, fallbackKey, amount, payouts[i].extraData);
             }
         }
 

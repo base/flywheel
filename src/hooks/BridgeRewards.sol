@@ -79,7 +79,7 @@ contract BridgeRewards is CampaignHooks {
             recipient: user,
             amount: balance - feeAmount,
             extraData: abi.encode(code, feeAmount),
-            fallbackKey: bytes32(bytes20(user))
+            fallbackKey: bytes32(0) // revert if payout send fails
         });
 
         // Prepare fee if applicable
@@ -89,30 +89,9 @@ contract BridgeRewards is CampaignHooks {
                 recipient: builderCodes.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
                 extraData: "",
-                fallbackKey: code
+                fallbackKey: code // allow fee send to fallback to builder code
             });
         }
-    }
-
-    /// @inheritdoc CampaignHooks
-    ///
-    /// @dev Will only need to use this function if the initial payout send fails
-    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
-        internal
-        override
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees
-        )
-    {
-        distributions = new Flywheel.Distribution[](1);
-        distributions[0] = Flywheel.Distribution({
-            recipient: sender,
-            key: bytes32(bytes20(sender)),
-            amount: flywheel.allocatedPayout(campaign, token, bytes32(bytes20(sender))),
-            extraData: ""
-        });
     }
 
     /// @inheritdoc CampaignHooks

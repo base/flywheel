@@ -361,12 +361,8 @@ contract AdConversion is CampaignHooks {
         // Create the final payouts array with only unique recipients
         payouts = new Flywheel.Payout[](uniqueCount);
         for (uint256 i = 0; i < uniqueCount; i++) {
-            payouts[i] = Flywheel.Payout({
-                recipient: recipients[i],
-                amount: amounts[i],
-                extraData: "",
-                fallbackKey: bytes32(bytes20(recipients[i]))
-            });
+            payouts[i] =
+                Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: "", fallbackKey: bytes32(0)});
         }
 
         // Add delayed fee for attribution provider to claim later
@@ -392,28 +388,17 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    ///
-    /// @dev Will only need to use this function if the initial payout send fails
-    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
-        internal
-        override
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees
-        )
-    {
-        distributions = _prepareDistributions(sender, campaign, token, hookData);
-    }
-
-    /// @inheritdoc CampaignHooks
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
         returns (Flywheel.Distribution[] memory distributions)
     {
         if (sender != state[campaign].attributionProvider) revert Unauthorized();
-        distributions = _prepareDistributions(sender, campaign, token, hookData);
+        (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
+
+        distributions = new Flywheel.Distribution[](1);
+        distributions[0] =
+            Flywheel.Distribution({recipient: recipient, key: bytes32(bytes20(sender)), amount: amount, extraData: ""});
     }
 
     /// @inheritdoc CampaignHooks
@@ -474,25 +459,6 @@ contract AdConversion is CampaignHooks {
         if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
             revert Unauthorized();
         }
-    }
-
-    /// @notice Prepares a distribution for a campaign
-    ///
-    /// @param sender Address of the sender
-    /// @param campaign Address of the campaign
-    /// @param token Address of the token to distribute
-    /// @param hookData Data for the campaign hook
-    ///
-    /// @return distributions Array of distributions to be distributed
-    function _prepareDistributions(address sender, address campaign, address token, bytes calldata hookData)
-        internal
-        returns (Flywheel.Distribution[] memory distributions)
-    {
-        bytes32 key = bytes32(bytes20(sender));
-        (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
-
-        distributions = new Flywheel.Distribution[](1);
-        distributions[0] = Flywheel.Distribution({recipient: recipient, key: key, amount: amount, extraData: ""});
     }
 
     /// @notice Adds a referral code to the campaign allowlist
