@@ -261,9 +261,12 @@ contract AdConversion is CampaignHooks {
         returns (
             Flywheel.Payout[] memory payouts,
             Flywheel.Payout[] memory, /*immediateFees*/
-            Flywheel.Allocation[] memory delayedFees
+            Flywheel.Allocation[] memory delayedFees,
+            bool revertOnFailedTransfer
         )
     {
+        revertOnFailedTransfer = true;
+
         // Validate that the caller is the authorized attribution provider for this campaign
         if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
 
@@ -391,10 +394,11 @@ contract AdConversion is CampaignHooks {
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Distribution[] memory distributions)
+        returns (Flywheel.Distribution[] memory distributions, bool revertOnFailedTransfer)
     {
         if (sender != state[campaign].attributionProvider) revert Unauthorized();
         (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
+        revertOnFailedTransfer = true;
 
         distributions = new Flywheel.Distribution[](1);
         distributions[0] =

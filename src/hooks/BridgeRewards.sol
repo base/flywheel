@@ -57,9 +57,11 @@ contract BridgeRewards is CampaignHooks {
         returns (
             Flywheel.Payout[] memory payouts,
             Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory /*delayedFees*/
+            Flywheel.Allocation[] memory, /*delayedFees*/
+            bool revertOnFailedTransfer
         )
     {
+        revertOnFailedTransfer = false;
         (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
         // Check balance is nonzero
@@ -100,8 +102,9 @@ contract BridgeRewards is CampaignHooks {
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Distribution[] memory distributions)
+        returns (Flywheel.Distribution[] memory distributions, bool revertOnFailedTransfer)
     {
+        revertOnFailedTransfer = true;
         bytes32 code = bytes32(hookData);
         distributions = new Flywheel.Distribution[](1);
         distributions[0] = Flywheel.Distribution({
