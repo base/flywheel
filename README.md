@@ -588,44 +588,49 @@ The protocol includes robust error handling for failed token transfers through t
 
 #### How It Works
 
-When a `send()` operation fails (e.g., recipient contract rejects the transfer), the system can either:
+When a `send()` operation fails (e.g., recipient contract rejects the transfer), the behavior is controlled by the `revertOnFailedPayout` boolean returned by the hook:
 
-1. **Revert the entire transaction** (when `fallbackKey = bytes32(0)`)
-2. **Automatically allocate the failed amount** (when `fallbackKey != bytes32(0)`)
+1. **Revert the entire transaction** (when `revertOnFailedPayout = true`)
+2. **Automatically allocate the failed amount** (when `revertOnFailedPayout = false`)
 
-#### Fallback Key Behavior
+#### Revert vs Fallback Behavior
 
-- **`fallbackKey = bytes32(0)`**: "Fail-fast" mode - reverts with `FailedTokenSend` error if the send fails
-- **`fallbackKey != bytes32(0)`**: "Graceful degradation" mode - allocates the amount using the specified key for later distribution
+- **`revertOnFailedPayout = true`**: "Fail-fast" mode - reverts with `PayoutFailed` error if the send fails
+- **`revertOnFailedPayout = false`**: "Graceful degradation" mode - allocates the failed amount using the `fallbackKey` for later distribution
 
 #### Hook-Specific Strategies
 
 Different hooks implement different fallback strategies based on their use cases:
 
-- **AdConversion**: Uses `bytes32(0)` for immediate failure on send errors (fail-fast approach)
-- **BridgeRewards**: 
-  - User payouts: `bytes32(0)` (fail-fast for users)
-  - Builder fees: Uses builder code as fallback key (graceful degradation for fees)
-- **CashbackRewards & SimpleRewards**: Use recipient address as fallback key (graceful degradation)
+- **AdConversion**: Always sets `revertOnFailedPayout = true` (fail-fast approach)
+- **BridgeRewards**: Always sets `revertOnFailedPayout = true` (fail-fast approach)
+- **CashbackRewards**: Configurable `revertOnFailedPayout` based on input parameter
+- **SimpleRewards**: Always sets `revertOnFailedPayout = false` (graceful degradation)
 
 #### Example Usage
 
 ```solidity
-// Fail-fast approach (reverts on failure)
-Send memory payout = Send({
-    recipient: user,
-    amount: 100e18,
-    extraData: "",
-    fallbackKey: bytes32(0)  // Will revert if send fails
-});
+// Hook that uses fail-fast approach (like AdConversion)
+function onSend(...) external returns (Send[] memory payouts, bool revertOnFailedPayout, ...) {
+    revertOnFailedPayout = true;  // Will revert if any send fails
+    payouts[0] = Send({
+        recipient: user,
+        amount: 100e18,
+        extraData: "",
+        fallbackKey: bytes32(0)  // Not used since revertOnFailedPayout = true
+    });
+}
 
-// Graceful degradation approach (allocates on failure)
-Send memory payout = Send({
-    recipient: user,
-    amount: 100e18,
-    extraData: "",
-    fallbackKey: bytes32(bytes20(user))  // Will allocate for user to claim later
-});
+// Hook that uses graceful degradation (like SimpleRewards)
+function onSend(...) external returns (Send[] memory payouts, bool revertOnFailedPayout, ...) {
+    revertOnFailedPayout = false;  // Will allocate if send fails
+    payouts[0] = Send({
+        recipient: user,
+        amount: 100e18,
+        extraData: "",
+        fallbackKey: bytes32(bytes20(user))  // Will allocate for user to claim later
+    });
+}
 ```
 
 #### Recovery Process
@@ -649,7 +654,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ✅ Builder code owner fees (max 2%)                       | ❌ No fees                                                   |
 | **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ✅ Via BuilderCodes (fee recipients)                      | ❌ Direct to recipients                                      |
 | **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Anyone (withdrawFunds for accidents)                      | Owner only                                                   |
-| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors (`fallbackKey = bytes32(0)`) | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Graceful degradation (`fallbackKey = recipient`) | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Mixed: fail-fast for users, graceful for fees | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Graceful degradation (`fallbackKey = recipient`) |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors (`revertOnFailedPayout = true`) | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Configurable error handling (`revertOnFailedPayout` per call) | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Fail-fast on errors (`revertOnFailedPayout = true`) | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Graceful degradation (`revertOnFailedPayout = false`) |
 | **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ❌ Not implemented                                        | ✅ Reserve payouts for claims                                |
 | **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ❌ Not implemented                                        | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ❌ Not implemented                                        | ✅ Cancel unclaimed rewards                                  |
