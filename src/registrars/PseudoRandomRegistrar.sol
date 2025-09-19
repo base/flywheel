@@ -10,7 +10,7 @@ import {BuilderCodes} from "../BuilderCodes.sol";
 /// @author Coinbase
 contract PseudoRandomRegistrar {
     /// @notice Prefix for new permissionless referral codes
-    string public constant PREFIX = "rnd_";
+    string public constant PREFIX = "bc_";
 
     /// @notice Prefix for new permissionless referral codes
     string public constant ALPHANUMERIC = "0123456789abcdefghijklmnopqrstuvwxyz";
