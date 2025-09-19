@@ -128,7 +128,7 @@ contract FlywheelAttackTest is FlywheelTest {
 
         // Test fee collection without earned fees - this should succeed but transfer 0 tokens
         vm.prank(ATTRIBUTION_PROVIDER);
-        flywheel.distributeFees(campaign, address(token), abi.encode(ATTRIBUTION_PROVIDER)); // Succeeds with 0 fee collection
+        flywheel.distributeFees(campaign, address(token), abi.encode(ATTRIBUTION_PROVIDER, 0)); // Succeeds with 0 fee collection
 
         // Test massive attribution to drain funds
         bytes memory massiveAttribution = _createMassiveAttribution();

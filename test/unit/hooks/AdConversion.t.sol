@@ -122,7 +122,7 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5% fee
         assertTrue(!sendFeesNow);
-        assertEq(fees.length, 0);
+        assertEq(fees.length, 1);
         assertEq(fees[0].fallbackKey, bytes32(bytes20(attributionProvider)));
         assertEq(fees[0].amount, 5 ether);
         assertEq(keccak256(fees[0].extraData), keccak256(""));
@@ -176,7 +176,7 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(payouts.length, 1);
         assertEq(payouts[0].recipient, randomUser);
         assertEq(payouts[0].amount, 95 ether); // 100 - 5% fee
-        assertEq(fees.length, 0);
+        assertEq(fees.length, 1);
         assertTrue(!sendFeesNow);
         assertEq(fees[0].fallbackKey, bytes32(bytes20(attributionProvider)));
         assertEq(fees[0].amount, 5 ether);
@@ -902,7 +902,7 @@ contract AdConversionTest is PublisherTestSetup {
         assertEq(payouts[0].recipient, address(0x1001));
         assertEq(payouts[0].amount, 90 ether); // 100 - 10% fee
         assertTrue(!sendFeesNow);
-        assertEq(fees.length, 0);
+        assertEq(fees.length, 1);
         assertEq(fees[0].fallbackKey, bytes32(bytes20(attributionProvider)));
         assertEq(fees[0].amount, 10 ether);
     }

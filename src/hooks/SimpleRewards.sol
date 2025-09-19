@@ -76,7 +76,7 @@ contract SimpleRewards is CampaignHooks {
             bool /*sendFeesNow*/
         )
     {
-        (SimplePayout[] memory simplePayouts, bool revertOnError) = abi.decode(hookData, (SimplePayout[], bool));
+        SimplePayout[] memory simplePayouts = abi.decode(hookData, (SimplePayout[]));
         revertOnFailedPayout = false;
         payouts = new Flywheel.Send[](simplePayouts.length);
         uint256 count = simplePayouts.length;
