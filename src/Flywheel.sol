@@ -46,7 +46,7 @@ contract Flywheel is ReentrancyGuardTransient {
         bytes32 fallbackKey;
     }
 
-    /// @notice Allocation tokens for a key
+    /// @notice Allocate tokens for a key
     struct Allocation {
         /// @dev key Key for the allocation
         bytes32 key;
@@ -56,7 +56,7 @@ contract Flywheel is ReentrancyGuardTransient {
         bytes extraData;
     }
 
-    /// @notice Distribution tokens for a key to a recipient
+    /// @notice Distribute tokens for a key to a recipient
     struct Distribution {
         /// @dev recipient Address receiving the distribution
         address recipient;
@@ -115,6 +115,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the payout
     /// @param amount Amount of tokens sent
     /// @param extraData Extra data for the payout to attach in events
+    /// @param success Whether the payout was successful
     event PayoutSent(
         address indexed campaign, address token, address recipient, uint256 amount, bytes extraData, bool success
     );
@@ -136,6 +137,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the distribution
     /// @param amount Amount of tokens distributed
     /// @param extraData Extra data for the payout to attach in events
+    /// @param success Whether the payout was successful
     event PayoutDistributed(
         address indexed campaign,
         address token,
@@ -162,6 +164,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the fee
     /// @param amount Amount of tokens sent
     /// @param extraData Extra data for the fee to attach in events
+    /// @param success Whether the fee was successful
     event FeeSent(
         address indexed campaign, address token, address recipient, uint256 amount, bytes extraData, bool success
     );
@@ -183,6 +186,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the collected fees
     /// @param amount Amount of tokens collected
     /// @param extraData Extra data for the payout to attach in events
+    /// @param success Whether the fee was successful
     event FeeDistributed(
         address indexed campaign,
         address token,
