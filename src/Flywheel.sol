@@ -290,6 +290,7 @@ contract Flywheel is ReentrancyGuardTransient {
     {
         (payouts, immediateFees, delayedFees, revertOnFailedTransfer) =
             _campaigns[campaign].hooks.onSend(msg.sender, campaign, token, hookData);
+
         _processFees(campaign, token, immediateFees, delayedFees, revertOnFailedTransfer);
 
         (uint256 totalAllocated, uint256 count) = (0, payouts.length);
@@ -420,6 +421,8 @@ contract Flywheel is ReentrancyGuardTransient {
 
             // Send tokens
             bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
+            emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData, success);
+
             if (success) {
                 // Update allocated payout storage and emit
                 totalAmount += amount;
@@ -427,7 +430,6 @@ contract Flywheel is ReentrancyGuardTransient {
             } else if (revertOnFailedTransfer) {
                 revert FailedTokenSend(token, recipient, amount);
             }
-            emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData, success);
         }
 
         totalAllocatedPayouts[campaign][token] -= totalAmount;
