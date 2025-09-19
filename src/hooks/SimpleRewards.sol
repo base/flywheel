@@ -85,7 +85,7 @@ contract SimpleRewards is CampaignHooks {
                 recipient: simplePayouts[i].recipient,
                 amount: simplePayouts[i].amount,
                 extraData: simplePayouts[i].extraData,
-                fallbackKey: _toKey(simplePayouts[i].recipient)
+                fallbackKey: bytes32(bytes20(simplePayouts[i].recipient))
             });
         }
     }
@@ -103,7 +103,7 @@ contract SimpleRewards is CampaignHooks {
         uint256 count = simplePayouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: _toKey(simplePayouts[i].recipient),
+                key: bytes32(bytes20(simplePayouts[i].recipient)),
                 amount: simplePayouts[i].amount,
                 extraData: simplePayouts[i].extraData
             });
@@ -123,7 +123,7 @@ contract SimpleRewards is CampaignHooks {
         uint256 count = simplePayouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: _toKey(simplePayouts[i].recipient),
+                key: bytes32(bytes20(simplePayouts[i].recipient)),
                 amount: simplePayouts[i].amount,
                 extraData: simplePayouts[i].extraData
             });
@@ -150,7 +150,7 @@ contract SimpleRewards is CampaignHooks {
         for (uint256 i = 0; i < count; i++) {
             distributions[i] = Flywheel.Distribution({
                 recipient: simplePayouts[i].recipient,
-                key: _toKey(simplePayouts[i].recipient),
+                key: bytes32(bytes20(simplePayouts[i].recipient)),
                 amount: simplePayouts[i].amount,
                 extraData: simplePayouts[i].extraData
             });
@@ -171,7 +171,7 @@ contract SimpleRewards is CampaignHooks {
                 recipient: simplePayout.recipient,
                 amount: simplePayout.amount,
                 extraData: simplePayout.extraData,
-                fallbackKey: _toKey(simplePayout.recipient)
+                fallbackKey: bytes32(bytes20(simplePayout.recipient))
             })
         );
     }
@@ -193,14 +193,5 @@ contract SimpleRewards is CampaignHooks {
         onlyManager(sender, campaign)
     {
         if (hookData.length > 0) campaignURI[campaign] = string(hookData);
-    }
-
-    /// @notice Converts an address to a bytes32 key
-    ///
-    /// @param recipient Address to convert to a key
-    ///
-    /// @return key The bytes32 key
-    function _toKey(address recipient) internal pure returns (bytes32 key) {
-        return bytes32(bytes20(recipient));
     }
 }
