@@ -456,8 +456,8 @@ contract FlywheelContractTest is FlywheelTest {
         address recipient = address(0x1444);
 
         // Test allocate operation
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: recipient, amount: 150e18, extraData: "allocate-test"});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: recipient, amount: 150e18, extraData: "allocate-test"});
 
         vm.prank(manager);
         (Flywheel.Allocation[] memory allocateResult) =
@@ -474,16 +474,17 @@ contract FlywheelContractTest is FlywheelTest {
         vm.prank(manager);
         (
             Flywheel.Distribution[] memory distributeResult,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees
+            bool revertOnFailedPayout,
+            Flywheel.Send[] memory fees,
+            bool sendFeesNow
         ) = flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
 
         // Verify distribution results
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 150e18);
         // SimpleRewards charges no fees
-        assertEq(immediateFees.length, 0);
-        assertEq(delayedFees.length, 0);
+        assertEq(fees.length, 0);
+        assertTrue(!sendFeesNow);
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient), 150e18);
@@ -508,8 +509,8 @@ contract FlywheelContractTest is FlywheelTest {
         address recipient = address(0x1666);
 
         // First allocate tokens
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: recipient, amount: 100e18, extraData: "deallocate-test"});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: recipient, amount: 100e18, extraData: "deallocate-test"});
 
         vm.prank(manager);
         flywheel.allocate(simpleCampaign, address(token), abi.encode(payouts));
@@ -852,8 +853,9 @@ contract FlywheelContractTest is FlywheelTest {
         address recipient = address(0x8100);
 
         // Test allocate operation (no fees expected with SimpleRewards)
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: recipient, amount: 100e18, extraData: "fee-test-allocation"});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] =
+            SimpleRewards.SimplePayout({recipient: recipient, amount: 100e18, extraData: "fee-test-allocation"});
 
         vm.prank(feeManager);
         (Flywheel.Allocation[] memory allocateResult) =
@@ -867,13 +869,14 @@ contract FlywheelContractTest is FlywheelTest {
         vm.prank(feeManager);
         (
             Flywheel.Distribution[] memory distributeResult,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees
+            bool revertOnFailedPayout,
+            Flywheel.Send[] memory fees,
+            bool sendFeesNow
         ) = flywheel.distribute(feeCampaign, address(feeToken), abi.encode(payouts));
 
         // Verify no fees charged during distribution
-        assertEq(immediateFees.length, 0);
-        assertEq(delayedFees.length, 0);
+        assertEq(fees.length, 0);
+        assertTrue(!sendFeesNow);
         assertEq(distributeResult.length, 1);
         assertEq(distributeResult[0].amount, 100e18);
 
@@ -912,11 +915,13 @@ contract FlywheelContractTest is FlywheelTest {
         address recipient2 = address(0x8201);
 
         // Test cross-campaign isolation during allocate/distribute
-        Flywheel.Payout[] memory payouts1 = new Flywheel.Payout[](1);
-        payouts1[0] = Flywheel.Payout({recipient: recipient1, amount: 200e18, extraData: "campaign1-isolation"});
+        SimpleRewards.SimplePayout[] memory payouts1 = new SimpleRewards.SimplePayout[](1);
+        payouts1[0] =
+            SimpleRewards.SimplePayout({recipient: recipient1, amount: 200e18, extraData: "campaign1-isolation"});
 
-        Flywheel.Payout[] memory payouts2 = new Flywheel.Payout[](1);
-        payouts2[0] = Flywheel.Payout({recipient: recipient2, amount: 150e18, extraData: "campaign2-isolation"});
+        SimpleRewards.SimplePayout[] memory payouts2 = new SimpleRewards.SimplePayout[](1);
+        payouts2[0] =
+            SimpleRewards.SimplePayout({recipient: recipient2, amount: 150e18, extraData: "campaign2-isolation"});
 
         // Allocate in both campaigns with both tokens
         vm.startPrank(isolationManager);
@@ -1046,8 +1051,8 @@ contract FlywheelContractTest is FlywheelTest {
         token.transfer(stateCampaign, 1000e18);
 
         address recipient = address(0x8400);
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: recipient, amount: 100e18, extraData: "state-test"});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: recipient, amount: 100e18, extraData: "state-test"});
 
         // Test INACTIVE state - no payout functions should work
         assertEq(uint8(flywheel.campaignStatus(stateCampaign)), uint8(Flywheel.CampaignStatus.INACTIVE));
@@ -1181,7 +1186,7 @@ contract FlywheelContractTest is FlywheelTest {
         flywheel.withdrawFunds(
             withdrawCampaign,
             address(token),
-            abi.encode(Flywheel.Payout({recipient: advertiser, amount: campaignBalance, extraData: ""}))
+            abi.encode(SimpleRewards.SimplePayout({recipient: advertiser, amount: campaignBalance, extraData: ""}))
         );
 
         // Test authorized manager withdrawal succeeds
@@ -1190,7 +1195,7 @@ contract FlywheelContractTest is FlywheelTest {
         flywheel.withdrawFunds(
             withdrawCampaign,
             address(token),
-            abi.encode(Flywheel.Payout({recipient: withdrawManager, amount: campaignBalance, extraData: ""}))
+            abi.encode(SimpleRewards.SimplePayout({recipient: withdrawManager, amount: campaignBalance, extraData: ""}))
         );
 
         uint256 managerBalanceAfter = token.balanceOf(withdrawManager);
@@ -1230,9 +1235,9 @@ contract FlywheelContractTest is FlywheelTest {
         address recipient2 = address(0x8002);
 
         // Create payout data for allocation
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](2);
-        payouts[0] = Flywheel.Payout({recipient: recipient1, amount: 100e18, extraData: "allocation-1"});
-        payouts[1] = Flywheel.Payout({recipient: recipient2, amount: 150e18, extraData: "allocation-2"});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](2);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: recipient1, amount: 100e18, extraData: "allocation-1"});
+        payouts[1] = SimpleRewards.SimplePayout({recipient: recipient2, amount: 150e18, extraData: "allocation-2"});
 
         // Step 1: Allocate tokens (reserve for future distribution)
         vm.prank(manager);
@@ -1246,8 +1251,9 @@ contract FlywheelContractTest is FlywheelTest {
         vm.prank(manager);
         (
             Flywheel.Distribution[] memory distributionsResult,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees
+            bool revertOnFailedPayout,
+            Flywheel.Send[] memory fees,
+            bool sendFeesNow
         ) = flywheel.distribute(simpleCampaign, address(token), abi.encode(payouts));
 
         // Verify distribute() results
@@ -1257,8 +1263,8 @@ contract FlywheelContractTest is FlywheelTest {
         assertEq(distributionsResult[1].recipient, recipient2);
         assertEq(distributionsResult[1].amount, 150e18);
         // SimpleRewards has no fees
-        assertEq(immediateFees.length, 0);
-        assertEq(delayedFees.length, 0);
+        assertEq(fees.length, 0);
+        assertTrue(!sendFeesNow);
 
         // Verify tokens were transferred
         assertEq(token.balanceOf(recipient1), 100e18);
@@ -1298,22 +1304,23 @@ contract FlywheelContractTest is FlywheelTest {
         // Test allocate/distribute workflow across multiple tokens
 
         // Token 1: Original token (18 decimals)
-        Flywheel.Payout[] memory tokanPayouts = new Flywheel.Payout[](1);
-        tokanPayouts[0] = Flywheel.Payout({recipient: recipient, amount: 200e18, extraData: "token-allocation"});
+        SimpleRewards.SimplePayout[] memory tokanPayouts = new SimpleRewards.SimplePayout[](1);
+        tokanPayouts[0] =
+            SimpleRewards.SimplePayout({recipient: recipient, amount: 200e18, extraData: "token-allocation"});
 
         vm.prank(manager);
         flywheel.allocate(multiTokenCampaign, address(token), abi.encode(tokanPayouts));
 
         // Token 2: USDC (6 decimals)
-        Flywheel.Payout[] memory usdcPayouts = new Flywheel.Payout[](1);
-        usdcPayouts[0] = Flywheel.Payout({recipient: recipient, amount: 100e6, extraData: "usdc-allocation"});
+        SimpleRewards.SimplePayout[] memory usdcPayouts = new SimpleRewards.SimplePayout[](1);
+        usdcPayouts[0] = SimpleRewards.SimplePayout({recipient: recipient, amount: 100e6, extraData: "usdc-allocation"});
 
         vm.prank(manager);
         flywheel.allocate(multiTokenCampaign, address(usdc), abi.encode(usdcPayouts));
 
         // Token 3: WETH (18 decimals)
-        Flywheel.Payout[] memory wethPayouts = new Flywheel.Payout[](1);
-        wethPayouts[0] = Flywheel.Payout({recipient: recipient, amount: 1e18, extraData: "weth-allocation"});
+        SimpleRewards.SimplePayout[] memory wethPayouts = new SimpleRewards.SimplePayout[](1);
+        wethPayouts[0] = SimpleRewards.SimplePayout({recipient: recipient, amount: 1e18, extraData: "weth-allocation"});
 
         vm.prank(manager);
         flywheel.allocate(multiTokenCampaign, address(weth), abi.encode(wethPayouts));
@@ -1368,18 +1375,18 @@ contract FlywheelContractTest is FlywheelTest {
         address recipient3 = address(0x8006);
 
         // Phase 1: Large allocation
-        Flywheel.Payout[] memory largeAllocation = new Flywheel.Payout[](3);
-        largeAllocation[0] = Flywheel.Payout({recipient: recipient1, amount: 100e18, extraData: ""});
-        largeAllocation[1] = Flywheel.Payout({recipient: recipient2, amount: 200e18, extraData: ""});
-        largeAllocation[2] = Flywheel.Payout({recipient: recipient3, amount: 300e18, extraData: ""});
+        SimpleRewards.SimplePayout[] memory largeAllocation = new SimpleRewards.SimplePayout[](3);
+        largeAllocation[0] = SimpleRewards.SimplePayout({recipient: recipient1, amount: 100e18, extraData: ""});
+        largeAllocation[1] = SimpleRewards.SimplePayout({recipient: recipient2, amount: 200e18, extraData: ""});
+        largeAllocation[2] = SimpleRewards.SimplePayout({recipient: recipient3, amount: 300e18, extraData: ""});
 
         vm.prank(manager);
         flywheel.allocate(complexCampaign, address(token), abi.encode(largeAllocation));
 
         // Phase 2: Partial distribution (only first two recipients)
-        Flywheel.Payout[] memory partialDistribution = new Flywheel.Payout[](2);
-        partialDistribution[0] = Flywheel.Payout({recipient: recipient1, amount: 100e18, extraData: ""});
-        partialDistribution[1] = Flywheel.Payout({recipient: recipient2, amount: 200e18, extraData: ""});
+        SimpleRewards.SimplePayout[] memory partialDistribution = new SimpleRewards.SimplePayout[](2);
+        partialDistribution[0] = SimpleRewards.SimplePayout({recipient: recipient1, amount: 100e18, extraData: ""});
+        partialDistribution[1] = SimpleRewards.SimplePayout({recipient: recipient2, amount: 200e18, extraData: ""});
 
         vm.prank(manager);
         flywheel.distribute(complexCampaign, address(token), abi.encode(partialDistribution));
@@ -1390,8 +1397,8 @@ contract FlywheelContractTest is FlywheelTest {
         assertEq(token.balanceOf(recipient3), 0); // Not distributed yet
 
         // Phase 3: Distribute remaining allocation to third recipient
-        Flywheel.Payout[] memory remainingDistribution = new Flywheel.Payout[](1);
-        remainingDistribution[0] = Flywheel.Payout({recipient: recipient3, amount: 300e18, extraData: ""});
+        SimpleRewards.SimplePayout[] memory remainingDistribution = new SimpleRewards.SimplePayout[](1);
+        remainingDistribution[0] = SimpleRewards.SimplePayout({recipient: recipient3, amount: 300e18, extraData: ""});
 
         vm.prank(manager);
         flywheel.distribute(complexCampaign, address(token), abi.encode(remainingDistribution));
@@ -1423,8 +1430,8 @@ contract FlywheelContractTest is FlywheelTest {
 
         // Test 1: Cannot distribute on INACTIVE campaign
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: address(0x8007), amount: 100e18, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: address(0x8007), amount: 100e18, extraData: ""});
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(manager);
@@ -1554,7 +1561,7 @@ contract FlywheelContractTest is FlywheelTest {
 
         // Expect the payout rewarded event
         vm.expectEmit(true, false, false, true);
-        emit Flywheel.PayoutSent(testCampaign, address(token), publisher1Payout, 95e18, ""); // Amount minus 5% fee
+        emit Flywheel.PayoutSent(testCampaign, address(token), publisher1Payout, 95e18, "", true); // Amount minus 5% fee
 
         // Process attribution with reward
         vm.prank(attributionProvider);

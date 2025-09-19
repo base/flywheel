@@ -19,7 +19,7 @@ contract TestCampaignHooks is CampaignHooks {
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Payout memory payout)
+        returns (Flywheel.Send memory payout)
     {}
 
     function _onUpdateStatus(

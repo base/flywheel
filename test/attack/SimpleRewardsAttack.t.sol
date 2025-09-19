@@ -56,8 +56,8 @@ contract SimpleRewardsAttackTest is Test {
 
     /// @notice Test manager authorization bypass attempts
     function test_security_managerAuthorizationBypass() public {
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         // Direct attack: Attacker tries to call payout functions
@@ -90,8 +90,8 @@ contract SimpleRewardsAttackTest is Test {
         // But attacker cannot control original campaign
         assertEq(hook.managers(campaign), manager);
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
@@ -111,8 +111,8 @@ contract SimpleRewardsAttackTest is Test {
         // Note: Can't activate campaign with zero address manager, so test will fail at campaign status level
         // This is actually good - zero address manager campaigns remain inactive
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
         bytes memory payoutData = abi.encode(payouts);
 
         // Attacker cannot exploit zero address manager - campaign remains inactive
@@ -135,8 +135,9 @@ contract SimpleRewardsAttackTest is Test {
         // Deploy malicious contract that reenters on token receive
         MaliciousRecipient maliciousRecipient = new MaliciousRecipient(address(hook), campaign);
 
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: address(maliciousRecipient), amount: PAYOUT_AMOUNT, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] =
+            SimpleRewards.SimplePayout({recipient: address(maliciousRecipient), amount: PAYOUT_AMOUNT, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         // Malicious recipient receives tokens normally (ERC20 doesn't trigger callbacks)
@@ -168,8 +169,8 @@ contract SimpleRewardsAttackTest is Test {
 
     /// @notice Test campaign fund drainage attack
     function test_security_campaignFundDrainage() public {
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({
             recipient: attacker,
             amount: INITIAL_TOKEN_BALANCE, // Attempt to drain entire campaign
             extraData: ""
@@ -190,15 +191,15 @@ contract SimpleRewardsAttackTest is Test {
     /// @notice Test batch payout manipulation
     function test_security_batchPayoutManipulation() public {
         // Create large batch with hidden malicious recipient
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](10);
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](10);
 
         // Fill with legitimate-looking recipients
         for (uint256 i = 0; i < 9; i++) {
-            payouts[i] = Flywheel.Payout({recipient: victim, amount: 1e18, extraData: ""});
+            payouts[i] = SimpleRewards.SimplePayout({recipient: victim, amount: 1e18, extraData: ""});
         }
 
         // Hidden large payout to attacker
-        payouts[9] = Flywheel.Payout({
+        payouts[9] = SimpleRewards.SimplePayout({
             recipient: attacker,
             amount: 900e18, // Large amount hidden in batch
             extraData: ""
@@ -217,8 +218,8 @@ contract SimpleRewardsAttackTest is Test {
 
     /// @notice Test allocation/distribution timing attack
     function test_security_allocationDistributionTimingAttack() public {
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         // Allocate funds
@@ -267,7 +268,9 @@ contract SimpleRewardsAttackTest is Test {
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
         vm.prank(attacker);
         flywheel.withdrawFunds(
-            campaign, address(token), abi.encode(Flywheel.Payout({recipient: attacker, amount: 100e18, extraData: ""}))
+            campaign,
+            address(token),
+            abi.encode(SimpleRewards.SimplePayout({recipient: attacker, amount: 100e18, extraData: ""}))
         );
     }
 
@@ -287,7 +290,7 @@ contract SimpleRewardsAttackTest is Test {
 
     /// @notice Test empty payouts array exploitation
     function test_security_emptyPayoutsExploitation() public {
-        Flywheel.Payout[] memory emptyPayouts = new Flywheel.Payout[](0);
+        SimpleRewards.SimplePayout[] memory emptyPayouts = new SimpleRewards.SimplePayout[](0);
         bytes memory hookData = abi.encode(emptyPayouts);
 
         uint256 campaignBalanceBefore = token.balanceOf(campaign);
@@ -318,8 +321,8 @@ contract SimpleRewardsAttackTest is Test {
         flywheel.updateStatus(attackerCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Attacker (manager of their campaign) tries to control original campaign
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: PAYOUT_AMOUNT, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         vm.expectRevert(SimpleRewards.Unauthorized.selector);
@@ -373,8 +376,8 @@ contract CrossFunctionReentrancyAttacker {
     function attemptCrossFunctionReentrancy() external {
         // This would require being the manager, which this contract is not
         // So this will fail with Unauthorized
-        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({recipient: address(this), amount: 100e18, extraData: ""});
+        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
+        payouts[0] = SimpleRewards.SimplePayout({recipient: address(this), amount: 100e18, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         flywheel.send(campaign, address(0x1), hookData);
