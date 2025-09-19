@@ -402,11 +402,12 @@ contract AdConversion is CampaignHooks {
         returns (Flywheel.Distribution[] memory distributions)
     {
         if (sender != state[campaign].attributionProvider) revert Unauthorized();
-        (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
+        bytes32 key = bytes32(bytes20(sender));
+        uint256 amount = flywheel.allocatedFee(campaign, token, key);
+        address recipient = abi.decode(hookData, (address));
 
         distributions = new Flywheel.Distribution[](1);
-        distributions[0] =
-            Flywheel.Distribution({recipient: recipient, key: bytes32(bytes20(sender)), amount: amount, extraData: ""});
+        distributions[0] = Flywheel.Distribution({recipient: recipient, key: key, amount: amount, extraData: ""});
     }
 
     /// @inheritdoc CampaignHooks
