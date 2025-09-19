@@ -136,7 +136,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the distribution
     /// @param amount Amount of tokens distributed
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutsDistributed(
+    event PayoutDistributed(
         address indexed campaign,
         address token,
         bytes32 key,
@@ -153,7 +153,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param key Key for the allocation
     /// @param amount Amount of tokens deallocated
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutsDeallocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
+    event PayoutDeallocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
 
     /// @notice Emitted when a fee is sent to a recipient
     ///
@@ -183,7 +183,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the collected fees
     /// @param amount Amount of tokens collected
     /// @param extraData Extra data for the payout to attach in events
-    event FeesDistributed(
+    event FeeDistributed(
         address indexed campaign,
         address token,
         bytes32 key,
