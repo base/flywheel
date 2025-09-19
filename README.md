@@ -112,6 +112,22 @@ Abstract interface that enables:
 - Multi-chain publisher identity
 - Backward compatible with existing publishers
 
+> ⚠️ **Important: Payout Address on Token Transfer**
+>
+> When BuilderCodes tokens (ERC721) are transferred to a new owner, the payout address **does not automatically update**. This is by design to prevent accidental loss of funds and maintain compatibility with various payout setups.
+>
+> **After receiving a BuilderCodes token, the new owner MUST:**
+>
+> 1. Call `updatePayoutAddress(code, newPayoutAddress)` to set their desired payout address
+> 2. Verify the update was successful before expecting any payouts
+>
+> **Failure to update the payout address means:**
+>
+> - Payouts will continue to be sent to the previous owner's address
+> - The new owner will not receive rewards despite owning the token
+>
+> This design ensures that payout addresses remain stable unless explicitly changed, preventing issues with smart contract wallets or specialized payout configurations.
+
 #### 5. **PseudoRandomRegistrar.sol** - Permissionless Code Generation
 
 - Enables permissionless registration of referral codes with auto-generated identifiers

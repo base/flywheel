@@ -158,6 +158,7 @@ contract BuilderCodes is
     ///
     /// @param tokenId Token ID of the builder code
     function updateMetadata(uint256 tokenId) external onlyRole(METADATA_ROLE) {
+        _requireOwned(tokenId); // verifies token exists
         emit MetadataUpdate(tokenId);
     }
 
@@ -225,7 +226,7 @@ contract BuilderCodes is
     ///
     /// @return uri The URI for the referral code
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        _requireOwned(tokenId);
+        _requireOwned(tokenId); // verifies token exists
         string memory uriPrefix = _getRegistryStorage().uriPrefix;
         return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, toCode(tokenId)) : "";
     }
@@ -290,8 +291,8 @@ contract BuilderCodes is
     ///
     /// @return code The referral code for the token ID
     function toCode(uint256 tokenId) public pure returns (string memory code) {
-        if (bytes32(tokenId) != LibString.normalizeSmallString(bytes32(tokenId))) revert InvalidCode(code);
         code = LibString.fromSmallString(bytes32(tokenId));
+        if (bytes32(tokenId) != LibString.normalizeSmallString(bytes32(tokenId))) revert InvalidCode(code);
         if (!isValidCode(code)) revert InvalidCode(code);
         return code;
     }
