@@ -6,7 +6,7 @@ TLDR:
 
 - A modular, permissionless protocol for transparent attribution and ERC20 reward distribution
 - Enables any relationship where Users/Publishers drive conversions and get rewarded by Sponsors through various validation mechanisms
-- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (CashbackRewards), bridge rewards (BridgeRewards), and custom rewards (SimpleRewards)
+- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (CashbackRewards), bridge transaction incentives (BridgeRewards), and custom rewards (SimpleRewards)
 - Permissionless architecture allows third parties to create custom hooks for any use case
 - Each hook can customize payout models, fee structures, and attribution logic while leveraging the core Flywheel infrastructure for secure token management
 
@@ -454,6 +454,7 @@ Bridge incentive campaigns where users receive rewards for utilizing builder cod
 - Perpetual active campaigns (always available once activated)
 - Fee sharing between users and builder code owners with configurable basis points (max 2%)
 - Native token support (ETH) alongside ERC20 tokens
+- Graceful failure handling for unregistered or misconfigured builder codes
 
 **Campaign Creation:**
 
@@ -495,6 +496,8 @@ flywheel.send(campaign, token, hookData);
 - Fee basis points cannot exceed 200 (2.00%)
 - Only supports `send()` payout function (no allocate/distribute)
 - Campaign must be in ACTIVE status (perpetual)
+- Gracefully handles unregistered builder codes by setting fee to 0%
+- Gracefully handles misconfigured payout addresses by losing builder fee (user still gets reward)
 
 **Fund Management:**
 
@@ -570,11 +573,11 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
 | **Controller**      | Attribution Provider                                         | Manager                                                       | No access control (anyone)                                | Manager                                                      |
 | **Use Case**        | Publisher performance marketing                              | E-commerce cashback                                           | Bridge transaction incentives                             | Flexible reward distribution                                 |
-| **Validation**      | Complex (ref codes, configs)                                 | Medium (payment verification)                                 | Medium (builder codes, perpetual active)                  | Minimal (pass-through)                                       |
+| **Validation**      | Complex (ref codes, configs)                                 | Medium (payment verification)                                 | Medium (builder codes, perpetual active, graceful failure) | Minimal (pass-through)                                       |
 | **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ✅ Builder code owner fees (max 2%)                       | ❌ No fees                                                   |
 | **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ✅ Via BuilderCodes (fee recipients)                      | ❌ Direct to recipients                                      |
 | **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Anyone (withdrawFunds for accidents)                      | Owner only                                                   |
-| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Bridge rewards + builder fees<br/>Native token support | ✅ Direct recipient payouts<br/>Simple pass-through          |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Graceful failure handling | ✅ Direct recipient payouts<br/>Simple pass-through          |
 | **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ❌ Not implemented                                        | ✅ Reserve payouts for claims                                |
 | **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ❌ Not implemented                                        | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ❌ Not implemented                                        | ✅ Cancel unclaimed rewards                                  |
