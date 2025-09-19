@@ -70,18 +70,18 @@ contract SimpleRewards is CampaignHooks {
         override
         onlyManager(sender, campaign)
         returns (
-            Flywheel.Payout[] memory payouts,
+            Flywheel.Send[] memory payouts,
             bool revertOnFailedPayout,
-            Flywheel.Payout[] memory, /*immediateFees*/
-            Flywheel.Allocation[] memory /*delayedFees*/
+            Flywheel.Send[] memory, /*fees*/
+            bool /*sendFeesNow*/
         )
     {
         (SimplePayout[] memory simplePayouts, bool revertOnError) = abi.decode(hookData, (SimplePayout[], bool));
         revertOnFailedPayout = false;
-        payouts = new Flywheel.Payout[](simplePayouts.length);
+        payouts = new Flywheel.Send[](simplePayouts.length);
         uint256 count = simplePayouts.length;
         for (uint256 i = 0; i < count; i++) {
-            payouts[i] = Flywheel.Payout({
+            payouts[i] = Flywheel.Send({
                 recipient: simplePayouts[i].recipient,
                 amount: simplePayouts[i].amount,
                 extraData: simplePayouts[i].extraData,
@@ -139,8 +139,8 @@ contract SimpleRewards is CampaignHooks {
         returns (
             Flywheel.Distribution[] memory distributions,
             bool revertOnFailedPayout,
-            Flywheel.Payout[] memory, /*immediateFees*/
-            Flywheel.Allocation[] memory /*delayedFees*/
+            Flywheel.Send[] memory, /*fees*/
+            bool /*sendFeesNow*/
         )
     {
         (SimplePayout[] memory simplePayouts) = abi.decode(hookData, (SimplePayout[]));
@@ -162,12 +162,12 @@ contract SimpleRewards is CampaignHooks {
         internal
         virtual
         override
-        returns (Flywheel.Payout memory payout)
+        returns (Flywheel.Send memory payout)
     {
         if (sender != owners[campaign]) revert Unauthorized();
         SimplePayout memory simplePayout = abi.decode(hookData, (SimplePayout));
         return (
-            Flywheel.Payout({
+            Flywheel.Send({
                 recipient: simplePayout.recipient,
                 amount: simplePayout.amount,
                 extraData: simplePayout.extraData,

@@ -55,29 +55,29 @@ contract BridgeRewards is CampaignHooks {
         internal
         override
         returns (
-            Flywheel.Payout[] memory payouts,
+            Flywheel.Send[] memory payouts,
             bool revertOnFailedPayout,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory /*delayedFees*/
+            Flywheel.Send[] memory fees,
+            bool sendFeesNow
         )
     {
-        revertOnFailedPayout = true;
         (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
         // Check balance is nonzero
         uint256 balance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
         require(balance > 0, ZeroAmount());
 
-        // set feeBps to 0 if builder code not registered
+        // Set feeBps to 0 if builder code not registered
         feeBps = builderCodes.isRegistered(builderCodes.toCode(uint256(code))) ? feeBps : 0;
 
-        // set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
+        // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
+        uint256 feeAmount = (balance * feeBps) / 1e4;
 
         // Prepare payout
-        uint256 feeAmount = (balance * feeBps) / 1e4;
-        payouts = new Flywheel.Payout[](1);
-        payouts[0] = Flywheel.Payout({
+        revertOnFailedPayout = true;
+        payouts = new Flywheel.Send[](1);
+        payouts[0] = Flywheel.Send({
             recipient: user,
             amount: balance - feeAmount,
             extraData: abi.encode(code, feeAmount),
@@ -86,8 +86,9 @@ contract BridgeRewards is CampaignHooks {
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
-            immediateFees = new Flywheel.Payout[](1);
-            immediateFees[0] = Flywheel.Payout({
+            sendFeesNow = true;
+            fees = new Flywheel.Send[](1);
+            fees[0] = Flywheel.Send({
                 recipient: builderCodes.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
                 extraData: "",
@@ -118,13 +119,13 @@ contract BridgeRewards is CampaignHooks {
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Payout memory payout)
+        returns (Flywheel.Send memory payout)
     {
         // Intended use is for funds to be sent into the campaign and atomically sent out to recipients
         // If tokens are sent into the campaign outside of this scope on accident, anyone can take them (no access control for `onSend` hook)
         // To keep the event feed clean for payouts/fees, we leave open the ability to withdraw funds directly
         // Those wishing to take accidental tokens left in the campaign should find this function easier
-        payout = abi.decode(hookData, (Flywheel.Payout));
+        payout = abi.decode(hookData, (Flywheel.Send));
     }
 
     /// @inheritdoc CampaignHooks

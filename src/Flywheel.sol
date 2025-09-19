@@ -34,19 +34,19 @@ contract Flywheel is ReentrancyGuardTransient {
         CampaignHooks hooks;
     }
 
-    /// @notice Payout for a recipient
-    struct Payout {
+    /// @notice Send tokens for a recipient
+    struct Send {
         /// @dev recipient Address receiving the payout
         address recipient;
         /// @dev amount Amount of tokens to be paid out
         uint256 amount;
         /// @dev extraData Extra data for the payout to attach in events
         bytes extraData;
-        /// @dev fallbackKey If payout reverts for recipient, use this key to allocate for instead
+        /// @dev fallbackKey If send reverts for recipient, use this key to allocate for instead
         bytes32 fallbackKey;
     }
 
-    /// @notice Allocation for a key
+    /// @notice Allocation tokens for a key
     struct Allocation {
         /// @dev key Key for the allocation
         bytes32 key;
@@ -56,7 +56,7 @@ contract Flywheel is ReentrancyGuardTransient {
         bytes extraData;
     }
 
-    /// @notice Distribution for a key to a recipient
+    /// @notice Distribution tokens for a key to a recipient
     struct Distribution {
         /// @dev recipient Address receiving the distribution
         address recipient;
@@ -281,17 +281,12 @@ contract Flywheel is ReentrancyGuardTransient {
         nonReentrant
         onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (
-            Payout[] memory payouts,
-            bool revertOnFailedPayout,
-            Payout[] memory immediateFees,
-            Allocation[] memory delayedFees
-        )
+        returns (Send[] memory payouts, bool revertOnFailedPayout, Send[] memory fees, bool sendFeesNow)
     {
-        (payouts, revertOnFailedPayout, immediateFees, delayedFees) =
+        (payouts, revertOnFailedPayout, fees, sendFeesNow) =
             _campaigns[campaign].hooks.onSend(msg.sender, campaign, token, hookData);
 
-        _processFees(campaign, token, immediateFees, delayedFees);
+        _processFees(campaign, token, fees, sendFeesNow);
 
         (uint256 totalAllocated, uint256 count) = (0, payouts.length);
         for (uint256 i = 0; i < count; i++) {
@@ -398,30 +393,24 @@ contract Flywheel is ReentrancyGuardTransient {
         nonReentrant
         onlyExists(campaign)
         acceptingPayouts(campaign)
-        returns (
-            Distribution[] memory distributions,
-            Payout[] memory immediateFees,
-            Allocation[] memory delayedFees,
-            bool revertOnFailedPayout
-        )
+        returns (Distribution[] memory payouts, bool revertOnFailedPayout, Send[] memory fees, bool sendFeesNow)
     {
-        (distributions, immediateFees, delayedFees, revertOnFailedPayout) =
+        (payouts, revertOnFailedPayout, fees, sendFeesNow) =
             _campaigns[campaign].hooks.onDistribute(msg.sender, campaign, token, hookData);
 
-        _processFees(campaign, token, immediateFees, delayedFees);
+        _processFees(campaign, token, fees, sendFeesNow);
 
-        (uint256 totalAmount, uint256 count) = (0, distributions.length);
+        (uint256 totalAmount, uint256 count) = (0, payouts.length);
         mapping(bytes32 key => uint256 amount) storage _allocatedPayout = allocatedPayout[campaign][token];
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, bytes32 key, uint256 amount) =
-                (distributions[i].recipient, distributions[i].key, distributions[i].amount);
+            (address recipient, bytes32 key, uint256 amount) = (payouts[i].recipient, payouts[i].key, payouts[i].amount);
 
             // Skip if no amount
             if (amount == 0) continue;
 
             // Send tokens
             bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData, success);
+            emit PayoutsDistributed(campaign, token, key, recipient, amount, payouts[i].extraData, success);
 
             if (success) {
                 // Update allocated payout storage and emit
@@ -445,23 +434,21 @@ contract Flywheel is ReentrancyGuardTransient {
         external
         nonReentrant
         onlyExists(campaign)
-        returns (Distribution[] memory distributions)
+        returns (Distribution[] memory fees)
     {
-        (distributions, revertOnFailedPayout) =
-            _campaigns[campaign].hooks.onDistributeFees(msg.sender, campaign, token, hookData);
+        fees = _campaigns[campaign].hooks.onDistributeFees(msg.sender, campaign, token, hookData);
 
-        (uint256 totalAmount, uint256 count) = (0, distributions.length);
+        (uint256 totalAmount, uint256 count) = (0, fees.length);
         mapping(bytes32 key => uint256 amount) storage _allocatedFee = allocatedFee[campaign][token];
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, bytes32 key, uint256 amount) =
-                (distributions[i].recipient, distributions[i].key, distributions[i].amount);
+            (address recipient, bytes32 key, uint256 amount) = (fees[i].recipient, fees[i].key, fees[i].amount);
 
             // Skip if no amount
             if (amount == 0) continue;
 
             // Send tokens
             bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit FeesDistributed(campaign, token, key, recipient, amount, distributions[i].extraData, success);
+            emit FeesDistributed(campaign, token, key, recipient, amount, fees[i].extraData, success);
 
             if (success) {
                 // Update allocated fee storage and emit
@@ -484,11 +471,11 @@ contract Flywheel is ReentrancyGuardTransient {
         nonReentrant
         onlyExists(campaign)
     {
-        Payout memory payout = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
-        (address recipient, uint256 amount) = (payout.recipient, payout.amount);
+        Send memory send = _campaigns[campaign].hooks.onWithdrawFunds(msg.sender, campaign, token, hookData);
+        (address recipient, uint256 amount) = (send.recipient, send.amount);
         if (amount == 0) revert ZeroAmount();
         bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-        if (success) emit FundsWithdrawn(campaign, token, recipient, amount, payout.extraData);
+        if (success) emit FundsWithdrawn(campaign, token, recipient, amount, send.extraData);
 
         // Assert campaign solvency, but ignore payouts if campaign is finalized
         uint256 requiredSolvency = campaignStatus(campaign) == CampaignStatus.FINALIZED
@@ -583,50 +570,37 @@ contract Flywheel is ReentrancyGuardTransient {
         return _campaigns[campaign].hooks.campaignURI(campaign);
     }
 
-    /// @notice Allocates a fee to a key
+    /// @notice Processes fees, either sending or allocating them to a key
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to allocate the fee from
-    /// @param immediateFees Allocation of the fees to be sent immediately
-    /// @param delayedFees Allocation of the fees to be allocated
-    function _processFees(
-        address campaign,
-        address token,
-        Payout[] memory immediateFees,
-        Allocation[] memory delayedFees
-    ) internal {
-        mapping(bytes32 key => uint256 amount) storage _allocatedFee = allocatedFee[campaign][token];
-        (uint256 totalAllocated, uint256 count) = (0, immediateFees.length);
+    /// @param fees Allocation of the fees to be sent immediately
+    /// @param sendFeesNow Whether to send fees now
+    function _processFees(address campaign, address token, Send[] memory fees, bool sendFeesNow) internal {
+        (uint256 totalAllocated, uint256 count) = (0, fees.length);
         for (uint256 i = 0; i < count; i++) {
-            (address recipient, uint256 amount) = (immediateFees[i].recipient, immediateFees[i].amount);
-
             // Skip if no amount
+            uint256 amount = fees[i].amount;
             if (amount == 0) continue;
 
-            // Send tokens
-            bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit FeeSent(campaign, token, recipient, amount, immediateFees[i].extraData, success);
+            // Send fees now if applicable
+            bool sendSucceess;
+            if (sendFeesNow) {
+                address recipient = fees[i].recipient;
+                sendSucceess = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
+                emit FeeSent(campaign, token, recipient, amount, fees[i].extraData, sendSucceess);
+            }
 
-            if (!success) {
-                // Update allocated fee storage and emit
+            // If not sending fees now or send failed, update allocated fee storage and emit event
+            if (!sendFeesNow || !sendSucceess) {
+                bytes32 key = fees[i].fallbackKey;
                 totalAllocated += amount;
-                _allocatedFee[immediateFees[i].fallbackKey] += amount;
-                emit FeeAllocated(campaign, token, immediateFees[i].fallbackKey, amount, immediateFees[i].extraData);
+                allocatedFee[campaign][token][key] += amount;
+                emit FeeAllocated(campaign, token, key, amount, fees[i].extraData);
             }
         }
 
-        count = delayedFees.length;
-        for (uint256 i = 0; i < count; i++) {
-            (bytes32 key, uint256 amount) = (delayedFees[i].key, delayedFees[i].amount);
-
-            // Skip if no amount
-            if (amount == 0) continue;
-
-            // Update allocated fee storage and emit
-            totalAllocated += amount;
-            _allocatedFee[key] += amount;
-            emit FeeAllocated(campaign, token, key, amount, delayedFees[i].extraData);
-        }
+        // Update total allocated fees
         totalAllocatedFees[campaign][token] += totalAllocated;
     }
 

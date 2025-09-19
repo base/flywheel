@@ -104,16 +104,16 @@ contract CashbackRewards is SimpleRewards {
         override
         onlyManager(sender, campaign)
         returns (
-            Flywheel.Payout[] memory payouts,
+            Flywheel.Send[] memory payouts,
             bool revertOnFailedPayout,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees
+            Flywheel.Send[] memory, /*fees*/
+            bool /*sendFeesNow*/
         )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         revertOnFailedPayout = revertOnError;
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
-        payouts = new Flywheel.Payout[](inputLen);
+        payouts = new Flywheel.Send[](inputLen);
 
         for (uint256 i = 0; i < inputLen; i++) {
             // Validate the payment reward
@@ -130,7 +130,7 @@ contract CashbackRewards is SimpleRewards {
             rewards[campaign][paymentInfoHash].distributed += amount;
 
             // Append to return array
-            payouts[outputLen++] = Flywheel.Payout({
+            payouts[outputLen++] = Flywheel.Send({
                 recipient: payer,
                 amount: amount,
                 extraData: abi.encodePacked(paymentInfoHash),
@@ -237,8 +237,8 @@ contract CashbackRewards is SimpleRewards {
         returns (
             Flywheel.Distribution[] memory distributions,
             bool revertOnFailedPayout,
-            Flywheel.Payout[] memory, /*immediateFees*/
-            Flywheel.Allocation[] memory /*delayedFees*/
+            Flywheel.Send[] memory, /*fees*/
+            bool /*sendFeesNow*/
         )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));

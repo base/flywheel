@@ -259,10 +259,10 @@ contract AdConversion is CampaignHooks {
         internal
         override
         returns (
-            Flywheel.Payout[] memory payouts,
+            Flywheel.Send[] memory payouts,
             bool revertOnFailedPayout,
-            Flywheel.Payout[] memory, /*immediateFees*/
-            Flywheel.Allocation[] memory delayedFees
+            Flywheel.Send[] memory fees,
+            bool sendFeesNow
         )
     {
         revertOnFailedPayout = true;
@@ -362,17 +362,22 @@ contract AdConversion is CampaignHooks {
         }
 
         // Create the final payouts array with only unique recipients
-        payouts = new Flywheel.Payout[](uniqueCount);
+        payouts = new Flywheel.Send[](uniqueCount);
         for (uint256 i = 0; i < uniqueCount; i++) {
             payouts[i] =
-                Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: "", fallbackKey: bytes32(0)});
+                Flywheel.Send({recipient: recipients[i], amount: amounts[i], extraData: "", fallbackKey: bytes32(0)});
         }
 
         // Add delayed fee for attribution provider to claim later
         if (feeAmount > 0) {
-            delayedFees = new Flywheel.Allocation[](1);
-            delayedFees[0] =
-                Flywheel.Allocation({key: bytes32(bytes20(attributionProvider)), amount: feeAmount, extraData: ""});
+            sendFeesNow = false;
+            fees = new Flywheel.Send[](1);
+            fees[0] = Flywheel.Send({
+                amount: feeAmount,
+                extraData: "",
+                fallbackKey: bytes32(bytes20(attributionProvider)),
+                recipient: attributionProvider
+            });
         }
     }
 
@@ -381,13 +386,13 @@ contract AdConversion is CampaignHooks {
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Payout memory payout)
+        returns (Flywheel.Send memory payout)
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
 
         (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
-        return (Flywheel.Payout({recipient: recipient, amount: amount, extraData: "", fallbackKey: bytes32(0)}));
+        return (Flywheel.Send({recipient: recipient, amount: amount, extraData: "", fallbackKey: bytes32(0)}));
     }
 
     /// @inheritdoc CampaignHooks
