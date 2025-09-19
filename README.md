@@ -768,6 +768,8 @@ IERC20(token).transfer(campaign, 100_000e18);
 flywheel.updateStatus(campaign, CampaignStatus.ACTIVE, "");
 ```
 
+**Campaign Creation Safety**: The `createCampaign` function includes front-running protection by checking if a campaign already exists at the predicted address and returning it safely, preventing duplicate deployments or reverts from concurrent creation attempts.
+
 ### Payout Operations
 
 The Flywheel protocol supports four main payout operations:
