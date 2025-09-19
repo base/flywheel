@@ -373,7 +373,7 @@ contract Flywheel is ReentrancyGuardTransient {
             // Update allocated payout storage and emit
             totalAmount += amount;
             _allocatedPayout[key] -= amount;
-            emit PayoutsDeallocated(campaign, token, key, amount, allocations[i].extraData);
+            emit PayoutDeallocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
         totalAllocatedPayouts[campaign][token] -= totalAmount;
@@ -410,7 +410,7 @@ contract Flywheel is ReentrancyGuardTransient {
 
             // Send tokens
             bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit PayoutsDistributed(campaign, token, key, recipient, amount, payouts[i].extraData, success);
+            emit PayoutDistributed(campaign, token, key, recipient, amount, payouts[i].extraData, success);
 
             if (success) {
                 // Update allocated payout storage and emit
@@ -448,7 +448,7 @@ contract Flywheel is ReentrancyGuardTransient {
 
             // Send tokens
             bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
-            emit FeesDistributed(campaign, token, key, recipient, amount, fees[i].extraData, success);
+            emit FeeDistributed(campaign, token, key, recipient, amount, fees[i].extraData, success);
 
             if (success) {
                 // Update allocated fee storage and emit
