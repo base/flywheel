@@ -45,13 +45,14 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 
 ## Core Data Structures
 
-**Payout**: Direct token transfer to a recipient
+**Send**: Direct token transfer to a recipient with fallback allocation support
 
 ```solidity
-struct Payout {
+struct Send {
     address recipient;  // Address receiving the payout
     uint256 amount;     // Amount of tokens to be paid out
     bytes extraData;    // Extra data for the payout
+    bytes32 fallbackKey; // Key for fallback allocation if send fails
 }
 ```
 
@@ -565,9 +566,9 @@ bytes memory hookData = abi.encode(
 
 Flywheel provides four fundamental payout operations that hooks can implement based on their requirements:
 
-### **send()** - Immediate Payout
+### **send()** - Immediate Payout with Fallback Support
 
-Transfers tokens directly to recipients immediately. Used for real-time rewards where no holding period is needed.
+Transfers tokens directly to recipients immediately with optional fallback allocation. Used for real-time rewards where no holding period is needed. Includes robust error handling through the `fallbackKey` mechanism.
 
 ### **allocate()** - Reserve Future Payout
 
@@ -581,6 +582,61 @@ Cancels previously allocated tokens identified by `bytes32` keys, returning them
 
 Allows recipients to claim previously allocated tokens identified by `bytes32` keys. Converts "pending" allocations to actual token transfers. Can also generate fees during distribution.
 
+### **Allocation Fallback for Failed Sends**
+
+The protocol includes robust error handling for failed token transfers through the allocation fallback system:
+
+#### How It Works
+
+When a `send()` operation fails (e.g., recipient contract rejects the transfer), the system can either:
+
+1. **Revert the entire transaction** (when `fallbackKey = bytes32(0)`)
+2. **Automatically allocate the failed amount** (when `fallbackKey != bytes32(0)`)
+
+#### Fallback Key Behavior
+
+- **`fallbackKey = bytes32(0)`**: "Fail-fast" mode - reverts with `FailedTokenSend` error if the send fails
+- **`fallbackKey != bytes32(0)`**: "Graceful degradation" mode - allocates the amount using the specified key for later distribution
+
+#### Hook-Specific Strategies
+
+Different hooks implement different fallback strategies based on their use cases:
+
+- **AdConversion**: Uses `bytes32(0)` for immediate failure on send errors (fail-fast approach)
+- **BridgeRewards**: 
+  - User payouts: `bytes32(0)` (fail-fast for users)
+  - Builder fees: Uses builder code as fallback key (graceful degradation for fees)
+- **CashbackRewards & SimpleRewards**: Use recipient address as fallback key (graceful degradation)
+
+#### Example Usage
+
+```solidity
+// Fail-fast approach (reverts on failure)
+Send memory payout = Send({
+    recipient: user,
+    amount: 100e18,
+    extraData: "",
+    fallbackKey: bytes32(0)  // Will revert if send fails
+});
+
+// Graceful degradation approach (allocates on failure)
+Send memory payout = Send({
+    recipient: user,
+    amount: 100e18,
+    extraData: "",
+    fallbackKey: bytes32(bytes20(user))  // Will allocate for user to claim later
+});
+```
+
+#### Recovery Process
+
+When a send fails and gets allocated:
+
+1. The amount is automatically moved to `allocatedPayout[campaign][token][fallbackKey]`
+2. A `PayoutAllocated` event is emitted with the fallback key
+3. Recipients can later use `distribute()` to claim their allocated tokens
+4. This prevents loss of funds while maintaining operation continuity
+
 ## Hook Implementation Comparison
 
 Comprehensive comparison of hook implementations, including payout functions, access control, and operational characteristics:
@@ -593,7 +649,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ✅ Builder code owner fees (max 2%)                       | ❌ No fees                                                   |
 | **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ✅ Via BuilderCodes (fee recipients)                      | ❌ Direct to recipients                                      |
 | **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Anyone (withdrawFunds for accidents)                      | Owner only                                                   |
-| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees | ✅ Direct buyer cashback<br/>Tracks distributed amounts       | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Graceful failure handling | ✅ Direct recipient payouts<br/>Simple pass-through          |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors (`fallbackKey = bytes32(0)`) | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Graceful degradation (`fallbackKey = recipient`) | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Mixed: fail-fast for users, graceful for fees | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Graceful degradation (`fallbackKey = recipient`) |
 | **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ❌ Not implemented                                        | ✅ Reserve payouts for claims                                |
 | **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ❌ Not implemented                                        | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ❌ Not implemented                                        | ✅ Cancel unclaimed rewards                                  |
