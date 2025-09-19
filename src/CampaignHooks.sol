@@ -54,9 +54,9 @@ abstract contract CampaignHooks {
         onlyFlywheel
         returns (
             Flywheel.Payout[] memory payouts,
+            bool revertOnFailedPayout,
             Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            Flywheel.Allocation[] memory delayedFees
         )
     {
         return _onSend(sender, campaign, token, hookData);
@@ -115,9 +115,9 @@ abstract contract CampaignHooks {
         onlyFlywheel
         returns (
             Flywheel.Distribution[] memory distributions,
+            bool revertOnFailedPayout,
             Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            Flywheel.Allocation[] memory delayedFees
         )
     {
         return _onDistribute(sender, campaign, token, hookData);
@@ -136,7 +136,7 @@ abstract contract CampaignHooks {
     function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
-        returns (Flywheel.Distribution[] memory distributions, bool revertOnFailedTransfer)
+        returns (Flywheel.Distribution[] memory distributions)
     {
         return _onDistributeFees(sender, campaign, token, hookData);
     }
@@ -216,9 +216,9 @@ abstract contract CampaignHooks {
         virtual
         returns (
             Flywheel.Payout[] memory payouts,
+            bool revertOnFailedPayout,
             Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            Flywheel.Allocation[] memory delayedFees
         )
     {
         revert Unsupported();
@@ -271,9 +271,9 @@ abstract contract CampaignHooks {
         virtual
         returns (
             Flywheel.Distribution[] memory distributions,
+            bool revertOnFailedPayout,
             Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            Flywheel.Allocation[] memory delayedFees
         )
     {
         revert Unsupported();
@@ -290,7 +290,7 @@ abstract contract CampaignHooks {
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
-        returns (Flywheel.Distribution[] memory distributions, bool revertOnFailedTransfer)
+        returns (Flywheel.Distribution[] memory distributions)
     {
         revert Unsupported();
     }

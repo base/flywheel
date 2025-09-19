@@ -71,13 +71,13 @@ contract SimpleRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (
             Flywheel.Payout[] memory payouts,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            bool revertOnFailedPayout,
+            Flywheel.Payout[] memory, /*immediateFees*/
+            Flywheel.Allocation[] memory /*delayedFees*/
         )
     {
         (SimplePayout[] memory simplePayouts, bool revertOnError) = abi.decode(hookData, (SimplePayout[], bool));
-        revertOnFailedTransfer = false;
+        revertOnFailedPayout = false;
         payouts = new Flywheel.Payout[](simplePayouts.length);
         uint256 count = simplePayouts.length;
         for (uint256 i = 0; i < count; i++) {
@@ -138,13 +138,13 @@ contract SimpleRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (
             Flywheel.Distribution[] memory distributions,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            bool revertOnFailedPayout,
+            Flywheel.Payout[] memory, /*immediateFees*/
+            Flywheel.Allocation[] memory /*delayedFees*/
         )
     {
         (SimplePayout[] memory simplePayouts) = abi.decode(hookData, (SimplePayout[]));
-        revertOnFailedTransfer = false;
+        revertOnFailedPayout = false;
         distributions = new Flywheel.Distribution[](simplePayouts.length);
         uint256 count = simplePayouts.length;
         for (uint256 i = 0; i < count; i++) {

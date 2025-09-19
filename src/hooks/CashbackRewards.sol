@@ -105,13 +105,13 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (
             Flywheel.Payout[] memory payouts,
+            bool revertOnFailedPayout,
             Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            Flywheel.Allocation[] memory delayedFees
         )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
-        revertOnFailedTransfer = revertOnError;
+        revertOnFailedPayout = revertOnError;
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
         payouts = new Flywheel.Payout[](inputLen);
 
@@ -236,13 +236,13 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (
             Flywheel.Distribution[] memory distributions,
-            Flywheel.Payout[] memory immediateFees,
-            Flywheel.Allocation[] memory delayedFees,
-            bool revertOnFailedTransfer
+            bool revertOnFailedPayout,
+            Flywheel.Payout[] memory, /*immediateFees*/
+            Flywheel.Allocation[] memory /*delayedFees*/
         )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
-        revertOnFailedTransfer = revertOnError;
+        revertOnFailedPayout = revertOnError;
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
         distributions = new Flywheel.Distribution[](inputLen);
 
