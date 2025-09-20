@@ -12,7 +12,7 @@ contract PseudoRandomRegistrar {
     /// @notice Prefix for new permissionless referral codes
     string public constant PREFIX = "bc_";
 
-    /// @notice Prefix for new permissionless referral codes
+    /// @notice Alphanumeric character set for random code generation (excludes underscores for clean codes)
     string public constant ALPHANUMERIC = "0123456789abcdefghijklmnopqrstuvwxyz";
 
     /// @notice Default length of new permissionless referral codes

@@ -131,8 +131,8 @@ Abstract interface that enables:
 #### 5. **PseudoRandomRegistrar.sol** - Permissionless Code Generation
 
 - Enables permissionless registration of referral codes with auto-generated identifiers
-- Generates 8-character codes using pseudo-random algorithm based on nonce and timestamp
-- Uses allowed character set from BuilderCodes for compatibility
+- Generates 11-character codes with "bc_" prefix plus 8 random characters using pseudo-random algorithm based on nonce, timestamp, blockhash, and prevrandao
+- Uses alphanumeric character set (0-9, a-z) for clean random codes, compatible with BuilderCodes validation
 - Automatically retries if generated code already exists or is invalid
 - Provides alternative to custom code registration for users who don't need specific codes
 
@@ -182,30 +182,40 @@ referralCodes.register(
 - Must be unique across the entire system
 - Requires `REGISTER_ROLE` permission or valid signature
 
+**Character Set Design:**
+
+- **Custom Codes (BuilderCodes)**: Allow underscores for readable branded codes (e.g., `"crypto_news"`, `"defi_builder"`)
+- **Random Codes (PseudoRandomRegistrar)**: Use purely alphanumeric characters for clean, collision-resistant codes (e.g., `"bc_sdf34433"`)
+
 #### 2. Permissionless Random Code Registration
 
 Users can generate random codes through the PseudoRandomRegistrar without requiring permissions:
 
 ```solidity
-// Generate random 8-character code
+// Generate random 11-character code with "bc_" prefix
 string memory randomCode = pseudoRandomRegistrar.register(
     0xabcd...efgh  // Payout address
 );
-// Returns something like: "sdf34433"
+// Returns something like: "bc_sdf34433"
 ```
 
 **Random Code Examples:**
 
-- `"sdf34433"` - 8 characters, pseudo-random
-- `"x9k2m7q1"` - Another random variation
-- `"pq84nz3v"` - Auto-generated unique code
+- `"bc_sdf34433"` - 11 characters, "bc_" prefix + 8 random
+- `"bc_x9k2m7q1"` - Another random variation 
+- `"bc_pq84nz3v"` - Auto-generated unique code
 
 **Random Generation Algorithm:**
 
 ```solidity
 // Simplified version of the generation logic
 function computeCode(uint256 nonce) public view returns (string memory) {
-    uint256 hashNum = uint256(keccak256(abi.encodePacked(nonce, block.timestamp)));
+    uint256 hashNum = uint256(keccak256(abi.encodePacked(
+        nonce, 
+        block.timestamp, 
+        blockhash(block.number - 1), 
+        block.prevrandao
+    )));
     bytes memory codeBytes = new bytes(8);
 
     for (uint256 i = 0; i < 8; i++) {
@@ -213,7 +223,7 @@ function computeCode(uint256 nonce) public view returns (string memory) {
         hashNum /= allowedCharacters.length;
     }
 
-    return string(codeBytes);
+    return string.concat("bc_", string(codeBytes));
 }
 ```
 

@@ -143,8 +143,8 @@ import {MyHelper} from './MyHelper.sol';
 - **Core Protocol Tests (`Flywheel.t.sol`)**:
 
   - Campaign lifecycle management (create, status transitions, finalize)
-  - Core payout functions (allocate, distribute, deallocate, reward) using SimpleRewards for testing
-  - Multi-token support and TokenStore functionality
+  - Core payout functions (allocate, distribute, deallocate, send) using SimpleRewards for testing
+  - Multi-token support and Campaign functionality
   - Fee collection and fund withdrawal mechanisms
   - Cross-hook state transition validation
   - Campaign address prediction and uniqueness
