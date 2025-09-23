@@ -7,6 +7,7 @@ import {ReentrancyGuardTransient} from "solady/utils/ReentrancyGuardTransient.so
 
 import {Campaign} from "./Campaign.sol";
 import {CampaignHooks} from "./CampaignHooks.sol";
+import {Constants} from "./Constants.sol";
 
 /// @title Flywheel
 ///
@@ -65,9 +66,6 @@ contract Flywheel is ReentrancyGuardTransient {
         /// @dev extraData Extra data to attach in events
         bytes extraData;
     }
-
-    /// @notice ERC-7528 address for native token
-    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @notice Implementation for Campaign contracts
     address public immutable campaignImplementation;
@@ -585,7 +583,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     /// @param token Address of the token, or native token sentinel
     function _campaignTokenBalance(address campaign, address token) internal view returns (uint256) {
-        return token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
+        return token == Constants.NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
     }
 
     /// @notice Returns the salt for a campaign

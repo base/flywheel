@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Flywheel} from "./Flywheel.sol";
+import {Constants} from "./Constants.sol";
 
 /// @title Campaign
 ///
@@ -11,9 +12,6 @@ import {Flywheel} from "./Flywheel.sol";
 ///
 /// @dev Deployed on demand by protocol via clones
 contract Campaign {
-    /// @notice ERC-7528 address for native token
-    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     /// @notice Address that created this token store
     address public immutable flywheel;
 
@@ -40,7 +38,7 @@ contract Campaign {
     /// @return success True if the transfer was successful
     function sendTokens(address token, address recipient, uint256 amount) external returns (bool success) {
         if (msg.sender != flywheel) revert OnlyFlywheel();
-        if (token == NATIVE_TOKEN) {
+        if (token == Constants.NATIVE_TOKEN) {
             (success,) = payable(recipient).call{value: amount}("");
         } else {
             success = SafeERC20.trySafeTransfer(IERC20(token), recipient, amount);

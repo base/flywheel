@@ -9,14 +9,13 @@ import {MockERC3009Token} from "../../../lib/commerce-payments/test/mocks/MockER
 import {BridgeRewards} from "../../../src/hooks/BridgeRewards.sol";
 import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
+import {Constants} from "../../../src/Constants.sol";
 
 contract BridgeRewardsTest is Test {
     Flywheel public flywheel;
     BridgeRewards public bridgeRewards;
     BuilderCodes public builderCodes;
     MockERC3009Token public usdc;
-
-    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     address public bridgeRewardsCampaign;
     address public owner = address(0x1);
@@ -252,7 +251,7 @@ contract BridgeRewardsTest is Test {
         uint256 userBefore = user.balance;
         uint256 builderBefore = builderPayout.balance;
 
-        flywheel.send(bridgeRewardsCampaign, NATIVE_TOKEN, hookData);
+        flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
 
         assertEq(user.balance, userBefore + expectedUser, "User should receive balance minus fee");
         assertEq(builderPayout.balance, builderBefore + expectedFee, "Builder should receive fee");
@@ -269,7 +268,7 @@ contract BridgeRewardsTest is Test {
 
         // Execute withdraw; assert balances updated
         uint256 beforeUser = user.balance;
-        flywheel.withdrawFunds(bridgeRewardsCampaign, NATIVE_TOKEN, hookData);
+        flywheel.withdrawFunds(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
         assertEq(user.balance, beforeUser + 1 ether);
         assertEq(bridgeRewardsCampaign.balance, 0);
     }

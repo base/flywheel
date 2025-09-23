@@ -7,6 +7,7 @@ import {MockERC20} from "../../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
+import {Constants} from "../../../src/Constants.sol";
 
 contract SimpleRewardsTest is Test {
     Flywheel public flywheel;
@@ -21,7 +22,6 @@ contract SimpleRewardsTest is Test {
     address public campaign;
     uint256 public constant INITIAL_TOKEN_BALANCE = 1000e18;
     uint256 public constant PAYOUT_AMOUNT = 100e18;
-    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     function setUp() public {
         // Deploy contracts
@@ -57,9 +57,9 @@ contract SimpleRewardsTest is Test {
         allocations[0] = Flywheel.Payout({recipient: recipient1, amount: 0.5 ether, extraData: ""});
 
         vm.prank(manager);
-        flywheel.allocate(campaign, NATIVE_TOKEN, abi.encode(allocations));
+        flywheel.allocate(campaign, Constants.NATIVE_TOKEN, abi.encode(allocations));
         bytes32 key = bytes32(bytes20(recipient1));
-        assertEq(flywheel.allocatedPayout(campaign, NATIVE_TOKEN, key), 0.5 ether);
+        assertEq(flywheel.allocatedPayout(campaign, Constants.NATIVE_TOKEN, key), 0.5 ether);
     }
 
     function test_withdraw_nativeToken_succeeds() public {
@@ -72,7 +72,7 @@ contract SimpleRewardsTest is Test {
         // Succeeds now; assert balances updated
         uint256 beforeManager = manager.balance;
         vm.prank(manager);
-        flywheel.withdrawFunds(campaign, NATIVE_TOKEN, abi.encode(payout));
+        flywheel.withdrawFunds(campaign, Constants.NATIVE_TOKEN, abi.encode(payout));
         assertEq(manager.balance, beforeManager + 1 ether);
         assertEq(campaign.balance, 0);
     }
