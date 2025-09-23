@@ -103,10 +103,10 @@ contract RefCodeAllocationTest is Test {
 
         // Create payouts for ref code owners
         uint256[3] memory amounts = [uint256(100e18), uint256(200e18), uint256(300e18)];
-        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](3);
+        Flywheel.Send[] memory payouts = new Flywheel.Send[](3);
 
         for (uint256 i = 0; i < 3; i++) {
-            payouts[i] = SimpleRewards.SimplePayout({
+            payouts[i] = Flywheel.Send({
                 recipient: refCodeOwners[i], // SimpleRewards uses recipient address
                 amount: amounts[i],
                 extraData: ""

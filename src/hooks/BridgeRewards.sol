@@ -54,12 +54,7 @@ contract BridgeRewards is CampaignHooks {
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (
-            Flywheel.Send[] memory payouts,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
@@ -75,24 +70,19 @@ contract BridgeRewards is CampaignHooks {
         uint256 feeAmount = (balance * feeBps) / 1e4;
 
         // Prepare payout
-        revertOnFailedPayout = true;
         payouts = new Flywheel.Send[](1);
-        payouts[0] = Flywheel.Send({
-            recipient: user,
-            amount: balance - feeAmount,
-            extraData: abi.encode(code, feeAmount),
-            fallbackKey: bytes32(0) // reverts if payout fails
-        });
+        payouts[0] =
+            Flywheel.Send({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
             sendFeesNow = true;
-            fees = new Flywheel.Send[](1);
-            fees[0] = Flywheel.Send({
+            fees = new Flywheel.Distribution[](1);
+            fees[0] = Flywheel.Distribution({
+                key: code, // allow fee send to fallback to builder code
                 recipient: builderCodes.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
-                extraData: "",
-                fallbackKey: code // allow fee send to fallback to builder code
+                extraData: ""
             });
         }
     }

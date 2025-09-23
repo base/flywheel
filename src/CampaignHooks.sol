@@ -45,7 +45,6 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return payouts Array of payouts to be sent
-    /// @return revertOnFailedPayout Whether to revert on failed payout
     /// @return fees Array of fees to be sent immediately
     /// @return sendFeesNow Whether to send fees now
     ///
@@ -53,12 +52,7 @@ abstract contract CampaignHooks {
     function onSend(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
-        returns (
-            Flywheel.Send[] memory payouts,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         return _onSend(sender, campaign, token, hookData);
     }
@@ -107,7 +101,6 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return distributions Array of distributions to be distributed
-    /// @return revertOnFailedPayout Whether to revert on failed payout
     /// @return fees Array of fees to be sent immediately
     /// @return sendFeesNow Whether to send fees now
     ///
@@ -115,12 +108,7 @@ abstract contract CampaignHooks {
     function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         return _onDistribute(sender, campaign, token, hookData);
     }
@@ -211,18 +199,12 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return payouts Array of payouts to be sent
-    /// @return revertOnFailedPayout Whether to revert on failed payout
     /// @return fees Array of fees to be sent immediately
     /// @return sendFeesNow Whether to send fees now
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
-        returns (
-            Flywheel.Send[] memory payouts,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         revert Unsupported();
     }
@@ -267,18 +249,12 @@ abstract contract CampaignHooks {
     /// @param hookData Data for the campaign hook
     ///
     /// @return distributions Array of distributions to be distributed
-    /// @return revertOnFailedPayout Whether to revert on failed payout
     /// @return fees Array of fees to be sent immediately
     /// @return sendFeesNow Whether to send fees now
     function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         revert Unsupported();
     }

@@ -311,7 +311,7 @@ contract OnRewardTest is CashbackRewardsTest {
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutSent(
-            unlimitedCashbackCampaign, address(usdc), buyer, rewardAmount, abi.encodePacked(paymentInfoHash), true
+            unlimitedCashbackCampaign, address(usdc), buyer, rewardAmount, abi.encodePacked(paymentInfoHash)
         );
 
         vm.prank(manager);

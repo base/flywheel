@@ -333,8 +333,8 @@ contract CrossHookAttackTest is Test {
     /// @notice Test attribution provider cross-hook privilege abuse
     function test_security_attributionProviderCrossHookAbuse() public {
         // Attribution provider tries to control non-ad campaigns
-        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
-        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: ATTACK_AMOUNT, extraData: ""});
+        Flywheel.Send[] memory payouts = new Flywheel.Send[](1);
+        payouts[0] = Flywheel.Send({recipient: attacker, amount: ATTACK_AMOUNT, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         // Attribution provider should NOT control SimpleRewards
@@ -378,8 +378,8 @@ contract CrossHookAttackTest is Test {
         uint256 attackerBalanceBefore = token.balanceOf(attacker);
 
         // Drain SimpleRewards campaign
-        SimpleRewards.SimplePayout[] memory payouts1 = new SimpleRewards.SimplePayout[](1);
-        payouts1[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: INITIAL_TOKEN_BALANCE, extraData: ""});
+        Flywheel.Send[] memory payouts1 = new Flywheel.Send[](1);
+        payouts1[0] = Flywheel.Send({recipient: attacker, amount: INITIAL_TOKEN_BALANCE, extraData: ""});
 
         vm.prank(simpleRewardsManager);
         flywheel.send(simpleCampaign, address(rewardToken), abi.encode(payouts1));
@@ -440,8 +440,8 @@ contract CrossHookAttackTest is Test {
     /// @notice Test hook data confusion attack
     function test_security_hookDataConfusionAttack() public {
         // Create SimpleRewards payout data
-        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
-        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: ATTACK_AMOUNT, extraData: ""});
+        Flywheel.Send[] memory payouts = new Flywheel.Send[](1);
+        payouts[0] = Flywheel.Send({recipient: attacker, amount: ATTACK_AMOUNT, extraData: ""});
         bytes memory simpleRewardsData = abi.encode(payouts);
 
         // Try to use SimpleRewards data on CashbackRewards campaign
@@ -478,8 +478,8 @@ contract CrossHookAttackTest is Test {
     /// @notice Test allocation/distribution cross-contamination
     function test_security_allocationDistributionCrossContamination() public {
         // Allocate in SimpleRewards campaign
-        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
-        payouts[0] = SimpleRewards.SimplePayout({recipient: victim, amount: ATTACK_AMOUNT, extraData: ""});
+        Flywheel.Send[] memory payouts = new Flywheel.Send[](1);
+        payouts[0] = Flywheel.Send({recipient: victim, amount: ATTACK_AMOUNT, extraData: ""});
 
         vm.prank(simpleRewardsManager);
         flywheel.allocate(simpleCampaign, address(rewardToken), abi.encode(payouts));
@@ -540,8 +540,8 @@ contract CrossHookAttackTest is Test {
         uint256 attackerBalanceBefore = token.balanceOf(attacker);
 
         // Drain SimpleRewards (manager has control)
-        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
-        payouts[0] = SimpleRewards.SimplePayout({recipient: attacker, amount: INITIAL_TOKEN_BALANCE / 2, extraData: ""});
+        Flywheel.Send[] memory payouts = new Flywheel.Send[](1);
+        payouts[0] = Flywheel.Send({recipient: attacker, amount: INITIAL_TOKEN_BALANCE / 2, extraData: ""});
 
         vm.prank(simpleRewardsManager);
         flywheel.send(simpleCampaign, address(rewardToken), abi.encode(payouts));
@@ -634,8 +634,8 @@ contract CrossHookAttackTest is Test {
 
         // vm.prank(address(flywheel));
         // (
-        //     SimpleRewards.SimplePayout[] memory payouts,
-        //     SimpleRewards.SimplePayout[] memory immediateFees,
+        //     Flywheel.Send[] memory payouts,
+        //     Flywheel.Send[] memory immediateFees,
         //     Flywheel.Allocation[] memory delayedFees
         // ) = adHook.onSend(attributionProvider, highFeeCampaign, address(rewardToken), adHookData);
 
@@ -696,8 +696,8 @@ contract CrossHookReentrancyAttacker {
 
     function attemptCrossHookReentrancy() external {
         // This will fail because this contract is not authorized to call either hook
-        SimpleRewards.SimplePayout[] memory payouts = new SimpleRewards.SimplePayout[](1);
-        payouts[0] = SimpleRewards.SimplePayout({recipient: address(this), amount: 100e18, extraData: ""});
+        Flywheel.Send[] memory payouts = new Flywheel.Send[](1);
+        payouts[0] = Flywheel.Send({recipient: address(this), amount: 100e18, extraData: ""});
         bytes memory hookData = abi.encode(payouts);
 
         flywheel.send(simpleCampaign, address(0x1), hookData);

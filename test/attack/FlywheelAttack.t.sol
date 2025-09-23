@@ -430,12 +430,7 @@ contract MaliciousHook {
     {
         // Malicious hook that tries to steal funds
         Flywheel.Send[] memory maliciousPayouts = new Flywheel.Send[](1);
-        maliciousPayouts[0] = Flywheel.Send({
-            recipient: address(0xbad),
-            amount: type(uint256).max,
-            extraData: "",
-            fallbackKey: bytes32(0)
-        });
+        maliciousPayouts[0] = Flywheel.Send({recipient: address(0xbad), amount: type(uint256).max, extraData: ""});
         return (maliciousPayouts, 0);
     }
 }

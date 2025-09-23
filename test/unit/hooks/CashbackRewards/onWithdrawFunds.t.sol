@@ -14,9 +14,7 @@ contract OnWithdrawFundsTest is CashbackRewardsTest {
         flywheel.withdrawFunds(
             unlimitedCashbackCampaign,
             address(usdc),
-            abi.encode(
-                Flywheel.Send({recipient: owner, amount: withdrawAmount, extraData: "", fallbackKey: bytes32(0)})
-            )
+            abi.encode(Flywheel.Send({recipient: owner, amount: withdrawAmount, extraData: ""}))
         );
 
         uint256 finalBalance = usdc.balanceOf(unlimitedCashbackCampaign);
@@ -33,14 +31,7 @@ contract OnWithdrawFundsTest is CashbackRewardsTest {
         flywheel.withdrawFunds(
             unlimitedCashbackCampaign,
             address(usdc),
-            abi.encode(
-                Flywheel.Send({
-                    recipient: unauthorizedCaller,
-                    amount: withdrawAmount,
-                    extraData: "",
-                    fallbackKey: bytes32(0)
-                })
-            )
+            abi.encode(Flywheel.Send({recipient: unauthorizedCaller, amount: withdrawAmount, extraData: ""}))
         );
     }
 
@@ -53,9 +44,7 @@ contract OnWithdrawFundsTest is CashbackRewardsTest {
         flywheel.withdrawFunds(
             unlimitedCashbackCampaign,
             address(usdc),
-            abi.encode(
-                Flywheel.Send({recipient: manager, amount: withdrawAmount, extraData: "", fallbackKey: bytes32(0)})
-            )
+            abi.encode(Flywheel.Send({recipient: manager, amount: withdrawAmount, extraData: ""}))
         );
     }
 }

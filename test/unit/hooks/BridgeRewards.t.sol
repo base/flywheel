@@ -191,8 +191,7 @@ contract BridgeRewardsTest is Test {
         usdc.mint(bridgeRewardsCampaign, campaignBalance);
 
         // Prepare withdrawal hook data
-        Flywheel.Send memory payout =
-            Flywheel.Send({recipient: user, amount: campaignBalance, extraData: "", fallbackKey: bytes32(0)});
+        Flywheel.Send memory payout = Flywheel.Send({recipient: user, amount: campaignBalance, extraData: ""});
         bytes memory hookData = abi.encode(payout);
 
         // Record balances before

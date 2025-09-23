@@ -103,15 +103,9 @@ contract CashbackRewards is SimpleRewards {
         internal
         override
         onlyManager(sender, campaign)
-        returns (
-            Flywheel.Send[] memory payouts,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory, /*fees*/
-            bool /*sendFeesNow*/
-        )
+        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
-        revertOnFailedPayout = revertOnError;
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
         payouts = new Flywheel.Send[](inputLen);
 
@@ -130,12 +124,8 @@ contract CashbackRewards is SimpleRewards {
             rewards[campaign][paymentInfoHash].distributed += amount;
 
             // Append to return array
-            payouts[outputLen++] = Flywheel.Send({
-                recipient: payer,
-                amount: amount,
-                extraData: abi.encodePacked(paymentInfoHash),
-                fallbackKey: bytes32(bytes20(payer))
-            });
+            payouts[outputLen++] =
+                Flywheel.Send({recipient: payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
         }
 
         // Resize array to actual output length
@@ -236,13 +226,11 @@ contract CashbackRewards is SimpleRewards {
         onlyManager(sender, campaign)
         returns (
             Flywheel.Distribution[] memory distributions,
-            bool revertOnFailedPayout,
-            Flywheel.Send[] memory, /*fees*/
+            Flywheel.Distribution[] memory, /*fees*/
             bool /*sendFeesNow*/
         )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
-        revertOnFailedPayout = revertOnError;
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
         distributions = new Flywheel.Distribution[](inputLen);
 

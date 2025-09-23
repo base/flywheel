@@ -267,8 +267,7 @@ contract OnDistributeTest is CashbackRewardsTest {
             bytes32(bytes20(buyer)),
             buyer,
             distributeAmount,
-            abi.encodePacked(paymentInfoHash),
-            true
+            abi.encodePacked(paymentInfoHash)
         );
 
         vm.prank(manager);
