@@ -103,11 +103,11 @@ contract CashbackRewards is SimpleRewards {
         internal
         override
         onlyManager(sender, campaign)
-        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
-        payouts = new Flywheel.Send[](inputLen);
+        payouts = new Flywheel.Payout[](inputLen);
 
         for (uint256 i = 0; i < inputLen; i++) {
             // Validate the payment reward
@@ -125,7 +125,7 @@ contract CashbackRewards is SimpleRewards {
 
             // Append to return array
             payouts[outputLen++] =
-                Flywheel.Send({recipient: payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
+                Flywheel.Payout({recipient: payer, amount: amount, extraData: abi.encodePacked(paymentInfoHash)});
         }
 
         // Resize array to actual output length

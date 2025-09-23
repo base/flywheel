@@ -59,9 +59,9 @@ contract SimpleRewards is CampaignHooks {
         virtual
         override
         onlyManager(sender, campaign)
-        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
     {
-        payouts = abi.decode(hookData, (Flywheel.Send[]));
+        payouts = abi.decode(hookData, (Flywheel.Payout[]));
     }
 
     /// @inheritdoc CampaignHooks
@@ -72,14 +72,14 @@ contract SimpleRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
-        Flywheel.Send[] memory sends = abi.decode(hookData, (Flywheel.Send[]));
-        allocations = new Flywheel.Allocation[](sends.length);
-        uint256 count = sends.length;
+        Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        allocations = new Flywheel.Allocation[](payouts.length);
+        uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(sends[i].recipient)),
-                amount: sends[i].amount,
-                extraData: sends[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)),
+                amount: payouts[i].amount,
+                extraData: payouts[i].extraData
             });
         }
     }
@@ -92,14 +92,14 @@ contract SimpleRewards is CampaignHooks {
         onlyManager(sender, campaign)
         returns (Flywheel.Allocation[] memory allocations)
     {
-        Flywheel.Send[] memory sends = abi.decode(hookData, (Flywheel.Send[]));
-        allocations = new Flywheel.Allocation[](sends.length);
-        uint256 count = sends.length;
+        Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        allocations = new Flywheel.Allocation[](payouts.length);
+        uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(sends[i].recipient)),
-                amount: sends[i].amount,
-                extraData: sends[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)),
+                amount: payouts[i].amount,
+                extraData: payouts[i].extraData
             });
         }
     }
@@ -116,15 +116,15 @@ contract SimpleRewards is CampaignHooks {
             bool /*sendFeesNow*/
         )
     {
-        (Flywheel.Send[] memory sends) = abi.decode(hookData, (Flywheel.Send[]));
-        distributions = new Flywheel.Distribution[](sends.length);
-        uint256 count = sends.length;
+        (Flywheel.Payout[] memory payouts) = abi.decode(hookData, (Flywheel.Payout[]));
+        distributions = new Flywheel.Distribution[](payouts.length);
+        uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             distributions[i] = Flywheel.Distribution({
-                recipient: sends[i].recipient,
-                key: bytes32(bytes20(sends[i].recipient)),
-                amount: sends[i].amount,
-                extraData: sends[i].extraData
+                recipient: payouts[i].recipient,
+                key: bytes32(bytes20(payouts[i].recipient)),
+                amount: payouts[i].amount,
+                extraData: payouts[i].extraData
             });
         }
     }
@@ -134,10 +134,10 @@ contract SimpleRewards is CampaignHooks {
         internal
         virtual
         override
-        returns (Flywheel.Send memory payout)
+        returns (Flywheel.Payout memory payout)
     {
         if (sender != owners[campaign]) revert Unauthorized();
-        payout = abi.decode(hookData, (Flywheel.Send));
+        payout = abi.decode(hookData, (Flywheel.Payout));
     }
 
     /// @inheritdoc CampaignHooks

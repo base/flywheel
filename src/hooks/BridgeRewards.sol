@@ -54,7 +54,7 @@ contract BridgeRewards is CampaignHooks {
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
@@ -70,9 +70,9 @@ contract BridgeRewards is CampaignHooks {
         uint256 feeAmount = (balance * feeBps) / 1e4;
 
         // Prepare payout
-        payouts = new Flywheel.Send[](1);
+        payouts = new Flywheel.Payout[](1);
         payouts[0] =
-            Flywheel.Send({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});
+            Flywheel.Payout({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});
 
         // Prepare fee if applicable
         if (feeAmount > 0) {
@@ -109,13 +109,13 @@ contract BridgeRewards is CampaignHooks {
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Send memory payout)
+        returns (Flywheel.Payout memory payout)
     {
         // Intended use is for funds to be sent into the campaign and atomically sent out to recipients
         // If tokens are sent into the campaign outside of this scope on accident, anyone can take them (no access control for `onSend` hook)
         // To keep the event feed clean for payouts/fees, we leave open the ability to withdraw funds directly
         // Those wishing to take accidental tokens left in the campaign should find this function easier
-        payout = abi.decode(hookData, (Flywheel.Send));
+        payout = abi.decode(hookData, (Flywheel.Payout));
     }
 
     /// @inheritdoc CampaignHooks

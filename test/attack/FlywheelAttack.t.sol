@@ -426,11 +426,11 @@ contract MaliciousHook {
     function onReward(address, address, address, bytes calldata)
         external
         pure
-        returns (Flywheel.Send[] memory, uint256)
+        returns (Flywheel.Payout[] memory, uint256)
     {
         // Malicious hook that tries to steal funds
-        Flywheel.Send[] memory maliciousPayouts = new Flywheel.Send[](1);
-        maliciousPayouts[0] = Flywheel.Send({recipient: address(0xbad), amount: type(uint256).max, extraData: ""});
+        Flywheel.Payout[] memory maliciousPayouts = new Flywheel.Payout[](1);
+        maliciousPayouts[0] = Flywheel.Payout({recipient: address(0xbad), amount: type(uint256).max, extraData: ""});
         return (maliciousPayouts, 0);
     }
 }

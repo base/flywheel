@@ -166,7 +166,7 @@ contract AdConversionAttackTest is AdConversionTest {
         bytes memory emptyData = abi.encode(new AdConversion.Attribution[](0));
 
         vm.prank(address(flywheel));
-        (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
             hook.onSend(ATTRIBUTION_PROVIDER, campaign, address(token), emptyData);
         assertEq(payouts.length, 0);
         assertEq(fees.length, 0);

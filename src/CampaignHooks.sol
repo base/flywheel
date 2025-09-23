@@ -52,7 +52,7 @@ abstract contract CampaignHooks {
     function onSend(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
-        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         return _onSend(sender, campaign, token, hookData);
     }
@@ -144,7 +144,7 @@ abstract contract CampaignHooks {
     function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
-        returns (Flywheel.Send memory payout)
+        returns (Flywheel.Payout memory payout)
     {
         return _onWithdrawFunds(sender, campaign, token, hookData);
     }
@@ -204,7 +204,7 @@ abstract contract CampaignHooks {
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
-        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         revert Unsupported();
     }
@@ -286,7 +286,7 @@ abstract contract CampaignHooks {
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
-        returns (Flywheel.Send memory payout);
+        returns (Flywheel.Payout memory payout);
 
     /// @notice Updates the campaign status
     ///

@@ -258,7 +258,7 @@ contract AdConversion is CampaignHooks {
     function _onSend(address attributionProvider, address campaign, address payoutToken, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Send[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         // Validate that the caller is the authorized attribution provider for this campaign
         if (attributionProvider != state[campaign].attributionProvider) revert Unauthorized();
@@ -355,9 +355,9 @@ contract AdConversion is CampaignHooks {
         }
 
         // Create the final payouts array with only unique recipients
-        payouts = new Flywheel.Send[](uniqueCount);
+        payouts = new Flywheel.Payout[](uniqueCount);
         for (uint256 i = 0; i < uniqueCount; i++) {
-            payouts[i] = Flywheel.Send({recipient: recipients[i], amount: amounts[i], extraData: ""});
+            payouts[i] = Flywheel.Payout({recipient: recipients[i], amount: amounts[i], extraData: ""});
         }
 
         // Add delayed fee for attribution provider to claim later
@@ -378,13 +378,13 @@ contract AdConversion is CampaignHooks {
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         override
-        returns (Flywheel.Send memory payout)
+        returns (Flywheel.Payout memory payout)
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
         if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
 
         (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
-        return (Flywheel.Send({recipient: recipient, amount: amount, extraData: ""}));
+        return (Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}));
     }
 
     /// @inheritdoc CampaignHooks
