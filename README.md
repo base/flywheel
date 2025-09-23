@@ -45,14 +45,13 @@ The diagram above illustrates how the modular Flywheel v1.1 architecture works:
 
 ## Core Data Structures
 
-**Send**: Direct token transfer to a recipient with fallback allocation support
+**Payout**: Direct token transfer to a recipient
 
 ```solidity
-struct Send {
+struct Payout {
     address recipient;  // Address receiving the payout
     uint256 amount;     // Amount of tokens to be paid out
     bytes extraData;    // Extra data for the payout
-    bytes32 fallbackKey; // Key for fallback allocation if send fails
 }
 ```
 
@@ -566,9 +565,9 @@ bytes memory hookData = abi.encode(
 
 Flywheel provides four fundamental payout operations that hooks can implement based on their requirements:
 
-### **send()** - Immediate Payout with Fallback Support
+### **send()** - Immediate Payout
 
-Transfers tokens directly to recipients immediately with optional fallback allocation. Used for real-time rewards where no holding period is needed. Includes robust error handling through the `fallbackKey` mechanism.
+Transfers tokens directly to recipients immediately. Used for real-time rewards where no holding period is needed. Payouts must succeed or the entire transaction reverts.
 
 ### **allocate()** - Reserve Future Payout
 
@@ -582,65 +581,13 @@ Cancels previously allocated tokens identified by `bytes32` keys, returning them
 
 Allows recipients to claim previously allocated tokens identified by `bytes32` keys. Converts "pending" allocations to actual token transfers. Can also generate fees during distribution.
 
-### **Allocation Fallback for Failed Sends**
+### **Error Handling**
 
-The protocol includes robust error handling for failed token transfers through the allocation fallback system:
+The protocol uses a fail-fast approach for send operations:
 
-#### How It Works
-
-When a `send()` operation fails (e.g., recipient contract rejects the transfer), the behavior is controlled by the `revertOnFailedPayout` boolean returned by the hook:
-
-1. **Revert the entire transaction** (when `revertOnFailedPayout = true`)
-2. **Automatically allocate the failed amount** (when `revertOnFailedPayout = false`)
-
-#### Revert vs Fallback Behavior
-
-- **`revertOnFailedPayout = true`**: "Fail-fast" mode - reverts with `PayoutFailed` error if the send fails
-- **`revertOnFailedPayout = false`**: "Graceful degradation" mode - allocates the failed amount using the `fallbackKey` for later distribution
-
-#### Hook-Specific Strategies
-
-Different hooks implement different fallback strategies based on their use cases:
-
-- **AdConversion**: Always sets `revertOnFailedPayout = true` (fail-fast approach)
-- **BridgeRewards**: Always sets `revertOnFailedPayout = true` (fail-fast approach)
-- **CashbackRewards**: Configurable `revertOnFailedPayout` based on input parameter
-- **SimpleRewards**: Always sets `revertOnFailedPayout = false` (graceful degradation)
-
-#### Example Usage
-
-```solidity
-// Hook that uses fail-fast approach (like AdConversion)
-function onSend(...) external returns (Send[] memory payouts, bool revertOnFailedPayout, ...) {
-    revertOnFailedPayout = true;  // Will revert if any send fails
-    payouts[0] = Send({
-        recipient: user,
-        amount: 100e18,
-        extraData: "",
-        fallbackKey: bytes32(0)  // Not used since revertOnFailedPayout = true
-    });
-}
-
-// Hook that uses graceful degradation (like SimpleRewards)
-function onSend(...) external returns (Send[] memory payouts, bool revertOnFailedPayout, ...) {
-    revertOnFailedPayout = false;  // Will allocate if send fails
-    payouts[0] = Send({
-        recipient: user,
-        amount: 100e18,
-        extraData: "",
-        fallbackKey: bytes32(bytes20(user))  // Will allocate for user to claim later
-    });
-}
-```
-
-#### Recovery Process
-
-When a send fails and gets allocated:
-
-1. The amount is automatically moved to `allocatedPayout[campaign][token][fallbackKey]`
-2. A `PayoutAllocated` event is emitted with the fallback key
-3. Recipients can later use `distribute()` to claim their allocated tokens
-4. This prevents loss of funds while maintaining operation continuity
+- All token transfers must succeed or the entire transaction reverts
+- There is no fallback allocation for failed sends - transactions either complete fully or revert
+- This ensures atomic operation success and prevents partial state issues
 
 ## Hook Implementation Comparison
 
@@ -654,7 +601,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ✅ Builder code owner fees (max 2%)                       | ❌ No fees                                                   |
 | **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ✅ Via BuilderCodes (fee recipients)                      | ❌ Direct to recipients                                      |
 | **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Anyone (withdrawFunds for accidents)                      | Owner only                                                   |
-| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors (`revertOnFailedPayout = true`) | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Configurable error handling (`revertOnFailedPayout` per call) | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Fail-fast on errors (`revertOnFailedPayout = true`) | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Graceful degradation (`revertOnFailedPayout = false`) |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Fail-fast on errors | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Fail-fast on errors | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Fail-fast on errors |
 | **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ❌ Not implemented                                        | ✅ Reserve payouts for claims                                |
 | **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ❌ Not implemented                                        | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ❌ Not implemented                                        | ✅ Cancel unclaimed rewards                                  |
