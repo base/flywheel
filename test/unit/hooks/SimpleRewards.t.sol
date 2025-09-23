@@ -23,8 +23,6 @@ contract SimpleRewardsTest is Test {
     uint256 public constant PAYOUT_AMOUNT = 100e18;
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    // NOTE: Core campaign creation is tested in Flywheel.t.sol
-    // This focuses on SimpleRewards-specific campaign setup
     function setUp() public {
         // Deploy contracts
         flywheel = new Flywheel();
@@ -39,6 +37,42 @@ contract SimpleRewardsTest is Test {
         // Create campaign
         bytes memory hookData = abi.encode(manager, manager, "");
         campaign = flywheel.createCampaign(address(hook), 1, hookData);
+    }
+
+    // NOTE: Core campaign creation is tested in Flywheel.t.sol
+    // This focuses on SimpleRewards-specific campaign setup
+
+    // =============================================================
+    //                    NATIVE TOKEN TESTS
+    // =============================================================
+
+    function test_allocate_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+        // Fund campaign with native token and activate
+        vm.deal(campaign, 1 ether);
+        vm.prank(manager);
+        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+
+        // Prepare allocation in native token
+        Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);
+        allocations[0] = Flywheel.Payout({recipient: recipient1, amount: 0.5 ether, extraData: ""});
+
+        // Reverts because _assertCampaignSolvency calls IERC20(token).balanceOf on the native sentinel
+        vm.expectRevert();
+        vm.prank(manager);
+        flywheel.allocate(campaign, NATIVE_TOKEN, abi.encode(allocations));
+    }
+
+    function test_withdraw_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+        // Fund campaign with native token
+        vm.deal(campaign, 1 ether);
+
+        // Prepare withdrawal hook data
+        Flywheel.Payout memory payout = Flywheel.Payout({recipient: manager, amount: 1 ether, extraData: ""});
+
+        // Even with zero allocations, withdraw calls IERC20(token).balanceOf for native sentinel and reverts
+        vm.expectRevert();
+        vm.prank(manager);
+        flywheel.withdrawFunds(campaign, NATIVE_TOKEN, abi.encode(payout));
     }
 
     function test_send_success() public {
@@ -352,35 +386,6 @@ contract SimpleRewardsTest is Test {
         assertEq(token.balanceOf(campaign), campaignBalance - PAYOUT_AMOUNT);
     }
 
-    function test_allocate_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
-        // Fund campaign with native token and activate
-        vm.deal(campaign, 1 ether);
-        vm.prank(manager);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
-
-        // Prepare allocation in native token
-        Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);
-        allocations[0] = Flywheel.Payout({recipient: recipient1, amount: 0.5 ether, extraData: ""});
-
-        // Reverts because _assertCampaignSolvency calls IERC20(token).balanceOf on the native sentinel
-        vm.expectRevert();
-        vm.prank(manager);
-        flywheel.allocate(campaign, NATIVE_TOKEN, abi.encode(allocations));
-    }
-
-    function test_withdraw_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
-        // Fund campaign with native token
-        vm.deal(campaign, 1 ether);
-
-        // Prepare withdrawal hook data
-        Flywheel.Payout memory payout = Flywheel.Payout({recipient: manager, amount: 1 ether, extraData: ""});
-
-        // Even with zero allocations, withdraw calls IERC20(token).balanceOf for native sentinel and reverts
-        vm.expectRevert();
-        vm.prank(manager);
-        flywheel.withdrawFunds(campaign, NATIVE_TOKEN, abi.encode(payout));
-    }
-
     // =============================================================
     //                    INTEGRATION TESTS
     // =============================================================
@@ -610,7 +615,7 @@ contract SimpleRewardsTest is Test {
 
         // Use case 1: Bug bounty program
         Flywheel.Payout[] memory bugBounties = new Flywheel.Payout[](1);
-        bugBounties[0] = SimpleRewards.SimplePayout({
+        bugBounties[0] = Flywheel.Payout({
             recipient: recipient1,
             amount: BASE_REWARD * 10, // High reward for critical bug
             extraData: "bug-bounty-critical-severity"
@@ -621,12 +626,12 @@ contract SimpleRewardsTest is Test {
 
         // Use case 2: Community governance participation
         Flywheel.Payout[] memory govRewards = new Flywheel.Payout[](2);
-        govRewards[0] = SimpleRewards.SimplePayout({
+        govRewards[0] = Flywheel.Payout({
             recipient: recipient2,
             amount: BASE_REWARD / 10, // Small reward for vote participation
             extraData: "governance-vote-participation"
         });
-        govRewards[1] = SimpleRewards.SimplePayout({
+        govRewards[1] = Flywheel.Payout({
             recipient: address(0x6000),
             amount: BASE_REWARD / 5, // Larger reward for proposal creation
             extraData: "governance-proposal-creation"
