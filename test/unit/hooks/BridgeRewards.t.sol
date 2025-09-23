@@ -16,6 +16,8 @@ contract BridgeRewardsTest is Test {
     BuilderCodes public builderCodes;
     MockERC3009Token public usdc;
 
+    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     address public bridgeRewardsCampaign;
     address public owner = address(0x1);
     address public user = address(0x2);
@@ -228,5 +230,31 @@ contract BridgeRewardsTest is Test {
 
         // Should not revert - the hook allows anyone to trigger metadata updates
         // This is useful for refreshing cached metadata even though the URI is fixed
+    }
+
+    function test_send_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+        // Fund campaign with native token
+        vm.deal(bridgeRewardsCampaign, 1 ether);
+
+        // Prepare hook data (user, code, fee)
+        uint16 feeBps = 100; // 1%
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+
+        // _assertCampaignSolvency calls IERC20(token).balanceOf on native sentinel
+        vm.expectRevert();
+        flywheel.send(bridgeRewardsCampaign, NATIVE_TOKEN, hookData);
+    }
+
+    function test_withdraw_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+        // Fund campaign with native token
+        vm.deal(bridgeRewardsCampaign, 1 ether);
+
+        // Prepare withdrawal hook data
+        Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: 1 ether, extraData: ""});
+        bytes memory hookData = abi.encode(payout);
+
+        // withdrawFunds ends with IERC20(token).balanceOf check on native sentinel
+        vm.expectRevert();
+        flywheel.withdrawFunds(bridgeRewardsCampaign, NATIVE_TOKEN, hookData);
     }
 }
