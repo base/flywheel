@@ -46,7 +46,7 @@ contract SimpleRewardsTest is Test {
     //                    NATIVE TOKEN TESTS
     // =============================================================
 
-    function test_allocate_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+    function test_allocate_nativeToken_succeeds() public {
         // Fund campaign with native token and activate
         vm.deal(campaign, 1 ether);
         vm.prank(manager);
@@ -56,25 +56,30 @@ contract SimpleRewardsTest is Test {
         Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);
         allocations[0] = Flywheel.Payout({recipient: recipient1, amount: 0.5 ether, extraData: ""});
 
-        // Reverts because _assertCampaignSolvency calls IERC20(token).balanceOf on the native sentinel
-        vm.expectRevert();
         vm.prank(manager);
         flywheel.allocate(campaign, NATIVE_TOKEN, abi.encode(allocations));
+        bytes32 key = bytes32(bytes20(recipient1));
+        assertEq(flywheel.allocatedPayout(campaign, NATIVE_TOKEN, key), 0.5 ether);
     }
 
-    function test_withdraw_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+    function test_withdraw_nativeToken_succeeds() public {
         // Fund campaign with native token
         vm.deal(campaign, 1 ether);
 
         // Prepare withdrawal hook data
         Flywheel.Payout memory payout = Flywheel.Payout({recipient: manager, amount: 1 ether, extraData: ""});
 
-        // Even with zero allocations, withdraw calls IERC20(token).balanceOf for native sentinel and reverts
-        vm.expectRevert();
+        // Succeeds now; assert balances updated
+        uint256 beforeManager = manager.balance;
         vm.prank(manager);
         flywheel.withdrawFunds(campaign, NATIVE_TOKEN, abi.encode(payout));
+        assertEq(manager.balance, beforeManager + 1 ether);
+        assertEq(campaign.balance, 0);
     }
 
+    // =============================================================
+    //                    TOKEN TESTS
+    // =============================================================
     function test_send_success() public {
         // Fund campaign
         vm.prank(manager);

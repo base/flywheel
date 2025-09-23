@@ -232,7 +232,11 @@ contract BridgeRewardsTest is Test {
         // This is useful for refreshing cached metadata even though the URI is fixed
     }
 
-    function test_send_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+    // =============================================================
+    //                    NATIVE TOKEN TESTS
+    // =============================================================
+
+    function test_send_nativeToken_succeeds() public {
         // Fund campaign with native token
         vm.deal(bridgeRewardsCampaign, 1 ether);
 
@@ -240,12 +244,22 @@ contract BridgeRewardsTest is Test {
         uint16 feeBps = 100; // 1%
         bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
-        // _assertCampaignSolvency calls IERC20(token).balanceOf on native sentinel
-        vm.expectRevert();
+        // Expected amounts based on contract logic
+        uint256 startingBalance = bridgeRewardsCampaign.balance; // 1 ether
+        uint256 expectedFee = (startingBalance * feeBps) / 10000;
+        uint256 expectedUser = startingBalance - expectedFee;
+
+        uint256 userBefore = user.balance;
+        uint256 builderBefore = builderPayout.balance;
+
         flywheel.send(bridgeRewardsCampaign, NATIVE_TOKEN, hookData);
+
+        assertEq(user.balance, userBefore + expectedUser, "User should receive balance minus fee");
+        assertEq(builderPayout.balance, builderBefore + expectedFee, "Builder should receive fee");
+        assertEq(bridgeRewardsCampaign.balance, 0, "Campaign should be empty");
     }
 
-    function test_withdraw_nativeToken_reverts_due_to_balanceOf_on_noncontract() public {
+    function test_withdraw_nativeToken_succeeds() public {
         // Fund campaign with native token
         vm.deal(bridgeRewardsCampaign, 1 ether);
 
@@ -253,8 +267,10 @@ contract BridgeRewardsTest is Test {
         Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: 1 ether, extraData: ""});
         bytes memory hookData = abi.encode(payout);
 
-        // withdrawFunds ends with IERC20(token).balanceOf check on native sentinel
-        vm.expectRevert();
+        // Execute withdraw; assert balances updated
+        uint256 beforeUser = user.balance;
         flywheel.withdrawFunds(bridgeRewardsCampaign, NATIVE_TOKEN, hookData);
+        assertEq(user.balance, beforeUser + 1 ether);
+        assertEq(bridgeRewardsCampaign.balance, 0);
     }
 }
