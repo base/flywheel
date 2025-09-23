@@ -2,12 +2,6 @@
   "lib/commerce-payments": {
     "rev": "d33b5d5f74fff55f1c0857b1cb6fb4995949330b"
   },
-  "lib/solady": {
-    "rev": "5ea5d9f57ed6d24a27d00934f4a3448def931415"
-  },
-  "lib/openzeppelin-contracts-upgradeable": {
-    "rev": "3d5fa5c24c411112bab47bec25cfa9ad0af0e6e8"
-  },
   "lib/forge-std": {
     "rev": "bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef"
   },
