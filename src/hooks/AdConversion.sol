@@ -400,6 +400,7 @@ contract AdConversion is CampaignHooks {
 
         distributions = new Flywheel.Distribution[](1);
         distributions[0] = Flywheel.Distribution({recipient: recipient, key: key, amount: amount, extraData: ""});
+        return distributions;
     }
 
     /// @inheritdoc CampaignHooks

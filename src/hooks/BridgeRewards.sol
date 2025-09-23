@@ -62,14 +62,14 @@ contract BridgeRewards is CampaignHooks {
         uint256 balance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
         require(balance > 0, ZeroAmount());
 
-        // Set feeBps to 0 if builder code not registered
+        // set feeBps to 0 if builder code not registered
         feeBps = builderCodes.isRegistered(builderCodes.toCode(uint256(code))) ? feeBps : 0;
 
-        // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
+        // set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
-        uint256 feeAmount = (balance * feeBps) / 1e4;
 
         // Prepare payout
+        uint256 feeAmount = (balance * feeBps) / 1e4;
         payouts = new Flywheel.Payout[](1);
         payouts[0] =
             Flywheel.Payout({recipient: user, amount: balance - feeAmount, extraData: abi.encode(code, feeAmount)});

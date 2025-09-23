@@ -116,7 +116,7 @@ contract SimpleRewards is CampaignHooks {
             bool /*sendFeesNow*/
         )
     {
-        (Flywheel.Payout[] memory payouts) = abi.decode(hookData, (Flywheel.Payout[]));
+        Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
         distributions = new Flywheel.Distribution[](payouts.length);
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
@@ -137,7 +137,7 @@ contract SimpleRewards is CampaignHooks {
         returns (Flywheel.Payout memory payout)
     {
         if (sender != owners[campaign]) revert Unauthorized();
-        payout = abi.decode(hookData, (Flywheel.Payout));
+        return (abi.decode(hookData, (Flywheel.Payout)));
     }
 
     /// @inheritdoc CampaignHooks
