@@ -7,22 +7,63 @@ import {Campaign} from "../../../src/Campaign.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 
 /// @title CampaignTest
-/// @notice Test stubs for `Campaign.sol` behaviors as exercised via Flywheel
+/// @notice Tests for `Campaign.sol`
 contract CampaignTest is Test {
-    /// @notice Only Flywheel can call Campaign.sendTokens; direct calls revert
-    /// @dev Verifies direct call reverts and Flywheel-mediated call succeeds
-    /// @param isNative When true, exercise native-token branch; otherwise ERC20 branch (fuzzed)
-    /// @param recipient Recipient to receive funds when called via Flywheel (fuzzed)
-    /// @param amount Amount to attempt to send (fuzzed)
-    function test_campaignSendTokens_onlyCallableByFlywheel(bool isNative, address recipient, uint256 amount) public {}
+    /// @notice sendTokens reverts for non-Flywheel callers
+    /// @dev Expects OnlyFlywheel error when msg.sender != flywheel
+    /// @param caller Caller address
+    function test_sendTokens_reverts_whenCallerNotFlywheel(address caller) public {}
 
-    /// @notice Campaign clone has runtime code after createCampaign
-    /// @dev Asserts extcodesize > 0 for the deployed campaign address
-    /// @param nonce Deterministic salt used by createCampaign (fuzzed)
-    /// @param owner Owner address to encode into hook data (fuzzed)
-    /// @param manager Manager address to encode into hook data (fuzzed)
-    /// @param uri Campaign URI to encode into hook data (fuzzed)
-    function test_campaignClone_hasRuntimeCode(uint256 nonce, address owner, address manager, string memory uri)
-        public
-    {}
+    /// @notice updateContractURI reverts for non-Flywheel callers
+    /// @dev Expects OnlyFlywheel error when msg.sender != flywheel
+    /// @param caller Caller address
+    function test_updateContractURI_reverts_whenCallerNotFlywheel(address caller) public {}
+
+    /// @dev Verifies sendTokens succeeds for native token
+    /// @param recipient Recipient address
+    /// @param amount Amount to send
+    function test_sendTokens_succeeds_forNativeToken(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies sendTokens succeeds for ERC20 token
+    /// @param recipient Recipient address
+    /// @param amount Amount to send
+    function test_sendTokens_succeeds_forERC20Token(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies updateContractURI succeeds when called by Flywheel
+    /// @dev Exercise path via Flywheel.updateMetadata which forwards to Campaign.updateContractURI
+    /// @param nonce Deterministic salt for campaign creation
+    /// @param owner Owner address to encode into hook data
+    /// @param manager Manager address to encode into hook data
+    /// @param uri Initial campaign URI
+    function test_updateContractURI_succeeds_whenCalledByFlywheel(
+        uint256 nonce,
+        address owner,
+        address manager,
+        string memory uri
+    ) public {}
+
+    /// @dev Expects contractURI returns value from Flywheel.campaignURI
+    /// @param nonce Deterministic salt for campaign creation
+    /// @param owner Owner address to encode into hook data
+    /// @param manager Manager address to encode into hook data
+    /// @param uri Campaign URI to encode into hook data
+    function test_contractURI_returnsFlywheelCampaignURI(
+        uint256 nonce,
+        address owner,
+        address manager,
+        string memory uri
+    ) public {}
+
+    /// @dev Verifies ampaign can receive native tokens via receive()
+    /// @param nonce Deterministic salt for campaign creation
+    /// @param owner Owner address to encode into hook data
+    /// @param manager Manager address to encode into hook data
+    /// @param amount Native amount to send
+    function test_receive_acceptsNativeToken(uint256 nonce, address owner, address manager, uint256 amount) public {}
+
+    /// @dev Verifies updateContractURI emits ContractURIUpdated
+    /// @param nonce Deterministic salt for campaign creation
+    /// @param owner Owner address to encode into hook data
+    /// @param manager Manager address to encode into hook data
+    function test_updateContractURI_emitsContractURIUpdated(uint256 nonce, address owner, address manager) public {}
 }

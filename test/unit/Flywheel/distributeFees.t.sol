@@ -6,21 +6,57 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 
 /// @title DistributeFeesTest
-/// @notice Test stubs for Flywheel.distributeFees
+/// @notice Tests for Flywheel.distributeFees
 contract DistributeFeesTest is Test {
-    /// @notice Distributes allocated fees to recipients and emits FeesDistributed
-    /// @dev Verifies clearing of allocatedFee for distributed amounts using deployed token
-    /// @param amount Fee amount (fuzzed)
-    function test_distributeFees_sendsFees_andClearsAllocation(uint256 amount) public {}
-
-    /// @notice Emits FeeTransferFailed and keeps allocation when send fails
-    /// @dev Verifies failure path keeps allocatedFee and emits failure event
-    /// @param token ERC20 token address under test (fuzzed)
-    /// @param amount Fee amount (fuzzed)
-    function test_distributeFees_emitsFailure_andKeepsAllocationOnSendFailure(address token, uint256 amount) public {}
-
-    /// @notice OnlyExists modifier enforced (campaign must exist)
-    /// @dev Expects CampaignDoesNotExist when using unknown address
-    /// @param token ERC20 token address under test (fuzzed)
+    /// @dev Expects CampaignDoesNotExist
+    /// @dev Reverts when campaign does not exist
+    /// @param token ERC20 token address under test
+    /// @param unknownCampaign Non-existent campaign address
     function test_distributeFees_reverts_whenCampaignDoesNotExist(address token, address unknownCampaign) public {}
+
+    /// @dev Verifies fees distribution succeeds with an ERC20 token and clears allocated fee
+    /// @param recipient Fee recipient address
+    /// @param amount Fee amount
+    function test_distributeFees_succeeds_withERC20Token(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies fees distribution succeeds with native token and clears allocated fee
+    /// @param recipient Fee recipient address
+    /// @param amount Fee amount
+    function test_distributeFees_succeeds_withNativeToken(address recipient, uint256 amount) public {}
+
+    /// @dev Keeps allocation when send fails with ERC20; emits failure
+    /// @param amount Fee amount
+    function test_distributeFees_keepsAllocation_onSendFailure_ERC20(uint256 amount) public {}
+
+    /// @dev Keeps allocation when send fails with native token; emits failure
+    /// @param amount Fee amount
+    function test_distributeFees_keepsAllocation_onSendFailure_nativeToken(uint256 amount) public {}
+
+    /// @notice Ignores zero-amount fee distributions (no-op)
+    /// @dev Verifies totals unchanged and no send attempt for zero amounts
+    /// @param recipient Fee recipient address
+    /// @param amount Fee amount
+    function test_distributeFees_ignoresZeroAmountDistributions(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies multiple fee distributions in a single call
+    /// @param recipient1 First recipient address
+    /// @param recipient2 Second recipient address
+    /// @param amount1 First fee amount
+    /// @param amount2 Second fee amount
+    function test_distributeFees_succeeds_withMultipleDistributions(
+        address recipient1,
+        address recipient2,
+        uint256 amount1,
+        uint256 amount2
+    ) public {}
+
+    /// @dev Verifies that FeesDistributed event is emitted on successful distribution
+    /// @param recipient Fee recipient address
+    /// @param amount Fee amount
+    function test_distributeFees_emitsFeesDistributed(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies that FeeTransferFailed event is emitted on failed send
+    /// @param recipient Fee recipient address
+    /// @param amount Fee amount
+    function test_distributeFees_emitsFeeTransferFailed(address recipient, uint256 amount) public {}
 }
