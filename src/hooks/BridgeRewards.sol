@@ -30,7 +30,7 @@ contract BridgeRewards is CampaignHooks {
     error InvalidCampaignInitialization();
 
     /// @notice Error thrown when the balance is zero
-    error ZeroAmount();
+    error ZeroBridgedAmount();
 
     /// @notice Hooks constructor
     ///
@@ -56,12 +56,11 @@ contract BridgeRewards is CampaignHooks {
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
-        (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
+        (address user, uint256 bridgedAmount, bytes32 code, uint16 feeBps) =
+            abi.decode(hookData, (address, uint256, bytes32, uint16));
 
-        // Check available balance is nonzero
-        uint256 availableBalance = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
-        availableBalance -= flywheel.totalAllocatedFees(campaign, token);
-        require(availableBalance > 0, ZeroAmount());
+        // Check amount nonzero
+        if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
         // set feeBps to 0 if builder code not registered
         feeBps = builderCodes.isRegistered(builderCodes.toCode(uint256(code))) ? feeBps : 0;
@@ -70,11 +69,11 @@ contract BridgeRewards is CampaignHooks {
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
 
         // Prepare payout
-        uint256 feeAmount = (availableBalance * feeBps) / 1e4;
+        uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
         payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({
             recipient: user,
-            amount: availableBalance - feeAmount,
+            amount: bridgedAmount - feeAmount,
             extraData: abi.encode(code, feeAmount)
         });
 
