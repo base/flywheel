@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
@@ -23,10 +24,6 @@ abstract contract BuilderCodesTest is Test {
         address implementation = address(new BuilderCodes());
         bytes memory initData = abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, registrar, URI_PREFIX);
         builderCodes = BuilderCodes(address(new ERC1967Proxy(implementation, initData)));
-
-        // TODO: Broken for some reason, needs fix
-        // vm.prank(owner);
-        // builderCodes.grantRole(builderCodes.REGISTER_ROLE(), registrar);
 
         vm.label(owner, "Owner");
         vm.label(registrar, "Registrar");
