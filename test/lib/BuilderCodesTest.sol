@@ -31,7 +31,23 @@ abstract contract BuilderCodesTest is Test {
     }
 
     /// @notice Generates valid code
+    ///
     /// @param seed Random number to seed the valid code generation
+    ///
     /// @return code Valid code
-    function _generateValidCode(uint256 seed) internal returns (string memory code) {}
+    function _generateValidCode(uint256 seed) internal returns (string memory code) {
+        bytes memory allowedCharacters = bytes(builderCodes.ALLOWED_CHARACTERS());
+        uint256 divisor = allowedCharacters.length;
+        uint256 len = 32;
+        bytes memory codeBytes = new bytes(len);
+
+        // Iteratively generate code with modulo arithmetic on pseudo-random hash
+        for (uint256 i; i < len; i++) {
+            codeBytes[i] = allowedCharacters[seed % divisor];
+            seed /= divisor;
+            if (seed == 0) break;
+        }
+
+        return string(codeBytes);
+    }
 }
