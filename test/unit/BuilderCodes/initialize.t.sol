@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {BuilderCodes, Initializable} from "../../../src/BuilderCodes.sol";
+
 import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
-import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 /// @notice Unit tests for BuilderCodes.initialize
 contract InitializeTest is BuilderCodesTest {
@@ -16,7 +17,7 @@ contract InitializeTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
 
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
         builderCodes.initialize(initialOwner, initialRegistrar, uriPrefix);
     }
 
@@ -94,7 +95,7 @@ contract InitializeTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         initialRegistrar = _boundNonZeroAddress(initialRegistrar);
         vm.assume(initialRegistrar != initialOwner);
-        
+
         BuilderCodes freshContract = _deployFreshBuilderCodes();
 
         freshContract.initialize(initialOwner, initialRegistrar, uriPrefix);

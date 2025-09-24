@@ -120,7 +120,33 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         uint48 deadline
     ) public {}
 
-    /// @notice Test that registerWithSignature supports contract signature validation
+    /// @notice Test that registerWithSignature supports signature from owner
+    ///
+    /// @param codeSeed The seed for generating the code
+    /// @param initialOwner The initial owner address
+    /// @param payoutAddress The payout address
+    /// @param deadline The registration deadline
+    function test_registerWithSignature_success_ownerCanSign(
+        uint256 codeSeed,
+        address initialOwner,
+        address payoutAddress,
+        uint48 deadline
+    ) public {}
+
+    /// @notice Test that registerWithSignature supports signature from EOA
+    ///
+    /// @param codeSeed The seed for generating the code
+    /// @param initialOwner The initial owner address
+    /// @param payoutAddress The payout address
+    /// @param deadline The registration deadline
+    function test_registerWithSignature_success_eoaSignatureSupport(
+        uint256 codeSeed,
+        address initialOwner,
+        address payoutAddress,
+        uint48 deadline
+    ) public {}
+
+    /// @notice Test that registerWithSignature supports signature from contract
     ///
     /// @param codeSeed The seed for generating the code
     /// @param initialOwner The initial owner address

@@ -72,6 +72,15 @@ contract RegisterTest is BuilderCodesTest {
     /// @param payoutAddress The payout address
     function test_register_success_mintsToken(uint256 codeSeed, address initialOwner, address payoutAddress) public {}
 
+    /// @notice Test that register can be called by owner
+    ///
+    /// @param codeSeed The seed for generating the code
+    /// @param initialOwner The initial owner address
+    /// @param payoutAddress The payout address
+    function test_register_success_ownerCanRegister(uint256 codeSeed, address initialOwner, address payoutAddress)
+        public
+    {}
+
     /// @notice Test that register successfully sets the payout address
     ///
     /// @param codeSeed The seed for generating the code

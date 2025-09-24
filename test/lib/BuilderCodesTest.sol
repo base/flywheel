@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
@@ -38,14 +39,21 @@ abstract contract BuilderCodesTest is Test {
     function _generateValidCode(uint256 seed) internal returns (string memory code) {
         bytes memory allowedCharacters = bytes(builderCodes.ALLOWED_CHARACTERS());
         uint256 divisor = allowedCharacters.length;
-        uint256 len = 32;
-        bytes memory codeBytes = new bytes(len);
+        uint256 maxLength = 32;
+        bytes memory codeBytes = new bytes(maxLength);
+        uint256 codeLength = 0;
 
         // Iteratively generate code with modulo arithmetic on pseudo-random hash
-        for (uint256 i; i < len; i++) {
+        for (uint256 i; i < maxLength; i++) {
+            codeLength++;
             codeBytes[i] = allowedCharacters[seed % divisor];
             seed /= divisor;
             if (seed == 0) break;
+        }
+
+        // Resize codeBytes to actual output length
+        assembly {
+            mstore(codeBytes, codeLength)
         }
 
         return string(codeBytes);

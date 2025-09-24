@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
+import {BuilderCodesTest, IERC721Errors} from "../../lib/BuilderCodesTest.sol";
 import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 /// @notice Unit tests for BuilderCodes.codeURI
@@ -11,14 +11,14 @@ contract CodeURITest is BuilderCodesTest {
     /// @param codeSeed The seed for generating the code
     /// @param initialOwner The initial owner address
     /// @param initialPayoutAddress The initial payout address
-    function test_codeURI_revert_unregistered(
-        uint256 codeSeed,
-        address initialOwner,
-        address initialPayoutAddress
-    ) public {
+    function test_codeURI_revert_unregistered(uint256 codeSeed, address initialOwner, address initialPayoutAddress)
+        public
+    {
         string memory validCode = _generateValidCode(codeSeed);
-        
-        vm.expectRevert("ERC721: invalid token ID");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, builderCodes.toTokenId(validCode))
+        );
         builderCodes.codeURI(validCode);
     }
 
@@ -26,10 +26,7 @@ contract CodeURITest is BuilderCodesTest {
     ///
     /// @param initialOwner The initial owner address
     /// @param initialPayoutAddress The initial payout address
-    function test_codeURI_revert_emptyCode(
-        address initialOwner,
-        address initialPayoutAddress
-    ) public {
+    function test_codeURI_revert_emptyCode(address initialOwner, address initialPayoutAddress) public {
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, ""));
         builderCodes.codeURI("");
     }
@@ -45,7 +42,7 @@ contract CodeURITest is BuilderCodesTest {
         address initialPayoutAddress
     ) public {
         string memory longCode = _generateLongCode(codeSeed);
-        
+
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, longCode));
         builderCodes.codeURI(longCode);
     }
@@ -61,7 +58,7 @@ contract CodeURITest is BuilderCodesTest {
         address initialPayoutAddress
     ) public {
         string memory invalidCode = _generateInvalidCode(codeSeed);
-        
+
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, invalidCode));
         builderCodes.codeURI(invalidCode);
     }
@@ -79,11 +76,11 @@ contract CodeURITest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
         string memory validCode = _generateValidCode(codeSeed);
-        
+
         // Register a code first
         vm.prank(registrar);
         builderCodes.register(validCode, initialOwner, initialPayoutAddress);
-        
+
         string memory codeURI = builderCodes.codeURI(validCode);
         string memory expected = string.concat(URI_PREFIX, validCode);
         assertEq(codeURI, expected);
@@ -102,15 +99,15 @@ contract CodeURITest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
         string memory validCode = _generateValidCode(codeSeed);
-        
+
         // Deploy fresh contract with empty base URI
         BuilderCodes freshContract = _deployFreshBuilderCodes();
         freshContract.initialize(initialOwner, initialOwner, "");
-        
+
         // Register a code
         vm.prank(initialOwner);
         freshContract.register(validCode, initialOwner, initialPayoutAddress);
-        
+
         string memory codeURI = freshContract.codeURI(validCode);
         assertEq(codeURI, "");
     }
@@ -120,23 +117,21 @@ contract CodeURITest is BuilderCodesTest {
     /// @param codeSeed The seed for generating the code
     /// @param initialOwner The initial owner address
     /// @param initialPayoutAddress The initial payout address
-    function test_codeURI_success_matchesTokenURI(
-        uint256 codeSeed,
-        address initialOwner,
-        address initialPayoutAddress
-    ) public {
+    function test_codeURI_success_matchesTokenURI(uint256 codeSeed, address initialOwner, address initialPayoutAddress)
+        public
+    {
         initialOwner = _boundNonZeroAddress(initialOwner);
         initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
         string memory validCode = _generateValidCode(codeSeed);
-        
+
         // Register a code first
         vm.prank(registrar);
         builderCodes.register(validCode, initialOwner, initialPayoutAddress);
-        
+
         uint256 tokenId = builderCodes.toTokenId(validCode);
         string memory codeURI = builderCodes.codeURI(validCode);
         string memory tokenURI = builderCodes.tokenURI(tokenId);
-        
+
         assertEq(codeURI, tokenURI);
     }
 
@@ -155,15 +150,15 @@ contract CodeURITest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
         string memory validCode = _generateValidCode(codeSeed);
-        
+
         // Register a code first
         vm.prank(registrar);
         builderCodes.register(validCode, initialOwner, initialPayoutAddress);
-        
+
         // Update base URI
         vm.prank(owner);
         builderCodes.updateBaseURI(newBaseURI);
-        
+
         string memory codeURI = builderCodes.codeURI(validCode);
         if (bytes(newBaseURI).length > 0) {
             string memory expected = string.concat(newBaseURI, validCode);
