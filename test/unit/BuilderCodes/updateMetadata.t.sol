@@ -8,8 +8,8 @@ import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 contract UpdateMetadataTest is BuilderCodesTest {
     /// @notice ERC4906 MetadataUpdate event
     event MetadataUpdate(uint256 _tokenId);
-    /// @notice Test that updateMetadata reverts when sender doesn't have required role
 
+    /// @notice Test that updateMetadata reverts when sender doesn't have required role
     function test_updateMetadata_revert_senderInvalidRole() public {
         string memory validCode = _generateValidCode(123);
         address unauthorizedUser = makeAddr("unauthorized");

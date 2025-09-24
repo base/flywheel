@@ -10,10 +10,7 @@ contract ToCodeTest is BuilderCodesTest {
     ///
     /// @param initialOwner The initial owner address
     /// @param initialPayoutAddress The initial payout address
-    function test_toCode_revert_emptyCode(
-        address initialOwner,
-        address initialPayoutAddress
-    ) public {
+    function test_toCode_revert_emptyCode(address initialOwner, address initialPayoutAddress) public {
         uint256 emptyTokenId = 0;
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, ""));
         builderCodes.toCode(emptyTokenId);
@@ -30,7 +27,7 @@ contract ToCodeTest is BuilderCodesTest {
         address initialPayoutAddress
     ) public {
         // Use a token ID that would convert to invalid characters
-        uint256 invalidTokenId = uint256(bytes32("INVALID_CHARS")) | 0x4100000000000000000000000000000000000000000000000000000000000000;
+        uint256 invalidTokenId = uint256(bytes32(bytes(_generateInvalidCode(tokenId))));
         vm.expectRevert();
         builderCodes.toCode(invalidTokenId);
     }
@@ -62,7 +59,7 @@ contract ToCodeTest is BuilderCodesTest {
     ) public {
         string memory validCode = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(validCode);
-        
+
         string memory retrievedCode = builderCodes.toCode(tokenId);
         assertEq(retrievedCode, validCode);
     }
