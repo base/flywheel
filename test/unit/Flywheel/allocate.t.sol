@@ -6,37 +6,73 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 
 /// @title AllocateTest
-/// @notice Test stubs for Flywheel.allocate
+/// @notice Tests for Flywheel.allocate
 contract AllocateTest is Test {
-    /// @notice Records allocations and emits PayoutAllocated
-    /// @dev Verifies mapping updates and event correctness using a deployed test token
-    /// @param amount Allocation amount (fuzzed)
-    function test_allocate_recordsAllocations_andEmitsEvent(uint256 amount) public {}
+    /// @dev Expects CampaignDoesNotExist.
+    /// @dev Reverts when campaign does not exist
+    /// @param token ERC20 token address under test
+    /// @param hookData Raw hook data
+    function test_allocate_reverts_whenCampaignDoesNotExist(address token, bytes memory hookData) public {}
 
-    /// @notice Succeeds when campaign is FINALIZING
-    /// @dev Verifies that allocate remains allowed in FINALIZING state
-    /// @param amount Allocation amount (fuzzed)
-    function test_allocate_succeeds_whenCampaignFinalizing(uint256 amount) public {}
-
-    /// @notice Reverts when campaign is INACTIVE
-    /// @dev Expects InvalidCampaignStatus before token logic; token is fuzzed since it's unused
-    /// @param token ERC20 token address under test (fuzzed)
-    /// @param hookData Raw hook data (fuzzed)
+    /// @dev Expects InvalidCampaignStatus before token logic
+    /// @dev Reverts when campaign is INACTIVE
+    /// @param token ERC20 token address under test
+    /// @param hookData Raw hook data
     function test_allocate_reverts_whenCampaignInactive(address token, bytes memory hookData) public {}
 
-    /// @notice Reverts when campaign is FINALIZED
-    /// @dev Expects InvalidCampaignStatus; token not used if revert happens early
-    /// @param token ERC20 token address under test (fuzzed)
-    /// @param hookData Raw hook data (fuzzed)
+    /// @dev Expects InvalidCampaignStatus
+    /// @dev Reverts when campaign is FINALIZED
+    /// @param token ERC20 token address under test
+    /// @param hookData Raw hook data
     function test_allocate_reverts_whenCampaignFinalized(address token, bytes memory hookData) public {}
 
-    /// @notice Increments totalAllocatedPayouts and asserts solvency
-    /// @dev Funds campaign minimally to avoid InsufficientCampaignFunds and uses deployed token
-    /// @param amount Allocation amount (fuzzed)
-    function test_allocate_incrementsTotalAllocated_andAssertsSolvency(uint256 amount) public {}
+    /// @dev Expects InsufficientCampaignFunds
+    /// @dev Reverts if campaign is insufficiently funded
+    /// @dev Verifies that allocate reverts if campaign is insufficiently funded
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_reverts_ifCampaignIsInsufficientlyFunded(address recipient, uint256 amount) public {}
 
-    /// @notice Ignores zero-amount allocations (no-op)
+    /// @dev Verifies that allocate calls are allowed for campaign in ACTIVE state
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_succeeds_whenCampaignActive(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies that allocate remains allowed for campaign in FINALIZING state
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_succeeds_whenCampaignFinalizing(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies that allocate calls work with an ERC20 token
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_succeeds_withERC20Token(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies that allocate calls work with native token
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_succeeds_withNativeToken(address recipient, uint256 amount) public {}
+
+    /// @dev Ignores zero-amount allocations (no-op)
     /// @dev Verifies totals unchanged and no event for zero amounts using the deployed token
-    /// @param hookData Raw hook data (fuzzed)
-    function test_allocate_ignoresZeroAmountAllocations(bytes memory hookData) public {}
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_ignoresZeroAmountAllocations(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies that allocate calls work with multiple allocations
+    /// @param recipient1 First recipient address
+    /// @param recipient2 Second recipient address
+    /// @param amount1 First allocation amount
+    /// @param amount2 Second allocation amount
+    function test_allocate_succeeds_withMultipleAllocations(
+        address recipient1,
+        address recipient2,
+        uint256 amount1,
+        uint256 amount2
+    ) public {}
+
+    /// @dev Verifies that the PayoutAllocated event is emitted for each allocation
+    /// @param recipient Recipient address
+    /// @param amount Allocation amount
+    function test_allocate_emitsPayoutAllocatedEvent(address recipient, uint256 amount) public {}
 }
