@@ -28,13 +28,11 @@ contract DistributeTest is Test {
 
     /// @dev Expects SendFailed
     /// @dev Reverts when token transfer fails with an ERC20 token
-    /// @param token ERC20 token address under test
     /// @param amount Distribution amount
     function test_distribute_reverts_whenSendFailed_ERC20(uint256 amount) public {}
 
     /// @dev Expects SendFailed
     /// @dev Reverts when token transfer fails with native token
-    /// @param token ERC20 token address under test
     /// @param amount Distribution amount
     function test_distribute_reverts_whenSendFailed_nativeToken(uint256 amount) public {}
 
