@@ -8,13 +8,13 @@ import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 /// @title AllocateTest
 /// @notice Tests for Flywheel.allocate
 contract AllocateTest is Test {
-    /// @dev Expects CampaignDoesNotExist.
+    /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts when campaign does not exist
     /// @param token ERC20 token address under test
     /// @param hookData Raw hook data
     function test_allocate_reverts_whenCampaignDoesNotExist(address token, bytes memory hookData) public {}
 
-    /// @dev Expects InvalidCampaignStatus before token logic
+    /// @dev Expects InvalidCampaignStatus
     /// @dev Reverts when campaign is INACTIVE
     /// @param token ERC20 token address under test
     /// @param hookData Raw hook data
@@ -28,7 +28,6 @@ contract AllocateTest is Test {
 
     /// @dev Expects InsufficientCampaignFunds
     /// @dev Reverts if campaign is insufficiently funded
-    /// @dev Verifies that allocate reverts if campaign is insufficiently funded
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_allocate_reverts_ifCampaignIsInsufficientlyFunded(address recipient, uint256 amount) public {}
@@ -54,7 +53,7 @@ contract AllocateTest is Test {
     function test_allocate_succeeds_withNativeToken(address recipient, uint256 amount) public {}
 
     /// @dev Ignores zero-amount allocations (no-op)
-    /// @dev Verifies totals unchanged and no event for zero amounts using the deployed token
+    /// @dev Verifies totals for zero amounts
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_allocate_ignoresZeroAmountAllocations(address recipient, uint256 amount) public {}
@@ -71,7 +70,7 @@ contract AllocateTest is Test {
         uint256 amount2
     ) public {}
 
-    /// @dev Verifies that the PayoutAllocated event is emitted for each allocation
+    /// @dev Emits PayoutAllocated event
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_allocate_emitsPayoutAllocatedEvent(address recipient, uint256 amount) public {}

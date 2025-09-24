@@ -29,6 +29,16 @@ contract CampaignTest is Test {
     /// @param amount Amount to send
     function test_sendTokens_succeeds_forERC20Token(address recipient, uint256 amount) public {}
 
+    /// @dev Verifies sendTokens returns false when send fails (ERC20)
+    /// @param recipient Recipient address
+    /// @param amount Amount to send
+    function test_sendTokens_returnsFalseWhenSendFails_ERC20(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies sendTokens returns false when send fails (native token)
+    /// @param recipient Recipient address
+    /// @param amount Amount to send
+    function test_sendTokens_returnsFalseWhenSendFails_native(address recipient, uint256 amount) public {}
+
     /// @dev Verifies updateContractURI succeeds when called by Flywheel
     /// @dev Exercise path via Flywheel.updateMetadata which forwards to Campaign.updateContractURI
     /// @param nonce Deterministic salt for campaign creation
