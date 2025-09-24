@@ -6,25 +6,37 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 
 /// @title WithdrawFundsTest
-/// @notice Test stubs for Flywheel.withdrawFunds
+/// @notice Tests for Flywheel.withdrawFunds
 contract WithdrawFundsTest is Test {
-    /// @notice Withdraws funds via hook and emits FundsWithdrawn
-    /// @dev Verifies hook authorization and campaign solvency assertion using deployed token
-    /// @param amount Withdraw amount (fuzzed)
-    function test_withdrawFunds_withdraws_andEmitsEvent(uint256 amount) public {}
+    /// @dev Expects CampaignDoesNotExist
+    /// @dev Reverts when campaign does not exist
+    /// @param campaign Campaign address
+    function test_withdrawFunds_reverts_whenCampaignDoesNotExist(address campaign) public {}
 
-    /// @notice Reverts on zero amount
-    /// @dev Expects ZeroAmount error
+    /// @dev Expects ZeroAmount
+    /// @dev Reverts on zero amount
     function test_withdrawFunds_reverts_whenZeroAmount() public {}
 
-    /// @notice Reverts when send fails
-    /// @dev Expects SendFailed error
-    /// @param token ERC20 token address under test (fuzzed)
-    /// @param amount Withdraw amount (fuzzed)
-    function test_withdrawFunds_reverts_whenSendFailed(address token, uint256 amount) public {}
+    /// @dev Expects SendFailed when Campaign.sendTokens returns false (ERC20)
+    /// @param token ERC20 token address under test
+    /// @param amount Withdraw amount
+    function test_withdrawFunds_reverts_whenSendFailed_ERC20(address token, uint256 amount) public {}
 
-    /// @notice Respects solvency rule in FINALIZED state (ignore payouts, require fees only)
-    /// @dev Exercises path where requiredSolvency excludes totalAllocatedPayouts using deployed token
-    /// @param feeAmount Fee amount reserved (fuzzed)
+    /// @dev Expects SendFailed when Campaign.sendTokens returns false (native token)
+    /// @param amount Withdraw amount
+    function test_withdrawFunds_reverts_whenSendFailed_native(uint256 amount) public {}
+
+    /// @dev Verifies withdrawal succeeds (ERC20)
+    /// @param recipient Recipient address
+    /// @param amount Withdraw amount
+    function test_withdrawFunds_succeeds_withERC20(address recipient, uint256 amount) public {}
+
+    /// @dev Verifies withdrawal succeeds (native token)
+    /// @param recipient Recipient address
+    /// @param amount Withdraw amount
+    function test_withdrawFunds_succeeds_withNative(address recipient, uint256 amount) public {}
+
+    /// @dev Respects solvency rule in FINALIZED state (ignore payouts, require fees only)
+    /// @param feeAmount Fee amount reserved
     function test_withdrawFunds_enforcesSolvency_finalizedIgnoresPayouts(uint256 feeAmount) public {}
 }

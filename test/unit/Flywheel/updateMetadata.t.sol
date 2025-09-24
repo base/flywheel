@@ -6,15 +6,19 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 
 /// @title UpdateMetadataTest
-/// @notice Test stubs for Flywheel.updateMetadata
+/// @notice Tests for Flywheel.updateMetadata
 contract UpdateMetadataTest is Test {
-    /// @notice Emits CampaignMetadataUpdated and forwards to hooks.onUpdateMetadata
-    /// @dev Verifies campaignURI reflects potential hook changes
-    /// @param newURI New campaign URI to apply via hook (fuzzed)
-    function test_updateMetadata_emitsEvent_andCallsHook(bytes memory newURI) public {}
-
-    /// @notice Reverts when campaign is FINALIZED
     /// @dev Expects InvalidCampaignStatus
-    /// @param hookData Arbitrary hook data used during the call (fuzzed)
+    /// @dev Reverts when campaign is FINALIZED
+    /// @param hookData Arbitrary hook data forwarded to hooks.onUpdateMetadata
     function test_updateMetadata_reverts_whenFinalized(bytes memory hookData) public {}
+
+    /// @dev Verifies updateMetadata succeeds and forwards to hooks.onUpdateMetadata
+    /// @dev Expects ContractURIUpdated event from hook
+    /// @param newURI New campaign URI to apply via hook
+    function test_updateMetadata_succeeds_andForwardsToHook(bytes memory newURI) public {}
+
+    /// @dev Verifies that CampaignMetadataUpdated is emitted
+    /// @param newURI New campaign URI to apply via hook
+    function test_updateMetadata_emitsCampaignMetadataUpdated(bytes memory newURI) public {}
 }

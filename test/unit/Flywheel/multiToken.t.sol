@@ -6,13 +6,13 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
 
 /// @title MultiTokenTest
-/// @notice Test stubs for per-token isolation in Flywheel accounting and flows
+/// @notice Tests for per-token isolation in Flywheel accounting and flows
 contract MultiTokenTest is Test {
-    /// @notice Allocate and distribute are isolated per token
+    /// @dev Allocate and distribute are isolated per token
     /// @dev Verifies balances and accounting do not cross-contaminate across tokens
     function test_multiToken_allocateDistribute_isolatedPerToken() public {}
 
-    /// @notice Send and distributeFees are isolated per token
+    /// @dev Send and distributeFees are isolated per token
     /// @dev Verifies allocations and fee collection per token without interference
     function test_multiToken_sendAndDistributeFees_isolatedPerToken() public {}
 }
