@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 /// @notice Unit tests for BuilderCodes.tokenURI
 contract TokenURITest is BuilderCodesTest {
@@ -14,7 +15,13 @@ contract TokenURITest is BuilderCodesTest {
         uint256 tokenId,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        // Ensure the token ID is not registered by trying a random high value
+        tokenId = bound(tokenId, type(uint128).max, type(uint256).max);
+        
+        vm.expectRevert("ERC721: invalid token ID");
+        builderCodes.tokenURI(tokenId);
+    }
 
     /// @notice Test that tokenURI returns correct URI for registered token when base URI is set
     ///
@@ -25,7 +32,22 @@ contract TokenURITest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        initialOwner = _boundNonZeroAddress(initialOwner);
+        initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
+        string memory validCode = _generateValidCode(codeSeed);
+        
+        // Register a code first
+        vm.prank(registrar);
+        builderCodes.register(validCode, initialOwner, initialPayoutAddress);
+        
+        uint256 tokenId = builderCodes.toTokenId(validCode);
+        string memory tokenURI = builderCodes.tokenURI(tokenId);
+        
+        // Should return base URI + code
+        string memory expected = string.concat(URI_PREFIX, validCode);
+        assertEq(tokenURI, expected);
+    }
 
     /// @notice Test that tokenURI returns empty string when base URI is not set
     ///
@@ -36,7 +58,24 @@ contract TokenURITest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        initialOwner = _boundNonZeroAddress(initialOwner);
+        initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
+        string memory validCode = _generateValidCode(codeSeed);
+        
+        // Deploy fresh contract with empty base URI
+        BuilderCodes freshContract = _deployFreshBuilderCodes();
+        freshContract.initialize(initialOwner, initialOwner, "");
+        
+        // Register a code
+        vm.prank(initialOwner);
+        freshContract.register(validCode, initialOwner, initialPayoutAddress);
+        
+        uint256 tokenId = freshContract.toTokenId(validCode);
+        string memory tokenURI = freshContract.tokenURI(tokenId);
+        
+        assertEq(tokenURI, "");
+    }
 
     /// @notice Test that tokenURI returns same result as codeURI for equivalent inputs
     ///
@@ -47,7 +86,21 @@ contract TokenURITest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        initialOwner = _boundNonZeroAddress(initialOwner);
+        initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
+        string memory validCode = _generateValidCode(codeSeed);
+        
+        // Register a code first
+        vm.prank(registrar);
+        builderCodes.register(validCode, initialOwner, initialPayoutAddress);
+        
+        uint256 tokenId = builderCodes.toTokenId(validCode);
+        string memory tokenURI = builderCodes.tokenURI(tokenId);
+        string memory codeURI = builderCodes.codeURI(validCode);
+        
+        assertEq(tokenURI, codeURI);
+    }
 
     /// @notice Test that tokenURI reflects updated base URI
     ///
@@ -60,5 +113,27 @@ contract TokenURITest is BuilderCodesTest {
         address initialOwner,
         address initialPayoutAddress,
         string memory newBaseURI
-    ) public {}
+    ) public {
+        initialOwner = _boundNonZeroAddress(initialOwner);
+        initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
+        string memory validCode = _generateValidCode(codeSeed);
+        
+        // Register a code first
+        vm.prank(registrar);
+        builderCodes.register(validCode, initialOwner, initialPayoutAddress);
+        
+        uint256 tokenId = builderCodes.toTokenId(validCode);
+        
+        // Update base URI
+        vm.prank(owner);
+        builderCodes.updateBaseURI(newBaseURI);
+        
+        string memory tokenURI = builderCodes.tokenURI(tokenId);
+        if (bytes(newBaseURI).length > 0) {
+            string memory expected = string.concat(newBaseURI, validCode);
+            assertEq(tokenURI, expected);
+        } else {
+            assertEq(tokenURI, "");
+        }
+    }
 }

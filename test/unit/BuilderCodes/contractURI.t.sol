@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 /// @notice Unit tests for BuilderCodes.contractURI
 contract ContractURITest is BuilderCodesTest {
@@ -12,7 +13,12 @@ contract ContractURITest is BuilderCodesTest {
     function test_contractURI_success_returnsCorrectURIWithBaseURI(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        // The builderCodes contract is already initialized with URI_PREFIX
+        string memory contractURI = builderCodes.contractURI();
+        string memory expected = string.concat(URI_PREFIX, "contractURI.json");
+        assertEq(contractURI, expected);
+    }
 
     /// @notice Test that contractURI returns empty string when base URI is not set
     ///
@@ -21,7 +27,15 @@ contract ContractURITest is BuilderCodesTest {
     function test_contractURI_success_returnsEmptyStringWithoutBaseURI(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        initialOwner = _boundNonZeroAddress(initialOwner);
+        BuilderCodes freshContract = _deployFreshBuilderCodes();
+        
+        // Initialize with empty URI prefix
+        freshContract.initialize(initialOwner, address(0), "");
+        
+        assertEq(freshContract.contractURI(), "");
+    }
 
     /// @notice Test that contractURI reflects updated base URI
     ///
@@ -32,7 +46,19 @@ contract ContractURITest is BuilderCodesTest {
         address initialOwner,
         address initialPayoutAddress,
         string memory newBaseURI
-    ) public {}
+    ) public {
+        // Update base URI using owner permissions
+        vm.prank(owner);
+        builderCodes.updateBaseURI(newBaseURI);
+        
+        string memory contractURI = builderCodes.contractURI();
+        if (bytes(newBaseURI).length > 0) {
+            string memory expected = string.concat(newBaseURI, "contractURI.json");
+            assertEq(contractURI, expected);
+        } else {
+            assertEq(contractURI, "");
+        }
+    }
 
     /// @notice Test that contractURI returns contractURI.json suffix
     ///
@@ -43,5 +69,14 @@ contract ContractURITest is BuilderCodesTest {
         address initialOwner,
         address initialPayoutAddress,
         string memory baseURI
-    ) public {}
+    ) public {
+        vm.assume(bytes(baseURI).length > 0);
+        
+        vm.prank(owner);
+        builderCodes.updateBaseURI(baseURI);
+        
+        string memory contractURI = builderCodes.contractURI();
+        string memory expected = string.concat(baseURI, "contractURI.json");
+        assertEq(contractURI, expected);
+    }
 }
