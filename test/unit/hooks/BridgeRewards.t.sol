@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {MockERC3009Token} from "../../../lib/commerce-payments/test/mocks/MockERC3009Token.sol";
+import {MockAccount} from "../../lib/mocks/MockAccount.sol";
 
 import {BridgeRewards} from "../../../src/hooks/BridgeRewards.sol";
 import {BuilderCodes} from "../../../src/BuilderCodes.sol";
@@ -184,6 +185,71 @@ contract BridgeRewardsTest is Test {
         assertEq(usdc.balanceOf(user), userBalanceBefore + userAmount, "User should receive balance minus fee");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore + feeAmount, "Builder should receive fee");
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+    }
+
+    function test_onSend_allocatedFeesNotIncludedInAvailableBalance() public {
+        // Fund the campaign
+        uint256 campaignFunding = 100e6; // 100 ETH
+        vm.deal(bridgeRewardsCampaign, campaignFunding);
+
+        // Prepare mock account
+        MockAccount mockAccount = new MockAccount(false); // reject native token initially
+        vm.prank(builder);
+        builderCodes.updatePayoutAddress(TEST_CODE_STRING, address(mockAccount));
+
+        // Prepare hook data with 1% fee
+        uint16 feeBps = 100; // 1%
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+
+        uint256 feeAmount = (campaignFunding * feeBps) / 1e4;
+        uint256 userAmount = campaignFunding - feeAmount;
+
+        // Record balances before
+        uint256 userBalanceBefore = user.balance;
+        uint256 builderPayoutBalanceBefore = builderPayout.balance;
+
+        // Execute send
+        flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
+
+        // Check balances after send with failed fee send
+        assertEq(user.balance, userBalanceBefore + userAmount, "User should receive balance minus fee");
+        assertEq(builderPayout.balance, builderPayoutBalanceBefore, "Builder should not receive fee");
+        assertEq(
+            bridgeRewardsCampaign.balance,
+            flywheel.totalAllocatedFees(bridgeRewardsCampaign, Constants.NATIVE_TOKEN),
+            "Campaign should only have total allocated fees left over"
+        );
+        assertEq(
+            flywheel.totalAllocatedFees(bridgeRewardsCampaign, Constants.NATIVE_TOKEN),
+            flywheel.allocatedFee(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, TEST_CODE),
+            "Only allocated fee is for TEST_CODE"
+        );
+        assertEq(
+            flywheel.allocatedFee(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, TEST_CODE),
+            feeAmount,
+            "Allocated fee matches intended amount"
+        );
+
+        // Perform another send with no fees
+        vm.deal(bridgeRewardsCampaign, bridgeRewardsCampaign.balance + campaignFunding);
+
+        // Record balances before
+        userBalanceBefore = user.balance;
+        builderPayoutBalanceBefore = builderPayout.balance;
+
+        // Execute send
+        feeBps = 0;
+        hookData = abi.encode(user, TEST_CODE, feeBps);
+        flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
+
+        // Check balances after send with no fees
+        assertEq(user.balance, userBalanceBefore + campaignFunding, "User should receive all of new campaign funding");
+        assertEq(builderPayout.balance, builderPayoutBalanceBefore, "Builder should not receive fee");
+        assertEq(
+            bridgeRewardsCampaign.balance,
+            flywheel.totalAllocatedFees(bridgeRewardsCampaign, Constants.NATIVE_TOKEN),
+            "Campaign should only have allocated fees left over"
+        );
     }
 
     function test_onWithdrawFunds_success() public {
