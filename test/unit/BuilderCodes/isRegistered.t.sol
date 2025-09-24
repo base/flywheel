@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 /// @notice Unit tests for BuilderCodes.isRegistered
 contract IsRegisteredTest is BuilderCodesTest {
@@ -12,7 +13,10 @@ contract IsRegisteredTest is BuilderCodesTest {
     function test_isRegistered_revert_emptyCode(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, ""));
+        builderCodes.isRegistered("");
+    }
 
     /// @notice Test that isRegistered reverts when code is over 32 characters
     ///
@@ -23,7 +27,11 @@ contract IsRegisteredTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory longCode = _generateLongCode(codeSeed);
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, longCode));
+        builderCodes.isRegistered(longCode);
+    }
 
     /// @notice Test that isRegistered reverts when code contains invalid characters
     ///
@@ -34,7 +42,11 @@ contract IsRegisteredTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory invalidCode = _generateInvalidCode(codeSeed);
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, invalidCode));
+        builderCodes.isRegistered(invalidCode);
+    }
 
     /// @notice Test that isRegistered returns false for unregistered valid code
     ///
@@ -45,7 +57,10 @@ contract IsRegisteredTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory validCode = _generateValidCode(codeSeed);
+        assertFalse(builderCodes.isRegistered(validCode));
+    }
 
     /// @notice Test that isRegistered returns true for registered code
     ///
@@ -56,5 +71,15 @@ contract IsRegisteredTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        initialOwner = _boundNonZeroAddress(initialOwner);
+        initialPayoutAddress = _boundNonZeroAddress(initialPayoutAddress);
+        string memory validCode = _generateValidCode(codeSeed);
+        
+        // Register the code
+        vm.prank(registrar);
+        builderCodes.register(validCode, initialOwner, initialPayoutAddress);
+        
+        assertTrue(builderCodes.isRegistered(validCode));
+    }
 }

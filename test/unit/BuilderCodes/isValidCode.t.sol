@@ -12,7 +12,9 @@ contract IsValidCodeTest is BuilderCodesTest {
     function test_isValidCode_false_emptyCode(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        assertFalse(builderCodes.isValidCode(""));
+    }
 
     /// @notice Test that isValidCode returns false for code over 32 characters
     ///
@@ -23,7 +25,10 @@ contract IsValidCodeTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory longCode = _generateLongCode(codeSeed);
+        assertFalse(builderCodes.isValidCode(longCode));
+    }
 
     /// @notice Test that isValidCode returns false for code with invalid characters
     ///
@@ -34,7 +39,10 @@ contract IsValidCodeTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory invalidCode = _generateInvalidCode(codeSeed);
+        assertFalse(builderCodes.isValidCode(invalidCode));
+    }
 
     /// @notice Test that isValidCode returns true for valid code
     ///
@@ -45,7 +53,10 @@ contract IsValidCodeTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory validCode = _generateValidCode(codeSeed);
+        assertTrue(builderCodes.isValidCode(validCode));
+    }
 
     /// @notice Test that isValidCode returns true for single character valid code
     ///
@@ -54,7 +65,11 @@ contract IsValidCodeTest is BuilderCodesTest {
     function test_isValidCode_true_singleCharacter(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        assertTrue(builderCodes.isValidCode("a"));
+        assertTrue(builderCodes.isValidCode("0"));
+        assertTrue(builderCodes.isValidCode("_"));
+    }
 
     /// @notice Test that isValidCode returns true for 32 character valid code
     ///
@@ -63,7 +78,10 @@ contract IsValidCodeTest is BuilderCodesTest {
     function test_isValidCode_true_32Characters(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory code32 = "abcdefghijklmnopqrstuvwxyz012345";
+        assertTrue(builderCodes.isValidCode(code32));
+    }
 
     /// @notice Test that isValidCode returns true for code with underscores
     ///
@@ -72,7 +90,10 @@ contract IsValidCodeTest is BuilderCodesTest {
     function test_isValidCode_true_underscores(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        assertTrue(builderCodes.isValidCode("test_code"));
+        assertTrue(builderCodes.isValidCode("_underscore_"));
+    }
 
     /// @notice Test that isValidCode returns true for numeric only code
     ///
@@ -81,7 +102,9 @@ contract IsValidCodeTest is BuilderCodesTest {
     function test_isValidCode_true_numericOnly(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        assertTrue(builderCodes.isValidCode("1234567890"));
+    }
 
     /// @notice Test that isValidCode returns true for alphabetic only code
     ///
@@ -90,5 +113,7 @@ contract IsValidCodeTest is BuilderCodesTest {
     function test_isValidCode_true_alphabeticOnly(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        assertTrue(builderCodes.isValidCode("abcdefghijklmnopqrstuvwxyz"));
+    }
 }

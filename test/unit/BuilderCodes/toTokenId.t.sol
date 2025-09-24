@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 /// @notice Unit tests for BuilderCodes.toTokenId
 contract ToTokenIdTest is BuilderCodesTest {
@@ -12,7 +13,10 @@ contract ToTokenIdTest is BuilderCodesTest {
     function test_toTokenId_revert_emptyCode(
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, ""));
+        builderCodes.toTokenId("");
+    }
 
     /// @notice Test that toTokenId reverts when code is over 32 characters
     ///
@@ -23,7 +27,11 @@ contract ToTokenIdTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory longCode = _generateLongCode(codeSeed);
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, longCode));
+        builderCodes.toTokenId(longCode);
+    }
 
     /// @notice Test that toTokenId reverts when code contains invalid characters
     ///
@@ -34,7 +42,11 @@ contract ToTokenIdTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory invalidCode = _generateInvalidCode(codeSeed);
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, invalidCode));
+        builderCodes.toTokenId(invalidCode);
+    }
 
     /// @notice Test that toTokenId returns correct token ID for valid code
     ///
@@ -45,5 +57,12 @@ contract ToTokenIdTest is BuilderCodesTest {
         uint256 codeSeed,
         address initialOwner,
         address initialPayoutAddress
-    ) public {}
+    ) public {
+        string memory validCode = _generateValidCode(codeSeed);
+        uint256 tokenId = builderCodes.toTokenId(validCode);
+        
+        // Verify the conversion is bidirectional
+        string memory convertedBack = builderCodes.toCode(tokenId);
+        assertEq(validCode, convertedBack);
+    }
 }
