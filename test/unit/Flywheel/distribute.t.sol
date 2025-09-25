@@ -241,6 +241,7 @@ contract DistributeTest is FlywheelTest {
     function test_succeeds_withNativeToken(address recipient, uint256 amount) public {
         // Use a simple, clean address to avoid any edge cases
         recipient = address(uint160(bound(uint160(recipient), 1000, type(uint160).max - 1000)));
+        assumePayable(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(recipient != address(vm)); // Avoid VM precompile that rejects ETH
         vm.assume(recipient != address(0)); // Avoid zero address
