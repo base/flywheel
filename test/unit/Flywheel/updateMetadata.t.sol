@@ -11,14 +11,18 @@ contract UpdateMetadataTest is Test {
     /// @dev Expects InvalidCampaignStatus
     /// @dev Reverts when campaign is FINALIZED
     /// @param hookData Arbitrary hook data forwarded to hooks.onUpdateMetadata
-    function test_updateMetadata_reverts_whenFinalized(bytes memory hookData) public {}
+    function test_reverts_whenFinalized(bytes memory hookData) public {}
 
     /// @dev Verifies updateMetadata succeeds and forwards to hooks.onUpdateMetadata
     /// @dev Expects ContractURIUpdated event from hook
     /// @param newURI New campaign URI to apply via hook
-    function test_updateMetadata_succeeds_andForwardsToHook(bytes memory newURI) public {}
+    function test_succeeds_andForwardsToHook(bytes memory newURI) public {}
 
     /// @dev Verifies that CampaignMetadataUpdated is emitted
     /// @param newURI New campaign URI to apply via hook
-    function test_updateMetadata_emitsCampaignMetadataUpdated(bytes memory newURI) public {}
+    function test_emitsCampaignMetadataUpdated(bytes memory newURI) public {}
+
+    /// @dev Verifies that ContractURIUpdated is emitted per ERC-7572
+    /// @param newURI New campaign URI to apply via hook
+    function test_emitsContractURIUpdated(bytes memory newURI) public {}
 }

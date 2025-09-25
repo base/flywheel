@@ -8,5 +8,5 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 /// @notice Tests for Flywheel constructor
 contract ConstructorTest is Test {
     /// @dev Ensures campaignImplementation is deployed during construction
-    function test_constructor_deploysCampaignImplementation() public {}
+    function test_deploysCampaignImplementation() public {}
 }

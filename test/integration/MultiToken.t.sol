@@ -2,8 +2,8 @@
 pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
-import {Flywheel} from "../../../src/Flywheel.sol";
-import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
+import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 
 /// @title MultiTokenTest
 /// @notice Tests for per-token isolation in Flywheel accounting and flows

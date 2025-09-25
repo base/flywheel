@@ -4,52 +4,50 @@ pragma solidity ^0.8.29;
 import {Test} from "forge-std/Test.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
-import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
+import {MockCampaignHooksWithFees} from "./mocks/MockCampaignHooksWithFees.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 
 /// @title FlywheelTestBase
-/// @notice Minimal shared setup for Flywheel unit tests using SimpleRewards as the hook
+/// @notice Minimal shared setup for Flywheel unit tests using MockCampaignHooksWithFees as the hook
 /// @dev Provides helpers for creating/activating campaigns, funding, and building payout data
 abstract contract FlywheelTest is Test {
     // Core contracts
     Flywheel public flywheel;
-    SimpleRewards public simpleHook;
-    MockERC20 public token;
+    MockCampaignHooksWithFees public mockCampaignHooksWithFees;
+    MockERC20 public mockToken;
 
     // Default actors
-    address public owner; // Campaign owner (authorized withdrawer in SimpleRewards)
-    address public manager; // Campaign manager (authorized to call payout functions in SimpleRewards)
-    address public other;
+    address public owner; // Campaign owner (authorized withdrawer in MockCampaignHooksWithFees)
+    address public manager; // Campaign manager (authorized to call payout functions in MockCampaignHooksWithFees)
 
     // Default values
     uint256 public constant INITIAL_TOKEN_BALANCE = 1_000_000e18;
 
-    /// @notice Sets up Flywheel + SimpleRewards and a default ERC20 for tests
+    /// @notice Sets up Flywheel + MockCampaignHooksWithFees and a default ERC20 for tests
     /// @dev Intended to be called in each test's setUp
     function setUpFlywheelBase() public virtual {
         flywheel = new Flywheel();
-        simpleHook = new SimpleRewards(address(flywheel));
+        mockCampaignHooksWithFees = new MockCampaignHooksWithFees(address(flywheel));
 
         // Default actors
         owner = address(0xA11CE);
         manager = address(0xB0B);
-        other = address(0xC0FFEE);
 
-        // Deploy token with initial holders funded
+        // Deploy mock token with initial holders funded
         address[] memory initialHolders = new address[](3);
         initialHolders[0] = owner;
         initialHolders[1] = manager;
         initialHolders[2] = address(this);
-        token = new MockERC20(initialHolders);
+        mockToken = new MockERC20(initialHolders);
 
         // Ensure balances are present for convenient funding
         // MockERC20 mints to provided holders in its constructor
     }
 
-    /// @notice Creates a SimpleRewards campaign via Flywheel
+    /// @notice Creates a MockCampaignHooksWithFees campaign via Flywheel
     /// @param owner_ Campaign owner
     /// @param manager_ Campaign manager (authorized to call payout functions)
-    /// @param uri Campaign URI stored by SimpleRewards
+    /// @param uri Campaign URI stored by MockCampaignHooksWithFees
     /// @param nonce Deterministic salt for the campaign address
     /// @return campaign The newly created (or already deployed) campaign address
     function createSimpleCampaign(address owner_, address manager_, string memory uri, uint256 nonce)
@@ -57,10 +55,10 @@ abstract contract FlywheelTest is Test {
         returns (address campaign)
     {
         bytes memory hookData = abi.encode(owner_, manager_, uri);
-        campaign = flywheel.createCampaign(address(simpleHook), nonce, hookData);
+        campaign = flywheel.createCampaign(address(mockCampaignHooksWithFees), nonce, hookData);
     }
 
-    /// @notice Predicts a SimpleRewards campaign address without deploying it
+    /// @notice Predicts a MockCampaignHooksWithFees campaign address without deploying it
     /// @param owner_ Campaign owner
     /// @param manager_ Campaign manager
     /// @param uri Campaign URI
@@ -72,10 +70,10 @@ abstract contract FlywheelTest is Test {
         returns (address predicted)
     {
         bytes memory hookData = abi.encode(owner_, manager_, uri);
-        predicted = flywheel.predictCampaignAddress(address(simpleHook), nonce, hookData);
+        predicted = flywheel.predictCampaignAddress(address(mockCampaignHooksWithFees), nonce, hookData);
     }
 
-    /// @notice Activates a campaign using SimpleRewards manager
+    /// @notice Activates a campaign using MockCampaignHooksWithFees manager
     /// @param campaign Campaign address
     /// @param manager_ Manager authorized in SimpleRewards
     function activateCampaign(address campaign, address manager_) public {
@@ -83,12 +81,11 @@ abstract contract FlywheelTest is Test {
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
     }
 
-    /// @notice Finalizes a campaign (ACTIVE -> FINALIZING -> FINALIZED)
+    /// @notice Finalizes a campaign (ACTIVE -> FINALIZED)
     /// @param campaign Campaign address
-    /// @param manager_ Manager authorized in SimpleRewards
+    /// @param manager_ Manager authorized in MockCampaignHooksWithFees
     function finalizeCampaign(address campaign, address manager_) public {
         vm.startPrank(manager_);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
         vm.stopPrank();
     }
@@ -99,7 +96,7 @@ abstract contract FlywheelTest is Test {
     /// @param funder Address that sends tokens
     function fundCampaign(address campaign, uint256 amount, address funder) public {
         vm.prank(funder);
-        token.transfer(campaign, amount);
+        mockToken.transfer(campaign, amount);
     }
 
     /// @notice Builds a single payout entry array
@@ -116,7 +113,7 @@ abstract contract FlywheelTest is Test {
         payouts[0] = Flywheel.Payout({recipient: recipient, amount: amount, extraData: extraData});
     }
 
-    /// @notice Calls Flywheel.send as the SimpleRewards manager
+    /// @notice Calls Flywheel.send as the MockCampaignHooksWithFees manager
     /// @param campaign Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array to encode into hookData
@@ -125,7 +122,7 @@ abstract contract FlywheelTest is Test {
         flywheel.send(campaign, tokenAddress, abi.encode(payouts));
     }
 
-    /// @notice Calls Flywheel.allocate as the SimpleRewards manager
+    /// @notice Calls Flywheel.allocate as the MockCampaignHooksWithFees manager
     /// @param campaign Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array (used to derive allocations)
@@ -134,7 +131,7 @@ abstract contract FlywheelTest is Test {
         flywheel.allocate(campaign, tokenAddress, abi.encode(payouts));
     }
 
-    /// @notice Calls Flywheel.deallocate as the SimpleRewards manager
+    /// @notice Calls Flywheel.deallocate as the MockCampaignHooksWithFees manager
     /// @param campaign Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array (used to derive allocations)
@@ -143,7 +140,7 @@ abstract contract FlywheelTest is Test {
         flywheel.deallocate(campaign, tokenAddress, abi.encode(payouts));
     }
 
-    /// @notice Calls Flywheel.distribute as the SimpleRewards manager
+    /// @notice Calls Flywheel.distribute as the MockCampaignHooksWithFees manager
     /// @param campaign Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array (used to derive distributions)
@@ -152,7 +149,7 @@ abstract contract FlywheelTest is Test {
         flywheel.distribute(campaign, tokenAddress, abi.encode(payouts));
     }
 
-    /// @notice Calls Flywheel.withdrawFunds as the SimpleRewards owner
+    /// @notice Calls Flywheel.withdrawFunds as the MockCampaignHooksWithFees owner
     /// @param campaign Campaign address
     /// @param tokenAddress Token to withdraw
     /// @param recipient Recipient of withdrawn funds
