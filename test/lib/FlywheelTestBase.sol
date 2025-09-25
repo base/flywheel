@@ -23,6 +23,10 @@ abstract contract FlywheelTest is Test {
     // Default values
     uint256 public constant INITIAL_TOKEN_BALANCE = 1_000_000e18;
 
+    // Maximum amount for fuzzing to stay within MockERC20 balance limits
+    // Set to half of initial balance to allow for multiple operations and overhead
+    uint256 public constant MAX_FUZZ_AMOUNT = INITIAL_TOKEN_BALANCE / 2;
+
     /// @notice Sets up Flywheel + MockCampaignHooksWithFees and a default ERC20 for tests
     /// @dev Intended to be called in each test's setUp
     function setUpFlywheelBase() public virtual {
@@ -159,5 +163,43 @@ abstract contract FlywheelTest is Test {
         flywheel.withdrawFunds(
             campaign, tokenAddress, abi.encode(Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}))
         );
+    }
+
+    // ============ Fuzz Utilities ============
+
+    /// @notice Bounds an amount to be non-zero and within MAX_FUZZ_AMOUNT
+    /// @param amount Fuzzed amount input
+    /// @return Bounded amount between 1 and MAX_FUZZ_AMOUNT
+    function boundToValidAmount(uint256 amount) public pure returns (uint256) {
+        return bound(amount, 1, MAX_FUZZ_AMOUNT);
+    }
+
+    /// @notice Bounds an amount to be within MAX_FUZZ_AMOUNT (allows zero)
+    /// @param amount Fuzzed amount input
+    /// @return Bounded amount between 0 and MAX_FUZZ_AMOUNT
+    function boundToMaxAmount(uint256 amount) public pure returns (uint256) {
+        return bound(amount, 0, MAX_FUZZ_AMOUNT);
+    }
+
+    /// @notice Bounds an address to be non-zero
+    /// @param addr Fuzzed address input
+    /// @return Bounded address that is not address(0)
+    function boundToValidAddress(address addr) public pure returns (address) {
+        return address(uint160(bound(uint160(addr), 1, type(uint160).max)));
+    }
+
+    /// @notice Bounds two amounts for multi-allocation tests where total must not exceed MAX_FUZZ_AMOUNT
+    /// @param amount1 First fuzzed amount
+    /// @param amount2 Second fuzzed amount
+    /// @return amount1Bounded First bounded amount (1 to MAX_FUZZ_AMOUNT/2)
+    /// @return amount2Bounded Second bounded amount (1 to remaining capacity)
+    function boundToValidMultiAmounts(uint256 amount1, uint256 amount2)
+        public
+        pure
+        returns (uint256 amount1Bounded, uint256 amount2Bounded)
+    {
+        amount1Bounded = bound(amount1, 1, MAX_FUZZ_AMOUNT / 2);
+        uint256 remaining = MAX_FUZZ_AMOUNT - amount1Bounded;
+        amount2Bounded = bound(amount2, 1, remaining);
     }
 }
