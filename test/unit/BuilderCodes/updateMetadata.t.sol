@@ -10,8 +10,8 @@ contract UpdateMetadataTest is BuilderCodesTest {
     event MetadataUpdate(uint256 _tokenId);
 
     /// @notice Test that updateMetadata reverts when sender doesn't have required role
-    function test_updateMetadata_revert_senderInvalidRole() public {
-        string memory validCode = _generateValidCode(123);
+    function test_updateMetadata_revert_senderInvalidRole(uint256 codeSeed) public {
+        string memory validCode = _generateValidCode(codeSeed);
         address unauthorizedUser = makeAddr("unauthorized");
 
         // Register a code first
@@ -26,8 +26,8 @@ contract UpdateMetadataTest is BuilderCodesTest {
     }
 
     /// @notice Test that updateMetadata reverts when the code is not registered
-    function test_updateMetadata_revert_codeNotRegistered() public {
-        string memory validCode = _generateValidCode(456);
+    function test_updateMetadata_revert_codeNotRegistered(uint256 codeSeed) public {
+        string memory validCode = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(validCode);
 
         vm.prank(owner);
@@ -36,8 +36,8 @@ contract UpdateMetadataTest is BuilderCodesTest {
     }
 
     /// @notice Test that updateMetadata allows owner to update
-    function test_updateMetadata_success_ownerCanUpdate() public {
-        string memory validCode = _generateValidCode(789);
+    function test_updateMetadata_success_ownerCanUpdate(uint256 codeSeed) public {
+        string memory validCode = _generateValidCode(codeSeed);
 
         // Register a code first
         vm.prank(registrar);
@@ -51,8 +51,8 @@ contract UpdateMetadataTest is BuilderCodesTest {
     }
 
     /// @notice Test that updateMetadata succeeds and token URI remains unchanged
-    function test_updateMetadata_success_tokenURIUnchanged() public {
-        string memory validCode = _generateValidCode(101112);
+    function test_updateMetadata_success_tokenURIUnchanged(uint256 codeSeed) public {
+        string memory validCode = _generateValidCode(codeSeed);
 
         // Register a code first
         vm.prank(registrar);
@@ -69,8 +69,8 @@ contract UpdateMetadataTest is BuilderCodesTest {
     }
 
     /// @notice Test that updateMetadata succeeds and code URI remains unchanged
-    function test_updateMetadata_success_codeURIUnchanged() public {
-        string memory validCode = _generateValidCode(131415);
+    function test_updateMetadata_success_codeURIUnchanged(uint256 codeSeed) public {
+        string memory validCode = _generateValidCode(codeSeed);
 
         // Register a code first
         vm.prank(registrar);
@@ -87,8 +87,8 @@ contract UpdateMetadataTest is BuilderCodesTest {
     }
 
     /// @notice Test that updateMetadata emits the ERC4906 MetadataUpdate event
-    function test_updateMetadata_success_emitsERC4906MetadataUpdate() public {
-        string memory validCode = _generateValidCode(161718);
+    function test_updateMetadata_success_emitsERC4906MetadataUpdate(uint256 codeSeed) public {
+        string memory validCode = _generateValidCode(codeSeed);
 
         // Register a code first
         vm.prank(registrar);
