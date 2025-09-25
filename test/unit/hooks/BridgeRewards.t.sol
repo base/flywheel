@@ -44,7 +44,7 @@ contract BridgeRewardsTest is Test {
         builderCodes = BuilderCodes(address(proxy));
 
         // Deploy BridgeRewards
-        bridgeRewards = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI);
+        bridgeRewards = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI, 200);
 
         // Deploy mock USDC
         usdc = new MockERC3009Token("USD Coin", "USDC", 6);
@@ -99,7 +99,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
         bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
@@ -169,7 +169,7 @@ contract BridgeRewardsTest is Test {
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Use fee higher than maximum (2%)
-        uint16 maxFeeBps = bridgeRewards.MAX_FEE_BASIS_POINTS();
+        uint16 maxFeeBps = bridgeRewards.maxFeeBasisPoints();
         vm.assume(feeBps > maxFeeBps);
         vm.assume(bridgedAmount < type(uint256).max / maxFeeBps);
         bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
@@ -202,7 +202,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
         vm.assume(bridgedAmount < type(uint256).max / 2 / feeBps);
         bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
@@ -313,7 +313,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data (user, code, fee)
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
         bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
