@@ -56,10 +56,11 @@ contract BridgeRewards is CampaignHooks {
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
-        (address user, uint256 bridgedAmount, bytes32 code, uint16 feeBps) =
-            abi.decode(hookData, (address, uint256, bytes32, uint16));
+        (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
-        // Check amount nonzero
+        // Check bridged amount nonzero
+        uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
+        bridgedAmount -= flywheel.totalAllocatedFees(campaign, token);
         if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
         // set feeBps to 0 if builder code not registered
