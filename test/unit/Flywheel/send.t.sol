@@ -4,6 +4,8 @@ pragma solidity ^0.8.29;
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 
 /// @title SendTest
 /// @notice Tests for Flywheel.send
@@ -59,27 +61,34 @@ contract SendTest is FlywheelTest {
         address recipient = makeAddr("recipient");
         amount = boundToValidAmount(amount);
 
+        // Use a failing ERC20 token that will cause transfers to fail
+        FailingERC20 failingToken = new FailingERC20();
+
         activateCampaign(campaign, manager);
-        // Don't fund campaign - this will cause transfer to fail due to insufficient balance
+        // Fund campaign with the failing token
+        failingToken.mint(campaign, amount);
 
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
         bytes memory hookData = buildSendHookData(payouts, fees, false);
 
-        vm.expectRevert(abi.encodeWithSelector(Flywheel.SendFailed.selector, address(mockToken), recipient, amount));
+        vm.expectRevert(abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingToken), recipient, amount));
         vm.prank(manager);
-        flywheel.send(campaign, address(mockToken), hookData);
+        flywheel.send(campaign, address(failingToken), hookData);
     }
 
     /// @dev Expects SendFailed
     /// @dev Reverts when token transfer fails with native token
     /// @param amount Payout amount
     function test_reverts_whenSendFailed_nativeToken(uint256 amount) public {
-        address recipient = makeAddr("recipient");
+        // Create a contract that will reject native token transfers by reverting in its receive function
+        RevertingReceiver revertingRecipient = new RevertingReceiver();
+        address recipient = address(revertingRecipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
-        // Don't fund campaign with native token - this will cause transfer to fail
+        // Fund campaign with native token
+        vm.deal(campaign, amount);
 
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
