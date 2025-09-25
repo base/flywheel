@@ -15,7 +15,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
     /// @param payoutAddress The payout address
     /// @param secondOwner The second owner address
     /// @param newPayoutAddress The new payout address for testing updates
-    function test_integration_transferedCodePreservesPayoutAddress(
+    function test_transferedCodePreservesPayoutAddress(
         uint256 codeSeed,
         address initialOwner,
         address payoutAddress,
@@ -64,7 +64,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
     /// @param registrar3 Third registrar address
     /// @param registrar4 Fourth registrar address
     /// @param registrar5 Fifth registrar address
-    function test_integration_addManyRegistrars(
+    function test_addManyRegistrars(
         address testOwner,
         address testPayoutAddress,
         address registrar1,
@@ -135,7 +135,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
     /// @param tempMetadataManager The temporary metadata manager address
     /// @param testOwner The test owner address
     /// @param testPayoutAddress The test payout address
-    function test_integration_revokeRoles(
+    function test_revokeRoles(
         address tempRegistrar,
         address tempMetadataManager,
         address testOwner,
@@ -208,7 +208,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
     /// @param tempMetadataAddress The temporary metadata address
     /// @param randomAddress A random address for testing unauthorized access
     /// @param newMetadataManager The new metadata manager address
-    function test_integration_twoStepOwnerTransfer(
+    function test_twoStepOwnerTransfer(
         address newOwner,
         address tempRegistrar,
         address tempMetadataAddress,
