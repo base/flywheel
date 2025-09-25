@@ -131,7 +131,7 @@ import {MyHelper} from './MyHelper.sol';
 ##### 7. Testing Standards
 
 - **Test file names**: `ContractName.t.sol`
-- **Test contract names**: `ContractNameTest` or `FunctionNameTest`
+- **Test contract names**: `ContractNameTest` or `functionNameTest`
 - **Test function names**: `test_functionName_outcome_optionalContext`
 
 **Test Organization Principles:**
