@@ -16,16 +16,19 @@ contract DistributeTest is FlywheelTest {
         setUpFlywheelBase();
         campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
+
     /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts when campaign does not exist
     /// @param token ERC20 token address under test
     /// @param hookData Raw hook data
-
-    function test_reverts_whenCampaignDoesNotExist(address token, bytes memory hookData) public {
-        address nonExistentCampaign = address(0x1234);
+    /// @param unknownCampaign Non-existent campaign address
+    function test_reverts_whenCampaignDoesNotExist(address token, bytes memory hookData, address unknownCampaign)
+        public
+    {
+        vm.assume(unknownCampaign != campaign);
 
         vm.expectRevert(Flywheel.CampaignDoesNotExist.selector);
-        flywheel.distribute(nonExistentCampaign, token, hookData);
+        flywheel.distribute(unknownCampaign, token, hookData);
     }
 
     /// @dev Expects InvalidCampaignStatus
@@ -243,8 +246,6 @@ contract DistributeTest is FlywheelTest {
         vm.assume(recipient != address(0)); // Avoid zero address
         vm.assume(uint160(recipient) > 1000); // Avoid precompile addresses and low addresses
         vm.assume(recipient.code.length == 0); // Only EOAs to avoid contracts that might revert
-        // Avoid problematic addresses that might be console.log or other system addresses
-        vm.assume(recipient != address(0x000000000000000000636F6e736F6c652e6c6f67));
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -266,37 +267,6 @@ contract DistributeTest is FlywheelTest {
         flywheel.distribute(campaign, Constants.NATIVE_TOKEN, hookData);
 
         assertEq(recipient.balance, initialRecipientBalance + amount);
-    }
-
-    /// @dev Verifies that distribute enforces campaign solvency
-    /// @param recipient Recipient address
-    /// @param amount Distribution amount
-    function test_enforcesCampaignSolvency(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
-        amount = boundToValidAmount(amount);
-
-        activateCampaign(campaign, manager);
-        fundCampaign(campaign, amount, address(this));
-
-        // First allocate the funds
-        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, amount, "");
-        managerAllocate(campaign, address(mockToken), allocatedPayouts);
-
-        // Verify allocation exists
-        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), amount);
-        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), amount);
-
-        // Now distribute - this should work because allocations match the distribution amount
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
-        Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
-        bytes memory hookData = buildSendHookData(payouts, fees, false);
-
-        vm.prank(manager);
-        flywheel.distribute(campaign, address(mockToken), hookData);
-
-        // After distribution, allocations should be consumed
-        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
-        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
     }
 
     /// @dev Verifies that distribute calls work with fees

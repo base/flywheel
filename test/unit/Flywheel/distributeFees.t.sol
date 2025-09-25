@@ -1,48 +1,256 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
-import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
+import {Constants} from "../../../src/Constants.sol";
+import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 
 /// @title DistributeFeesTest
 /// @notice Tests for Flywheel.distributeFees
-contract DistributeFeesTest is Test {
+contract DistributeFeesTest is FlywheelTest {
+    address public campaign;
+
+    function setUp() public {
+        setUpFlywheelBase();
+        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
+    }
     /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts when campaign does not exist
     /// @param token ERC20 token address under test
     /// @param unknownCampaign Non-existent campaign address
-    function test_reverts_whenCampaignDoesNotExist(address token, address unknownCampaign) public {}
+
+    function test_reverts_whenCampaignDoesNotExist(address token, address unknownCampaign) public {
+        vm.assume(unknownCampaign != campaign);
+
+        Flywheel.Distribution[] memory distributions = new Flywheel.Distribution[](0);
+        bytes memory hookData = abi.encode(distributions);
+
+        vm.expectRevert(Flywheel.CampaignDoesNotExist.selector);
+        flywheel.distributeFees(unknownCampaign, token, hookData);
+    }
 
     /// @dev Expects InsufficientCampaignFunds
     /// @dev Reverts when campaign is not solvent
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_reverts_ifCampaignIsNotSolvent(address recipient, uint256 amount) public {}
+    function test_reverts_ifCampaignIsNotSolvent_distributeFees(address recipient, uint256 amount) public {
+        recipient = boundToValidAddress(recipient);
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 1); // Ensure we can do meaningful operations
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with fee amount + 1 so later payout allocation succeeds
+        fundCampaign(campaign, amount + 1, address(this));
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fee was allocated and campaign is solvent
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), amount);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), amount);
+        assertEq(mockToken.balanceOf(campaign), amount + 1);
+
+        // Allocate some payouts to make solvency tight
+        address payoutRecipient = makeAddr("payoutRecipient");
+        uint256 payoutAmount = 1; // Small amount
+        Flywheel.Payout[] memory payouts = buildSinglePayout(payoutRecipient, payoutAmount, "payout");
+        vm.prank(manager);
+        flywheel.allocate(campaign, address(mockToken), abi.encode(payouts));
+
+        // Force insolvency after successful allocation by draining 1 wei from campaign
+        vm.prank(campaign);
+        mockToken.transfer(address(0xdead), 1);
+
+        // Now balance < totalAllocatedFees + totalAllocatedPayouts
+
+        // Try to distribute fees - should fail solvency check
+        vm.expectRevert(Flywheel.InsufficientCampaignFunds.selector);
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
+    }
 
     /// @dev Verifies fees distribution succeeds with an ERC20 token and clears allocated fee
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_succeeds_withERC20Token(address recipient, uint256 amount) public {}
+    function test_succeeds_withERC20Token(address recipient, uint256 amount) public {
+        recipient = boundToValidAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this));
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fee was allocated
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), amount);
+
+        // Now distribute the fees
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
+
+        // Verify fee was sent and allocation was cleared
+        assertEq(mockToken.balanceOf(recipient), initialRecipientBalance + amount);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), 0);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), 0);
+    }
 
     /// @dev Verifies fees distribution succeeds with native token and clears allocated fee
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_succeeds_withNativeToken(address recipient, uint256 amount) public {}
+    function test_succeeds_withNativeToken(address recipient, uint256 amount) public {
+        // Use a simple, clean address to avoid any edge cases
+        recipient = address(uint160(bound(uint160(recipient), 1000, type(uint160).max - 1000)));
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        vm.assume(recipient != address(vm)); // Avoid VM precompile that rejects ETH
+        vm.assume(recipient != address(0)); // Avoid zero address
+        vm.assume(uint160(recipient) > 1000); // Avoid precompile addresses and low addresses
+        vm.assume(recipient.code.length == 0); // Only EOAs to avoid contracts that might revert
+        // Avoid problematic addresses that might be console.log or other system addresses
+        vm.assume(recipient != address(0x000000000000000000636F6e736F6c652e6c6f67));
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with native token
+        vm.deal(campaign, amount);
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, Constants.NATIVE_TOKEN, abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fee was allocated
+        assertEq(flywheel.allocatedFee(campaign, Constants.NATIVE_TOKEN, feeKey), amount);
+
+        // Now distribute the fees
+        uint256 initialRecipientBalance = recipient.balance;
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, Constants.NATIVE_TOKEN, abi.encode(feeAllocations));
+
+        // Verify fee was sent and allocation was cleared
+        assertEq(recipient.balance, initialRecipientBalance + amount);
+        assertEq(flywheel.allocatedFee(campaign, Constants.NATIVE_TOKEN, feeKey), 0);
+        assertEq(flywheel.totalAllocatedFees(campaign, Constants.NATIVE_TOKEN), 0);
+    }
 
     /// @dev Keeps allocation when send fails with ERC20; emits failure
     /// @param amount Fee amount
-    function test_keepsAllocation_onSendFailure_ERC20(uint256 amount) public {}
+    function test_keepsAllocation_onSendFailure_ERC20(uint256 amount) public {
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        // Use a failing ERC20 token that will cause transfers to fail
+        FailingERC20 failingToken = new FailingERC20();
+        address recipient = makeAddr("recipient");
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with the failing token
+        failingToken.mint(campaign, amount);
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, address(failingToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fee was allocated
+        assertEq(flywheel.allocatedFee(campaign, address(failingToken), feeKey), amount);
+        uint256 initialTotalAllocated = flywheel.totalAllocatedFees(campaign, address(failingToken));
+
+        // Now try to distribute the fees - should fail but keep allocation
+        uint256 initialRecipientBalance = failingToken.balanceOf(recipient);
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(failingToken), abi.encode(feeAllocations));
+
+        // Verify fee was NOT sent and allocation was kept
+        assertEq(failingToken.balanceOf(recipient), initialRecipientBalance);
+        assertEq(flywheel.allocatedFee(campaign, address(failingToken), feeKey), amount);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(failingToken)), initialTotalAllocated);
+    }
 
     /// @dev Keeps allocation when send fails with native token; emits failure
     /// @param amount Fee amount
-    function test_keepsAllocation_onSendFailure_nativeToken(uint256 amount) public {}
+    function test_keepsAllocation_onSendFailure_nativeToken(uint256 amount) public {
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        // Create a contract that will reject native token transfers by reverting in its receive function
+        RevertingReceiver revertingRecipient = new RevertingReceiver();
+        address recipient = address(revertingRecipient);
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with native token
+        vm.deal(campaign, amount);
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, Constants.NATIVE_TOKEN, abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fee was allocated
+        assertEq(flywheel.allocatedFee(campaign, Constants.NATIVE_TOKEN, feeKey), amount);
+        uint256 initialTotalAllocated = flywheel.totalAllocatedFees(campaign, Constants.NATIVE_TOKEN);
+
+        // Now try to distribute the fees - should fail but keep allocation
+        uint256 initialRecipientBalance = recipient.balance;
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, Constants.NATIVE_TOKEN, abi.encode(feeAllocations));
+
+        // Verify fee was NOT sent and allocation was kept
+        assertEq(recipient.balance, initialRecipientBalance);
+        assertEq(flywheel.allocatedFee(campaign, Constants.NATIVE_TOKEN, feeKey), amount);
+        assertEq(flywheel.totalAllocatedFees(campaign, Constants.NATIVE_TOKEN), initialTotalAllocated);
+    }
 
     /// @notice Ignores zero-amount fee distributions (no-op)
     /// @dev Verifies totals unchanged and no send attempt for zero amounts
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_ignoresZeroAmountDistributions(address recipient, uint256 amount) public {}
+    function test_ignoresZeroAmountDistributions(address recipient, uint256 amount) public {
+        recipient = boundToValidAddress(recipient);
+        amount = boundToValidAmount(amount); // Fund with some amount, but distribute 0
+        vm.assume(amount > 0);
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this));
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Now try to distribute zero amount fees
+        Flywheel.Distribution[] memory zeroDistributions = buildSingleFee(recipient, feeKey, 0, "zero_fee");
+
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
+        uint256 initialAllocatedAmount = flywheel.allocatedFee(campaign, address(mockToken), feeKey);
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(zeroDistributions));
+
+        // Zero amount should not change recipient balance or allocations
+        assertEq(mockToken.balanceOf(recipient), initialRecipientBalance);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), initialAllocatedAmount);
+    }
 
     /// @dev Verifies multiple fee distributions in a single call
     /// @param recipient1 First recipient address
@@ -54,20 +262,141 @@ contract DistributeFeesTest is Test {
         address recipient2,
         uint256 amount1,
         uint256 amount2
-    ) public {}
+    ) public {
+        recipient1 = boundToValidAddress(recipient1);
+        recipient2 = boundToValidAddress(recipient2);
+        vm.assume(recipient1 != recipient2);
+        vm.assume(recipient1 != campaign); // Avoid self-transfers
+        vm.assume(recipient2 != campaign); // Avoid self-transfers
+
+        (amount1, amount2) = boundToValidMultiAmounts(amount1, amount2);
+        vm.assume(amount1 > 0 && amount2 > 0);
+        uint256 totalAmount = amount1 + amount2;
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, totalAmount, address(this));
+
+        // First allocate fees to both recipients using send with deferred fees
+        Flywheel.Distribution[] memory feeAllocations = new Flywheel.Distribution[](2);
+        feeAllocations[0] = Flywheel.Distribution({
+            recipient: recipient1,
+            key: bytes32(bytes20(recipient1)),
+            amount: amount1,
+            extraData: "fee1"
+        });
+        feeAllocations[1] = Flywheel.Distribution({
+            recipient: recipient2,
+            key: bytes32(bytes20(recipient2)),
+            amount: amount2,
+            extraData: "fee2"
+        });
+
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fees were allocated
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient1))), amount1);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2))), amount2);
+
+        // Now distribute the fees
+        uint256 initialBalance1 = mockToken.balanceOf(recipient1);
+        uint256 initialBalance2 = mockToken.balanceOf(recipient2);
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
+
+        // Verify fees were sent and allocations were cleared
+        assertEq(mockToken.balanceOf(recipient1), initialBalance1 + amount1);
+        assertEq(mockToken.balanceOf(recipient2), initialBalance2 + amount2);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient1))), 0);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
+    }
 
     /// @dev Verifies that distribute fees enforces campaign solvency
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_enforcesCampaignSolvency(address recipient, uint256 amount) public {}
+    function test_enforcesCampaignSolvency(address recipient, uint256 amount) public {
+        recipient = boundToValidAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this));
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee");
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Verify fee was allocated and solvency is maintained
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), amount);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), amount);
+        assertEq(mockToken.balanceOf(campaign), amount); // Campaign balance equals allocated fees
+
+        // Now distribute the fees - this should work because campaign is solvent
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
+
+        // After distribution, allocations should be cleared and solvency maintained
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), 0);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), 0);
+        assertEq(mockToken.balanceOf(campaign), 0); // Campaign balance should be 0 after sending fees
+    }
 
     /// @dev Verifies that FeesDistributed event is emitted on successful distribution
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_emitsFeesDistributed(address recipient, uint256 amount) public {}
+    function test_emitsFeesDistributed(address recipient, uint256 amount) public {
+        recipient = boundToValidAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this));
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee_data");
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Now distribute the fees and expect the FeesDistributed event
+        vm.expectEmit(true, true, true, true);
+        emit Flywheel.FeesDistributed(campaign, address(mockToken), feeKey, recipient, amount, "fee_data");
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
+    }
 
     /// @dev Verifies that FeeTransferFailed event is emitted on failed send
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_emitsFeeTransferFailed(address recipient, uint256 amount) public {}
+    function test_emitsFeeTransferFailed(address recipient, uint256 amount) public {
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0);
+
+        // Create a contract that will reject native token transfers
+        RevertingReceiver revertingRecipient = new RevertingReceiver();
+        recipient = address(revertingRecipient);
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with native token
+        vm.deal(campaign, amount);
+
+        // First allocate a fee using send with deferred fees
+        bytes32 feeKey = bytes32(bytes20(recipient));
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee_data");
+        vm.prank(manager);
+        flywheel.send(campaign, Constants.NATIVE_TOKEN, abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Now try to distribute the fees and expect the FeeTransferFailed event
+        vm.expectEmit(true, true, true, true);
+        emit Flywheel.FeeTransferFailed(campaign, Constants.NATIVE_TOKEN, feeKey, recipient, amount, "fee_data");
+
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, Constants.NATIVE_TOKEN, abi.encode(feeAllocations));
+    }
 }

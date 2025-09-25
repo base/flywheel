@@ -19,11 +19,14 @@ contract AllocateTest is FlywheelTest {
     /// @dev Reverts when campaign does not exist
     /// @param token ERC20 token address under test
     /// @param hookData Raw hook data
-    function test_reverts_whenCampaignDoesNotExist(address token, bytes memory hookData) public {
-        address nonExistentCampaign = address(0x1234);
+    /// @param unknownCampaign Non-existent campaign address
+    function test_reverts_whenCampaignDoesNotExist(address token, bytes memory hookData, address unknownCampaign)
+        public
+    {
+        vm.assume(unknownCampaign != campaign);
 
         vm.expectRevert(Flywheel.CampaignDoesNotExist.selector);
-        flywheel.allocate(nonExistentCampaign, token, hookData);
+        flywheel.allocate(unknownCampaign, token, hookData);
     }
 
     /// @dev Expects InvalidCampaignStatus
