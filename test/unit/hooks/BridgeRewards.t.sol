@@ -197,7 +197,7 @@ contract BridgeRewardsTest is Test {
         vm.deal(bridgeRewardsCampaign, bridgedAmount);
 
         // Prepare mock account
-        MockAccount mockAccount = new MockAccount(false); // reject native token initially
+        MockAccount mockAccount = new MockAccount(address(0), false); // reject native token initially
         vm.prank(builder);
         builderCodes.updatePayoutAddress(TEST_CODE_STRING, address(mockAccount));
 

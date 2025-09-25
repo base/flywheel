@@ -23,10 +23,10 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, 0, uint48(block.timestamp - 1)));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.AfterRegistrationDeadline.selector, deadline));
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
     }
@@ -47,14 +47,15 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
     ) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        invalidRegistrarPk = bound(invalidRegistrarPk, 1, 115792089237316195423570985008687907852837564279074904382605163141518161494336);
+        invalidRegistrarPk =
+            bound(invalidRegistrarPk, 1, 115792089237316195423570985008687907852837564279074904382605163141518161494336);
         vm.assume(invalidRegistrarPk != OWNER_PK && invalidRegistrarPk != REGISTRAR_PK);
         address invalidRegistrar = vm.addr(invalidRegistrarPk);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(invalidRegistrarPk, code, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectRevert();
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, invalidRegistrar, signature);
     }
@@ -74,10 +75,10 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory invalidSignature = "invalid signature";
-        
+
         vm.expectRevert(BuilderCodes.Unauthorized.selector);
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, invalidSignature);
     }
@@ -97,9 +98,9 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         bytes memory signature = _signRegistration(REGISTRAR_PK, "", initialOwner, payoutAddress, deadline);
-        
+
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, ""));
         builderCodes.registerWithSignature("", initialOwner, payoutAddress, deadline, registrar, signature);
     }
@@ -119,10 +120,10 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory longCode = _generateLongCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, longCode, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, longCode));
         builderCodes.registerWithSignature(longCode, initialOwner, payoutAddress, deadline, registrar, signature);
     }
@@ -142,10 +143,10 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory invalidCode = _generateInvalidCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, invalidCode, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, invalidCode));
         builderCodes.registerWithSignature(invalidCode, initialOwner, payoutAddress, deadline, registrar, signature);
     }
@@ -162,10 +163,10 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
     ) public {
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, address(0), payoutAddress, deadline);
-        
+
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, address(0)));
         builderCodes.registerWithSignature(code, address(0), payoutAddress, deadline, registrar, signature);
     }
@@ -182,10 +183,10 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
     ) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, address(0), deadline);
-        
+
         vm.expectRevert(BuilderCodes.ZeroAddress.selector);
         builderCodes.registerWithSignature(code, initialOwner, address(0), deadline, registrar, signature);
     }
@@ -205,13 +206,13 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
-        
+
         // Register the code first
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
-        
+
         // Try to register the same code again with signature
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidSender.selector, address(0)));
@@ -233,12 +234,12 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(OWNER_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, owner, signature);
-        
+
         assertTrue(builderCodes.isRegistered(code));
         assertEq(builderCodes.ownerOf(builderCodes.toTokenId(code)), initialOwner);
     }
@@ -258,12 +259,12 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
-        
+
         assertTrue(builderCodes.isRegistered(code));
         assertEq(builderCodes.ownerOf(builderCodes.toTokenId(code)), initialOwner);
     }
@@ -284,24 +285,25 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        mockAccountOwnerPk = bound(mockAccountOwnerPk, 1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140);
+        mockAccountOwnerPk =
+            bound(mockAccountOwnerPk, 1, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140);
         vm.assume(mockAccountOwnerPk != OWNER_PK && mockAccountOwnerPk != REGISTRAR_PK);
-        
+
         address mockAccountOwner = vm.addr(mockAccountOwnerPk);
-        
+
         // Deploy mock account controlled by the fuzzed EOA
-        MockAccount mockAccount = new MockAccount(mockAccountOwner);
-        
+        MockAccount mockAccount = new MockAccount(mockAccountOwner, true);
+
         // Grant REGISTER_ROLE to the mock account
         vm.startPrank(owner);
         builderCodes.grantRole(builderCodes.REGISTER_ROLE(), address(mockAccount));
         vm.stopPrank();
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(mockAccountOwnerPk, code, initialOwner, payoutAddress, deadline);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, address(mockAccount), signature);
-        
+
         assertTrue(builderCodes.isRegistered(code));
         assertEq(builderCodes.ownerOf(builderCodes.toTokenId(code)), initialOwner);
     }
@@ -321,21 +323,22 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
-        
+
         // Verify the typehash matches what the contract expects
         bytes32 expectedTypehash = builderCodes.REGISTRATION_TYPEHASH();
-        bytes32 actualTypehash = keccak256("BuilderCodeRegistration(string code,address initialOwner,address payoutAddress,uint48 deadline)");
+        bytes32 actualTypehash =
+            keccak256("BuilderCodeRegistration(string code,address initialOwner,address payoutAddress,uint48 deadline)");
         assertEq(actualTypehash, expectedTypehash, "Typehash mismatch");
-        
+
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         // This should succeed if EIP-712 is implemented correctly
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
-        
+
         assertTrue(builderCodes.isRegistered(code));
-        
+
         // Verify domain separator can be computed (since it's not exposed publicly)
         bytes32 domainSeparator = keccak256(
             abi.encode(
@@ -364,13 +367,13 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
-        
+
         assertEq(builderCodes.ownerOf(tokenId), initialOwner);
         assertTrue(builderCodes.isRegistered(code));
     }
@@ -390,12 +393,12 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
-        
+
         assertEq(builderCodes.payoutAddress(code), payoutAddress);
     }
 
@@ -414,14 +417,14 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectEmit(true, true, true, true);
         emit IERC721.Transfer(address(0), initialOwner, tokenId);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
     }
 
@@ -440,14 +443,14 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectEmit(true, true, true, true);
         emit BuilderCodes.CodeRegistered(tokenId, code);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
     }
 
@@ -466,14 +469,14 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         deadline = uint48(bound(deadline, uint48(block.timestamp), type(uint48).max));
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
         bytes memory signature = _signRegistration(REGISTRAR_PK, code, initialOwner, payoutAddress, deadline);
-        
+
         vm.expectEmit(true, true, true, true);
         emit BuilderCodes.PayoutAddressUpdated(tokenId, payoutAddress);
-        
+
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, registrar, signature);
     }
 }

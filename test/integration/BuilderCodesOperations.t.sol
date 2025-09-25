@@ -60,7 +60,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
     /// @param testOwner The owner address for testing
     /// @param testPayoutAddress The payout address for testing
     /// @param registrar1 First registrar address
-    /// @param registrar2 Second registrar address  
+    /// @param registrar2 Second registrar address
     /// @param registrar3 Third registrar address
     /// @param registrar4 Fourth registrar address
     /// @param registrar5 Fifth registrar address
@@ -148,6 +148,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
 
         vm.assume(tempRegistrar != tempMetadataManager);
         vm.assume(tempRegistrar != testOwner);
+        vm.assume(tempRegistrar != registrar);
         vm.assume(tempMetadataManager != testOwner);
 
         // Grant roles
@@ -227,6 +228,7 @@ contract BuilderCodesOperationsTest is BuilderCodesTest {
         vm.assume(tempRegistrar != tempMetadataAddress);
         vm.assume(tempRegistrar != randomAddress);
         vm.assume(tempRegistrar != newMetadataManager);
+        vm.assume(tempRegistrar != registrar);
         vm.assume(tempMetadataAddress != randomAddress);
         vm.assume(tempMetadataAddress != newMetadataManager);
         vm.assume(randomAddress != newMetadataManager);
