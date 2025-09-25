@@ -128,4 +128,54 @@ abstract contract BuilderCodesTest is Test {
         address implementation = address(new BuilderCodes());
         return BuilderCodes(address(new ERC1967Proxy(implementation, "")));
     }
+
+    /// @notice Creates EIP-712 signature for BuilderCode registration using Foundry's native EIP-712 support
+    ///
+    /// @param signerPk Private key of the signer
+    /// @param code The code to register
+    /// @param initialOwner The initial owner of the code
+    /// @param payoutAddress The payout address
+    /// @param deadline The registration deadline
+    ///
+    /// @return signature The EIP-712 signature
+    function _signRegistration(
+        uint256 signerPk,
+        string memory code,
+        address initialOwner,
+        address payoutAddress,
+        uint48 deadline
+    ) internal view returns (bytes memory signature) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                builderCodes.REGISTRATION_TYPEHASH(),
+                keccak256(bytes(code)),
+                initialOwner,
+                payoutAddress,
+                deadline
+            )
+        );
+        
+        // Use the same approach as the contract - we need to compute the domain separator manually
+        // since BuilderCodes doesn't expose it publicly. We'll use the EIP-712 standard format.
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("Builder Codes")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(builderCodes)
+            )
+        );
+        
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                structHash
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, digest);
+        return abi.encodePacked(r, s, v);
+    }
 }
