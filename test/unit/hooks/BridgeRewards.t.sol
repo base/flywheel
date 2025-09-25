@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {MockERC3009Token} from "../../../lib/commerce-payments/test/mocks/MockERC3009Token.sol";
+import {MockAccount} from "../../lib/mocks/MockAccount.sol";
 
 import {BridgeRewards} from "../../../src/hooks/BridgeRewards.sol";
 import {BuilderCodes} from "../../../src/BuilderCodes.sol";
@@ -82,26 +83,29 @@ contract BridgeRewardsTest is Test {
         flywheel.createCampaign(address(bridgeRewards), 0, "invalid");
     }
 
-    function test_onSend_revert_zeroBalance() public {
+    function test_onSend_revert_zeroAmount(uint16 feeBps) public {
         // Prepare hook data
-        bytes memory hookData = abi.encode(user, TEST_CODE, uint16(100)); // 1% fee
+        uint256 bridgedAmount = 0;
+        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
 
         // Should revert when campaign has zero balance
-        vm.expectRevert(abi.encodeWithSelector(BridgeRewards.ZeroAmount.selector));
+        vm.expectRevert(abi.encodeWithSelector(BridgeRewards.ZeroBridgedAmount.selector));
         flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
     }
 
-    function test_onSend_success() public {
+    function test_onSend_success(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
-        uint256 campaignBalance = 100e6; // 100 USDC
-        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+        vm.assume(bridgedAmount > 0);
+        usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Prepare hook data with 1% fee
-        uint16 feeBps = 100; // 1%
-        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+        vm.assume(feeBps > 0);
+        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(bridgedAmount < type(uint256).max / feeBps);
+        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
 
-        uint256 feeAmount = (campaignBalance * feeBps) / 10000;
-        uint256 userAmount = campaignBalance - feeAmount;
+        uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
+        uint256 userAmount = bridgedAmount - feeAmount;
 
         // Record balances before
         uint256 userBalanceBefore = usdc.balanceOf(user);
@@ -116,14 +120,14 @@ contract BridgeRewardsTest is Test {
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
     }
 
-    function test_onSend_success_no_fee() public {
+    function test_onSend_success_no_fee(uint256 bridgedAmount) public {
         // Fund the campaign
-        uint256 campaignBalance = 100e6; // 100 USDC
-        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+        vm.assume(bridgedAmount > 0);
+        usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Prepare hook data with 0% fee
         uint16 feeBps = 0;
-        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
 
         // Record balances before
         uint256 userBalanceBefore = usdc.balanceOf(user);
@@ -133,20 +137,19 @@ contract BridgeRewardsTest is Test {
         flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
 
         // Check final balances
-        assertEq(usdc.balanceOf(user), userBalanceBefore + campaignBalance, "User should receive full balance");
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full balance");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore, "Builder should receive no fee");
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
     }
 
-    function test_onSend_success_builderCodeNotRegistered() public {
+    function test_onSend_success_builderCodeNotRegistered(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
-        uint256 campaignBalance = 100e6; // 100 USDC
-        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+        vm.assume(bridgedAmount > 0);
+        usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Prepare hook data with 1% fee
-        uint16 feeBps = 100; // 1%
         bytes32 unregisteredCode = bytes32("unregistered");
-        bytes memory hookData = abi.encode(user, unregisteredCode, feeBps);
+        bytes memory hookData = abi.encode(user, bridgedAmount, unregisteredCode, feeBps);
 
         // Record balances before
         uint256 userBalanceBefore = usdc.balanceOf(user);
@@ -156,22 +159,24 @@ contract BridgeRewardsTest is Test {
         flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
 
         // Check final balances
-        assertEq(usdc.balanceOf(user), userBalanceBefore + campaignBalance, "User should receive full balance");
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full balance");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore, "Builder should receive no fee");
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
     }
 
-    function test_onSend_success_feeBasisPointsTooHigh() public {
+    function test_onSend_success_feeBasisPointsTooHigh(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
-        uint256 campaignBalance = 100e6; // 100 USDC
-        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+        vm.assume(bridgedAmount > 0);
+        usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Use fee higher than maximum (2%)
-        uint16 feeBps = uint16(bridgeRewards.MAX_FEE_BASIS_POINTS() + 1);
-        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+        uint16 maxFeeBps = bridgeRewards.MAX_FEE_BASIS_POINTS();
+        vm.assume(feeBps > maxFeeBps);
+        vm.assume(bridgedAmount < type(uint256).max / maxFeeBps);
+        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
 
-        uint256 feeAmount = (campaignBalance * bridgeRewards.MAX_FEE_BASIS_POINTS()) / 10000;
-        uint256 userAmount = campaignBalance - feeAmount;
+        uint256 feeAmount = (bridgedAmount * maxFeeBps) / 1e4;
+        uint256 userAmount = bridgedAmount - feeAmount;
 
         // Record balances before
         uint256 userBalanceBefore = usdc.balanceOf(user);
@@ -186,13 +191,80 @@ contract BridgeRewardsTest is Test {
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
     }
 
-    function test_onWithdrawFunds_success() public {
+    function test_onSend_allocatedFeesNotIncludedInAvailableBalance(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
-        uint256 campaignBalance = 100e6; // 100 USDC
-        usdc.mint(bridgeRewardsCampaign, campaignBalance);
+        vm.assume(bridgedAmount > 0);
+        vm.deal(bridgeRewardsCampaign, bridgedAmount);
+
+        // Prepare mock account
+        MockAccount mockAccount = new MockAccount(false); // reject native token initially
+        vm.prank(builder);
+        builderCodes.updatePayoutAddress(TEST_CODE_STRING, address(mockAccount));
+
+        // Prepare hook data with 1% fee
+        vm.assume(feeBps > 0);
+        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(bridgedAmount < type(uint256).max / 2 / feeBps);
+        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+
+        uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
+        uint256 userAmount = bridgedAmount - feeAmount;
+
+        // Record balances before
+        uint256 userBalanceBefore = user.balance;
+        uint256 builderPayoutBalanceBefore = builderPayout.balance;
+
+        // Execute send
+        flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
+
+        // Check balances after send with failed fee send
+        assertEq(user.balance, userBalanceBefore + userAmount, "User should receive balance minus fee");
+        assertEq(builderPayout.balance, builderPayoutBalanceBefore, "Builder should not receive fee");
+        assertEq(
+            bridgeRewardsCampaign.balance,
+            flywheel.totalAllocatedFees(bridgeRewardsCampaign, Constants.NATIVE_TOKEN),
+            "Campaign should only have total allocated fees left over"
+        );
+        assertEq(
+            flywheel.totalAllocatedFees(bridgeRewardsCampaign, Constants.NATIVE_TOKEN),
+            flywheel.allocatedFee(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, TEST_CODE),
+            "Only allocated fee is for TEST_CODE"
+        );
+        assertEq(
+            flywheel.allocatedFee(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, TEST_CODE),
+            feeAmount,
+            "Allocated fee matches intended amount"
+        );
+
+        // Perform another send with no fees
+        vm.deal(bridgeRewardsCampaign, bridgeRewardsCampaign.balance + bridgedAmount);
+
+        // Record balances before
+        userBalanceBefore = user.balance;
+        builderPayoutBalanceBefore = builderPayout.balance;
+
+        // Execute send
+        feeBps = 0;
+        hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
+
+        // Check balances after send with no fees
+        assertEq(user.balance, userBalanceBefore + bridgedAmount, "User should receive all of new campaign funding");
+        assertEq(builderPayout.balance, builderPayoutBalanceBefore, "Builder should not receive fee");
+        assertEq(
+            bridgeRewardsCampaign.balance,
+            flywheel.totalAllocatedFees(bridgeRewardsCampaign, Constants.NATIVE_TOKEN),
+            "Campaign should only have allocated fees left over"
+        );
+    }
+
+    function test_onWithdrawFunds_success(uint256 amount) public {
+        // Fund the campaign
+        vm.assume(amount > 0);
+        usdc.mint(bridgeRewardsCampaign, amount);
 
         // Prepare withdrawal hook data
-        Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: campaignBalance, extraData: ""});
+        Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: amount, extraData: ""});
         bytes memory hookData = abi.encode(payout);
 
         // Record balances before
@@ -202,7 +274,7 @@ contract BridgeRewardsTest is Test {
         flywheel.withdrawFunds(bridgeRewardsCampaign, address(usdc), hookData);
 
         // Check final balances
-        assertEq(usdc.balanceOf(user), userBalanceBefore + campaignBalance, "User should receive withdrawn amount");
+        assertEq(usdc.balanceOf(user), userBalanceBefore + amount, "User should receive withdrawn amount");
         assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
     }
 
@@ -235,17 +307,20 @@ contract BridgeRewardsTest is Test {
     //                    NATIVE TOKEN TESTS
     // =============================================================
 
-    function test_send_nativeToken_succeeds() public {
+    function test_send_nativeToken_succeeds(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund campaign with native token
-        vm.deal(bridgeRewardsCampaign, 1 ether);
+        vm.assume(bridgedAmount > 0);
+        vm.deal(bridgeRewardsCampaign, bridgedAmount);
 
         // Prepare hook data (user, code, fee)
-        uint16 feeBps = 100; // 1%
-        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
+        vm.assume(feeBps > 0);
+        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(bridgedAmount < type(uint256).max / feeBps);
+        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
 
         // Expected amounts based on contract logic
-        uint256 startingBalance = bridgeRewardsCampaign.balance; // 1 ether
-        uint256 expectedFee = (startingBalance * feeBps) / 10000;
+        uint256 startingBalance = bridgeRewardsCampaign.balance;
+        uint256 expectedFee = (startingBalance * feeBps) / 1e4;
         uint256 expectedUser = startingBalance - expectedFee;
 
         uint256 userBefore = user.balance;
@@ -258,18 +333,19 @@ contract BridgeRewardsTest is Test {
         assertEq(bridgeRewardsCampaign.balance, 0, "Campaign should be empty");
     }
 
-    function test_withdraw_nativeToken_succeeds() public {
+    function test_withdraw_nativeToken_succeeds(uint256 amount) public {
         // Fund campaign with native token
-        vm.deal(bridgeRewardsCampaign, 1 ether);
+        vm.assume(amount > 0);
+        vm.deal(bridgeRewardsCampaign, amount);
 
         // Prepare withdrawal hook data
-        Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: 1 ether, extraData: ""});
+        Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: amount, extraData: ""});
         bytes memory hookData = abi.encode(payout);
 
         // Execute withdraw; assert balances updated
         uint256 beforeUser = user.balance;
         flywheel.withdrawFunds(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
-        assertEq(user.balance, beforeUser + 1 ether);
+        assertEq(user.balance, beforeUser + amount);
         assertEq(bridgeRewardsCampaign.balance, 0);
     }
 }
