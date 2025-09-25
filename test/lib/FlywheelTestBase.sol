@@ -202,4 +202,47 @@ abstract contract FlywheelTest is Test {
         uint256 remaining = MAX_FUZZ_AMOUNT - amount1Bounded;
         amount2Bounded = bound(amount2, 1, remaining);
     }
+
+    /// @notice Bounds fee basis points to valid range (0-1000) to prevent overflow
+    /// @param feeBp Fuzzed fee basis points
+    /// @return Bounded fee basis points between 0 and 1000 (10%)
+    function boundToValidFeeBp(uint256 feeBp) public pure returns (uint16) {
+        return uint16(bound(feeBp, 0, 1_000)); // Max 10% to prevent overflow with large amounts
+    }
+
+    /// @notice Builds a single fee distribution
+    /// @param recipient Fee recipient address
+    /// @param key Fee key for tracking
+    /// @param amount Fee amount
+    /// @param extraData Extra data for event payloads
+    /// @return fees An array with one fee entry
+    function buildSingleFee(address recipient, bytes32 key, uint256 amount, bytes memory extraData)
+        public
+        pure
+        returns (Flywheel.Distribution[] memory fees)
+    {
+        fees = new Flywheel.Distribution[](1);
+        fees[0] = Flywheel.Distribution({recipient: recipient, key: key, amount: amount, extraData: extraData});
+    }
+
+    /// @notice Builds hook data for send with payouts and fees
+    /// @param payouts Array of payouts
+    /// @param fees Array of fee distributions
+    /// @param sendFeesNow Whether to send fees immediately
+    /// @return Encoded hook data for send function
+    function buildSendHookData(Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
+        public
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(payouts, fees, sendFeesNow);
+    }
+
+    /// @notice Calculates fee amount from payout amount and basis points
+    /// @param payoutAmount Base amount to calculate fee from
+    /// @param feeBp Fee basis points (0-10000)
+    /// @return Fee amount
+    function calculateFeeAmount(uint256 payoutAmount, uint16 feeBp) public pure returns (uint256) {
+        return (payoutAmount * feeBp) / 10_000;
+    }
 }
