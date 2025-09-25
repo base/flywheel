@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesTest, IERC721Errors} from "../../lib/BuilderCodesTest.sol";
-import {BuilderCodes} from "../../../src/BuilderCodes.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
+
+import {BuilderCodesTest, IERC721Errors} from "../../lib/BuilderCodesTest.sol";
 import {MockAccount} from "../../lib/mocks/MockAccount.sol";
 
 /// @notice Unit tests for BuilderCodes.registerWithSignature
@@ -56,7 +59,11 @@ contract RegisterWithSignatureTest is BuilderCodesTest {
         string memory code = _generateValidCode(codeSeed);
         bytes memory signature = _signRegistration(invalidRegistrarPk, code, initialOwner, payoutAddress, deadline);
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, invalidRegistrar, builderCodes.REGISTER_ROLE()
+            )
+        );
         builderCodes.registerWithSignature(code, initialOwner, payoutAddress, deadline, invalidRegistrar, signature);
     }
 

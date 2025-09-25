@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BuilderCodesTest, IERC721Errors} from "../../lib/BuilderCodesTest.sol";
-import {BuilderCodes} from "../../../src/BuilderCodes.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+import {BuilderCodes} from "../../../src/BuilderCodes.sol";
+
+import {BuilderCodesTest, IERC721Errors} from "../../lib/BuilderCodesTest.sol";
 
 /// @notice Unit tests for BuilderCodes.register
 contract RegisterTest is BuilderCodesTest {
@@ -23,11 +26,15 @@ contract RegisterTest is BuilderCodesTest {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
         vm.assume(sender != owner && sender != registrar);
-        
+
         string memory code = _generateValidCode(codeSeed);
-        
-        vm.prank(sender);
-        vm.expectRevert();
+
+        vm.startPrank(sender);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, sender, builderCodes.REGISTER_ROLE()
+            )
+        );
         builderCodes.register(code, initialOwner, payoutAddress);
     }
 
@@ -38,7 +45,7 @@ contract RegisterTest is BuilderCodesTest {
     function test_register_revert_emptyCode(address initialOwner, address payoutAddress) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         vm.prank(registrar);
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, ""));
         builderCodes.register("", initialOwner, payoutAddress);
@@ -54,9 +61,9 @@ contract RegisterTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory longCode = _generateLongCode(codeSeed);
-        
+
         vm.prank(registrar);
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, longCode));
         builderCodes.register(longCode, initialOwner, payoutAddress);
@@ -74,9 +81,9 @@ contract RegisterTest is BuilderCodesTest {
     ) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory invalidCode = _generateInvalidCode(codeSeed);
-        
+
         vm.prank(registrar);
         vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, invalidCode));
         builderCodes.register(invalidCode, initialOwner, payoutAddress);
@@ -88,9 +95,9 @@ contract RegisterTest is BuilderCodesTest {
     /// @param payoutAddress The payout address
     function test_register_revert_zeroInitialOwner(uint256 codeSeed, address payoutAddress) public {
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
-        
+
         vm.prank(registrar);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, address(0)));
         builderCodes.register(code, address(0), payoutAddress);
@@ -102,9 +109,9 @@ contract RegisterTest is BuilderCodesTest {
     /// @param initialOwner The initial owner address
     function test_register_revert_zeroPayoutAddress(uint256 codeSeed, address initialOwner) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
-        
+
         string memory code = _generateValidCode(codeSeed);
-        
+
         vm.prank(registrar);
         vm.expectRevert(BuilderCodes.ZeroAddress.selector);
         builderCodes.register(code, initialOwner, address(0));
@@ -120,14 +127,14 @@ contract RegisterTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
-        
+
         // Register the code first
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
-        
+
         // Try to register the same code again
         vm.prank(registrar);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidSender.selector, address(0)));
@@ -142,13 +149,13 @@ contract RegisterTest is BuilderCodesTest {
     function test_register_success_mintsToken(uint256 codeSeed, address initialOwner, address payoutAddress) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
-        
+
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
-        
+
         assertEq(builderCodes.ownerOf(tokenId), initialOwner);
         assertTrue(builderCodes.isRegistered(code));
     }
@@ -163,13 +170,13 @@ contract RegisterTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
-        
+
         vm.prank(owner);
         builderCodes.register(code, initialOwner, payoutAddress);
-        
+
         assertEq(builderCodes.ownerOf(tokenId), initialOwner);
         assertTrue(builderCodes.isRegistered(code));
     }
@@ -184,12 +191,12 @@ contract RegisterTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
-        
+
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
-        
+
         assertEq(builderCodes.payoutAddress(code), payoutAddress);
     }
 
@@ -203,13 +210,13 @@ contract RegisterTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
-        
+
         vm.expectEmit(true, true, true, true);
         emit IERC721.Transfer(address(0), initialOwner, tokenId);
-        
+
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
     }
@@ -224,13 +231,13 @@ contract RegisterTest is BuilderCodesTest {
     {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
-        
+
         vm.expectEmit(true, true, true, true);
         emit BuilderCodes.CodeRegistered(tokenId, code);
-        
+
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
     }
@@ -247,13 +254,13 @@ contract RegisterTest is BuilderCodesTest {
     ) public {
         initialOwner = _boundNonZeroAddress(initialOwner);
         payoutAddress = _boundNonZeroAddress(payoutAddress);
-        
+
         string memory code = _generateValidCode(codeSeed);
         uint256 tokenId = builderCodes.toTokenId(code);
-        
+
         vm.expectEmit(true, true, true, true);
         emit BuilderCodes.PayoutAddressUpdated(tokenId, payoutAddress);
-        
+
         vm.prank(registrar);
         builderCodes.register(code, initialOwner, payoutAddress);
     }

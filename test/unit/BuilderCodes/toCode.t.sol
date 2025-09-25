@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {LibString} from "solady/utils/LibString.sol";
+
 import {BuilderCodesTest} from "../../lib/BuilderCodesTest.sol";
 import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
@@ -27,8 +29,9 @@ contract ToCodeTest is BuilderCodesTest {
         address initialPayoutAddress
     ) public {
         // Use a token ID that would convert to invalid characters
-        uint256 invalidTokenId = uint256(bytes32(bytes(_generateInvalidCode(tokenId))));
-        vm.expectRevert();
+        string memory invalidCode = _generateInvalidCode(tokenId);
+        uint256 invalidTokenId = uint256(bytes32(bytes(invalidCode)));
+        vm.expectRevert(abi.encodeWithSelector(BuilderCodes.InvalidCode.selector, invalidCode));
         builderCodes.toCode(invalidTokenId);
     }
 
@@ -43,7 +46,11 @@ contract ToCodeTest is BuilderCodesTest {
         address initialPayoutAddress
     ) public {
         uint256 invalidTokenId = _generateInvalidTokenId(tokenId);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BuilderCodes.InvalidCode.selector, LibString.fromSmallString(bytes32(invalidTokenId))
+            )
+        );
         builderCodes.toCode(invalidTokenId);
     }
 
