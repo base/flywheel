@@ -273,4 +273,128 @@ contract OnDistributeTest is CashbackRewardsTest {
         vm.prank(manager);
         flywheel.distribute(unlimitedCashbackCampaign, address(usdc), distributeHookData);
     }
+
+    function test_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse() public {
+        uint120 paymentAmount = 1000e6;
+        uint120 allocateAmount = 100e6;
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        // First allocate some funds
+        chargePayment(paymentInfo);
+        bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
+        vm.prank(manager);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
+
+        // Try to distribute zero amount with revertOnError = false
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            0,
+            CashbackRewards.RewardOperation.DISTRIBUTE,
+            abi.encodeWithSelector(CashbackRewards.ZeroPayoutAmount.selector)
+        );
+
+        vm.prank(manager);
+        flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    function test_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse() public {
+        uint120 paymentAmount = 1000e6;
+        uint120 allocateAmount = 100e6;
+        uint120 distributeAmount = 50e6;
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+
+        // First allocate some funds
+        chargePayment(paymentInfo);
+        bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
+        vm.prank(manager);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
+
+        // Change token for distribute
+        paymentInfo.token = address(0x1234); // Wrong token
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, distributeAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            distributeAmount,
+            CashbackRewards.RewardOperation.DISTRIBUTE,
+            abi.encodeWithSelector(CashbackRewards.TokenMismatch.selector)
+        );
+
+        vm.prank(manager);
+        flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    function test_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse() public {
+        uint120 paymentAmount = 1000e6;
+        uint120 distributeAmount = 100e6;
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, distributeAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        // Don't charge the payment - leave it uncollected
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            distributeAmount,
+            CashbackRewards.RewardOperation.DISTRIBUTE,
+            abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector)
+        );
+
+        vm.prank(manager);
+        flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    function test_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse() public {
+        uint120 paymentAmount = 1000e6;
+        uint120 allocateAmount = 100e6;
+        uint120 distributeAmount = 50e6;
+
+        // Create valid payment (charged and allocated)
+        AuthCaptureEscrow.PaymentInfo memory validPayment = createPaymentInfo(buyer, paymentAmount);
+        validPayment.salt = uint256(keccak256("valid"));
+        chargePayment(validPayment);
+        bytes memory allocateHookData = createCashbackHookData(validPayment, allocateAmount);
+        vm.prank(manager);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
+
+        // Create invalid payment (not charged)
+        AuthCaptureEscrow.PaymentInfo memory invalidPayment = createPaymentInfo(buyer, paymentAmount);
+        invalidPayment.salt = uint256(keccak256("invalid"));
+
+        bytes memory hookData = createMixedCashbackHookDataNoRevert(validPayment, distributeAmount, invalidPayment, distributeAmount);
+        bytes32 invalidPaymentHash = escrow.getHash(invalidPayment);
+
+        // Expect event for the invalid payment
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            invalidPaymentHash,
+            distributeAmount,
+            CashbackRewards.RewardOperation.DISTRIBUTE,
+            abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector)
+        );
+
+        // Should not revert, but process the valid payment and emit event for invalid
+        vm.prank(manager);
+        flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
+
+        // Verify the valid payment was processed
+        CashbackRewards.RewardState memory validRewards = getRewardsInfo(validPayment, unlimitedCashbackCampaign);
+        assertEq(validRewards.allocated, allocateAmount - distributeAmount);
+        assertEq(validRewards.distributed, distributeAmount);
+
+        // Verify the invalid payment was not processed
+        CashbackRewards.RewardState memory invalidRewards = getRewardsInfo(invalidPayment, unlimitedCashbackCampaign);
+        assertEq(invalidRewards.allocated, 0);
+        assertEq(invalidRewards.distributed, 0);
+    }
 }
