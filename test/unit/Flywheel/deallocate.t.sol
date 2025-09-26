@@ -119,17 +119,20 @@ contract DeallocateTest is FlywheelTest {
     }
 
     /// @dev Verifies that deallocate remains allowed for campaign in FINALIZING state
-    /// @param amount Deallocation amount
-    function test_succeeds_whenCampaignFinalizing(uint256 amount) public {
+    /// @param allocateAmount Allocation amount
+    /// @param deallocateAmount Deallocation amount
+    function test_succeeds_whenCampaignFinalizing(uint256 allocateAmount, uint256 deallocateAmount) public {
         address recipient = boundToValidPayableAddress(makeAddr("recipient"));
-        amount = boundToValidAmount(amount);
-        vm.assume(amount > 0);
+        allocateAmount = boundToValidAmount(allocateAmount);
+        deallocateAmount = boundToValidAmount(deallocateAmount);
+        vm.assume(allocateAmount > 0);
+        vm.assume(deallocateAmount <= allocateAmount);
 
         activateCampaign(campaign, manager);
-        fundCampaign(campaign, amount, address(this));
+        fundCampaign(campaign, allocateAmount, address(this));
 
         // First allocate the funds
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "payout");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, allocateAmount, "payout");
         managerAllocate(campaign, address(mockToken), payouts);
 
         // Move to FINALIZING state
@@ -138,84 +141,102 @@ contract DeallocateTest is FlywheelTest {
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
 
         // Now deallocate - should work in FINALIZING state
+        Flywheel.Payout[] memory deallocatePayouts = buildSinglePayout(recipient, deallocateAmount, "deallocate");
         vm.prank(manager);
-        flywheel.deallocate(campaign, address(mockToken), abi.encode(payouts));
+        flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
 
         // Verify deallocation was successful
-        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),
+            allocateAmount - deallocateAmount
+        );
     }
 
     /// @dev Verifies that deallocate calls work with an ERC20 token
-    /// @param amount Deallocation amount
-    function test_succeeds_withERC20Token(uint256 amount) public {
+    /// @param allocateAmount Allocation amount
+    /// @param deallocateAmount Deallocation amount
+    function test_succeeds_withERC20Token(uint256 allocateAmount, uint256 deallocateAmount) public {
         address recipient = boundToValidPayableAddress(makeAddr("recipient"));
-        amount = boundToValidAmount(amount);
-        vm.assume(amount > 0);
+        allocateAmount = boundToValidAmount(allocateAmount);
+        deallocateAmount = boundToValidAmount(deallocateAmount);
+        vm.assume(allocateAmount > 0);
+        vm.assume(deallocateAmount <= allocateAmount);
 
         activateCampaign(campaign, manager);
-        fundCampaign(campaign, amount, address(this));
+        fundCampaign(campaign, allocateAmount, address(this));
 
         // First allocate the funds
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "payout");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, allocateAmount, "payout");
         managerAllocate(campaign, address(mockToken), payouts);
 
         // Verify initial allocation
         uint256 initialAllocated = flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient)));
         uint256 initialTotalAllocated = flywheel.totalAllocatedPayouts(campaign, address(mockToken));
-        assertEq(initialAllocated, amount);
-        assertEq(initialTotalAllocated, amount);
+        assertEq(initialAllocated, allocateAmount);
+        assertEq(initialTotalAllocated, allocateAmount);
 
         // Now deallocate
+        Flywheel.Payout[] memory deallocatePayouts = buildSinglePayout(recipient, deallocateAmount, "deallocate");
         vm.prank(manager);
-        flywheel.deallocate(campaign, address(mockToken), abi.encode(payouts));
+        flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
 
         // Verify deallocation cleared the allocation
-        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
-        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),
+            allocateAmount - deallocateAmount
+        );
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - deallocateAmount);
     }
 
     /// @dev Verifies that deallocate calls work with native token
-    /// @param amount Deallocation amount
-    function test_succeeds_withNativeToken(uint256 amount) public {
+    /// @param allocateAmount Allocation amount
+    /// @param deallocateAmount Deallocation amount
+    function test_succeeds_withNativeToken(uint256 allocateAmount, uint256 deallocateAmount) public {
         address recipient = boundToValidPayableAddress(makeAddr("recipient"));
-        amount = boundToValidAmount(amount);
-        vm.assume(amount > 0);
+        allocateAmount = boundToValidAmount(allocateAmount);
+        deallocateAmount = boundToValidAmount(deallocateAmount);
+        vm.assume(allocateAmount > 0);
+        vm.assume(deallocateAmount <= allocateAmount);
 
         activateCampaign(campaign, manager);
         // Fund campaign with native token
-        vm.deal(campaign, amount);
+        vm.deal(campaign, allocateAmount);
 
         // First allocate the funds
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "payout");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, allocateAmount, "payout");
         managerAllocate(campaign, Constants.NATIVE_TOKEN, payouts);
 
         // Verify initial allocation
         uint256 initialAllocated =
             flywheel.allocatedPayout(campaign, Constants.NATIVE_TOKEN, bytes32(bytes20(recipient)));
         uint256 initialTotalAllocated = flywheel.totalAllocatedPayouts(campaign, Constants.NATIVE_TOKEN);
-        assertEq(initialAllocated, amount);
-        assertEq(initialTotalAllocated, amount);
+        assertEq(initialAllocated, allocateAmount);
+        assertEq(initialTotalAllocated, allocateAmount);
 
         // Now deallocate
+        Flywheel.Payout[] memory deallocatePayouts = buildSinglePayout(recipient, deallocateAmount, "deallocate");
         vm.prank(manager);
-        flywheel.deallocate(campaign, Constants.NATIVE_TOKEN, abi.encode(payouts));
+        flywheel.deallocate(campaign, Constants.NATIVE_TOKEN, abi.encode(deallocatePayouts));
 
         // Verify deallocation cleared the allocation
-        assertEq(flywheel.allocatedPayout(campaign, Constants.NATIVE_TOKEN, bytes32(bytes20(recipient))), 0);
-        assertEq(flywheel.totalAllocatedPayouts(campaign, Constants.NATIVE_TOKEN), 0);
+        assertEq(
+            flywheel.allocatedPayout(campaign, Constants.NATIVE_TOKEN, bytes32(bytes20(recipient))),
+            allocateAmount - deallocateAmount
+        );
+        assertEq(flywheel.totalAllocatedPayouts(campaign, Constants.NATIVE_TOKEN), allocateAmount - deallocateAmount);
     }
 
     /// @notice Ignores zero-amount deallocations (no-op)
     /// @dev Verifies totals unchanged and no event for zero amounts using the deployed token
-    function test_ignoresZeroAmountDeallocations() public {
+    function test_ignoresZeroAmountDeallocations(uint256 allocateAmount) public {
         address recipient = boundToValidPayableAddress(makeAddr("recipient"));
-        uint256 amount = 1000;
+        allocateAmount = boundToValidAmount(allocateAmount);
 
         activateCampaign(campaign, manager);
-        fundCampaign(campaign, amount, address(this));
+        fundCampaign(campaign, allocateAmount, address(this));
 
         // First allocate some funds
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "payout");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, allocateAmount, "payout");
         managerAllocate(campaign, address(mockToken), payouts);
 
         // Store initial state
