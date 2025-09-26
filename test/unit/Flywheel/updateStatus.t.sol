@@ -14,10 +14,10 @@ contract UpdateStatusTest is FlywheelTest {
         setUpFlywheelBase();
         campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
+
     /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts when campaign does not exist
     /// @param nonExistentCampaign Non-existent campaign address
-
     function test_reverts_ifNonexistentCampaign(address nonExistentCampaign) public {
         vm.assume(nonExistentCampaign != campaign); // Ensure it's not the existing campaign
 
