@@ -184,8 +184,10 @@ abstract contract FlywheelTest is Test {
     /// @notice Bounds an address to be non-zero
     /// @param addr Fuzzed address input
     /// @return Bounded address that is not address(0)
-    function boundToValidAddress(address addr) public pure returns (address) {
-        return address(uint160(bound(uint160(addr), 1, type(uint160).max)));
+    function boundToValidPayableAddress(address addr) public returns (address) {
+        address bounded = address(uint160(bound(uint160(addr), 1, type(uint160).max)));
+        assumePayable(bounded);
+        return bounded;
     }
 
     /// @notice Bounds two amounts for multi-allocation tests where total must not exceed MAX_FUZZ_AMOUNT

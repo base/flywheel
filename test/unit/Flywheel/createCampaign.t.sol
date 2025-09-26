@@ -29,9 +29,6 @@ contract CreateCampaignTest is FlywheelTest {
     function test_deploysClone_deterministicAddress(uint256 nonce, address owner, address manager, string memory uri)
         public
     {
-        owner = boundToValidAddress(owner);
-        manager = boundToValidAddress(manager);
-
         // Predict the campaign address
         bytes memory hookData = abi.encode(owner, manager, uri);
         address predictedAddress = flywheel.predictCampaignAddress(address(mockCampaignHooksWithFees), nonce, hookData);
@@ -58,8 +55,8 @@ contract CreateCampaignTest is FlywheelTest {
     function test_returnsExisting_whenAlreadyDeployed(uint256 nonce, address owner, address manager, string memory uri)
         public
     {
-        owner = boundToValidAddress(owner);
-        manager = boundToValidAddress(manager);
+        owner = boundToValidPayableAddress(owner);
+        manager = boundToValidPayableAddress(manager);
 
         bytes memory hookData = abi.encode(owner, manager, uri);
 
@@ -82,8 +79,8 @@ contract CreateCampaignTest is FlywheelTest {
     /// @param manager Campaign manager
     /// @param uri Campaign URI
     function test_setsStatusToInactive(uint256 nonce, address owner, address manager, string memory uri) public {
-        owner = boundToValidAddress(owner);
-        manager = boundToValidAddress(manager);
+        owner = boundToValidPayableAddress(owner);
+        manager = boundToValidPayableAddress(manager);
 
         bytes memory hookData = abi.encode(owner, manager, uri);
 
@@ -104,8 +101,8 @@ contract CreateCampaignTest is FlywheelTest {
     /// @param manager Campaign manager
     /// @param uri Campaign URI
     function test_setsHooks(uint256 nonce, address owner, address manager, string memory uri) public {
-        owner = boundToValidAddress(owner);
-        manager = boundToValidAddress(manager);
+        owner = boundToValidPayableAddress(owner);
+        manager = boundToValidPayableAddress(manager);
 
         bytes memory hookData = abi.encode(owner, manager, uri);
 
@@ -124,8 +121,8 @@ contract CreateCampaignTest is FlywheelTest {
     /// @param manager Campaign manager
     /// @param uri Campaign URI
     function test_emitsCampaignCreated(uint256 nonce, address owner, address manager, string memory uri) public {
-        owner = boundToValidAddress(owner);
-        manager = boundToValidAddress(manager);
+        owner = boundToValidPayableAddress(owner);
+        manager = boundToValidPayableAddress(manager);
 
         bytes memory hookData = abi.encode(owner, manager, uri);
 

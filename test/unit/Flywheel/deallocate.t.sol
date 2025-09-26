@@ -58,7 +58,7 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Deallocate cannot cause InsufficientCampaignFunds since it only reduces allocations
     /// @param amount Deallocation amount
     function test_reverts_ifCampaignIsInsufficientlyFunded(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -86,35 +86,42 @@ contract DeallocateTest is FlywheelTest {
     }
 
     /// @dev Verifies that deallocate calls are allowed for campaign in ACTIVE state
-    /// @param amount Deallocation amount
-    function test_succeeds_whenCampaignActive(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
-        amount = boundToValidAmount(amount);
-        vm.assume(amount > 0);
+    /// @param allocateAmount Allocation amount
+    /// @param deallocateAmount Deallocation amount
+    function test_succeeds_whenCampaignActive(uint256 allocateAmount, uint256 deallocateAmount) public {
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
+        allocateAmount = boundToValidAmount(allocateAmount);
+        deallocateAmount = boundToValidAmount(deallocateAmount);
+        vm.assume(allocateAmount > 0);
+        vm.assume(deallocateAmount <= allocateAmount);
 
         activateCampaign(campaign, manager);
         assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
-        fundCampaign(campaign, amount, address(this));
+        fundCampaign(campaign, allocateAmount, address(this));
 
         // First allocate the funds
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "payout");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, allocateAmount, "payout");
         managerAllocate(campaign, address(mockToken), payouts);
 
         // Verify allocation was successful
-        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), amount);
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), allocateAmount);
 
-        // Now deallocate
+        // Now deallocate a partial amount
+        Flywheel.Payout[] memory deallocatePayouts = buildSinglePayout(recipient, deallocateAmount, "deallocate");
         vm.prank(manager);
-        flywheel.deallocate(campaign, address(mockToken), abi.encode(payouts));
+        flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
 
-        // Verify deallocation was successful
-        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
+        // Verify deallocation was successful (remaining allocation = allocateAmount - deallocateAmount)
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),
+            allocateAmount - deallocateAmount
+        );
     }
 
     /// @dev Verifies that deallocate remains allowed for campaign in FINALIZING state
     /// @param amount Deallocation amount
     function test_succeeds_whenCampaignFinalizing(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 
@@ -141,7 +148,7 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Verifies that deallocate calls work with an ERC20 token
     /// @param amount Deallocation amount
     function test_succeeds_withERC20Token(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 
@@ -170,7 +177,7 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Verifies that deallocate calls work with native token
     /// @param amount Deallocation amount
     function test_succeeds_withNativeToken(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 
@@ -201,7 +208,7 @@ contract DeallocateTest is FlywheelTest {
     /// @notice Ignores zero-amount deallocations (no-op)
     /// @dev Verifies totals unchanged and no event for zero amounts using the deployed token
     function test_ignoresZeroAmountDeallocations() public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         uint256 amount = 1000;
 
         activateCampaign(campaign, manager);
@@ -229,8 +236,8 @@ contract DeallocateTest is FlywheelTest {
     /// @param amount1 First deallocation amount
     /// @param amount2 Second deallocation amount
     function test_succeeds_withMultipleDeallocations(uint256 amount1, uint256 amount2) public {
-        address recipient1 = boundToValidAddress(makeAddr("recipient1"));
-        address recipient2 = boundToValidAddress(makeAddr("recipient2"));
+        address recipient1 = boundToValidPayableAddress(makeAddr("recipient1"));
+        address recipient2 = boundToValidPayableAddress(makeAddr("recipient2"));
         vm.assume(recipient1 != recipient2);
 
         (amount1, amount2) = boundToValidMultiAmounts(amount1, amount2);
@@ -268,7 +275,7 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Verifies that the PayoutsDeallocated event is emitted for each deallocation
     /// @param amount Deallocation amount
     function test_emitsPayoutsDeallocatedEvent(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 

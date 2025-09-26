@@ -59,7 +59,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_reverts_ifCampaignIsInsufficientlyFunded(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -75,7 +75,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_succeeds_whenCampaignActive(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -95,7 +95,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_succeeds_whenCampaignFinalizing(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -118,7 +118,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_succeeds_withERC20Token(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -136,7 +136,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_succeeds_withNativeToken(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -157,7 +157,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_ignoresZeroAmountAllocations(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount); // Need some amount to fund campaign, but we'll allocate 0
 
         activateCampaign(campaign, manager);
@@ -183,8 +183,8 @@ contract AllocateTest is FlywheelTest {
         uint256 amount1,
         uint256 amount2
     ) public {
-        recipient1 = boundToValidAddress(recipient1);
-        recipient2 = boundToValidAddress(recipient2);
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
         vm.assume(recipient1 != recipient2);
 
         (amount1, amount2) = boundToValidMultiAmounts(amount1, amount2);
@@ -209,7 +209,7 @@ contract AllocateTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Allocation amount
     function test_emitsPayoutAllocatedEvent(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);

@@ -36,7 +36,8 @@ contract DistributeFeesTest is FlywheelTest {
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
     function test_reverts_ifCampaignIsNotSolvent_distributeFees(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 1); // Ensure we can do meaningful operations
 
@@ -78,7 +79,7 @@ contract DistributeFeesTest is FlywheelTest {
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
     function test_succeeds_withERC20Token(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
@@ -225,7 +226,7 @@ contract DistributeFeesTest is FlywheelTest {
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
     function test_ignoresZeroAmountDistributions(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount); // Fund with some amount, but distribute 0
         vm.assume(amount > 0);
 
@@ -263,8 +264,8 @@ contract DistributeFeesTest is FlywheelTest {
         uint256 amount1,
         uint256 amount2
     ) public {
-        recipient1 = boundToValidAddress(recipient1);
-        recipient2 = boundToValidAddress(recipient2);
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
         vm.assume(recipient1 != recipient2);
         vm.assume(recipient1 != campaign); // Avoid self-transfers
         vm.assume(recipient2 != campaign); // Avoid self-transfers
@@ -316,7 +317,7 @@ contract DistributeFeesTest is FlywheelTest {
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
     function test_enforcesCampaignSolvency(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
@@ -349,7 +350,7 @@ contract DistributeFeesTest is FlywheelTest {
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
     function test_emitsFeesDistributed(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);

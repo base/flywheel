@@ -57,8 +57,8 @@ contract MultiTokenTest is FlywheelTest {
         allocAmountB = boundToValidAmount(allocAmountB);
         distAmountA = bound(distAmountA, 1, allocAmountA); // Must distribute <= allocated
         distAmountB = bound(distAmountB, 1, allocAmountB); // Must distribute <= allocated
-        recipient1 = boundToValidAddress(recipient1);
-        recipient2 = boundToValidAddress(recipient2);
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
         vm.assume(recipient1 != recipient2); // Ensure different recipients for different keys
         vm.assume(recipient1 != campaign); // Recipients should not be the campaign itself
         vm.assume(recipient2 != campaign);
@@ -148,9 +148,9 @@ contract MultiTokenTest is FlywheelTest {
         sendAmountB = bound(sendAmountB, 1, MAX_FUZZ_AMOUNT / 4); // Leave room for fees
         feeAmountA = bound(feeAmountA, 0, MAX_FUZZ_AMOUNT / 4); // Fees can be 0, leave room for sends
         feeAmountB = bound(feeAmountB, 0, MAX_FUZZ_AMOUNT / 4); // Fees can be 0, leave room for sends
-        recipient1 = boundToValidAddress(recipient1);
-        recipient2 = boundToValidAddress(recipient2);
-        feeRecipient = boundToValidAddress(feeRecipient);
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
+        feeRecipient = boundToValidPayableAddress(feeRecipient);
 
         // Ensure all recipients are different and not the campaign address
         vm.assume(recipient1 != recipient2);

@@ -94,7 +94,7 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @dev Solvency incorporates both total allocated payouts and total allocated fees
     /// @param amount Withdraw amount
     function test_reverts_whenCampaignIsNotSolvent_beforeFinalized(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 1); // Need at least 2 to create insolvency
 
@@ -124,7 +124,7 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @dev Respects solvency rule in FINALIZED state (ignore payouts, require fees only)
     /// @param amount Withdraw amount
     function test_reverts_whenCampaignIsNotSolvent_finalizedIgnoresPayouts(uint256 amount) public {
-        address recipient = boundToValidAddress(makeAddr("recipient"));
+        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 1); // Need at least 2 to create insolvency
 
@@ -163,7 +163,7 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Withdraw amount
     function test_succeeds_withERC20(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
@@ -230,7 +230,7 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param amount Withdraw amount
     function test_emitsFundsWithdrawnEvent(address recipient, uint256 amount) public {
-        recipient = boundToValidAddress(recipient);
+        recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
