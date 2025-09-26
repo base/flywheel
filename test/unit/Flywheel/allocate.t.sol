@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title AllocateTest
 /// @notice Tests for Flywheel.allocate
@@ -165,11 +166,25 @@ contract AllocateTest is FlywheelTest {
 
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, 0, "");
 
+        // Record logs to assert no PayoutAllocated event is emitted
+        vm.recordLogs();
+
         managerAllocate(campaign, address(mockToken), payouts);
 
         // Zero amount allocations should not change state
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
+
+        // Assert no PayoutAllocated event emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutAllocatedSig = keccak256("PayoutAllocated(address,address,bytes32,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutAllocatedSig;
+            if (isFromFlywheel && isPayoutAllocated) {
+                revert("PayoutAllocated was emitted for zero-amount allocation");
+            }
+        }
     }
 
     /// @dev Verifies that allocate calls work with multiple allocations
@@ -208,17 +223,18 @@ contract AllocateTest is FlywheelTest {
     /// @dev Emits PayoutAllocated event
     /// @param recipient Recipient address
     /// @param amount Allocation amount
-    function test_emitsPayoutAllocatedEvent(address recipient, uint256 amount) public {
+    /// @param eventTestData Extra data for the payout to attach in events
+    function test_emitsPayoutAllocatedEvent(address recipient, uint256 amount, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, amount, address(this));
 
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "test_data");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, eventTestData);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutAllocated(campaign, address(mockToken), bytes32(bytes20(recipient)), amount, "test_data");
+        emit Flywheel.PayoutAllocated(campaign, address(mockToken), bytes32(bytes20(recipient)), amount, eventTestData);
 
         managerAllocate(campaign, address(mockToken), payouts);
     }

@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 
@@ -245,12 +246,24 @@ contract DistributeFeesTest is FlywheelTest {
         uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
         uint256 initialAllocatedAmount = flywheel.allocatedFee(campaign, address(mockToken), feeKey);
 
+        vm.recordLogs();
         vm.prank(manager);
         flywheel.distributeFees(campaign, address(mockToken), abi.encode(zeroDistributions));
 
         // Zero amount should not change recipient balance or allocations
         assertEq(mockToken.balanceOf(recipient), initialRecipientBalance);
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), initialAllocatedAmount);
+
+        // Assert no FeesDistributed event emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 feesDistributedSig = keccak256("FeesDistributed(address,address,bytes32,address,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isFeesDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == feesDistributedSig;
+            if (isFromFlywheel && isFeesDistributed) {
+                revert("FeesDistributed was emitted for zero-amount fee distribution");
+            }
+        }
     }
 
     /// @dev Verifies multiple fee distributions in a single call
@@ -349,7 +362,8 @@ contract DistributeFeesTest is FlywheelTest {
     /// @dev Verifies that FeesDistributed event is emitted on successful distribution
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_emitsFeesDistributed(address recipient, uint256 amount) public {
+    /// @param eventTestData Extra data for the fee to attach in events
+    function test_emitsFeesDistributed(address recipient, uint256 amount, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
@@ -360,13 +374,13 @@ contract DistributeFeesTest is FlywheelTest {
 
         // First allocate a fee using send with deferred fees
         bytes32 feeKey = bytes32(bytes20(recipient));
-        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee_data");
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, eventTestData);
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
 
         // Now distribute the fees and expect the FeesDistributed event
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeesDistributed(campaign, address(mockToken), feeKey, recipient, amount, "fee_data");
+        emit Flywheel.FeesDistributed(campaign, address(mockToken), feeKey, recipient, amount, eventTestData);
 
         vm.prank(manager);
         flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
@@ -375,7 +389,8 @@ contract DistributeFeesTest is FlywheelTest {
     /// @dev Verifies that FeeTransferFailed event is emitted on failed send
     /// @param recipient Fee recipient address
     /// @param amount Fee amount
-    function test_emitsFeeTransferFailed(address recipient, uint256 amount) public {
+    /// @param eventTestData Extra data for the fee to attach in events
+    function test_emitsFeeTransferFailed(address recipient, uint256 amount, bytes memory eventTestData) public {
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 
@@ -389,13 +404,13 @@ contract DistributeFeesTest is FlywheelTest {
 
         // First allocate a fee using send with deferred fees
         bytes32 feeKey = bytes32(bytes20(recipient));
-        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, "fee_data");
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(recipient, feeKey, amount, eventTestData);
         vm.prank(manager);
         flywheel.send(campaign, Constants.NATIVE_TOKEN, abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
 
         // Now try to distribute the fees and expect the FeeTransferFailed event
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeTransferFailed(campaign, Constants.NATIVE_TOKEN, feeKey, recipient, amount, "fee_data");
+        emit Flywheel.FeeTransferFailed(campaign, Constants.NATIVE_TOKEN, feeKey, recipient, amount, eventTestData);
 
         vm.prank(manager);
         flywheel.distributeFees(campaign, Constants.NATIVE_TOKEN, abi.encode(feeAllocations));

@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title DeallocateTest
 /// @notice Tests for Flywheel.deallocate
@@ -244,6 +245,7 @@ contract DeallocateTest is FlywheelTest {
         uint256 initialTotalAllocated = flywheel.totalAllocatedPayouts(campaign, address(mockToken));
 
         // Now try to deallocate zero amount
+        vm.recordLogs();
         Flywheel.Payout[] memory zeroPayouts = buildSinglePayout(recipient, 0, "zero_payout");
         vm.prank(manager);
         flywheel.deallocate(campaign, address(mockToken), abi.encode(zeroPayouts));
@@ -251,6 +253,17 @@ contract DeallocateTest is FlywheelTest {
         // Verify zero amount deallocation had no effect
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), initialAllocated);
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), initialTotalAllocated);
+
+        // Assert no PayoutsDeallocated event emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutsDeallocatedSig = keccak256("PayoutsDeallocated(address,address,bytes32,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutsDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDeallocatedSig;
+            if (isFromFlywheel && isPayoutsDeallocated) {
+                revert("PayoutsDeallocated was emitted for zero-amount deallocation");
+            }
+        }
     }
 
     /// @dev Verifies that deallocate calls work with multiple deallocations
@@ -295,8 +308,10 @@ contract DeallocateTest is FlywheelTest {
 
     /// @dev Verifies that the PayoutsDeallocated event is emitted for each deallocation
     /// @param amount Deallocation amount
-    function test_emitsPayoutsDeallocatedEvent(uint256 amount) public {
-        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
+    /// @param recipient Recipient address
+    /// @param eventTestData Extra data for the payout to attach in events
+    function test_emitsPayoutsDeallocatedEvent(uint256 amount, address recipient, bytes memory eventTestData) public {
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 
@@ -304,13 +319,13 @@ contract DeallocateTest is FlywheelTest {
         fundCampaign(campaign, amount, address(this));
 
         // First allocate the funds
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "event_test_data");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, eventTestData);
         managerAllocate(campaign, address(mockToken), payouts);
 
         // Now deallocate and expect the PayoutsDeallocated event
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutsDeallocated(
-            campaign, address(mockToken), bytes32(bytes20(recipient)), amount, "event_test_data"
+            campaign, address(mockToken), bytes32(bytes20(recipient)), amount, eventTestData
         );
 
         vm.prank(manager);

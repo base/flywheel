@@ -123,8 +123,15 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @dev Expects InsufficientCampaignFunds
     /// @dev Respects solvency rule in FINALIZED state (ignore payouts, require fees only)
     /// @param amount Withdraw amount
-    function test_reverts_whenCampaignIsNotSolvent_finalizedIgnoresPayouts(uint256 amount) public {
-        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
+    /// @param recipient Recipient address
+    /// @param feeRecipient Fee recipient address
+    function test_reverts_whenCampaignIsNotSolvent_finalizedIgnoresPayouts(
+        uint256 amount,
+        address recipient,
+        address feeRecipient
+    ) public {
+        recipient = boundToValidPayableAddress(recipient);
+        feeRecipient = boundToValidPayableAddress(feeRecipient);
         amount = boundToValidAmount(amount);
         vm.assume(amount > 1); // Need at least 2 to create insolvency
 
@@ -135,7 +142,6 @@ contract WithdrawFundsTest is FlywheelTest {
         fundCampaign(campaign, amount, address(this));
 
         // Allocate fees (these must be respected even in FINALIZED state)
-        address feeRecipient = makeAddr("feeRecipient");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
         Flywheel.Distribution[] memory feeAllocations = buildSingleFee(feeRecipient, feeKey, amount, "fee");
         vm.prank(manager);
@@ -229,7 +235,8 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @dev Verifies that the FundsWithdrawn event is emitted
     /// @param recipient Recipient address
     /// @param amount Withdraw amount
-    function test_emitsFundsWithdrawnEvent(address recipient, uint256 amount) public {
+    /// @param eventTestData Extra data for the payout to attach in events
+    function test_emitsFundsWithdrawnEvent(address recipient, uint256 amount, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
@@ -242,11 +249,11 @@ contract WithdrawFundsTest is FlywheelTest {
         fundCampaign(campaign, amount * 2, address(this));
 
         Flywheel.Payout memory withdrawPayout =
-            Flywheel.Payout({recipient: recipient, amount: amount, extraData: "event_test_data"});
+            Flywheel.Payout({recipient: recipient, amount: amount, extraData: eventTestData});
         bytes memory hookData = abi.encode(withdrawPayout);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FundsWithdrawn(campaign, address(mockToken), recipient, amount, "event_test_data");
+        emit Flywheel.FundsWithdrawn(campaign, address(mockToken), recipient, amount, eventTestData);
 
         vm.prank(owner); // Campaign owner calls withdraw
         flywheel.withdrawFunds(campaign, address(mockToken), hookData);

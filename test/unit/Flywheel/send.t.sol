@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 
@@ -187,6 +188,7 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     function test_succeeds_withERC20Token(address recipient, uint256 amount) public {
         recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -246,11 +248,24 @@ contract SendTest is FlywheelTest {
 
         uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
 
+        // Record logs to assert no PayoutSent event is emitted
+        vm.recordLogs();
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
 
         // Zero amount should not change recipient balance
         assertEq(mockToken.balanceOf(recipient), initialRecipientBalance);
+
+        // Assert no PayoutSent event emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutSentSig = keccak256("PayoutSent(address,address,address,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutSent = logs[i].topics.length > 0 && logs[i].topics[0] == payoutSentSig;
+            if (isFromFlywheel && isPayoutSent) {
+                revert("PayoutSent was emitted for zero-amount payout");
+            }
+        }
     }
 
     /// @dev Verifies that send calls work with multiple payouts
@@ -507,19 +522,20 @@ contract SendTest is FlywheelTest {
     /// @dev Verifies that the PayoutSent event is emitted for each payout
     /// @param recipient Recipient address
     /// @param amount Payout amount
-    function test_emitsPayoutSentEvent(address recipient, uint256 amount) public {
+    /// @param eventTestData Extra data for the payout to attach in events
+    function test_emitsPayoutSentEvent(address recipient, uint256 amount, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, amount, address(this));
 
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "test_data");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, eventTestData);
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
         bytes memory hookData = buildSendHookData(payouts, fees, false);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutSent(campaign, address(mockToken), recipient, amount, "test_data");
+        emit Flywheel.PayoutSent(campaign, address(mockToken), recipient, amount, eventTestData);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
@@ -530,11 +546,13 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
+    /// @param eventTestData Extra data for the fee to attach in events
     function test_emitsFeeSentEvent_ifFeeSendSucceeds(
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
@@ -552,11 +570,11 @@ contract SendTest is FlywheelTest {
 
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeSent(campaign, address(mockToken), feeRecipient, feeAmount, "fee_data");
+        emit Flywheel.FeeSent(campaign, address(mockToken), feeRecipient, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
@@ -567,11 +585,13 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
+    /// @param eventTestData Extra data for the fee to attach in events
     function test_emitsFeeTransferFailedEvent_ifFeeSendFails(
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         // Use zero address for fee recipient to force transfer failure
@@ -592,14 +612,14 @@ contract SendTest is FlywheelTest {
         // Empty payouts array to avoid payout failures - we only want to test fee failure
         Flywheel.Payout[] memory payouts = new Flywheel.Payout[](0);
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true); // Try immediate fee send which will fail
 
         // Expect both FeeTransferFailed and FeeAllocated events when immediate fee send fails
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeTransferFailed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, "fee_data");
+        emit Flywheel.FeeTransferFailed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, eventTestData);
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, "fee_data");
+        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
@@ -609,7 +629,13 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     /// @param recipient Recipient address
     /// @param feeBp Fee basis points
-    function test_emitsFeeAllocatedEvent_ifFeeSendFails_send(uint256 amount, address recipient, uint256 feeBp) public {
+    /// @param eventTestData Extra data for the fee to attach in events
+    function test_emitsFeeAllocatedEvent_ifFeeSendFails_send(
+        uint256 amount,
+        address recipient,
+        uint256 feeBp,
+        bytes memory eventTestData
+    ) public {
         recipient = boundToValidPayableAddress(recipient);
         // Use zero address for fee recipient to force transfer failure
         address feeRecipient = address(0);
@@ -627,11 +653,11 @@ contract SendTest is FlywheelTest {
 
         Flywheel.Payout[] memory payouts = new Flywheel.Payout[](0);
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, "fee_data");
+        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
@@ -642,11 +668,13 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
+    /// @param eventTestData Extra data for the fee to attach in events
     function test_emitsFeeAllocatedEvent_forDeferredFees(
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
@@ -665,11 +693,11 @@ contract SendTest is FlywheelTest {
 
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, false); // Deferred fees
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, "fee_data");
+        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);

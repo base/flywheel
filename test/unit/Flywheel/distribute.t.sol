@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 
@@ -124,17 +125,24 @@ contract DistributeTest is FlywheelTest {
     /// @dev Expects InsufficientCampaignFunds
     /// @dev Reverts when campaign is not solvent
     /// @param recipient Recipient address
+    /// @param feeRecipient Fee recipient address
     /// @param allocateAmount Allocation amount
     /// @param distributeAmount Distribution amount
-    function test_reverts_ifCampaignIsNotSolvent(address recipient, uint256 allocateAmount, uint256 distributeAmount)
-        public
-    {
+    /// @param feeAmount Fee amount
+    function test_reverts_ifCampaignIsNotSolvent(
+        address recipient,
+        address feeRecipient,
+        uint256 allocateAmount,
+        uint256 distributeAmount,
+        uint256 feeAmount
+    ) public {
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Ensure recipient is not the campaign itself
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
+        feeAmount = boundToValidAmount(feeAmount);
         vm.assume(distributeAmount <= allocateAmount);
-        address feeRecipient = makeAddr("feeRecipient");
+        feeRecipient = boundToValidPayableAddress(feeRecipient);
 
         activateCampaign(campaign, manager);
 
@@ -151,7 +159,6 @@ contract DistributeTest is FlywheelTest {
         // making final solvency check fail: 0 < totalAllocatedFees
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        uint256 feeAmount = 1; // Any fee will make it insolvent since balance will be 0 after distribution
         Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee");
         bytes memory hookData = buildSendHookData(payouts, fees, false); // Deferred fees
 
@@ -321,6 +328,7 @@ contract DistributeTest is FlywheelTest {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
         vm.assume(recipient != feeRecipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
@@ -353,6 +361,12 @@ contract DistributeTest is FlywheelTest {
         // Fee should NOT be sent (deferred), but allocated
         assertEq(mockToken.balanceOf(feeRecipient), initialFeeRecipientBalance);
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), feeAmount);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), feeAmount);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),
+            allocateAmount - distributeAmount
+        );
     }
 
     /// @dev Verifies that distribute calls work with immediate fees
@@ -361,12 +375,14 @@ contract DistributeTest is FlywheelTest {
     /// @param distributeAmount Distribution amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
-    function test_succeeds_withImmediateFees(
+    /// @param eventTestData Extra data for the fee to attach in events
+    function test_succeeds_withImmediateFees_distribute(
         address recipient,
         uint256 allocateAmount,
         uint256 distributeAmount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
@@ -385,13 +401,13 @@ contract DistributeTest is FlywheelTest {
         fundCampaign(campaign, totalFunding, address(this));
 
         // First allocate the funds
-        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, allocateAmount, "");
+        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, allocateAmount, eventTestData);
         managerAllocate(campaign, address(mockToken), allocatedPayouts);
 
         // Now distribute with immediate fees
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, "");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, eventTestData);
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true); // Immediate fees
 
         uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
@@ -406,6 +422,12 @@ contract DistributeTest is FlywheelTest {
         assertEq(mockToken.balanceOf(feeRecipient), initialFeeRecipientBalance + feeAmount);
         // No allocated fees since they were sent immediately
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), 0);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), 0);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),
+            allocateAmount - distributeAmount
+        );
     }
 
     /// @dev Verifies that distribute updates allocated fees on fee send failure
@@ -413,18 +435,19 @@ contract DistributeTest is FlywheelTest {
     /// @param allocateAmount Allocation amount
     /// @param distributeAmount Distribution amount
     /// @param feeBp Fee basis points
-    /// @param feeRecipient Fee recipient address
+    /// @param feeKey Fee key
     function test_updatesAllocatedFees_onFeeSendFailure(
         address recipient,
         uint256 allocateAmount,
         uint256 distributeAmount,
         uint256 feeBp,
-        address feeRecipient
+        bytes32 feeKey,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         // Force fee recipient to be address(0) to make fee transfer fail
-        feeRecipient = address(0);
+        address feeRecipient = address(0);
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
@@ -444,8 +467,7 @@ contract DistributeTest is FlywheelTest {
 
         // Now distribute with immediate fees that will fail
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, "");
-        bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true); // Try immediate fees
 
         uint256 initialFeeRecipientBalance = mockToken.balanceOf(feeRecipient);
@@ -465,12 +487,14 @@ contract DistributeTest is FlywheelTest {
     /// @param distributeAmount Distribution amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
+    /// @param eventTestData Extra data for the fee to attach in events
     function test_skipsFeesOfZeroAmount(
         address recipient,
         uint256 allocateAmount,
         uint256 distributeAmount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
@@ -492,7 +516,7 @@ contract DistributeTest is FlywheelTest {
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
         // Create fee with zero amount
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, 0, "zero_fee");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, 0, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true);
 
         uint256 initialFeeRecipientBalance = mockToken.balanceOf(feeRecipient);
@@ -503,24 +527,39 @@ contract DistributeTest is FlywheelTest {
         // Zero fee should be skipped - no balance change or allocation
         assertEq(mockToken.balanceOf(feeRecipient), initialFeeRecipientBalance);
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), 0);
+        assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), 0);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),
+            allocateAmount - distributeAmount
+        );
     }
 
     /// @dev Verifies that distribute handles multiple fees
     /// @param recipient Recipient address
     /// @param amount Distribution amount
     /// @param feeBp Fee basis points
-    /// @param feeRecipient Fee recipient address
-    function test_handlesMultipleFees(address recipient, uint256 amount, uint256 feeBp, address feeRecipient) public {
+    /// @param feeRecipient1 First fee recipient address
+    /// @param feeRecipient2 Second fee recipient address
+    function test_handlesMultipleFees(
+        address recipient,
+        uint256 amount,
+        uint256 feeBp,
+        address feeRecipient1,
+        address feeRecipient2
+    ) public {
         recipient = boundToValidPayableAddress(recipient);
-        feeRecipient = boundToValidPayableAddress(feeRecipient);
-        vm.assume(recipient != feeRecipient);
+        feeRecipient1 = boundToValidPayableAddress(feeRecipient1);
+        feeRecipient2 = boundToValidPayableAddress(feeRecipient2);
+        vm.assume(recipient != feeRecipient1);
+        vm.assume(recipient != feeRecipient2);
         vm.assume(recipient != campaign); // Avoid self-transfers
-        vm.assume(feeRecipient != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient1 != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient2 != campaign); // Avoid campaign as fee recipient
         amount = boundToValidAmount(amount);
         uint16 feeBpBounded = boundToValidFeeBp(feeBp);
 
         uint256 feeAmount = calculateFeeAmount(amount, feeBpBounded);
-        address feeRecipient2 = makeAddr("feeRecipient2");
 
         // Prevent overflow when calculating total funding
         uint256 totalFees = feeAmount * 2;
@@ -542,8 +581,8 @@ contract DistributeTest is FlywheelTest {
         // Create multiple fees
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](2);
         fees[0] = Flywheel.Distribution({
-            recipient: feeRecipient,
-            key: bytes32(bytes20(feeRecipient)),
+            recipient: feeRecipient1,
+            key: bytes32(bytes20(feeRecipient1)),
             amount: feeAmount,
             extraData: "fee1"
         });
@@ -556,14 +595,14 @@ contract DistributeTest is FlywheelTest {
 
         bytes memory hookData = buildSendHookData(payouts, fees, true);
 
-        uint256 initialBalance1 = mockToken.balanceOf(feeRecipient);
+        uint256 initialBalance1 = mockToken.balanceOf(feeRecipient1);
         uint256 initialBalance2 = mockToken.balanceOf(feeRecipient2);
 
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
 
         // Both fees should be sent
-        assertEq(mockToken.balanceOf(feeRecipient), initialBalance1 + feeAmount);
+        assertEq(mockToken.balanceOf(feeRecipient1), initialBalance1 + feeAmount);
         assertEq(mockToken.balanceOf(feeRecipient2), initialBalance2 + feeAmount);
     }
 
@@ -591,6 +630,9 @@ contract DistributeTest is FlywheelTest {
         uint256 initialAllocatedAmount =
             flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient)));
 
+        // Record logs to assert no PayoutsDistributed event is emitted
+        vm.recordLogs();
+
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
 
@@ -599,6 +641,17 @@ contract DistributeTest is FlywheelTest {
         assertEq(
             flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), initialAllocatedAmount
         );
+
+        // Assert no PayoutsDistributed event emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutsDistributedSig = keccak256("PayoutsDistributed(address,address,bytes32,address,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutsDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDistributedSig;
+            if (isFromFlywheel && isPayoutsDistributed) {
+                revert("PayoutsDistributed was emitted for zero-amount distribution");
+            }
+        }
     }
 
     /// @dev Verifies that distribute calls work with multiple distributions
@@ -654,7 +707,7 @@ contract DistributeTest is FlywheelTest {
     /// @dev Verifies that the PayoutsDistributed event is emitted for each distribution
     /// @param recipient Recipient address
     /// @param amount Distribution amount
-    function test_emitsPayoutsDistributedEvent(address recipient, uint256 amount) public {
+    function test_emitsPayoutsDistributedEvent(address recipient, uint256 amount, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
@@ -662,17 +715,17 @@ contract DistributeTest is FlywheelTest {
         fundCampaign(campaign, amount, address(this));
 
         // First allocate the funds
-        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, amount, "test_data");
+        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, amount, eventTestData);
         managerAllocate(campaign, address(mockToken), allocatedPayouts);
 
         // Now distribute
-        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "test_data");
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, eventTestData);
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
         bytes memory hookData = buildSendHookData(payouts, fees, false);
 
         vm.expectEmit(true, true, true, true);
         emit Flywheel.PayoutsDistributed(
-            campaign, address(mockToken), bytes32(bytes20(recipient)), recipient, amount, "test_data"
+            campaign, address(mockToken), bytes32(bytes20(recipient)), recipient, amount, eventTestData
         );
 
         vm.prank(manager);
@@ -684,11 +737,13 @@ contract DistributeTest is FlywheelTest {
     /// @param amount Distribution amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
+    /// @param eventTestData Extra data for the fee to attach in events
     function test_emitsFeeSentEvent_ifFeeSendSucceeds(
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
@@ -711,11 +766,11 @@ contract DistributeTest is FlywheelTest {
         // Now distribute with immediate fees
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeSent(campaign, address(mockToken), feeRecipient, feeAmount, "fee_data");
+        emit Flywheel.FeeSent(campaign, address(mockToken), feeRecipient, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
@@ -730,7 +785,8 @@ contract DistributeTest is FlywheelTest {
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         // Use zero address for fee recipient to force transfer failure
@@ -754,14 +810,14 @@ contract DistributeTest is FlywheelTest {
         // Now distribute with immediate fees that will fail
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true); // Try immediate fee send which will fail
 
         // Expect both FeeTransferFailed and FeeAllocated events when immediate fee send fails
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeTransferFailed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, "fee_data");
+        emit Flywheel.FeeTransferFailed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, eventTestData);
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, "fee_data");
+        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
@@ -776,7 +832,8 @@ contract DistributeTest is FlywheelTest {
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         // Use zero address for fee recipient to force transfer failure
@@ -800,11 +857,11 @@ contract DistributeTest is FlywheelTest {
         // Now distribute with immediate fees that will fail and be allocated
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, true);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, "fee_data");
+        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
@@ -819,7 +876,8 @@ contract DistributeTest is FlywheelTest {
         address recipient,
         uint256 amount,
         uint256 feeBp,
-        address feeRecipient
+        address feeRecipient,
+        bytes memory eventTestData
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
@@ -842,11 +900,11 @@ contract DistributeTest is FlywheelTest {
         // Now distribute with deferred fees
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
-        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         bytes memory hookData = buildSendHookData(payouts, fees, false); // Deferred fees
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, "fee_data");
+        emit Flywheel.FeeAllocated(campaign, address(mockToken), feeKey, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
@@ -857,9 +915,14 @@ contract DistributeTest is FlywheelTest {
     /// @param amount Distribution amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
-    function test_emitsFeesDistributedEvent(address recipient, uint256 amount, uint256 feeBp, address feeRecipient)
-        public
-    {
+    /// @param eventTestData Extra data for the fee to attach in events
+    function test_emitsFeesDistributedEvent(
+        address recipient,
+        uint256 amount,
+        uint256 feeBp,
+        address feeRecipient,
+        bytes memory eventTestData
+    ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
         vm.assume(recipient != feeRecipient);
@@ -880,13 +943,13 @@ contract DistributeTest is FlywheelTest {
 
         bytes32 feeKey = bytes32(bytes20(feeRecipient));
         // Allocate fee manually using distributeFees approach
-        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee_data");
+        Flywheel.Distribution[] memory feeAllocations = buildSingleFee(feeRecipient, feeKey, feeAmount, eventTestData);
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
 
         // Now use distributeFees to emit FeesDistributed event
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeesDistributed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, "fee_data");
+        emit Flywheel.FeesDistributed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));
