@@ -14,6 +14,7 @@ contract DeallocateTest is FlywheelTest {
         setUpFlywheelBase();
         campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
+
     /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts if campaign does not exist
     /// @param token ERC20 token address under test
@@ -182,7 +183,8 @@ contract DeallocateTest is FlywheelTest {
         managerAllocate(campaign, Constants.NATIVE_TOKEN, payouts);
 
         // Verify initial allocation
-        uint256 initialAllocated = flywheel.allocatedPayout(campaign, Constants.NATIVE_TOKEN, bytes32(bytes20(recipient)));
+        uint256 initialAllocated =
+            flywheel.allocatedPayout(campaign, Constants.NATIVE_TOKEN, bytes32(bytes20(recipient)));
         uint256 initialTotalAllocated = flywheel.totalAllocatedPayouts(campaign, Constants.NATIVE_TOKEN);
         assertEq(initialAllocated, amount);
         assertEq(initialTotalAllocated, amount);

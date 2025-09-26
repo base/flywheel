@@ -3,10 +3,28 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
+import {Campaign} from "../../../src/Campaign.sol";
 
 /// @title ConstructorTest
 /// @notice Tests for Flywheel constructor
 contract ConstructorTest is Test {
     /// @dev Ensures campaignImplementation is deployed during construction
-    function test_deploysCampaignImplementation() public {}
+    function test_deploysCampaignImplementation() public {
+        // Deploy a new Flywheel instance
+        Flywheel flywheel = new Flywheel();
+
+        // Verify that campaignImplementation is set and is not zero address
+        address impl = flywheel.campaignImplementation();
+        assertTrue(impl != address(0), "Campaign implementation should not be zero address");
+
+        // Verify that the implementation has code (is actually deployed)
+        assertTrue(impl.code.length > 0, "Campaign implementation should have code");
+
+        // Verify that the implementation is actually a Campaign contract
+        // We can check this by calling the flywheel() function
+        (bool success, bytes memory data) = impl.staticcall(abi.encodeWithSignature("flywheel()"));
+        assertTrue(success, "Implementation should have flywheel() function");
+        address returnedFlywheel = abi.decode(data, (address));
+        assertEq(returnedFlywheel, address(flywheel), "Campaign implementation should reference the flywheel");
+    }
 }

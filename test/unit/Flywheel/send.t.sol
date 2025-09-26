@@ -209,6 +209,7 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     function test_succeeds_withNativeToken(address recipient, uint256 amount) public {
         recipient = boundToValidAddress(recipient);
+        assumePayable(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(recipient != address(vm)); // Avoid VM precompile that rejects ETH
         vm.assume(uint160(recipient) > 255); // Avoid precompile addresses (0x01-0xff)
