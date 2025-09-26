@@ -5,6 +5,7 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {stdError} from "forge-std/StdError.sol";
 
 /// @title DeallocateTest
 /// @notice Tests for Flywheel.deallocate
@@ -53,6 +54,38 @@ contract DeallocateTest is FlywheelTest {
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
         vm.prank(manager);
         flywheel.deallocate(campaign, token, hookData);
+    }
+
+    /// @dev Reverts (underflow) when trying to deallocate more than allocated for the key
+    /// @param recipient Recipient address
+    /// @param allocateAmount Allocation amount
+    /// @param deallocateAmount Deallocation amount (will be > allocateAmount)
+    function test_reverts_whenOverdeallocateFromAllocation(
+        address recipient,
+        uint256 allocateAmount,
+        uint256 deallocateAmount
+    ) public {
+        recipient = boundToValidPayableAddress(recipient);
+        allocateAmount = boundToValidAmount(allocateAmount);
+        deallocateAmount = boundToValidAmount(deallocateAmount);
+        vm.assume(allocateAmount > 0);
+        vm.assume(deallocateAmount > allocateAmount); // Overdraw condition
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, allocateAmount, address(this));
+
+        // Allocate amount
+        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, allocateAmount, "");
+        managerAllocate(campaign, address(mockToken), allocatedPayouts);
+
+        // Verify allocation
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), allocateAmount);
+
+        Flywheel.Payout[] memory deallocatePayouts = buildSinglePayout(recipient, deallocateAmount, "");
+
+        vm.expectRevert(stdError.arithmeticError); // Underflow when trying to subtract more than allocated
+        vm.prank(manager);
+        flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
     }
 
     /// @dev Verifies that deallocate succeeds even when campaign is initially insolvent
@@ -266,6 +299,71 @@ contract DeallocateTest is FlywheelTest {
         }
     }
 
+    /// @dev Verifies that zero amount deallocations are ignored when intermixed with non-zero amounts
+    /// @param recipient1 First recipient address (will have zero amount deallocated)
+    /// @param recipient2 Second recipient address (will have non-zero amount deallocated)
+    /// @param amount Non-zero deallocation amount
+    function test_ignoresZeroAmountDeallocations_intermixedWithNonZero(
+        address recipient1,
+        address recipient2,
+        uint256 amount
+    ) public {
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
+        vm.assume(recipient1 != recipient2);
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0); // Ensure non-zero amount
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this)); // Only fund for the non-zero amount
+
+        // First allocate funds to both recipients (only fund for recipient2's non-zero amount)
+        Flywheel.Payout[] memory allocatedPayouts = new Flywheel.Payout[](2);
+        allocatedPayouts[0] = Flywheel.Payout({recipient: recipient1, amount: 0, extraData: "zero_allocation"});
+        allocatedPayouts[1] = Flywheel.Payout({recipient: recipient2, amount: amount, extraData: "nonzero_allocation"});
+        managerAllocate(campaign, address(mockToken), allocatedPayouts);
+
+        // Create deallocations: one zero amount, one non-zero amount
+        Flywheel.Payout[] memory deallocatePayouts = new Flywheel.Payout[](2);
+        deallocatePayouts[0] = Flywheel.Payout({recipient: recipient1, amount: 0, extraData: "zero_deallocate"});
+        deallocatePayouts[1] = Flywheel.Payout({recipient: recipient2, amount: amount, extraData: "nonzero_deallocate"});
+
+        uint256 initialAllocation1 =
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1)));
+        uint256 initialAllocation2 =
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2)));
+
+        // Record logs to verify only one PayoutsDeallocated event is emitted
+        vm.recordLogs();
+        vm.prank(manager);
+        flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
+
+        // Zero amount should not change recipient1 allocation
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1))), initialAllocation1
+        );
+        // Non-zero amount should reduce recipient2 allocation
+        assertEq(
+            flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))),
+            initialAllocation2 - amount
+        );
+        // Total allocations should only reflect the non-zero deallocation
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
+
+        // Verify only one PayoutsDeallocated event was emitted (for non-zero amount)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutsDeallocatedSig = keccak256("PayoutsDeallocated(address,address,bytes32,uint256,bytes)");
+        uint256 payoutsDeallocatedCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutsDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDeallocatedSig;
+            if (isFromFlywheel && isPayoutsDeallocated) {
+                payoutsDeallocatedCount++;
+            }
+        }
+        assertEq(payoutsDeallocatedCount, 1, "Should emit exactly one PayoutsDeallocated event for non-zero amount");
+    }
+
     /// @dev Verifies that deallocate calls work with multiple deallocations
     /// @param amount1 First deallocation amount
     /// @param amount2 Second deallocation amount
@@ -303,6 +401,49 @@ contract DeallocateTest is FlywheelTest {
         // Verify deallocations cleared all allocations
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1))), 0);
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
+    }
+
+    /// @dev Verifies that deallocate succeeds when funded by multiple allocates
+    /// @param recipient Recipient address
+    /// @param allocateAmount1 First allocation amount
+    /// @param allocateAmount2 Second allocation amount
+    function test_succeeds_whenFundedByMultipleAllocates(
+        address recipient,
+        uint256 allocateAmount1,
+        uint256 allocateAmount2
+    ) public {
+        recipient = boundToValidPayableAddress(recipient);
+        (allocateAmount1, allocateAmount2) = boundToValidMultiAmounts(allocateAmount1, allocateAmount2);
+        vm.assume(allocateAmount1 > 0 && allocateAmount2 > 0);
+        uint256 totalAllocated = allocateAmount1 + allocateAmount2;
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, totalAllocated, address(this));
+
+        // First allocation
+        Flywheel.Payout[] memory payouts1 = buildSinglePayout(recipient, allocateAmount1, "first_allocation");
+        managerAllocate(campaign, address(mockToken), payouts1);
+
+        // Verify first allocation
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), allocateAmount1);
+
+        // Second allocation (adds to existing allocation)
+        Flywheel.Payout[] memory payouts2 = buildSinglePayout(recipient, allocateAmount2, "second_allocation");
+        managerAllocate(campaign, address(mockToken), payouts2);
+
+        // Verify total allocation is sum of both allocates
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), totalAllocated);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), totalAllocated);
+
+        // Now deallocate the full amount that was funded by multiple allocates
+        Flywheel.Payout[] memory deallocatePayouts = buildSinglePayout(recipient, totalAllocated, "deallocate_all");
+
+        vm.prank(manager);
+        flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
+
+        // Verify full amount was deallocated and allocation was cleared
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
     }
 

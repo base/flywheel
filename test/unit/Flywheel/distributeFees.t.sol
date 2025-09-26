@@ -266,6 +266,88 @@ contract DistributeFeesTest is FlywheelTest {
         }
     }
 
+    /// @dev Verifies that zero amount fee distributions are ignored when intermixed with non-zero amounts
+    /// @param recipient1 First recipient address (will receive zero amount)
+    /// @param recipient2 Second recipient address (will receive non-zero amount)
+    /// @param amount Non-zero fee amount
+    function test_ignoresZeroAmountDistributions_intermixedWithNonZero(address recipient1, address recipient2, uint256 amount)
+        public
+    {
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
+        vm.assume(recipient1 != recipient2);
+        vm.assume(recipient1 != campaign); // Avoid self-transfers
+        vm.assume(recipient2 != campaign); // Avoid self-transfers
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0); // Ensure non-zero amount
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this)); // Only fund for the non-zero amount
+
+        // First allocate fees to both recipients (only fund for recipient2's non-zero amount)
+        Flywheel.Distribution[] memory feeAllocations = new Flywheel.Distribution[](2);
+        feeAllocations[0] = Flywheel.Distribution({
+            recipient: recipient1,
+            key: bytes32(bytes20(recipient1)),
+            amount: 0,
+            extraData: "zero_fee_allocation"
+        });
+        feeAllocations[1] = Flywheel.Distribution({
+            recipient: recipient2,
+            key: bytes32(bytes20(recipient2)),
+            amount: amount,
+            extraData: "nonzero_fee_allocation"
+        });
+
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
+
+        // Create distributions: one zero amount, one non-zero amount
+        Flywheel.Distribution[] memory distributions = new Flywheel.Distribution[](2);
+        distributions[0] = Flywheel.Distribution({
+            recipient: recipient1,
+            key: bytes32(bytes20(recipient1)),
+            amount: 0,
+            extraData: "zero_fee_distribution"
+        });
+        distributions[1] = Flywheel.Distribution({
+            recipient: recipient2,
+            key: bytes32(bytes20(recipient2)),
+            amount: amount,
+            extraData: "nonzero_fee_distribution"
+        });
+
+        uint256 initialBalance1 = mockToken.balanceOf(recipient1);
+        uint256 initialBalance2 = mockToken.balanceOf(recipient2);
+        uint256 initialAllocation1 = flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient1)));
+        uint256 initialAllocation2 = flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2)));
+
+        // Record logs to verify only one FeesDistributed event is emitted
+        vm.recordLogs();
+        vm.prank(manager);
+        flywheel.distributeFees(campaign, address(mockToken), abi.encode(distributions));
+
+        // Zero amount should not change recipient1 balance or allocation
+        assertEq(mockToken.balanceOf(recipient1), initialBalance1);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient1))), initialAllocation1);
+        // Non-zero amount should change recipient2 balance and clear allocation
+        assertEq(mockToken.balanceOf(recipient2), initialBalance2 + amount);
+        assertEq(flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
+
+        // Verify only one FeesDistributed event was emitted (for non-zero amount)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 feesDistributedSig = keccak256("FeesDistributed(address,address,bytes32,address,uint256,bytes)");
+        uint256 feesDistributedCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isFeesDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == feesDistributedSig;
+            if (isFromFlywheel && isFeesDistributed) {
+                feesDistributedCount++;
+            }
+        }
+        assertEq(feesDistributedCount, 1, "Should emit exactly one FeesDistributed event for non-zero amount");
+    }
+
     /// @dev Verifies multiple fee distributions in a single call
     /// @param recipient1 First recipient address
     /// @param recipient2 Second recipient address

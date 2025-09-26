@@ -104,6 +104,36 @@ contract SendTest is FlywheelTest {
     }
 
     /// @dev Expects InsufficientCampaignFunds
+    /// @dev Reverts when deferred fee allocation would place the campaign into insolvency
+    /// @param amount Payout amount
+    /// @param feeAmount Fee amount
+    function test_reverts_whenDeferredFeeAllocationPlacesCampaignIntoInsolvency(uint256 amount, uint256 feeAmount)
+        public
+    {
+        address recipient = makeAddr("recipient"); // Use known good addresses
+        address feeRecipient = makeAddr("feeRecipient");
+        amount = boundToValidAmount(amount);
+        feeAmount = boundToValidAmount(feeAmount);
+        vm.assume(amount > 0 && feeAmount > 1);
+
+        uint256 totalNeeded = amount + feeAmount;
+        vm.assume(totalNeeded > amount); // Check for overflow
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with just enough for payout but not enough for deferred fee allocation
+        fundCampaign(campaign, totalNeeded - 1, address(this));
+
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, "");
+        bytes32 feeKey = bytes32(bytes20(feeRecipient));
+        Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee");
+        bytes memory hookData = buildSendHookData(payouts, fees, false); // Deferred fees
+
+        vm.expectRevert(Flywheel.InsufficientCampaignFunds.selector);
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), hookData);
+    }
+
+    /// @dev Expects InsufficientCampaignFunds
     /// @dev Reverts when campaign is not solvent
     /// @param recipient Recipient address
     /// @param amount Payout amount
@@ -266,6 +296,59 @@ contract SendTest is FlywheelTest {
                 revert("PayoutSent was emitted for zero-amount payout");
             }
         }
+    }
+
+    /// @dev Verifies that zero amount payouts are ignored when intermixed with non-zero amounts
+    /// @param recipient1 First recipient address (will receive zero amount)
+    /// @param recipient2 Second recipient address (will receive non-zero amount)
+    /// @param amount Non-zero payout amount
+    function test_ignoresZeroAmountPayouts_intermixedWithNonZero(address recipient1, address recipient2, uint256 amount)
+        public
+    {
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
+        vm.assume(recipient1 != recipient2);
+        vm.assume(recipient1 != campaign); // Avoid self-transfers
+        vm.assume(recipient2 != campaign); // Avoid self-transfers
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0); // Ensure non-zero amount
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this)); // Only fund for the non-zero amount
+
+        // Create payouts: one zero amount, one non-zero amount
+        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](2);
+        payouts[0] = Flywheel.Payout({recipient: recipient1, amount: 0, extraData: "zero_payout"});
+        payouts[1] = Flywheel.Payout({recipient: recipient2, amount: amount, extraData: "nonzero_payout"});
+
+        Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
+        bytes memory hookData = buildSendHookData(payouts, fees, false);
+
+        uint256 initialBalance1 = mockToken.balanceOf(recipient1);
+        uint256 initialBalance2 = mockToken.balanceOf(recipient2);
+
+        // Record logs to verify only one PayoutSent event is emitted
+        vm.recordLogs();
+        vm.prank(manager);
+        flywheel.send(campaign, address(mockToken), hookData);
+
+        // Zero amount should not change recipient1 balance
+        assertEq(mockToken.balanceOf(recipient1), initialBalance1);
+        // Non-zero amount should change recipient2 balance
+        assertEq(mockToken.balanceOf(recipient2), initialBalance2 + amount);
+
+        // Verify only one PayoutSent event was emitted (for non-zero amount)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutSentSig = keccak256("PayoutSent(address,address,address,uint256,bytes)");
+        uint256 payoutSentCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutSent = logs[i].topics.length > 0 && logs[i].topics[0] == payoutSentSig;
+            if (isFromFlywheel && isPayoutSent) {
+                payoutSentCount++;
+            }
+        }
+        assertEq(payoutSentCount, 1, "Should emit exactly one PayoutSent event for non-zero amount");
     }
 
     /// @dev Verifies that send calls work with multiple payouts

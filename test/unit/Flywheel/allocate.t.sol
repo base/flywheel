@@ -187,6 +187,54 @@ contract AllocateTest is FlywheelTest {
         }
     }
 
+    /// @dev Verifies that zero amount allocations are ignored when intermixed with non-zero amounts
+    /// @param recipient1 First recipient address (will receive zero amount)
+    /// @param recipient2 Second recipient address (will receive non-zero amount)
+    /// @param amount Non-zero allocation amount
+    function test_ignoresZeroAmountAllocations_intermixedWithNonZero(
+        address recipient1,
+        address recipient2,
+        uint256 amount
+    ) public {
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
+        vm.assume(recipient1 != recipient2);
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0); // Ensure non-zero amount
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this)); // Only fund for the non-zero amount
+
+        // Create allocations: one zero amount, one non-zero amount
+        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](2);
+        payouts[0] = Flywheel.Payout({recipient: recipient1, amount: 0, extraData: "zero_allocation"});
+        payouts[1] = Flywheel.Payout({recipient: recipient2, amount: amount, extraData: "nonzero_allocation"});
+
+        // Record logs to verify only one PayoutAllocated event is emitted
+        vm.recordLogs();
+        managerAllocate(campaign, address(mockToken), payouts);
+
+        // Zero amount should not change recipient1 allocation
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1))), 0);
+        // Non-zero amount should change recipient2 allocation
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))), amount);
+        // Total allocations should only reflect non-zero amount
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), amount);
+
+        // Verify only one PayoutAllocated event was emitted (for non-zero amount)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutAllocatedSig = keccak256("PayoutAllocated(address,address,bytes32,uint256,bytes)");
+        uint256 payoutAllocatedCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutAllocatedSig;
+            if (isFromFlywheel && isPayoutAllocated) {
+                payoutAllocatedCount++;
+            }
+        }
+        assertEq(payoutAllocatedCount, 1, "Should emit exactly one PayoutAllocated event for non-zero amount");
+    }
+
     /// @dev Verifies that allocate calls work with multiple allocations
     /// @param recipient1 First recipient address
     /// @param recipient2 Second recipient address

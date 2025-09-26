@@ -5,6 +5,7 @@ import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {stdError} from "forge-std/StdError.sol";
 import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 
@@ -120,6 +121,42 @@ contract DistributeTest is FlywheelTest {
         );
         vm.prank(manager);
         flywheel.distribute(campaign, Constants.NATIVE_TOKEN, hookData);
+    }
+
+    /// @dev Reverts (underflow)when trying to distribute more than allocated for the key
+    /// @param recipient Recipient address
+    /// @param allocateAmount Allocation amount
+    /// @param distributeAmount Distribution amount (will be > allocateAmount)
+    function test_reverts_whenOverdrawFromAllocation(
+        address recipient,
+        uint256 allocateAmount,
+        uint256 distributeAmount
+    ) public {
+        recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        allocateAmount = boundToValidAmount(allocateAmount);
+        distributeAmount = boundToValidAmount(distributeAmount);
+        vm.assume(allocateAmount > 0);
+        vm.assume(distributeAmount > allocateAmount); // Overdraw condition
+
+        activateCampaign(campaign, manager);
+        // Fund campaign with distribute amount to ensure solvency isn't the issue
+        fundCampaign(campaign, distributeAmount, address(this));
+
+        // Allocate smaller amount than we'll try to distribute
+        Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, allocateAmount, "");
+        managerAllocate(campaign, address(mockToken), allocatedPayouts);
+
+        // Verify allocation
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), allocateAmount);
+
+        Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, "");
+        Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
+        bytes memory hookData = buildSendHookData(payouts, fees, false);
+
+        vm.expectRevert(stdError.arithmeticError); // Underflow when trying to subtract more than allocated
+        vm.prank(manager);
+        flywheel.distribute(campaign, address(mockToken), hookData);
     }
 
     /// @dev Expects InsufficientCampaignFunds
@@ -654,6 +691,71 @@ contract DistributeTest is FlywheelTest {
         }
     }
 
+    /// @dev Verifies that zero amount distributions are ignored when intermixed with non-zero amounts
+    /// @param recipient1 First recipient address (will receive zero amount)
+    /// @param recipient2 Second recipient address (will receive non-zero amount)
+    /// @param amount Non-zero distribution amount
+    function test_ignoresZeroAmountDistributions_intermixedWithNonZero(
+        address recipient1,
+        address recipient2,
+        uint256 amount
+    ) public {
+        recipient1 = boundToValidPayableAddress(recipient1);
+        recipient2 = boundToValidPayableAddress(recipient2);
+        vm.assume(recipient1 != recipient2);
+        vm.assume(recipient1 != campaign); // Avoid self-transfers
+        vm.assume(recipient2 != campaign); // Avoid self-transfers
+        amount = boundToValidAmount(amount);
+        vm.assume(amount > 0); // Ensure non-zero amount
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, amount, address(this)); // Only fund for the non-zero amount
+
+        // First allocate funds to both recipients (only fund for recipient2's non-zero amount)
+        Flywheel.Payout[] memory allocatedPayouts = new Flywheel.Payout[](2);
+        allocatedPayouts[0] = Flywheel.Payout({recipient: recipient1, amount: 0, extraData: "zero_allocation"});
+        allocatedPayouts[1] = Flywheel.Payout({recipient: recipient2, amount: amount, extraData: "nonzero_allocation"});
+        managerAllocate(campaign, address(mockToken), allocatedPayouts);
+
+        // Create distributions: one zero amount, one non-zero amount
+        Flywheel.Payout[] memory payouts = new Flywheel.Payout[](2);
+        payouts[0] = Flywheel.Payout({recipient: recipient1, amount: 0, extraData: "zero_distribution"});
+        payouts[1] = Flywheel.Payout({recipient: recipient2, amount: amount, extraData: "nonzero_distribution"});
+
+        Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
+        bytes memory hookData = buildSendHookData(payouts, fees, false);
+
+        uint256 initialBalance1 = mockToken.balanceOf(recipient1);
+        uint256 initialBalance2 = mockToken.balanceOf(recipient2);
+
+        // Record logs to verify only one PayoutsDistributed event is emitted
+        vm.recordLogs();
+        vm.prank(manager);
+        flywheel.distribute(campaign, address(mockToken), hookData);
+
+        // Zero amount should not change recipient1 balance
+        assertEq(mockToken.balanceOf(recipient1), initialBalance1);
+        // Non-zero amount should change recipient2 balance
+        assertEq(mockToken.balanceOf(recipient2), initialBalance2 + amount);
+        // Recipient1 allocation should remain unchanged (was 0, stays 0)
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1))), 0);
+        // Recipient2 allocation should be consumed
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
+
+        // Verify only one PayoutsDistributed event was emitted (for non-zero amount)
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 payoutsDistributedSig = keccak256("PayoutsDistributed(address,address,bytes32,address,uint256,bytes)");
+        uint256 payoutsDistributedCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isPayoutsDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDistributedSig;
+            if (isFromFlywheel && isPayoutsDistributed) {
+                payoutsDistributedCount++;
+            }
+        }
+        assertEq(payoutsDistributedCount, 1, "Should emit exactly one PayoutsDistributed event for non-zero amount");
+    }
+
     /// @dev Verifies that distribute calls work with multiple distributions
     /// @param recipient1 First recipient address
     /// @param recipient2 Second recipient address
@@ -702,6 +804,55 @@ contract DistributeTest is FlywheelTest {
         // Allocations should be consumed
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1))), 0);
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
+    }
+
+    /// @dev Verifies that distribute succeeds when funded by multiple allocates
+    /// @param recipient Recipient address
+    /// @param allocateAmount1 First allocation amount
+    /// @param allocateAmount2 Second allocation amount
+    function test_succeeds_whenFundedByMultipleAllocates(
+        address recipient,
+        uint256 allocateAmount1,
+        uint256 allocateAmount2
+    ) public {
+        recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        (allocateAmount1, allocateAmount2) = boundToValidMultiAmounts(allocateAmount1, allocateAmount2);
+        vm.assume(allocateAmount1 > 0 && allocateAmount2 > 0);
+        uint256 totalAllocated = allocateAmount1 + allocateAmount2;
+
+        activateCampaign(campaign, manager);
+        fundCampaign(campaign, totalAllocated, address(this));
+
+        // First allocation
+        Flywheel.Payout[] memory payouts1 = buildSinglePayout(recipient, allocateAmount1, "first_allocation");
+        managerAllocate(campaign, address(mockToken), payouts1);
+
+        // Verify first allocation
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), allocateAmount1);
+
+        // Second allocation (adds to existing allocation)
+        Flywheel.Payout[] memory payouts2 = buildSinglePayout(recipient, allocateAmount2, "second_allocation");
+        managerAllocate(campaign, address(mockToken), payouts2);
+
+        // Verify total allocation is sum of both allocates
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), totalAllocated);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), totalAllocated);
+
+        // Now distribute the full amount that was funded by multiple allocates
+        Flywheel.Payout[] memory distributePayouts = buildSinglePayout(recipient, totalAllocated, "distribute_all");
+        Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
+        bytes memory hookData = buildSendHookData(distributePayouts, fees, false);
+
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
+
+        vm.prank(manager);
+        flywheel.distribute(campaign, address(mockToken), hookData);
+
+        // Verify full amount was distributed and allocation was cleared
+        assertEq(mockToken.balanceOf(recipient), initialRecipientBalance + totalAllocated);
+        assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), 0);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
     }
 
     /// @dev Verifies that the PayoutsDistributed event is emitted for each distribution
