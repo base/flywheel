@@ -9,11 +9,8 @@ import {Vm} from "forge-std/Vm.sol";
 /// @title AllocateTest
 /// @notice Tests for Flywheel.allocate
 contract AllocateTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
 
     /// @dev Expects CampaignDoesNotExist

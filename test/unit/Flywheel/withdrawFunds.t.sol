@@ -10,11 +10,8 @@ import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 /// @title WithdrawFundsTest
 /// @notice Tests for Flywheel.withdrawFunds
 contract WithdrawFundsTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
     /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts when campaign does not exist
@@ -132,6 +129,9 @@ contract WithdrawFundsTest is FlywheelTest {
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
+        vm.assume(recipient != feeRecipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
+        vm.assume(feeRecipient != campaign); // Avoid campaign as fee recipient
         amount = boundToValidAmount(amount);
         vm.assume(amount > 1); // Need at least 2 to create insolvency
 

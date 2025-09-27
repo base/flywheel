@@ -8,11 +8,8 @@ import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
 /// @title UpdateContractURITest
 /// @notice Tests for `Campaign.updateContractURI`
 contract UpdateContractURITest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
     /// @dev Expects OnlyFlywheel error when msg.sender != flywheel
     /// @dev Reverts when caller is not Flywheel

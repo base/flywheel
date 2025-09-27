@@ -20,6 +20,9 @@ abstract contract FlywheelTest is Test {
     address public owner; // Campaign owner (authorized withdrawer in MockCampaignHooksWithFees)
     address public manager; // Campaign manager (authorized to call payout functions in MockCampaignHooksWithFees)
 
+    // Default campaign (created automatically in setUpFlywheelBase)
+    address public campaign; // Default test campaign using MockCampaignHooksWithFees
+
     // Default values
     uint256 public constant INITIAL_TOKEN_BALANCE = 1_000_000e18;
 
@@ -46,6 +49,9 @@ abstract contract FlywheelTest is Test {
 
         // Ensure balances are present for convenient funding
         // MockERC20 mints to provided holders in its constructor
+
+        // Create default campaign for tests
+        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
 
     /// @notice Creates a MockCampaignHooksWithFees campaign via Flywheel
@@ -53,13 +59,13 @@ abstract contract FlywheelTest is Test {
     /// @param manager_ Campaign manager (authorized to call payout functions)
     /// @param uri Campaign URI stored by MockCampaignHooksWithFees
     /// @param nonce Deterministic salt for the campaign address
-    /// @return campaign The newly created (or already deployed) campaign address
+    /// @return campaignAddr The newly created (or already deployed) campaign address
     function createSimpleCampaign(address owner_, address manager_, string memory uri, uint256 nonce)
         public
-        returns (address campaign)
+        returns (address campaignAddr)
     {
         bytes memory hookData = abi.encode(owner_, manager_, uri);
-        campaign = flywheel.createCampaign(address(mockCampaignHooksWithFees), nonce, hookData);
+        campaignAddr = flywheel.createCampaign(address(mockCampaignHooksWithFees), nonce, hookData);
     }
 
     /// @notice Predicts a MockCampaignHooksWithFees campaign address without deploying it
@@ -78,29 +84,29 @@ abstract contract FlywheelTest is Test {
     }
 
     /// @notice Activates a campaign using MockCampaignHooksWithFees manager
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param manager_ Manager authorized in SimpleRewards
-    function activateCampaign(address campaign, address manager_) public {
+    function activateCampaign(address campaignAddr, address manager_) public {
         vm.prank(manager_);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(campaignAddr, Flywheel.CampaignStatus.ACTIVE, "");
     }
 
     /// @notice Finalizes a campaign (ACTIVE -> FINALIZED)
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param manager_ Manager authorized in MockCampaignHooksWithFees
-    function finalizeCampaign(address campaign, address manager_) public {
+    function finalizeCampaign(address campaignAddr, address manager_) public {
         vm.startPrank(manager_);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        flywheel.updateStatus(campaignAddr, Flywheel.CampaignStatus.FINALIZED, "");
         vm.stopPrank();
     }
 
     /// @notice Funds a campaign with ERC20 tokens
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param amount Amount to transfer
-    /// @param funder Address that sends tokens
-    function fundCampaign(address campaign, uint256 amount, address funder) public {
+    /// @param funder Address that funds the campaign
+    function fundCampaign(address campaignAddr, uint256 amount, address funder) public {
         vm.prank(funder);
-        mockToken.transfer(campaign, amount);
+        mockToken.transfer(campaignAddr, amount);
     }
 
     /// @notice Builds a single payout entry array
@@ -118,50 +124,50 @@ abstract contract FlywheelTest is Test {
     }
 
     /// @notice Calls Flywheel.send as the MockCampaignHooksWithFees manager
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array to encode into hookData
-    function managerSend(address campaign, address tokenAddress, Flywheel.Payout[] memory payouts) public {
+    function managerSend(address campaignAddr, address tokenAddress, Flywheel.Payout[] memory payouts) public {
         vm.prank(manager);
-        flywheel.send(campaign, tokenAddress, abi.encode(payouts));
+        flywheel.send(campaignAddr, tokenAddress, abi.encode(payouts));
     }
 
     /// @notice Calls Flywheel.allocate as the MockCampaignHooksWithFees manager
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array (used to derive allocations)
-    function managerAllocate(address campaign, address tokenAddress, Flywheel.Payout[] memory payouts) public {
+    function managerAllocate(address campaignAddr, address tokenAddress, Flywheel.Payout[] memory payouts) public {
         vm.prank(manager);
-        flywheel.allocate(campaign, tokenAddress, abi.encode(payouts));
+        flywheel.allocate(campaignAddr, tokenAddress, abi.encode(payouts));
     }
 
     /// @notice Calls Flywheel.deallocate as the MockCampaignHooksWithFees manager
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array (used to derive allocations)
-    function managerDeallocate(address campaign, address tokenAddress, Flywheel.Payout[] memory payouts) public {
+    function managerDeallocate(address campaignAddr, address tokenAddress, Flywheel.Payout[] memory payouts) public {
         vm.prank(manager);
-        flywheel.deallocate(campaign, tokenAddress, abi.encode(payouts));
+        flywheel.deallocate(campaignAddr, tokenAddress, abi.encode(payouts));
     }
 
     /// @notice Calls Flywheel.distribute as the MockCampaignHooksWithFees manager
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param tokenAddress Token to use
     /// @param payouts Payout array (used to derive distributions)
-    function managerDistribute(address campaign, address tokenAddress, Flywheel.Payout[] memory payouts) public {
+    function managerDistribute(address campaignAddr, address tokenAddress, Flywheel.Payout[] memory payouts) public {
         vm.prank(manager);
-        flywheel.distribute(campaign, tokenAddress, abi.encode(payouts));
+        flywheel.distribute(campaignAddr, tokenAddress, abi.encode(payouts));
     }
 
     /// @notice Calls Flywheel.withdrawFunds as the MockCampaignHooksWithFees owner
-    /// @param campaign Campaign address
+    /// @param campaignAddr Campaign address
     /// @param tokenAddress Token to withdraw
     /// @param recipient Recipient of withdrawn funds
     /// @param amount Amount to withdraw
-    function ownerWithdraw(address campaign, address tokenAddress, address recipient, uint256 amount) public {
+    function ownerWithdraw(address campaignAddr, address tokenAddress, address recipient, uint256 amount) public {
         vm.prank(owner);
         flywheel.withdrawFunds(
-            campaign, tokenAddress, abi.encode(Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}))
+            campaignAddr, tokenAddress, abi.encode(Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}))
         );
     }
 

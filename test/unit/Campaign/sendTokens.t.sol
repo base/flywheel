@@ -10,11 +10,8 @@ import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
 /// @title SendTokensTest
 /// @notice Tests for `Campaign.sendTokens`
 contract SendTokensTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
     /// @notice sendTokens reverts for non-Flywheel callers
     /// @dev Expects OnlyFlywheel error when msg.sender != flywheel

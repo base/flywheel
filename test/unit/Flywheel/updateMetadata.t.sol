@@ -9,11 +9,8 @@ import {MockCampaignHooksWithFees} from "../../lib/mocks/MockCampaignHooksWithFe
 /// @title UpdateMetadataTest
 /// @notice Tests for Flywheel.updateMetadata
 contract UpdateMetadataTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
 
     /// @dev Expects InvalidCampaignStatus

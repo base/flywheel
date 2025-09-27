@@ -11,7 +11,6 @@ import {Constants} from "../../src/Constants.sol";
 contract MultiTokenTest is FlywheelTest {
     MockERC20 public tokenA;
     MockERC20 public tokenB;
-    address public campaign;
 
     function setUp() public {
         setUpFlywheelBase();

@@ -11,11 +11,8 @@ import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 /// @title DistributeFeesTest
 /// @notice Tests for Flywheel.distributeFees
 contract DistributeFeesTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
     /// @dev Expects CampaignDoesNotExist
     /// @dev Reverts when campaign does not exist

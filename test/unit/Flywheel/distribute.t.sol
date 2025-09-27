@@ -12,11 +12,8 @@ import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
 /// @title DistributeTest
 /// @notice Tests for Flywheel.distribute
 contract DistributeTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
 
     /// @dev Expects CampaignDoesNotExist
@@ -320,10 +317,6 @@ contract DistributeTest is FlywheelTest {
         // Use a simple, clean address to avoid any edge cases
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
-        vm.assume(recipient != address(vm)); // Avoid VM precompile that rejects ETH
-        vm.assume(recipient != address(0)); // Avoid zero address
-        vm.assume(uint160(recipient) > 1000); // Avoid precompile addresses and low addresses
-        vm.assume(recipient.code.length == 0); // Only EOAs to avoid contracts that might revert
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
@@ -804,6 +797,7 @@ contract DistributeTest is FlywheelTest {
         // Allocations should be consumed
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient1))), 0);
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
+        assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
     }
 
     /// @dev Verifies that distribute succeeds when funded by multiple allocates

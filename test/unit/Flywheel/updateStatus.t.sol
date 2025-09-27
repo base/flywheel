@@ -8,11 +8,8 @@ import {MockCampaignHooksWithFees} from "../../lib/mocks/MockCampaignHooksWithFe
 /// @title UpdateStatusTest
 /// @notice Tests for Flywheel.updateStatus
 contract UpdateStatusTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
 
     /// @dev Expects CampaignDoesNotExist

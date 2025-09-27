@@ -10,11 +10,8 @@ import {stdError} from "forge-std/StdError.sol";
 /// @title DeallocateTest
 /// @notice Tests for Flywheel.deallocate
 contract DeallocateTest is FlywheelTest {
-    address public campaign;
-
     function setUp() public {
         setUpFlywheelBase();
-        campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
     }
 
     /// @dev Expects CampaignDoesNotExist
