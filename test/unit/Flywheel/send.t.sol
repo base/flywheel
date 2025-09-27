@@ -64,20 +64,17 @@ contract SendTest is FlywheelTest {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
-        // Use a failing ERC20 token that will cause transfers to fail
-        FailingERC20 failingToken = new FailingERC20();
-
         activateCampaign(campaign, manager);
         // Fund campaign with the failing token
-        failingToken.mint(campaign, amount);
+        failingERC20.mint(campaign, amount);
 
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, eventTestData);
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](0);
         bytes memory hookData = buildSendHookData(payouts, fees, false);
 
-        vm.expectRevert(abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingToken), recipient, amount));
+        vm.expectRevert(abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingERC20), recipient, amount));
         vm.prank(manager);
-        flywheel.send(campaign, address(failingToken), hookData);
+        flywheel.send(campaign, address(failingERC20), hookData);
     }
 
     /// @dev Expects SendFailed
@@ -88,8 +85,6 @@ contract SendTest is FlywheelTest {
     function test_reverts_whenSendFailed_nativeToken(uint256 amount, address recipient, bytes memory eventTestData)
         public
     {
-        // Create a contract that will reject native token transfers by reverting in its receive function
-        RevertingReceiver revertingRecipient = new RevertingReceiver();
         recipient = address(revertingRecipient);
         amount = boundToValidAmount(amount);
 
@@ -212,6 +207,7 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     function test_succeeds_whenCampaignFinalizing(address recipient, uint256 amount) public {
         recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
 
         activateCampaign(campaign, manager);
@@ -504,7 +500,7 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
-    function test_updatesAllocatedFees_onFeeSendFailure(
+    function test_send_updatesAllocatedFees_onFeeSendFailure(
         address recipient,
         uint256 amount,
         uint256 feeBp,
@@ -570,6 +566,8 @@ contract SendTest is FlywheelTest {
 
         uint256 initialFeeRecipientBalance = mockToken.balanceOf(feeRecipient);
 
+        // Record logs to assert no fee events are emitted
+        vm.recordLogs();
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
 
@@ -578,6 +576,22 @@ contract SendTest is FlywheelTest {
         assertEq(mockToken.balanceOf(campaign), 0);
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), 0);
         assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), 0);
+
+        // Assert no FeeAllocated or FeeTransferFailed events emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 feeAllocatedSig = keccak256("FeeAllocated(address,address,bytes32,uint256,bytes)");
+        bytes32 feeTransferFailedSig = keccak256("FeeTransferFailed(address,address,bytes32,address,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
+            bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
+            if (isFromFlywheel && isFeeAllocated) {
+                revert("FeeAllocated was emitted for zero-amount fee");
+            }
+            if (isFromFlywheel && isFeeTransferFailed) {
+                revert("FeeTransferFailed was emitted for zero-amount fee");
+            }
+        }
     }
 
     /// @dev Verifies that send handles multiple fees in a single call

@@ -22,19 +22,21 @@ contract PredictCampaignAddressTest is FlywheelTest {
 
         // Predict the campaign address
         address predictedAddress = flywheel.predictCampaignAddress(hooks, nonce, hookData);
-
+        vm.assertEq(predictedAddress.code.length, 0);
         // Mock the hooks contract to avoid revert in onCreateCampaign
         // Optional: ensure onCreateCampaign call succeeds regardless of hook logic
         vm.mockCall(
             hooks,
             0,
-            abi.encodeWithSignature("onCreateCampaign(address,uint256,bytes)", predictedAddress, nonce, hookData),
+            abi.encodeWithSelector(
+                mockCampaignHooksWithFees.onCreateCampaign.selector, predictedAddress, nonce, hookData
+            ),
             hex""
         );
 
         // Create the campaign and verify it matches the prediction
         address actualAddress = flywheel.createCampaign(hooks, nonce, hookData);
-
+        vm.assertTrue(predictedAddress.code.length > 0);
         assertEq(actualAddress, predictedAddress, "Actual address should match predicted address");
     }
 

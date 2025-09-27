@@ -61,7 +61,6 @@ contract DistributeTest is FlywheelTest {
     /// @param distributeAmount Distribution amount
     function test_reverts_whenSendFailed_ERC20(uint256 allocateAmount, uint256 distributeAmount) public {
         // Use a failing ERC20 token that will cause transfers to fail
-        FailingERC20 failingToken = new FailingERC20();
         address recipient = makeAddr("recipient");
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
@@ -69,12 +68,12 @@ contract DistributeTest is FlywheelTest {
 
         activateCampaign(campaign, manager);
         // Fund campaign with the failing token
-        failingToken.mint(campaign, allocateAmount);
+        failingERC20.mint(campaign, allocateAmount);
 
         // First allocate the funds so the allocation exists
         Flywheel.Payout[] memory allocatedPayouts = buildSinglePayout(recipient, allocateAmount, "");
         vm.prank(manager);
-        flywheel.allocate(campaign, address(failingToken), abi.encode(allocatedPayouts));
+        flywheel.allocate(campaign, address(failingERC20), abi.encode(allocatedPayouts));
 
         // Try to distribute - allocation exists and campaign has tokens, but transfer will fail
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, distributeAmount, "");
@@ -82,10 +81,10 @@ contract DistributeTest is FlywheelTest {
         bytes memory hookData = buildSendHookData(payouts, fees, false);
 
         vm.expectRevert(
-            abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingToken), recipient, distributeAmount)
+            abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingERC20), recipient, distributeAmount)
         );
         vm.prank(manager);
-        flywheel.distribute(campaign, address(failingToken), hookData);
+        flywheel.distribute(campaign, address(failingERC20), hookData);
     }
 
     /// @dev Expects SendFailed
@@ -93,8 +92,6 @@ contract DistributeTest is FlywheelTest {
     /// @param allocateAmount Allocation amount
     /// @param distributeAmount Distribution amount
     function test_reverts_whenSendFailed_nativeToken(uint256 allocateAmount, uint256 distributeAmount) public {
-        // Create a contract that will reject native token transfers by reverting in its receive function
-        RevertingReceiver revertingRecipient = new RevertingReceiver();
         address recipient = address(revertingRecipient);
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
@@ -551,6 +548,8 @@ contract DistributeTest is FlywheelTest {
 
         uint256 initialFeeRecipientBalance = mockToken.balanceOf(feeRecipient);
 
+        // Record logs to assert no fee events are emitted
+        vm.recordLogs();
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
 
@@ -558,6 +557,22 @@ contract DistributeTest is FlywheelTest {
         assertEq(mockToken.balanceOf(feeRecipient), initialFeeRecipientBalance);
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), 0);
         assertEq(flywheel.totalAllocatedFees(campaign, address(mockToken)), 0);
+
+        // Assert no FeeAllocated or FeeTransferFailed events emitted by flywheel
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 feeAllocatedSig = keccak256("FeeAllocated(address,address,bytes32,uint256,bytes)");
+        bytes32 feeTransferFailedSig = keccak256("FeeTransferFailed(address,address,bytes32,address,uint256,bytes)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            bool isFromFlywheel = logs[i].emitter == address(flywheel);
+            bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
+            bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
+            if (isFromFlywheel && isFeeAllocated) {
+                revert("FeeAllocated was emitted for zero-amount fee");
+            }
+            if (isFromFlywheel && isFeeTransferFailed) {
+                revert("FeeTransferFailed was emitted for zero-amount fee");
+            }
+        }
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
         assertEq(
             flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))),

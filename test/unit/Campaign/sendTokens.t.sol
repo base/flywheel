@@ -103,15 +103,13 @@ contract SendTokensTest is FlywheelTest {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
-        // Deploy a contract that reverts on receive
-        RevertingReceiver reverter = new RevertingReceiver();
-
         // Fund the campaign with native tokens
         vm.deal(campaign, amount);
 
         // Call sendTokens from Flywheel to the reverting contract
         vm.prank(address(flywheel));
-        bool success = Campaign(payable(campaign)).sendTokens(Constants.NATIVE_TOKEN, address(reverter), amount);
+        bool success =
+            Campaign(payable(campaign)).sendTokens(Constants.NATIVE_TOKEN, address(revertingRecipient), amount);
 
         // Verify it returns false when native transfer fails
         assertFalse(success, "sendTokens should return false when native transfer fails");

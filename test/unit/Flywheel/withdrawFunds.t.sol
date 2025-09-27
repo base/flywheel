@@ -44,31 +44,28 @@ contract WithdrawFundsTest is FlywheelTest {
 
     /// @dev Expects SendFailed when Campaign.sendTokens returns false (ERC20)
     /// @param amount Withdraw amount
-    function test_reverts_whenSendFailed_ERC20(uint256 amount) public {
-        // Use a failing ERC20 token that will cause transfers to fail
-        FailingERC20 failingToken = new FailingERC20();
-        address recipient = makeAddr("recipient");
+    /// @param recipient Recipient address
+    function test_reverts_whenSendFailed_ERC20(uint256 amount, address recipient) public {
+        recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
         // Activate campaign manually (manager can update status)
         vm.prank(manager);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
         // Fund campaign with the failing token
-        failingToken.mint(campaign, amount);
+        failingERC20.mint(campaign, amount);
 
         Flywheel.Payout memory payout = Flywheel.Payout({recipient: recipient, amount: amount, extraData: "withdraw"});
         bytes memory hookData = abi.encode(payout);
 
-        vm.expectRevert(abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingToken), recipient, amount));
+        vm.expectRevert(abi.encodeWithSelector(Flywheel.SendFailed.selector, address(failingERC20), recipient, amount));
         vm.prank(owner); // Campaign owner calls withdraw
-        flywheel.withdrawFunds(campaign, address(failingToken), hookData);
+        flywheel.withdrawFunds(campaign, address(failingERC20), hookData);
     }
 
     /// @dev Expects SendFailed when Campaign.sendTokens returns false (native token)
     /// @param amount Withdraw amount
     function test_reverts_whenSendFailed_native(uint256 amount) public {
-        // Create a contract that will reject native token transfers
-        RevertingReceiver revertingRecipient = new RevertingReceiver();
         address recipient = address(revertingRecipient);
         amount = boundToValidAmount(amount);
 
@@ -200,14 +197,8 @@ contract WithdrawFundsTest is FlywheelTest {
     /// @param amount Withdraw amount
     function test_succeeds_withNative(address recipient, uint256 amount) public {
         // Use a simple, clean address to avoid any edge cases
-        recipient = address(uint160(bound(uint160(recipient), 1000, type(uint160).max - 1000)));
+        recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
-        vm.assume(recipient != address(vm)); // Avoid VM precompile that rejects ETH
-        vm.assume(recipient != address(0)); // Avoid zero address
-        vm.assume(uint160(recipient) > 1000); // Avoid precompile addresses and low addresses
-        vm.assume(recipient.code.length == 0); // Only EOAs to avoid contracts that might revert
-        // Avoid problematic addresses that might be console.log or other system addresses
-        vm.assume(recipient != address(0x000000000000000000636F6e736F6c652e6c6f67));
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
 

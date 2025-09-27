@@ -6,6 +6,8 @@ import {Test} from "forge-std/Test.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {MockCampaignHooksWithFees} from "./mocks/MockCampaignHooksWithFees.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
+import {RevertingReceiver} from "./mocks/RevertingReceiver.sol";
+import {FailingERC20} from "./mocks/FailingERC20.sol";
 
 /// @title FlywheelTestBase
 /// @notice Minimal shared setup for Flywheel unit tests using MockCampaignHooksWithFees as the hook
@@ -15,6 +17,8 @@ abstract contract FlywheelTest is Test {
     Flywheel public flywheel;
     MockCampaignHooksWithFees public mockCampaignHooksWithFees;
     MockERC20 public mockToken;
+    RevertingReceiver public revertingRecipient;
+    FailingERC20 public failingERC20;
 
     // Default actors
     address public owner; // Campaign owner (authorized withdrawer in MockCampaignHooksWithFees)
@@ -52,6 +56,23 @@ abstract contract FlywheelTest is Test {
 
         // Create default campaign for tests
         campaign = createSimpleCampaign(owner, manager, "Test Campaign", 1);
+
+        // Deploy a contract that will reject native token transfers
+        revertingRecipient = new RevertingReceiver();
+
+        // Deploy a contract that will reject ERC20 transfers
+        failingERC20 = new FailingERC20();
+
+        // Add labels
+        vm.label(address(flywheel), "Flywheel");
+        vm.label(address(mockCampaignHooksWithFees), "MockCampaignHooksWithFees");
+        vm.label(address(mockToken), "MockToken");
+        vm.label(address(revertingRecipient), "RevertingRecipient");
+        vm.label(address(failingERC20), "FailingERC20");
+        vm.label(address(owner), "Owner");
+        vm.label(address(manager), "Manager");
+        vm.label(address(campaign), "Campaign");
+        vm.label(address(this), "Test");
     }
 
     /// @notice Creates a MockCampaignHooksWithFees campaign via Flywheel
@@ -167,7 +188,9 @@ abstract contract FlywheelTest is Test {
     function ownerWithdraw(address campaignAddr, address tokenAddress, address recipient, uint256 amount) public {
         vm.prank(owner);
         flywheel.withdrawFunds(
-            campaignAddr, tokenAddress, abi.encode(Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}))
+            campaignAddr,
+            tokenAddress,
+            abi.encode(Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}))
         );
     }
 
