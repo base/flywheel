@@ -23,7 +23,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
 
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(newCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(testUri, newCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), 0);
     }
 
@@ -45,7 +45,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
 
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(newCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(testUri, newCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBps));
     }
 
@@ -67,7 +67,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         // Verify the campaign was created and has correct parameters
         assertEq(cashbackRewards.owners(actualCampaign), testOwner);
         assertEq(cashbackRewards.managers(actualCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(actualCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(actualCampaign), _concat(testUri, actualCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(actualCampaign), uint256(maxRewardBasisPoints));
     }
 
@@ -103,13 +103,13 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         // Verify first campaign values
         assertEq(cashbackRewards.owners(firstCampaign), testOwner);
         assertEq(cashbackRewards.managers(firstCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(firstCampaign), firstUri);
+        assertEq(cashbackRewards.campaignURI(firstCampaign), _concat(firstUri, firstCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(firstCampaign), uint256(firstMaxRewardBps));
 
         // Verify second campaign values
         assertEq(cashbackRewards.owners(secondCampaign), testOwner);
         assertEq(cashbackRewards.managers(secondCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(secondCampaign), secondUri);
+        assertEq(cashbackRewards.campaignURI(secondCampaign), _concat(secondUri, secondCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(secondCampaign), uint256(secondMaxRewardBps));
     }
 
@@ -130,7 +130,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         // Verify both owner and manager are set to the same address
         assertEq(cashbackRewards.owners(newCampaign), sameAddress);
         assertEq(cashbackRewards.managers(newCampaign), sameAddress);
-        assertEq(cashbackRewards.campaignURI(newCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(testUri, newCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBasisPoints));
     }
 
@@ -149,7 +149,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         address newCampaign = flywheel.createCampaign(address(cashbackRewards), nonce, hookData);
 
         // Verify empty URI is handled correctly
-        assertEq(cashbackRewards.campaignURI(newCampaign), emptyUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(emptyUri, newCampaign));
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBasisPoints));
