@@ -2,8 +2,8 @@
 pragma solidity ^0.8.29;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 
-import {BuilderCodes} from "../BuilderCodes.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 

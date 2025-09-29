@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
-import {BuilderCodes} from "../BuilderCodes.sol";
 
 /// @title AdConversion
 ///
