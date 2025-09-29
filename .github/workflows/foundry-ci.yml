@@ -28,9 +28,8 @@ jobs:
       fail-fast: true
 
     name: Tests
-    runs-on:
-      - medium  # Replace with xlarge if compiling w/ IR
-      - default-config
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
@@ -41,11 +40,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Foundry
-        uses: infra/cb-action-setup-external-tool@master
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
         with:
-          tool_name: "foundry"
-          version: "2f698e4"
+          version: nightly
 
       - name: Forge build
         run: |

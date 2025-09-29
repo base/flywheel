@@ -30,3 +30,7 @@ lcov.info
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Generated docs
+docs/gen
+test/docs/gen

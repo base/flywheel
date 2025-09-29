@@ -44,7 +44,7 @@ contract BridgeRewardsTest is Test {
         builderCodes = BuilderCodes(address(proxy));
 
         // Deploy BridgeRewards
-        bridgeRewards = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI);
+        bridgeRewards = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI, 200);
 
         // Deploy mock USDC
         usdc = new MockERC3009Token("USD Coin", "USDC", 6);
@@ -85,8 +85,7 @@ contract BridgeRewardsTest is Test {
 
     function test_onSend_revert_zeroAmount(uint16 feeBps) public {
         // Prepare hook data
-        uint256 bridgedAmount = 0;
-        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
         // Should revert when campaign has zero balance
         vm.expectRevert(abi.encodeWithSelector(BridgeRewards.ZeroBridgedAmount.selector));
@@ -100,9 +99,9 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
-        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
         uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
         uint256 userAmount = bridgedAmount - feeAmount;
@@ -127,7 +126,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 0% fee
         uint16 feeBps = 0;
-        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
         // Record balances before
         uint256 userBalanceBefore = usdc.balanceOf(user);
@@ -149,7 +148,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 1% fee
         bytes32 unregisteredCode = bytes32("unregistered");
-        bytes memory hookData = abi.encode(user, bridgedAmount, unregisteredCode, feeBps);
+        bytes memory hookData = abi.encode(user, unregisteredCode, feeBps);
 
         // Record balances before
         uint256 userBalanceBefore = usdc.balanceOf(user);
@@ -170,10 +169,10 @@ contract BridgeRewardsTest is Test {
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Use fee higher than maximum (2%)
-        uint16 maxFeeBps = bridgeRewards.MAX_FEE_BASIS_POINTS();
+        uint16 maxFeeBps = bridgeRewards.maxFeeBasisPoints();
         vm.assume(feeBps > maxFeeBps);
         vm.assume(bridgedAmount < type(uint256).max / maxFeeBps);
-        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
         uint256 feeAmount = (bridgedAmount * maxFeeBps) / 1e4;
         uint256 userAmount = bridgedAmount - feeAmount;
@@ -197,15 +196,15 @@ contract BridgeRewardsTest is Test {
         vm.deal(bridgeRewardsCampaign, bridgedAmount);
 
         // Prepare mock account
-        MockAccount mockAccount = new MockAccount(false); // reject native token initially
+        MockAccount mockAccount = new MockAccount(address(0), false); // reject native token initially
         vm.prank(builder);
         builderCodes.updatePayoutAddress(TEST_CODE_STRING, address(mockAccount));
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
         vm.assume(bridgedAmount < type(uint256).max / 2 / feeBps);
-        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
         uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
         uint256 userAmount = bridgedAmount - feeAmount;
@@ -245,7 +244,7 @@ contract BridgeRewardsTest is Test {
 
         // Execute send
         feeBps = 0;
-        hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        hookData = abi.encode(user, TEST_CODE, feeBps);
         flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
 
         // Check balances after send with no fees
@@ -314,9 +313,9 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data (user, code, fee)
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
-        bytes memory hookData = abi.encode(user, bridgedAmount, TEST_CODE, feeBps);
+        bytes memory hookData = abi.encode(user, TEST_CODE, feeBps);
 
         // Expected amounts based on contract logic
         uint256 startingBalance = bridgeRewardsCampaign.balance;

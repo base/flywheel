@@ -335,7 +335,7 @@ contract BuilderCodes is
     ///
     /// @return name The domain name for the referral codes
     /// @return version The version of the referral codes
-    function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {
+    function _domainNameAndVersion() internal pure virtual override returns (string memory name, string memory version) {
         name = "Builder Codes";
         version = "1";
     }

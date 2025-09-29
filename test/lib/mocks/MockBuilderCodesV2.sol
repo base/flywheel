@@ -5,16 +5,12 @@ import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 
 // Create a mock V2 contract for testing upgrades
 contract MockBuilderCodesV2 is BuilderCodes {
-    uint256 public totalPublishersCreated;
-
-    function incrementTotalPublishers() external onlyOwner {
-        totalPublishersCreated++;
+    /// @notice Returns the domain name and version for the referral codes
+    ///
+    /// @return name The domain name for the referral codes
+    /// @return version The version of the referral codes
+    function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {
+        name = "Builder Codes";
+        version = "2";
     }
-
-    function version() external pure returns (string memory) {
-        return "V2";
-    }
-
-    // adding this to be excluded from coverage report
-    function test() public {}
 }

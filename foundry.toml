@@ -10,6 +10,10 @@ optimizer_runs = 200
 optimizer = true
 optimizer_runs = 100000
 
+# Generate skimmable test docs with command: make docs-test
+[profile.testdocs]
+src = "test"
+
 # Etherscan API Configuration
 [etherscan]
 # For Base Sepolia, try using the Basescan endpoint directly
