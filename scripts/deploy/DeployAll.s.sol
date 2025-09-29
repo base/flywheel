@@ -16,7 +16,6 @@ contract DeployAll is Script {
     /// @notice Deployment information structure
     struct Deployments {
         address flywheel;
-        address builderCodes;
         address adConversion;
         address cashbackRewards;
         address bridgeRewards;
@@ -24,10 +23,10 @@ contract DeployAll is Script {
     }
 
     function run() external returns (Deployments memory deployments) {
-        address owner = 0x0BFc799dF7e440b7C88cC2454f12C58f8a29D986; // dev wallet
+        address builderCodes = 0x0BFc799dF7e440b7C88cC2454f12C58f8a29D986; // TODO
 
         console.log("Starting deployment of Flywheel protocol contracts...");
-        console.log("Owner address:", owner);
+        console.log("Builder Codes:", builderCodes);
         console.log("==========================================");
 
         // Deploy Flywheel first (no dependencies)
@@ -35,18 +34,13 @@ contract DeployAll is Script {
         DeployFlywheel flywheelDeployer = new DeployFlywheel();
         deployments.flywheel = flywheelDeployer.run();
 
-        // Deploy BuilderCodes (depends on owner)
-        console.log("2. Deploying BuilderCodes...");
-        DeployBuilderCodes builderCodesDeployer = new DeployBuilderCodes();
-        deployments.builderCodes = builderCodesDeployer.run(owner);
-
-        // Deploy AdConversion (depends on Flywheel, BuilderCodes, owner)
-        console.log("3. Deploying AdConversion...");
+        // Deploy AdConversion (depends on Flywheel, BuilderCodes)
+        console.log("2. Deploying AdConversion...");
         DeployAdConversion adConversionDeployer = new DeployAdConversion();
-        deployments.adConversion = adConversionDeployer.run(deployments.flywheel, deployments.builderCodes, owner);
+        deployments.adConversion = adConversionDeployer.run(deployments.flywheel, builderCodes);
 
         // Deploy CashbackRewards (depends on Flywheel)
-        console.log("4. Deploying CashbackRewards...");
+        console.log("3. Deploying CashbackRewards...");
         DeployCashbackRewards cashbackRewardsDeployer = new DeployCashbackRewards();
         deployments.cashbackRewards = cashbackRewardsDeployer.run(deployments.flywheel);
 
@@ -63,7 +57,6 @@ contract DeployAll is Script {
         console.log("==========================================");
         console.log("Deployment complete!");
         console.log("Flywheel:", deployments.flywheel);
-        console.log("BuilderCodes:", deployments.builderCodes);
         console.log("AdConversion:", deployments.adConversion);
         console.log("CashbackRewards:", deployments.cashbackRewards);
         console.log("BridgeRewards:", deployments.bridgeRewards);
