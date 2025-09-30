@@ -9,22 +9,92 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
     // ========================================
 
     /// @dev Complete successful campaign lifecycle from creation to finalization
-    /// @param advertiser Advertiser address
-    /// @param attributionProvider Attribution provider address
-    /// @param publisher Publisher address
-    /// @param publisherRefCode Publisher reference code
-    /// @param campaignFunding Initial campaign funding amount
-    /// @param attributionAmount Single attribution payout amount
-    /// @param feeBps Attribution provider fee in basis points
     function test_integration_completeCampaignLifecycle(
-        address advertiser,
-        address attributionProvider,
-        address publisher,
-        string memory publisherRefCode,
         uint256 campaignFunding,
         uint256 attributionAmount,
         uint16 feeBps
-    ) public;
+    ) public {
+        campaignFunding = bound(campaignFunding, MIN_CAMPAIGN_FUNDING, MAX_CAMPAIGN_FUNDING);
+        attributionAmount = bound(attributionAmount, MIN_ATTRIBUTION_AMOUNT, campaignFunding / 2);
+        feeBps = uint16(bound(feeBps, MIN_FEE_BPS, adConversion.MAX_BPS()));
+
+        // Create campaign
+        address campaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0),
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        assertCampaignStatus(campaign, Flywheel.CampaignStatus.INACTIVE);
+        assertCampaignState(campaign, advertiser1, attributionProvider1, feeBps, DEFAULT_ATTRIBUTION_WINDOW);
+        assertConversionConfigCount(campaign, 2);
+
+        // Fund campaign
+        fundCampaign(campaign, address(tokenA), campaignFunding);
+        assertTokenBalance(address(tokenA), campaign, campaignFunding);
+
+        // Activate campaign
+        activateCampaign(campaign, attributionProvider1);
+        assertCampaignStatus(campaign, Flywheel.CampaignStatus.ACTIVE);
+
+        // Create attribution
+        AdConversion.Attribution memory attribution = createOffchainAttribution(
+            REF_CODE_1,
+            publisherPayout1,
+            attributionAmount
+        );
+
+        // Calculate expected fee before processing
+        uint256 expectedFeeAmount = (attributionAmount * feeBps) / adConversion.MAX_BPS();
+        uint256 expectedPayoutAmount = attributionAmount - expectedFeeAmount;
+
+        // Record initial balances
+        uint256 publisherBalanceBefore = tokenA.balanceOf(publisherPayout1);
+        uint256 attributionProviderBalanceBefore = tokenA.balanceOf(attributionProvider1);
+
+        // Process attribution
+        processAttribution(campaign, address(tokenA), attribution, attributionProvider1);
+
+        // Verify payout
+        assertTokenBalance(address(tokenA), publisherPayout1, publisherBalanceBefore + expectedPayoutAmount);
+
+        // Verify fee allocation
+        assertAllocatedFee(campaign, address(tokenA), attributionProvider1, expectedFeeAmount);
+
+        // Campaign should still be active with reduced balance
+        assertCampaignStatus(campaign, Flywheel.CampaignStatus.ACTIVE);
+        assertTokenBalance(address(tokenA), campaign, campaignFunding - attributionAmount);
+
+        // Finalize campaign
+        finalizeCampaign(campaign, attributionProvider1);
+        assertCampaignStatus(campaign, Flywheel.CampaignStatus.FINALIZED);
+
+        // Distribute fees
+        vm.prank(attributionProvider1);
+        flywheel.distributeFees(campaign, address(tokenA), "");
+
+        // Verify fee distribution
+        assertAttributionProviderInvariants(
+            campaign,
+            address(tokenA),
+            attributionProvider1,
+            attributionProviderBalanceBefore,
+            expectedFeeAmount
+        );
+
+        // Withdraw remaining funds
+        vm.prank(advertiser1);
+        flywheel.withdrawFunds(campaign, address(tokenA), "");
+
+        // Verify campaign completion
+        assertCampaignCompletedLifecycle(campaign, address(tokenA), attributionProvider1);
+
+        // Final invariant check
+        assertCampaignInvariants(campaign, address(tokenA));
+    }
 
     /// @dev Campaign lifecycle with multiple publishers and attributions
     /// @param advertiser Advertiser address
