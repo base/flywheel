@@ -14,6 +14,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
 
         uint16 maxRewardBasisPoints = 0; // No limit
         bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBasisPoints);
@@ -36,6 +37,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
         maxRewardBps = uint16(bound(maxRewardBps, 1, type(uint16).max)); // Any non-zero value
 
         bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBps);
@@ -58,6 +60,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
 
         bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBasisPoints);
 
@@ -83,6 +86,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(firstUri).length <= 1000 && bytes(secondUri).length <= 1000);
+        vm.assume(bytes(firstUri).length > 0 && bytes(secondUri).length > 0);
         vm.assume(firstNonce != secondNonce);
 
         // Create first campaign
@@ -121,6 +125,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(sameAddress != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
 
         bytes memory hookData = abi.encode(sameAddress, sameAddress, testUri, maxRewardBasisPoints);
 
@@ -149,7 +154,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         address newCampaign = flywheel.createCampaign(address(cashbackRewards), nonce, hookData);
 
         // Verify empty URI is handled correctly
-        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(emptyUri, newCampaign));
+        assertEq(cashbackRewards.campaignURI(newCampaign), emptyUri);
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBasisPoints));

@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+import {LibString} from "solady/utils/LibString.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "../../lib/PublisherSetupHelper.sol";
 import {MockERC20} from "../../lib/mocks/MockERC20.sol";
@@ -1161,7 +1162,7 @@ contract AdConversionTest is PublisherTestSetup {
 
     function test_campaignURI_returnsCorrectURI() public {
         string memory uri = hook.campaignURI(campaign);
-        assertEq(uri, "https://example.com/campaign");
+        assertEq(uri, _concat("https://example.com/campaign", campaign));
     }
 
     function test_getConversionConfig_returnsCorrectConfig() public {
@@ -2187,5 +2188,10 @@ contract AdConversionTest is PublisherTestSetup {
         configs[1] =
             AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         return configs;
+    }
+
+    /// @notice Helper to concatenate a string and an address
+    function _concat(string memory a, address b) internal pure returns (string memory) {
+        return LibString.concat(a, LibString.toHexStringChecksummed(b));
     }
 }
