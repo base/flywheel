@@ -1,5 +1,7 @@
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+openzeppelin-contracts/=lib/openzeppelin-contracts/contracts/
 @openzeppelin/contracts/security/=lib/commerce-payments/lib/spend-permissions/lib/magicspend/lib/openzeppelin-contracts/contracts/utils/
 FreshCryptoLib/=lib/commerce-payments/lib/spend-permissions/lib/webauthn-sol/lib/FreshCryptoLib/solidity/src/
 account-abstraction/=lib/commerce-payments/lib/spend-permissions/lib/account-abstraction/contracts/
@@ -21,3 +23,4 @@ solady/=lib/commerce-payments/lib/solady/src/
 solmate/=lib/commerce-payments/lib/permit2/lib/solmate/
 spend-permissions/=lib/commerce-payments/lib/spend-permissions/
 webauthn-sol/=lib/commerce-payments/lib/spend-permissions/lib/webauthn-sol/src/
+builder-codes/=lib/builder-codes/src/
