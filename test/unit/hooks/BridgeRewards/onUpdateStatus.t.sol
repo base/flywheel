@@ -5,22 +5,19 @@ import {BridgeRewardsTest} from "../../../lib/BridgeRewardsTest.sol";
 import {Flywheel} from "../../../../src/Flywheel.sol";
 
 contract OnUpdateStatusTest is BridgeRewardsTest {
-    /// @notice Tests that onUpdateStatus reverts when called by non-Flywheel address
-    ///
-    /// @dev Should revert with access control error when called directly instead of through Flywheel
-    function test_onUpdateStatus_revert_onlyFlywheel() public {}
+    // ========================================
+    // REVERT CASES
+    // ========================================
 
-    /// @notice Tests that onUpdateStatus reverts when new status is not ACTIVE
-    ///
-    /// @dev BridgeRewards is a perpetual campaign that only allows ACTIVE status
-    ///      Should revert with InvalidCampaignStatus error for any non-ACTIVE status
-    ///
-    /// @param newStatus The campaign status that should cause revert (any except ACTIVE)
-    function test_onUpdateStatus_revert_newStatusNotActive(Flywheel.CampaignStatus newStatus) public {}
+    /// @dev Reverts when new status is not ACTIVE (perpetual campaign restriction)
+    /// @param invalidStatus Any campaign status except ACTIVE
+    function test_onUpdateStatus_revert_nonActiveStatus(Flywheel.CampaignStatus invalidStatus) public {}
 
-    /// @notice Tests successful campaign activation
-    ///
-    /// @dev Verifies campaign can be activated from INACTIVE to ACTIVE status
-    ///      Tests the only allowed status transition for BridgeRewards
-    function test_onUpdateStatus_success_activatesCampaign() public {}
+    // ========================================
+    // SUCCESS CASES
+    // ========================================
+
+    /// @dev Accepts status update to ACTIVE from any previous status
+    /// @param previousStatus Any valid campaign status
+    function test_onUpdateStatus_success_toActiveStatus(Flywheel.CampaignStatus previousStatus) public {}
 }
