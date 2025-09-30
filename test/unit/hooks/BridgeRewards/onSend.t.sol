@@ -11,6 +11,14 @@ contract OnSendTest is BridgeRewardsTest {
     /// @dev Reverts when campaign balance minus allocated fees equals zero
     function test_onSend_revert_zeroBridgedAmount() public {}
 
+    /// @dev Reverts when caller is not flywheel
+    /// @param caller Caller address
+    function test_onSend_revert_onlyFlywheel(address caller) public {}
+
+    /// @dev Reverts when hookData cannot be correctly decoded
+    /// @param hookData The malformed hook data that should cause revert
+    function test_onSend_revert_invalidHookData(bytes memory hookData) public {}
+
     // ========================================
     // SUCCESS CASES
     // ========================================
@@ -34,6 +42,10 @@ contract OnSendTest is BridgeRewardsTest {
     /// @param bridgedAmount Amount available for bridging
     function test_onSend_success_zeroFeeBps(uint256 bridgedAmount) public {}
 
+    /// @dev Returns nonzero fees when fee basis points is nonzero
+    /// @param bridgedAmount Amount available for bridging
+    function test_onSend_success_nonzeroFeeBps(uint256 bridgedAmount) public {}
+
     /// @dev Calculates bridged amount correctly with native token (ETH)
     /// @param bridgedAmount Amount available for bridging
     /// @param feeBps Fee basis points within valid range
@@ -43,7 +55,8 @@ contract OnSendTest is BridgeRewardsTest {
     /// @param totalBalance Total campaign balance
     /// @param allocatedFees Already allocated fees
     /// @param feeBps Fee basis points within valid range
-    function test_onSend_success_withExistingAllocatedFees(uint256 totalBalance, uint256 allocatedFees, uint16 feeBps) public {}
+    function test_onSend_success_withExistingAllocatedFees(uint256 totalBalance, uint256 allocatedFees, uint16 feeBps)
+        public {}
 
     // ========================================
     // EDGE CASES
