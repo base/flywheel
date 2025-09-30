@@ -47,7 +47,8 @@ contract SimpleRewards is CampaignHooks {
 
     /// @inheritdoc CampaignHooks
     function campaignURI(address campaign) external view override returns (string memory uri) {
-        return string.concat(_uriPrefix[campaign], LibString.toHexStringChecksummed(campaign));
+        string memory uriPrefix = _uriPrefix[campaign];
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, LibString.toHexStringChecksummed(campaign)) : "";
     }
 
     /// @inheritdoc CampaignHooks
