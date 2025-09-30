@@ -14,6 +14,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
 
         uint16 maxRewardBasisPoints = 0; // No limit
         bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBasisPoints);
@@ -23,7 +24,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
 
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(newCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(testUri, newCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), 0);
     }
 
@@ -36,6 +37,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
         maxRewardBps = uint16(bound(maxRewardBps, 1, type(uint16).max)); // Any non-zero value
 
         bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBps);
@@ -45,7 +47,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
 
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(newCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(testUri, newCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBps));
     }
 
@@ -58,6 +60,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
 
         bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBasisPoints);
 
@@ -67,7 +70,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         // Verify the campaign was created and has correct parameters
         assertEq(cashbackRewards.owners(actualCampaign), testOwner);
         assertEq(cashbackRewards.managers(actualCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(actualCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(actualCampaign), _concat(testUri, actualCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(actualCampaign), uint256(maxRewardBasisPoints));
     }
 
@@ -83,6 +86,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(testOwner != address(0) && testManager != address(0));
         vm.assume(bytes(firstUri).length <= 1000 && bytes(secondUri).length <= 1000);
+        vm.assume(bytes(firstUri).length > 0 && bytes(secondUri).length > 0);
         vm.assume(firstNonce != secondNonce);
 
         // Create first campaign
@@ -103,13 +107,13 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         // Verify first campaign values
         assertEq(cashbackRewards.owners(firstCampaign), testOwner);
         assertEq(cashbackRewards.managers(firstCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(firstCampaign), firstUri);
+        assertEq(cashbackRewards.campaignURI(firstCampaign), _concat(firstUri, firstCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(firstCampaign), uint256(firstMaxRewardBps));
 
         // Verify second campaign values
         assertEq(cashbackRewards.owners(secondCampaign), testOwner);
         assertEq(cashbackRewards.managers(secondCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(secondCampaign), secondUri);
+        assertEq(cashbackRewards.campaignURI(secondCampaign), _concat(secondUri, secondCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(secondCampaign), uint256(secondMaxRewardBps));
     }
 
@@ -121,6 +125,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
     ) public {
         vm.assume(sameAddress != address(0));
         vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
 
         bytes memory hookData = abi.encode(sameAddress, sameAddress, testUri, maxRewardBasisPoints);
 
@@ -130,7 +135,7 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         // Verify both owner and manager are set to the same address
         assertEq(cashbackRewards.owners(newCampaign), sameAddress);
         assertEq(cashbackRewards.managers(newCampaign), sameAddress);
-        assertEq(cashbackRewards.campaignURI(newCampaign), testUri);
+        assertEq(cashbackRewards.campaignURI(newCampaign), _concat(testUri, newCampaign));
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBasisPoints));
     }
 

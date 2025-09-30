@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {LibString} from "solady/utils/LibString.sol";
+
 import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 
@@ -14,16 +16,15 @@ contract SimpleRewards is CampaignHooks {
     /// @notice Managers of the campaigns
     mapping(address campaign => address manager) public managers;
 
-    /// @notice Mapping of campaign addresses to their URI
-    mapping(address campaign => string uri) public override campaignURI;
+    /// @notice Mapping of campaign addresses to their URI prefix
+    mapping(address campaign => string uriPrefix) internal _uriPrefix;
 
     /// @notice Emitted when a campaign is created
     ///
     /// @param campaign Address of the campaign
     /// @param owner Address of the owner of the campaign
     /// @param manager Address of the manager of the campaign
-    /// @param uri URI of the campaign
-    event CampaignCreated(address indexed campaign, address owner, address manager, string uri);
+    event CampaignCreated(address indexed campaign, address owner, address manager);
 
     /// @notice Thrown when the sender is not the manager of the campaign
     error Unauthorized();
@@ -45,12 +46,18 @@ contract SimpleRewards is CampaignHooks {
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
     /// @inheritdoc CampaignHooks
+    function campaignURI(address campaign) external view override returns (string memory uri) {
+        string memory uriPrefix = _uriPrefix[campaign];
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, LibString.toHexStringChecksummed(campaign)) : "";
+    }
+
+    /// @inheritdoc CampaignHooks
     function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal virtual override {
-        (address owner, address manager, string memory uri) = abi.decode(hookData, (address, address, string));
+        (address owner, address manager, string memory uriPrefix) = abi.decode(hookData, (address, address, string));
         owners[campaign] = owner;
         managers[campaign] = manager;
-        campaignURI[campaign] = uri;
-        emit CampaignCreated(campaign, owner, manager, uri);
+        _uriPrefix[campaign] = uriPrefix;
+        emit CampaignCreated(campaign, owner, manager);
     }
 
     /// @inheritdoc CampaignHooks
@@ -156,6 +163,6 @@ contract SimpleRewards is CampaignHooks {
         override
         onlyManager(sender, campaign)
     {
-        if (hookData.length > 0) campaignURI[campaign] = string(hookData);
+        if (hookData.length > 0) _uriPrefix[campaign] = string(hookData);
     }
 }
