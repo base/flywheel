@@ -17,8 +17,8 @@ contract BridgeRewards is CampaignHooks {
     /// @notice ERC-7528 address for native token
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    /// @notice Maximum fee basis points (2.00%)
-    uint16 public constant MAX_FEE_BASIS_POINTS = 2_00;
+    /// @notice Maximum fee basis points
+    uint16 public immutable maxFeeBasisPoints;
 
     /// @notice Address of the BuilderCodes contract
     BuilderCodes public immutable builderCodes;
@@ -35,9 +35,12 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Hooks constructor
     ///
     /// @param flywheel_ Address of the flywheel contract
-    constructor(address flywheel_, address builderCodes_, string memory metadataURI_) CampaignHooks(flywheel_) {
+    constructor(address flywheel_, address builderCodes_, string memory metadataURI_, uint16 maxFeeBasisPoints_)
+        CampaignHooks(flywheel_)
+    {
         builderCodes = BuilderCodes(builderCodes_);
         metadataURI = metadataURI_;
+        maxFeeBasisPoints = maxFeeBasisPoints_;
     }
 
     /// @inheritdoc CampaignHooks
@@ -56,17 +59,20 @@ contract BridgeRewards is CampaignHooks {
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
-        (address user, uint256 bridgedAmount, bytes32 code, uint16 feeBps) =
-            abi.decode(hookData, (address, uint256, bytes32, uint16));
+        (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
 
-        // Check amount nonzero
+        // Calculate bridged amount as current balance minus total fees allocated and not yet sent
+        uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
+        bridgedAmount -= flywheel.totalAllocatedFees(campaign, token);
+
+        // Check bridged amount nonzero
         if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
         // set feeBps to 0 if builder code not registered
         feeBps = builderCodes.isRegistered(builderCodes.toCode(uint256(code))) ? feeBps : 0;
 
-        // set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
-        feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
+        // set feeBps to maxFeeBasisPoints if feeBps exceeds maxFeeBasisPoints
+        feeBps = feeBps > maxFeeBasisPoints ? maxFeeBasisPoints : feeBps;
 
         // Prepare payout
         uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;

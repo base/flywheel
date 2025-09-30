@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../Flywheel.sol";
-import {CampaignHooks} from "../CampaignHooks.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
+import {CampaignHooks} from "../../../src/CampaignHooks.sol";
 
-/// @title SimpleRewards
-///
-/// @notice Campaign Hooks for simple rewards controlled by a campaign manager
-contract SimpleRewards is CampaignHooks {
+/// @title MockCampaignHooksWithFees
+/// @notice A minimal hook modeled after SimpleRewards that also supports fee passthrough
+/// @dev This mock decodes payouts and fee distributions directly from hookData for send/distribute paths
+contract MockCampaignHooksWithFees is CampaignHooks {
     /// @notice Owners of the campaigns
     mapping(address campaign => address owner) public owners;
 
@@ -18,7 +18,6 @@ contract SimpleRewards is CampaignHooks {
     mapping(address campaign => string uri) public override campaignURI;
 
     /// @notice Emitted when a campaign is created
-    ///
     /// @param campaign Address of the campaign
     /// @param owner Address of the owner of the campaign
     /// @param manager Address of the manager of the campaign
@@ -28,64 +27,40 @@ contract SimpleRewards is CampaignHooks {
     /// @notice Thrown when the sender is not the manager of the campaign
     error Unauthorized();
 
-    /// @notice Modifier to check if the sender is the manager of the campaign
-    ///
-    /// @param sender Address of the sender
-    /// @param campaign Address of the campaign
-    ///
-    /// @dev Reverts if the sender is not the manager of the campaign
+    /// @dev Restricts caller to the configured manager for the campaign
     modifier onlyManager(address sender, address campaign) {
         if (sender != managers[campaign]) revert Unauthorized();
         _;
     }
 
     /// @notice Hooks constructor
-    ///
     /// @param flywheel_ Address of the flywheel contract
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
     /// @inheritdoc CampaignHooks
-    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal virtual override {
-        (address owner, address manager, string memory uri) = abi.decode(hookData, (address, address, string));
-        owners[campaign] = owner;
-        managers[campaign] = manager;
-        campaignURI[campaign] = uri;
-        emit CampaignCreated(campaign, owner, manager, uri);
+    function _onCreateCampaign(address campaign, uint256, bytes calldata hookData) internal virtual override {
+        (address owner_, address manager_, string memory uri_) = abi.decode(hookData, (address, address, string));
+        owners[campaign] = owner_;
+        managers[campaign] = manager_;
+        campaignURI[campaign] = uri_;
+        emit CampaignCreated(campaign, owner_, manager_, uri_);
     }
 
     /// @inheritdoc CampaignHooks
-    function _onSend(address sender, address campaign, address token, bytes calldata hookData)
+    /// @dev hookData encoding: (Flywheel.Payout[] payouts, Flywheel.Distribution[] fees, bool sendFeesNow)
+    function _onSend(address sender, address campaign, address, bytes calldata hookData)
         internal
         virtual
         override
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
-        payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        (payouts, fees, sendFeesNow) = abi.decode(hookData, (Flywheel.Payout[], Flywheel.Distribution[], bool));
     }
 
     /// @inheritdoc CampaignHooks
-    function _onAllocate(address sender, address campaign, address token, bytes calldata hookData)
-        internal
-        virtual
-        override
-        onlyManager(sender, campaign)
-        returns (Flywheel.Allocation[] memory allocations)
-    {
-        Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        allocations = new Flywheel.Allocation[](payouts.length);
-        uint256 count = payouts.length;
-        for (uint256 i = 0; i < count; i++) {
-            allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
-            });
-        }
-    }
-
-    /// @inheritdoc CampaignHooks
-    function _onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
+    /// @dev hookData encoding: Flywheel.Payout[] payouts
+    function _onAllocate(address sender, address campaign, address, bytes calldata hookData)
         internal
         virtual
         override
@@ -105,18 +80,38 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
+    /// @dev hookData encoding: Flywheel.Payout[] payouts
+    function _onDeallocate(address sender, address campaign, address, bytes calldata hookData)
         internal
         virtual
         override
         onlyManager(sender, campaign)
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            Flywheel.Distribution[] memory, /*fees*/
-            bool /*sendFeesNow*/
-        )
+        returns (Flywheel.Allocation[] memory allocations)
     {
         Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
+        allocations = new Flywheel.Allocation[](payouts.length);
+        uint256 count = payouts.length;
+        for (uint256 i = 0; i < count; i++) {
+            allocations[i] = Flywheel.Allocation({
+                key: bytes32(bytes20(payouts[i].recipient)),
+                amount: payouts[i].amount,
+                extraData: payouts[i].extraData
+            });
+        }
+    }
+
+    /// @inheritdoc CampaignHooks
+    /// @dev hookData encoding: (Flywheel.Payout[] payouts, Flywheel.Distribution[] fees, bool sendFeesNow)
+    function _onDistribute(address sender, address campaign, address, bytes calldata hookData)
+        internal
+        virtual
+        override
+        onlyManager(sender, campaign)
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
+    {
+        Flywheel.Payout[] memory payouts;
+        (payouts, fees, sendFeesNow) = abi.decode(hookData, (Flywheel.Payout[], Flywheel.Distribution[], bool));
+
         distributions = new Flywheel.Distribution[](payouts.length);
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
@@ -130,14 +125,26 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+    /// @dev hookData encoding: Flywheel.Distribution[] distributions
+    function _onDistributeFees(address sender, address campaign, address, bytes calldata hookData)
+        internal
+        virtual
+        override
+        returns (Flywheel.Distribution[] memory distributions)
+    {
+        // No access restriction, anyone can disburse fees to recipients
+        distributions = abi.decode(hookData, (Flywheel.Distribution[]));
+    }
+
+    /// @inheritdoc CampaignHooks
+    function _onWithdrawFunds(address sender, address campaign, address, bytes calldata hookData)
         internal
         virtual
         override
         returns (Flywheel.Payout memory payout)
     {
         if (sender != owners[campaign]) revert Unauthorized();
-        return (abi.decode(hookData, (Flywheel.Payout)));
+        return abi.decode(hookData, (Flywheel.Payout));
     }
 
     /// @inheritdoc CampaignHooks
