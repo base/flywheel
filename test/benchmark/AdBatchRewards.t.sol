@@ -3,12 +3,12 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 
 import {PublisherTestSetup, PublisherSetupHelper} from "../lib/PublisherSetupHelper.sol";
 import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
-import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
 contract AdBatchRewardsTest is PublisherTestSetup {

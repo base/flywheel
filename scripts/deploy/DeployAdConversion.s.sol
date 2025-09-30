@@ -11,11 +11,9 @@ contract DeployAdConversion is Script {
     /// @notice Deploys the AdConversion hook
     /// @param flywheel Address of the deployed Flywheel contract
     /// @param builderCodes Address of the deployed BuilderCodes contract
-    /// @param owner Address that will own the hook contract
-    function run(address flywheel, address builderCodes, address owner) external returns (address) {
+    function run(address flywheel, address builderCodes) external returns (address) {
         require(flywheel != address(0), "Flywheel cannot be zero address");
         require(builderCodes != address(0), "BuilderCodes cannot be zero address");
-        require(owner != address(0), "Owner cannot be zero address");
 
         vm.startBroadcast();
 

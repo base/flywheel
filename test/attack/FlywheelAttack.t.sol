@@ -3,13 +3,13 @@ pragma solidity ^0.8.29;
 
 import {Test, console} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 
 import {MockERC20} from "../lib/mocks/MockERC20.sol";
 import {FlywheelTest} from "../lib/FlywheelTest.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
-import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
 /// @title Flywheel Security Test Suite
 /// @notice Security-focused testing with attack scenarios and vulnerability analysis
