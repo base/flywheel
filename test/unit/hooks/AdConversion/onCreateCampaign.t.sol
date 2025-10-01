@@ -204,36 +204,6 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         uint16 feeBps
     ) public;
 
-    /// @dev Handles campaign with very long URI
-    /// @param attributionProvider Attribution provider address
-    /// @param advertiser Advertiser address
-    /// @param longUri Very long campaign URI
-    /// @param attributionWindow Attribution window in days
-    /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_edge_longURI(
-        address attributionProvider,
-        address advertiser,
-        string memory longUri,
-        uint48 attributionWindow,
-        uint16 feeBps
-    ) public;
-
-    /// @dev Handles campaign with maximum number of allowlist entries
-    /// @param attributionProvider Attribution provider address
-    /// @param advertiser Advertiser address
-    /// @param uri Campaign URI
-    /// @param largeAllowlist Large array of allowed publisher ref codes
-    /// @param attributionWindow Attribution window in days
-    /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_edge_largeAllowlist(
-        address attributionProvider,
-        address advertiser,
-        string memory uri,
-        string[] memory largeAllowlist,
-        uint48 attributionWindow,
-        uint16 feeBps
-    ) public;
-
     /// @dev Handles campaign with same attribution provider and advertiser
     /// @param sameAddress Address for both attribution provider and advertiser
     /// @param uri Campaign URI

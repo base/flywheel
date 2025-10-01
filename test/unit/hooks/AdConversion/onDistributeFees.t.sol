@@ -134,24 +134,6 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address recipient
     ) public;
 
-    /// @dev Handles multiple fee distributions from same campaign
-    /// @param attributionProvider Attribution provider address
-    /// @param campaign Campaign address
-    /// @param token Token address
-    /// @param recipient1 First fee recipient
-    /// @param recipient2 Second fee recipient
-    /// @param amount1 First distribution amount
-    /// @param amount2 Second distribution amount
-    function test_onDistributeFees_edge_multipleDistributions(
-        address attributionProvider,
-        address campaign,
-        address token,
-        address recipient1,
-        address recipient2,
-        uint256 amount1,
-        uint256 amount2
-    ) public;
-
     /// @dev Handles fee distribution from different campaigns by same provider
     /// @param attributionProvider Attribution provider address
     /// @param campaign1 First campaign address
@@ -163,52 +145,6 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address attributionProvider,
         address campaign1,
         address campaign2,
-        address token,
-        address recipient,
-        uint256 amount
-    ) public;
-
-    // ========================================
-    // RETURN VALUE VERIFICATION
-    // ========================================
-
-    /// @dev Verifies correct fee distribution key in return value
-    /// @param attributionProvider Attribution provider address
-    /// @param campaign Campaign address
-    /// @param token Token address
-    /// @param recipient Fee recipient address
-    /// @param amount Fee distribution amount
-    function test_onDistributeFees_returnsCorrectFeeKey(
-        address attributionProvider,
-        address campaign,
-        address token,
-        address recipient,
-        uint256 amount
-    ) public;
-
-    /// @dev Verifies fee distribution uses provider address as key
-    /// @param attributionProvider Attribution provider address
-    /// @param campaign Campaign address
-    /// @param token Token address
-    /// @param recipient Fee recipient address
-    /// @param amount Fee distribution amount
-    function test_onDistributeFees_usesProviderAsKey(
-        address attributionProvider,
-        address campaign,
-        address token,
-        address recipient,
-        uint256 amount
-    ) public;
-
-    /// @dev Verifies return structure matches expected format
-    /// @param attributionProvider Attribution provider address
-    /// @param campaign Campaign address
-    /// @param token Token address
-    /// @param recipient Fee recipient address
-    /// @param amount Fee distribution amount
-    function test_onDistributeFees_returnsCorrectStructure(
-        address attributionProvider,
-        address campaign,
         address token,
         address recipient,
         uint256 amount
