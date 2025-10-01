@@ -1162,7 +1162,7 @@ contract AdConversionTest is PublisherTestSetup {
 
     function test_campaignURI_returnsCorrectURI() public {
         string memory uri = hook.campaignURI(campaign);
-        assertEq(uri, _concat("https://example.com/campaign", campaign));
+        assertEq(uri, "https://example.com/campaign");
     }
 
     function test_getConversionConfig_returnsCorrectConfig() public {
