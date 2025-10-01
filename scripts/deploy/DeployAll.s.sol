@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployFlywheel} from "./DeployFlywheel.s.sol";
-import {DeployBuilderCodes} from "./DeployBuilderCodes.s.sol";
 import {DeployAdConversion} from "./DeployAdConversion.s.sol";
 import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
 import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
@@ -22,8 +21,9 @@ contract DeployAll is Script {
         address simpleRewards;
     }
 
-    function run() external returns (Deployments memory deployments) {
-        address builderCodes = 0x0BFc799dF7e440b7C88cC2454f12C58f8a29D986; // TODO
+    // forge script DeployAll --sig "run(address)" buidlerCodes
+    function run(address builderCodes) public returns (Deployments memory deployments) {
+        require(builderCodes != address(0), "BuilderCodes cannot be zero address");
 
         console.log("Starting deployment of Flywheel protocol contracts...");
         console.log("Builder Codes:", builderCodes);
@@ -47,7 +47,7 @@ contract DeployAll is Script {
         // Deploy BridgeRewards (depends on Flywheel, BuilderCodes)
         console.log("4. Deploying BridgeRewards...");
         DeployBridgeRewards bridgeRewardsDeployer = new DeployBridgeRewards();
-        deployments.bridgeRewards = bridgeRewardsDeployer.run(deployments.flywheel, deployments.builderCodes);
+        deployments.bridgeRewards = bridgeRewardsDeployer.run(deployments.flywheel, builderCodes);
 
         // Deploy SimpleRewards (depends on Flywheel)
         console.log("5. Deploying SimpleRewards...");
