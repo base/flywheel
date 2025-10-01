@@ -66,16 +66,6 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         uint256 codeSeed2
     ) public;
 
-    /// @dev Successfully adds publisher ref code that was previously removed
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with allowlist
-    /// @param codeSeed Registered publisher reference code seed
-    function test_addAllowedPublisherRefCode_success_addPreviouslyRemoved(
-        address advertiser,
-        address campaign,
-        uint256 codeSeed
-    ) public;
-
     /// @dev Successfully handles adding same ref code multiple times (idempotent)
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
@@ -117,16 +107,6 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         uint256 specialCharRefCodeSeed
     ) public;
 
-    /// @dev Handles adding large number of ref codes to same campaign
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with allowlist
-    /// @param manyRefCodeSeeds Large array of registered publisher reference code seeds
-    function test_addAllowedPublisherRefCode_edge_manyRefCodes(
-        address advertiser,
-        address campaign,
-        uint256[] memory manyRefCodeSeeds
-    ) public;
-
     // ========================================
     // EVENT TESTING
     // ========================================
@@ -157,52 +137,6 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param codeSeed Already allowed publisher reference code seed
-    function test_addAllowedPublisherRefCode_noEventForDuplicate(
-        address advertiser,
-        address campaign,
-        uint256 codeSeed
-    ) public;
-
-    // ========================================
-    // STATE VERIFICATION
-    // ========================================
-
-    /// @dev Verifies allowlist mapping is correctly updated
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with allowlist
-    /// @param codeSeed Registered publisher reference code seed
-    function test_addAllowedPublisherRefCode_updatesAllowlistMapping(
-        address advertiser,
-        address campaign,
-        uint256 codeSeed
-    ) public;
-
-    /// @dev Verifies allowlist state persists across multiple additions
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with allowlist
-    /// @param codeSeed1 First registered publisher reference code seed
-    /// @param codeSeed2 Second registered publisher reference code seed
-    function test_addAllowedPublisherRefCode_persistsAcrossAdditions(
-        address advertiser,
-        address campaign,
-        uint256 codeSeed1,
-        uint256 codeSeed2
-    ) public;
-
-    /// @dev Verifies BuilderCodes registry integration works correctly
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with allowlist
-    /// @param codeSeed Publisher reference code seed registered in BuilderCodes
-    function test_addAllowedPublisherRefCode_integratesWithBuilderCodes(
-        address advertiser,
-        address campaign,
-        uint256 codeSeed
-    ) public;
-
-    /// @dev Verifies redundant calls are idempotent (no duplicate events)
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with allowlist
-    /// @param codeSeed Publisher reference code seed to add twice
-    function test_addAllowedPublisherRefCode_redundantCall(address advertiser, address campaign, uint256 codeSeed)
+    function test_addAllowedPublisherRefCode_noEventForDuplicate(address advertiser, address campaign, uint256 codeSeed)
         public;
 }
