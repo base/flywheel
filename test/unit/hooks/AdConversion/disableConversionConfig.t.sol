@@ -31,10 +31,7 @@ contract DisableConversionConfigTest is AdConversionTestBase {
     /// @dev Reverts when trying to disable config ID 0 (reserved)
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    function test_disableConversionConfig_revert_configIdZero(
-        address advertiser,
-        address campaign
-    ) public;
+    function test_disableConversionConfig_revert_configIdZero(address advertiser, address campaign) public;
 
     /// @dev Reverts when conversion config is already inactive
     /// @param advertiser Advertiser address
@@ -100,19 +97,8 @@ contract DisableConversionConfigTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with maximum configs
     /// @param maxConfigId Maximum valid conversion config ID
-    function test_disableConversionConfig_edge_maximumConfigId(
-        address advertiser,
-        address campaign,
-        uint16 maxConfigId
-    ) public;
-
-    /// @dev Handles disabling config ID 1 (first valid ID)
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with single config
-    function test_disableConversionConfig_edge_configIdOne(
-        address advertiser,
-        address campaign
-    ) public;
+    function test_disableConversionConfig_edge_maximumConfigId(address advertiser, address campaign, uint16 maxConfigId)
+        public;
 
     /// @dev Handles disabling configs in non-sequential order
     /// @param advertiser Advertiser address
@@ -132,18 +118,6 @@ contract DisableConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         uint16[] memory allConfigIds
-    ) public;
-
-    /// @dev Handles campaign with mix of active and inactive configs
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with mixed config states
-    /// @param activeConfigId Currently active config to disable
-    /// @param inactiveConfigId Already inactive config
-    function test_disableConversionConfig_edge_mixedConfigStates(
-        address advertiser,
-        address campaign,
-        uint16 activeConfigId,
-        uint16 inactiveConfigId
     ) public;
 
     // ========================================
@@ -172,16 +146,6 @@ contract DisableConversionConfigTest is AdConversionTestBase {
         uint16 configId2
     ) public;
 
-    /// @dev Verifies event contains correct status transition (ACTIVE → INACTIVE)
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param configId Active conversion config ID to disable
-    function test_disableConversionConfig_eventContainsCorrectStatusTransition(
-        address advertiser,
-        address campaign,
-        uint16 configId
-    ) public;
-
     // ========================================
     // STATE VERIFICATION
     // ========================================
@@ -190,43 +154,22 @@ contract DisableConversionConfigTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param configId Active conversion config ID to disable
-    function test_disableConversionConfig_updatesConfigStatus(
-        address advertiser,
-        address campaign,
-        uint16 configId
-    ) public;
+    function test_disableConversionConfig_updatesConfigStatus(address advertiser, address campaign, uint16 configId)
+        public;
 
     /// @dev Verifies config data remains unchanged except status
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param configId Active conversion config ID to disable
-    function test_disableConversionConfig_preservesConfigData(
-        address advertiser,
-        address campaign,
-        uint16 configId
-    ) public;
-
-    /// @dev Verifies other configs remain unaffected
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with multiple configs
-    /// @param configToDisable Config ID to disable
-    /// @param otherConfigIds Other config IDs that should remain unchanged
-    function test_disableConversionConfig_preservesOtherConfigs(
-        address advertiser,
-        address campaign,
-        uint16 configToDisable,
-        uint16[] memory otherConfigIds
-    ) public;
+    function test_disableConversionConfig_preservesConfigData(address advertiser, address campaign, uint16 configId)
+        public;
 
     /// @dev Verifies config count remains unchanged
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param configId Active conversion config ID to disable
-    function test_disableConversionConfig_preservesConfigCount(
-        address advertiser,
-        address campaign,
-        uint16 configId
-    ) public;
+    function test_disableConversionConfig_preservesConfigCount(address advertiser, address campaign, uint16 configId)
+        public;
 
     // ========================================
     // IDEMPOTENCY TESTING
@@ -236,21 +179,7 @@ contract DisableConversionConfigTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param configId Config ID to disable twice
-    function test_disableConversionConfig_notIdempotent(
-        address advertiser,
-        address campaign,
-        uint16 configId
-    ) public;
-
-    /// @dev Verifies config cannot be re-enabled after disabling
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param configId Config ID to disable
-    function test_disableConversionConfig_cannotReEnable(
-        address advertiser,
-        address campaign,
-        uint16 configId
-    ) public;
+    function test_disableConversionConfig_notIdempotent(address advertiser, address campaign, uint16 configId) public;
 
     // ========================================
     // INTEGRATION TESTING
