@@ -104,103 +104,72 @@ abstract contract OnSendTest is AdConversionTestBase {
     // SUCCESS CASES
     // ========================================
 
-    /// @dev Successfully processes single offchain conversion attribution (non-fuzz version)
-    function test_success_singleOffchainConversion_simple() public {
-        // Create and fund campaign
-        address campaign = createBasicCampaign();
-        address token = address(tokenA);
-        fundCampaign(campaign, token, DEFAULT_CAMPAIGN_FUNDING);
+    /// @dev Successfully processes single offchain conversion attribution (fuzz version)
+    /// @param payoutAmount Fuzzed payout amount
+    /// @param feeBps Fuzzed attribution provider fee
+    /// @param publisherPayout Fuzzed publisher payout address
+    /// @param refCodeSeed Seed for selecting registered ref code
+    function test_success_singleOffchainConversion(
+        uint256 payoutAmount,
+        uint16 feeBps,
+        address publisherPayout,
+        uint256 refCodeSeed
+    ) public {
+        // Constrain fuzz inputs to valid ranges
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
+
+        // Select one of the registered ref codes deterministically
+        string[] memory refCodes = new string[](3);
+        refCodes[0] = REF_CODE_1;
+        refCodes[1] = REF_CODE_2;
+        refCodes[2] = REF_CODE_3;
+        string memory selectedRefCode = refCodes[refCodeSeed % 3];
+
+        // Create campaign with fuzzed fee
+        address campaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        fundCampaign(campaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
         activateCampaign(campaign, attributionProvider1);
 
-        // Create simple offchain attribution
+        // Create attribution with fuzzed parameters
         AdConversion.Attribution memory attribution =
-            createOffchainAttribution(REF_CODE_1, publisherPayout1, DEFAULT_ATTRIBUTION_AMOUNT);
+            createOffchainAttribution(selectedRefCode, publisherPayout, payoutAmount);
 
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
         attributions[0] = attribution;
 
-        // Calculate expected fee and net amount
-        uint256 expectedFee = (DEFAULT_ATTRIBUTION_AMOUNT * DEFAULT_FEE_BPS) / adConversion.MAX_BPS();
-        uint256 expectedNetAmount = DEFAULT_ATTRIBUTION_AMOUNT - expectedFee;
+        // Calculate expected amounts with fuzzed fee
+        uint256 expectedFee = (payoutAmount * feeBps) / adConversion.MAX_BPS();
+        uint256 expectedNetAmount = payoutAmount - expectedFee;
 
         // Expect the OffchainConversionProcessed event
         vm.expectEmit(true, true, true, true, address(adConversion));
         emit AdConversion.OffchainConversionProcessed(campaign, false, attribution.conversion);
 
-        // Call hook onSend directly with attribution provider as caller
+        // Call hook directly using base utility
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            callHookOnSend(attributionProvider1, campaign, token, abi.encode(attributions));
+            callHookOnSend(attributionProvider1, campaign, address(tokenA), abi.encode(attributions));
 
         // Verify return values
         assertEq(payouts.length, 1, "Should have one payout");
-        assertEq(payouts[0].recipient, publisherPayout1, "Payout recipient should match");
+        assertEq(payouts[0].recipient, publisherPayout, "Payout recipient should match fuzzed address");
         assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
 
-        assertEq(fees.length, 1, "Should have one fee distribution");
-        assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
-        assertEq(fees[0].amount, expectedFee, "Fee amount should match calculated fee");
-
-        assertFalse(sendFeesNow, "Should return false for sendFeesNow");
-    }
-
-    /// @dev Successfully processes single offchain conversion attribution (fuzz version)
-    /// @param campaign Campaign address
-    /// @param token Token address
-    /// @param conversion Single offchain conversion data
-    function test_success_singleOffchainConversion(
-        address campaign,
-        address token,
-        AdConversion.Conversion memory conversion
-    ) public {
-        // Fuzz bounds for valid test inputs
-        campaign = address(
-            uint160(
-                bound(uint256(uint160(campaign)), uint256(uint160(address(0x1000))), uint256(uint160(address(0xFFFF))))
-            )
-        );
-        token = address(tokenA); // Use predefined token
-
-        // Constraint fuzz inputs to valid ranges
-        conversion.configId = uint16(bound(conversion.configId, 1, 2)); // Valid config IDs 1-2
-        conversion.payoutAmount = bound(conversion.payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
-        conversion.publisherRefCode = REF_CODE_1; // Use registered publisher
-        conversion.payoutRecipient = publisherPayout1; // Use valid recipient
-        conversion.timestamp = uint32(block.timestamp);
-
-        // Create and fund campaign
-        address actualCampaign = createBasicCampaign();
-        fundCampaign(actualCampaign, token, DEFAULT_CAMPAIGN_FUNDING);
-        activateCampaign(actualCampaign, attributionProvider1);
-
-        // Create attribution with the constrained conversion data
-        AdConversion.Attribution memory attribution = AdConversion.Attribution({
-            conversion: conversion,
-            logBytes: "" // Empty for offchain
-        });
-
-        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
-        attributions[0] = attribution;
-
-        // Calculate expected fee and net amount
-        uint256 expectedFee = (conversion.payoutAmount * DEFAULT_FEE_BPS) / adConversion.MAX_BPS();
-        uint256 expectedNetAmount = conversion.payoutAmount - expectedFee;
-
-        // Expect the OffchainConversionProcessed event
-        vm.expectEmit(true, true, true, true, address(adConversion));
-        emit AdConversion.OffchainConversionProcessed(actualCampaign, false, conversion);
-
-        // Call hook onSend directly with attribution provider as caller
-        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            callHookOnSend(attributionProvider1, actualCampaign, token, abi.encode(attributions));
-
-        // Verify return values
-        assertEq(payouts.length, 1, "Should have one payout");
-        assertEq(payouts[0].recipient, conversion.payoutRecipient, "Payout recipient should match");
-        assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
-
-        assertEq(fees.length, 1, "Should have one fee distribution");
-        assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
-        assertEq(fees[0].amount, expectedFee, "Fee amount should match calculated fee");
+        if (expectedFee > 0) {
+            assertEq(fees.length, 1, "Should have one fee distribution when fee > 0");
+            assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
+            assertEq(fees[0].amount, expectedFee, "Fee amount should match calculated fee");
+        } else {
+            assertEq(fees.length, 0, "Should have no fee distribution when fee = 0");
+        }
 
         assertFalse(sendFeesNow, "Should return false for sendFeesNow");
     }
@@ -351,7 +320,6 @@ abstract contract OnSendTest is AdConversionTestBase {
         string memory anyPublisherRefCode,
         AdConversion.Attribution[] memory attributions
     ) public virtual;
-
     // ========================================
     // FEE CALCULATION TESTING
     // ========================================
