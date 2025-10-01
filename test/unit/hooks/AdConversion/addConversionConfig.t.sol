@@ -52,7 +52,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     function test_addConversionConfig_success_onchainConfig(
         address advertiser,
         address campaign,
-        string memory name,
+        string memory metadataURI,
         string memory description
     ) public;
 
@@ -64,7 +64,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     function test_addConversionConfig_success_offchainConfig(
         address advertiser,
         address campaign,
-        string memory name,
+        string memory metadataURI,
         string memory description
     ) public;
 
@@ -80,83 +80,43 @@ contract AddConversionConfigTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput memory config2
     ) public;
 
-    /// @dev Successfully adds config with empty name
+    /// @dev Successfully adds config with empty metadata URI
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    /// @param description Config description
+    /// @param metadataURI Config metadata URI
     /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_success_emptyName(
+    function test_addConversionConfig_success_emptyMetadataURI(
         address advertiser,
         address campaign,
-        string memory description,
+        string memory metadataURI,
         bool isOnchain
-    ) public;
-
-    /// @dev Successfully adds config with empty description
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param name Config name
-    /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_success_emptyDescription(
-        address advertiser,
-        address campaign,
-        string memory name,
-        bool isOnchain
-    ) public;
-
-    /// @dev Successfully adds config to campaign without existing configs
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address with no existing configs
-    /// @param configInput First conversion config input
-    function test_addConversionConfig_success_firstConfig(
-        address advertiser,
-        address campaign,
-        AdConversion.ConversionConfigInput memory configInput
     ) public;
 
     // ========================================
     // EDGE CASES
     // ========================================
 
-    /// @dev Handles adding config with very long name
+    /// @dev Handles adding config with very long metadata URI
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    /// @param longName Very long config name
-    /// @param description Config description
+    /// @param longMetadataURI Very long config metadata URI
     /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_edge_longName(
+    function test_addConversionConfig_edge_longMetadataURI(
         address advertiser,
         address campaign,
-        string memory longName,
-        string memory description,
+        string memory longMetadataURI,
         bool isOnchain
     ) public;
 
-    /// @dev Handles adding config with very long description
+    /// @dev Handles adding config with special characters in metadata URI
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    /// @param name Config name
-    /// @param longDescription Very long config description
-    /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_edge_longDescription(
-        address advertiser,
-        address campaign,
-        string memory name,
-        string memory longDescription,
-        bool isOnchain
-    ) public;
-
-    /// @dev Handles adding config with special characters in name and description
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param specialName Config name with special characters
-    /// @param specialDescription Config description with special characters
+    /// @param specialMetadataURI Metadata URI with special characters
     /// @param isOnchain Whether config is onchain or offchain
     function test_addConversionConfig_edge_specialCharacters(
         address advertiser,
         address campaign,
-        string memory specialName,
-        string memory specialDescription,
+        string memory specialMetadataURI,
         bool isOnchain
     ) public;
 
@@ -170,20 +130,16 @@ contract AddConversionConfigTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configInputs
     ) public;
 
-    /// @dev Handles adding configs with identical names (should be allowed)
+    /// @dev Handles adding configs with identical metadata URIs (should be allowed)
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    /// @param sameName Same config name for both configs
-    /// @param description1 First config description
-    /// @param description2 Second config description
+    /// @param sameMetadataURI Same config metadata URI for both configs
     /// @param isOnchain1 First config type
     /// @param isOnchain2 Second config type
-    function test_addConversionConfig_edge_identicalNames(
+    function test_addConversionConfig_edge_identicalMetadataURI(
         address advertiser,
         address campaign,
-        string memory sameName,
-        string memory description1,
-        string memory description2,
+        string memory sameMetadataURI,
         bool isOnchain1,
         bool isOnchain2
     ) public;
@@ -248,29 +204,9 @@ contract AddConversionConfigTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput memory config2
     ) public;
 
-    /// @dev Verifies event contains correct config ID and data
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param configInput Conversion config input
-    function test_addConversionConfig_eventContainsCorrectData(
-        address advertiser,
-        address campaign,
-        AdConversion.ConversionConfigInput memory configInput
-    ) public;
-
     // ========================================
     // STATE VERIFICATION
     // ========================================
-
-    /// @dev Verifies conversion config is correctly stored
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param configInput Conversion config input
-    function test_addConversionConfig_storesConfigCorrectly(
-        address advertiser,
-        address campaign,
-        AdConversion.ConversionConfigInput memory configInput
-    ) public;
 
     /// @dev Verifies config count is correctly incremented
     /// @param advertiser Advertiser address
@@ -290,15 +226,5 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
-    ) public;
-
-    /// @dev Verifies config data integrity across multiple additions
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
-    /// @param configInputs Array of conversion config inputs
-    function test_addConversionConfig_maintainsDataIntegrity(
-        address advertiser,
-        address campaign,
-        AdConversion.ConversionConfigInput[] memory configInputs
     ) public;
 }
