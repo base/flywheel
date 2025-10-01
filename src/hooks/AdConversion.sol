@@ -2,7 +2,6 @@
 pragma solidity ^0.8.29;
 
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
-import {LibString} from "solady/utils/LibString.sol";
 
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
@@ -107,7 +106,7 @@ contract AdConversion is CampaignHooks {
     mapping(address campaign => uint16) public conversionConfigCount;
 
     /// @notice Mapping of campaign addresses to their URI prefix
-    mapping(address campaign => string uriPrefix) internal _uriPrefix;
+    mapping(address campaign => string uri) public override campaignURI;
 
     /// @notice Emitted when an offchain attribution event occurred
     ///
@@ -144,14 +143,10 @@ contract AdConversion is CampaignHooks {
     /// @param campaign Address of the campaign
     /// @param attributionProvider Address of the attribution provider
     /// @param advertiser Address of the advertiser
-    /// @param uriPrefix Campaign URI prefix
+    /// @param uri Campaign URI
     /// @param attributionWindow Duration for attribution deadline in seconds
     event AdCampaignCreated(
-        address indexed campaign,
-        address attributionProvider,
-        address advertiser,
-        string uriPrefix,
-        uint48 attributionWindow
+        address indexed campaign, address attributionProvider, address advertiser, string uri, uint48 attributionWindow
     );
 
     /// @notice Error thrown when an unauthorized action is attempted
@@ -199,17 +194,11 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function campaignURI(address campaign) external view override returns (string memory uri) {
-        string memory uriPrefix = _uriPrefix[campaign];
-        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, LibString.toHexStringChecksummed(campaign)) : "";
-    }
-
-    /// @inheritdoc CampaignHooks
     function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
         (
             address attributionProvider,
             address advertiser,
-            string memory uriPrefix,
+            string memory uri,
             string[] memory allowedPublisherRefCodes,
             ConversionConfigInput[] memory configs,
             uint48 campaignAttributionWindow,
@@ -236,7 +225,7 @@ contract AdConversion is CampaignHooks {
             hasAllowlist: hasAllowlist,
             attributionProviderFeeBps: attributionProviderFeeBps
         });
-        _uriPrefix[campaign] = uriPrefix;
+        campaignURI[campaign] = uri;
 
         // Set up allowed publishers mapping if allowlist exists
         if (hasAllowlist) {
@@ -263,7 +252,7 @@ contract AdConversion is CampaignHooks {
         }
 
         // Emit campaign creation event with all decoded data
-        emit AdCampaignCreated(campaign, attributionProvider, advertiser, uriPrefix, campaignAttributionWindow);
+        emit AdCampaignCreated(campaign, attributionProvider, advertiser, uri, campaignAttributionWindow);
     }
 
     /// @inheritdoc CampaignHooks
