@@ -334,6 +334,32 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
         return createOffchainAttribution("", payoutRecipient, payoutAmount);
     }
 
+    /// @notice Generates valid publisher ref code from seed
+    /// @param seed Random number to seed the valid code generation
+    /// @return code Valid publisher ref code
+    function generateValidRefCodeFromSeed(uint256 seed) public view returns (string memory code) {
+        bytes memory allowedCharacters = bytes(builderCodes.ALLOWED_CHARACTERS());
+        uint256 divisor = allowedCharacters.length;
+        uint256 maxLength = 32;
+        bytes memory codeBytes = new bytes(maxLength);
+        uint256 codeLength = 0;
+
+        // Iteratively generate code with modulo arithmetic on pseudo-random hash
+        for (uint256 i; i < maxLength; i++) {
+            codeLength++;
+            codeBytes[i] = allowedCharacters[seed % divisor];
+            seed /= divisor;
+            if (seed == 0) break;
+        }
+
+        // Resize codeBytes to actual output length
+        assembly {
+            mstore(codeBytes, codeLength)
+        }
+
+        return string(codeBytes);
+    }
+
     // ========================================
     // CAMPAIGN FUNDING UTILITIES
     // ========================================
