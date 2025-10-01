@@ -16,7 +16,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param configs Array of conversion configs
     /// @param invalidWindow Attribution window that is not divisible by 1 day
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_revert_invalidAttributionWindowPrecision(
+    function test_revert_invalidAttributionWindowPrecision(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -34,7 +34,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param configs Array of conversion configs
     /// @param excessiveWindow Attribution window greater than 180 days
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_revert_attributionWindowExceedsMaximum(
+    function test_revert_attributionWindowExceedsMaximum(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -52,7 +52,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param configs Array of conversion configs
     /// @param attributionWindow Attribution window in days
     /// @param invalidFeeBps Fee BPS greater than MAX_BPS
-    function test_onCreateCampaign_revert_invalidFeeBps(
+    function test_revert_invalidFeeBps(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -72,7 +72,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param uri Campaign URI
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_basicCampaign(
+    function test_success_basicCampaign(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -85,7 +85,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param uri Campaign URI
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_zeroAttributionWindow(
+    function test_success_zeroAttributionWindow(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -97,7 +97,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param uri Campaign URI
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_maximumAttributionWindow(
+    function test_success_maximumAttributionWindow(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -109,7 +109,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param uri Campaign URI
     /// @param attributionWindow Attribution window in days
-    function test_onCreateCampaign_success_zeroFee(
+    function test_success_zeroFee(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -121,7 +121,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param uri Campaign URI
     /// @param attributionWindow Attribution window in days
-    function test_onCreateCampaign_success_maximumFee(
+    function test_success_maximumFee(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -135,7 +135,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param allowedRefCodes Array of allowed publisher ref codes
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_withAllowlist(
+    function test_success_withAllowlist(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -150,7 +150,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param uri Campaign URI
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_withoutAllowlist(
+    function test_success_withoutAllowlist(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -165,7 +165,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param configs Array of conversion configs
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_withConversionConfigs(
+    function test_success_withConversionConfigs(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -180,7 +180,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param uri Campaign URI
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    function test_onCreateCampaign_success_emptyConversionConfigs(
+    function test_success_emptyConversionConfigs(
         address attributionProvider,
         address advertiser,
         string memory uri,

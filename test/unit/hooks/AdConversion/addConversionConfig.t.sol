@@ -12,7 +12,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param unauthorizedCaller Unauthorized caller address (not advertiser)
     /// @param campaign Campaign address
     /// @param configInput Conversion config input data
-    function test_addConversionConfig_revert_unauthorizedCaller(
+    function test_revert_unauthorizedCaller(
         address unauthorizedCaller,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
@@ -23,7 +23,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address with maximum configs
     /// @param configInput Additional conversion config input data
     /// @param maxConfigs Maximum allowed conversion configs
-    function test_addConversionConfig_revert_exceedsMaximumConfigs(
+    function test_revert_exceedsMaximumConfigs(
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput,
@@ -34,7 +34,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with near-maximum config count
     /// @param configInput Conversion config input data
-    function test_addConversionConfig_revert_configCountOverflow(
+    function test_revert_configCountOverflow(
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
@@ -49,7 +49,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param name Config name
     /// @param description Config description
-    function test_addConversionConfig_success_onchainConfig(
+    function test_success_onchainConfig(
         address advertiser,
         address campaign,
         string memory metadataURI,
@@ -61,7 +61,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param name Config name
     /// @param description Config description
-    function test_addConversionConfig_success_offchainConfig(
+    function test_success_offchainConfig(
         address advertiser,
         address campaign,
         string memory metadataURI,
@@ -73,7 +73,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param config1 First conversion config input
     /// @param config2 Second conversion config input
-    function test_addConversionConfig_success_multipleConfigs(
+    function test_success_multipleConfigs(
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory config1,
@@ -85,7 +85,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param metadataURI Config metadata URI
     /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_success_emptyMetadataURI(
+    function test_success_emptyMetadataURI(
         address advertiser,
         address campaign,
         string memory metadataURI,
@@ -101,7 +101,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param longMetadataURI Very long config metadata URI
     /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_edge_longMetadataURI(
+    function test_edge_longMetadataURI(
         address advertiser,
         address campaign,
         string memory longMetadataURI,
@@ -113,7 +113,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param specialMetadataURI Metadata URI with special characters
     /// @param isOnchain Whether config is onchain or offchain
-    function test_addConversionConfig_edge_specialCharacters(
+    function test_edge_specialCharacters(
         address advertiser,
         address campaign,
         string memory specialMetadataURI,
@@ -124,7 +124,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param configInputs Array of conversion config inputs up to limit
-    function test_addConversionConfig_edge_maximumConfigs(
+    function test_edge_maximumConfigs(
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput[] memory configInputs
@@ -136,7 +136,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param sameMetadataURI Same config metadata URI for both configs
     /// @param isOnchain1 First config type
     /// @param isOnchain2 Second config type
-    function test_addConversionConfig_edge_identicalMetadataURI(
+    function test_edge_identicalMetadataURI(
         address advertiser,
         address campaign,
         string memory sameMetadataURI,
@@ -152,7 +152,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param configInputs Array of conversion config inputs
-    function test_addConversionConfig_assignsSequentialIds(
+    function test_assignsSequentialIds(
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput[] memory configInputs

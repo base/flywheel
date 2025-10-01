@@ -14,7 +14,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_revert_unauthorizedCaller(
+    function test_revert_unauthorizedCaller(
         address unauthorizedCaller,
         address campaign,
         address token,
@@ -32,7 +32,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_success_authorizedDistribution(
+    function test_success_authorizedDistribution(
         address attributionProvider,
         address campaign,
         address token,
@@ -45,7 +45,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_success_providerAsRecipient(
+    function test_success_providerAsRecipient(
         address attributionProvider,
         address campaign,
         address token,
@@ -58,7 +58,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param differentRecipient Different fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_success_differentRecipient(
+    function test_success_differentRecipient(
         address attributionProvider,
         address campaign,
         address token,
@@ -71,12 +71,8 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_success_nativeToken(
-        address attributionProvider,
-        address campaign,
-        address recipient,
-        uint256 amount
-    ) public;
+    function test_success_nativeToken(address attributionProvider, address campaign, address recipient, uint256 amount)
+        public;
 
     /// @dev Successfully processes fee distribution when accumulated fees exist
     /// @param attributionProvider Attribution provider address
@@ -84,7 +80,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_success_withAccumulatedFees(
+    function test_success_withAccumulatedFees(
         address attributionProvider,
         address campaign,
         address token,
@@ -98,7 +94,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_success_withoutAccumulatedFees(
+    function test_success_withoutAccumulatedFees(
         address attributionProvider,
         address campaign,
         address token,
@@ -115,24 +111,16 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param recipient Fee recipient address
-    function test_onDistributeFees_edge_zeroAmount(
-        address attributionProvider,
-        address campaign,
-        address token,
-        address recipient
-    ) public;
+    function test_edge_zeroAmount(address attributionProvider, address campaign, address token, address recipient)
+        public;
 
     /// @dev Handles fee distribution of maximum uint256 amount
     /// @param attributionProvider Attribution provider address
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param recipient Fee recipient address
-    function test_onDistributeFees_edge_maximumAmount(
-        address attributionProvider,
-        address campaign,
-        address token,
-        address recipient
-    ) public;
+    function test_edge_maximumAmount(address attributionProvider, address campaign, address token, address recipient)
+        public;
 
     /// @dev Handles fee distribution from different campaigns by same provider
     /// @param attributionProvider Attribution provider address
@@ -141,7 +129,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
-    function test_onDistributeFees_edge_multipleCampaigns(
+    function test_edge_multipleCampaigns(
         address attributionProvider,
         address campaign1,
         address campaign2,
