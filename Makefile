@@ -7,3 +7,6 @@ docs-test:
 docs-clean:
 	rm -rf docs/gen
 	rm -rf test/docs/gen
+
+build-production:
+	FOUNDRY_PROFILE=production forge build
