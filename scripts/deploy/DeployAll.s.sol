@@ -21,7 +21,7 @@ contract DeployAll is Script {
         address simpleRewards;
     }
 
-    // forge script DeployAll --sig "run(address)" buidlerCodes
+    // forge script DeployAll --sig "run(address)" builderCodes
     function run(address builderCodes) public returns (Deployments memory deployments) {
         require(builderCodes != address(0), "BuilderCodes cannot be zero address");
 
@@ -44,23 +44,23 @@ contract DeployAll is Script {
         DeployCashbackRewards cashbackRewardsDeployer = new DeployCashbackRewards();
         deployments.cashbackRewards = cashbackRewardsDeployer.run(deployments.flywheel);
 
-        // Deploy BridgeRewards (depends on Flywheel, BuilderCodes)
-        console.log("4. Deploying BridgeRewards...");
-        DeployBridgeRewards bridgeRewardsDeployer = new DeployBridgeRewards();
-        deployments.bridgeRewards = bridgeRewardsDeployer.run(deployments.flywheel, builderCodes);
-
         // Deploy SimpleRewards (depends on Flywheel)
-        console.log("5. Deploying SimpleRewards...");
+        console.log("4. Deploying SimpleRewards...");
         DeploySimpleRewards simpleRewardsDeployer = new DeploySimpleRewards();
         deployments.simpleRewards = simpleRewardsDeployer.run(deployments.flywheel);
+
+        // Deploy BridgeRewards (depends on Flywheel, BuilderCodes)
+        // console.log("5. Deploying BridgeRewards...");
+        // DeployBridgeRewards bridgeRewardsDeployer = new DeployBridgeRewards();
+        // deployments.bridgeRewards = bridgeRewardsDeployer.run(deployments.flywheel, builderCodes);
 
         console.log("==========================================");
         console.log("Deployment complete!");
         console.log("Flywheel:", deployments.flywheel);
         console.log("AdConversion:", deployments.adConversion);
         console.log("CashbackRewards:", deployments.cashbackRewards);
-        console.log("BridgeRewards:", deployments.bridgeRewards);
         console.log("SimpleRewards:", deployments.simpleRewards);
+        // console.log("BridgeRewards:", deployments.bridgeRewards);
 
         return deployments;
     }
