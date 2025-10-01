@@ -245,6 +245,7 @@ contract DistributeTest is FlywheelTest {
         public
     {
         recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
@@ -280,6 +281,7 @@ contract DistributeTest is FlywheelTest {
     /// @param distributeAmount Distribution amount
     function test_succeeds_withERC20Token(address recipient, uint256 allocateAmount, uint256 distributeAmount) public {
         recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);

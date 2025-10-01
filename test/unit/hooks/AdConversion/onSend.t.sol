@@ -20,7 +20,26 @@ abstract contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public virtual;
+    ) public {
+        // Ensure unauthorized caller is different from attribution provider
+        vm.assume(unauthorizedCaller != attributionProvider1);
+        vm.assume(unauthorizedCaller != address(flywheel));
+
+        // Create basic campaign setup
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create simple attribution array if empty
+        if (attributions.length == 0) {
+            attributions = new AdConversion.Attribution[](1);
+            attributions[0] = createOffchainAttribution(REF_CODE_1, publisherPayout1, DEFAULT_ATTRIBUTION_AMOUNT);
+        }
+
+        // Expect revert when unauthorized caller tries to call onSend
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        callHookOnSend(unauthorizedCaller, testCampaign, address(tokenA), abi.encode(attributions));
+    }
 
     /// @dev Reverts when publisher ref code is not registered in registry
     /// @param campaign Campaign address
@@ -104,10 +123,10 @@ abstract contract OnSendTest is AdConversionTestBase {
     // SUCCESS CASES
     // ========================================
 
-    /// @dev Successfully processes single offchain conversion attribution (fuzz version)
-    /// @param payoutAmount Fuzzed payout amount
-    /// @param feeBps Fuzzed attribution provider fee
-    /// @param publisherPayout Fuzzed publisher payout address
+    /// @dev Successfully processes single offchain conversion attribution
+    /// @param payoutAmount Payout amount
+    /// @param feeBps Attribution provider fee
+    /// @param publisherPayout Publisher payout address
     /// @param refCodeSeed Seed for selecting registered ref code
     function test_success_singleOffchainConversion(
         uint256 payoutAmount,
@@ -175,16 +194,84 @@ abstract contract OnSendTest is AdConversionTestBase {
     }
 
     /// @dev Successfully processes single onchain conversion attribution
-    /// @param campaign Campaign address
-    /// @param token Token address
-    /// @param conversion Single onchain conversion data
-    /// @param logBytes Encoded blockchain log data
+    /// @param payoutAmount Payout amount
+    /// @param feeBps Attribution provider fee
+    /// @param publisherPayout Publisher payout address
+    /// @param refCodeSeed Seed for selecting registered ref code
+    /// @param logBytes Blockchain log data
     function test_success_singleOnchainConversion(
-        address campaign,
-        address token,
-        AdConversion.Conversion memory conversion,
+        uint256 payoutAmount,
+        uint16 feeBps,
+        address publisherPayout,
+        uint256 refCodeSeed,
         bytes memory logBytes
-    ) public virtual;
+    ) public {
+        // Constrain fuzz inputs to valid ranges
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
+
+        // Select one of the registered ref codes deterministically
+        string[] memory refCodes = new string[](3);
+        refCodes[0] = REF_CODE_1;
+        refCodes[1] = REF_CODE_2;
+        refCodes[2] = REF_CODE_3;
+        string memory selectedRefCode = refCodes[refCodeSeed % 3];
+
+        // Create campaign with fuzzed fee
+        address campaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        fundCampaign(campaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(campaign, attributionProvider1);
+
+        // Create onchain attribution with fuzzed parameters and log data
+        AdConversion.Attribution memory attribution =
+            createOnchainAttribution(selectedRefCode, publisherPayout, payoutAmount);
+        attribution.logBytes = logBytes; // Override with fuzzed log data
+
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = attribution;
+
+        // Calculate expected amounts with fuzzed fee
+        uint256 expectedFee = (payoutAmount * feeBps) / adConversion.MAX_BPS();
+        uint256 expectedNetAmount = payoutAmount - expectedFee;
+
+        // Create a mock log for the event (onchain conversions need Log data)
+        AdConversion.Log memory mockLog = AdConversion.Log({
+            chainId: block.chainid,
+            transactionHash: keccak256("mock_tx_hash"),
+            index: 0
+        });
+
+        // Expect the OnchainConversionProcessed event (assume not publisher payout for simplicity)
+        vm.expectEmit(true, true, false, false, address(adConversion));
+        emit AdConversion.OnchainConversionProcessed(campaign, false, attribution.conversion, mockLog);
+
+        // Call hook directly using base utility
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            callHookOnSend(attributionProvider1, campaign, address(tokenA), abi.encode(attributions));
+
+        // Verify return values
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertEq(payouts[0].recipient, publisherPayout, "Payout recipient should match fuzzed address");
+        assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+
+        if (expectedFee > 0) {
+            assertEq(fees.length, 1, "Should have one fee distribution when fee > 0");
+            assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
+            assertEq(fees[0].amount, expectedFee, "Fee amount should match calculated fee");
+        } else {
+            assertEq(fees.length, 0, "Should have no fee distribution when fee = 0");
+        }
+
+        assertFalse(sendFeesNow, "Should return false for sendFeesNow");
+    }
 
     /// @dev Successfully processes multiple conversion attributions
     /// @param campaign Campaign address
