@@ -3,12 +3,12 @@ pragma solidity 0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 
 import {MockERC3009Token} from "../../../lib/commerce-payments/test/mocks/MockERC3009Token.sol";
 import {MockAccount} from "../../lib/mocks/MockAccount.sol";
 
 import {BridgeRewards} from "../../../src/hooks/BridgeRewards.sol";
-import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
 

@@ -13,12 +13,13 @@ contract DeployBridgeRewards is Script {
         require(flywheel != address(0), "Flywheel cannot be zero address");
         require(builderCodes != address(0), "Flywheel cannot be zero address");
 
-        string memory metadataURI = "https://base.dev/campaign/bridge-rewards";
+        string memory metadataURI = "https://base.dev/campaign/";
+        uint16 maxFeeBasisPoints = 200;
 
         vm.startBroadcast();
 
         // Deploy BridgeRewards
-        BridgeRewards hook = new BridgeRewards(flywheel, builderCodes, metadataURI);
+        BridgeRewards hook = new BridgeRewards{salt: 0}(flywheel, builderCodes, metadataURI, maxFeeBasisPoints);
         console.log("BridgeRewards deployed at:", address(hook));
 
         vm.stopBroadcast();

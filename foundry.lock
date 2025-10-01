@@ -1,4 +1,7 @@
 {
+  "lib/builder-codes": {
+    "rev": "1e03d77011a50de01ce55e1c5cc704488ec17c78"
+  },
   "lib/commerce-payments": {
     "rev": "d33b5d5f74fff55f1c0857b1cb6fb4995949330b"
   },

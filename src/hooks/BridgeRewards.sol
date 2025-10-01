@@ -2,8 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+import {LibString} from "solady/utils/LibString.sol";
 
-import {BuilderCodes} from "../BuilderCodes.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 
@@ -23,8 +24,8 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Address of the BuilderCodes contract
     BuilderCodes public immutable builderCodes;
 
-    /// @notice Metadata URI for the campaign
-    string public metadataURI;
+    /// @notice URI prefix for the campaign
+    string public uriPrefix;
 
     /// @notice Error thrown to enforce only one campaign can be initialized
     error InvalidCampaignInitialization();
@@ -35,17 +36,17 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Hooks constructor
     ///
     /// @param flywheel_ Address of the flywheel contract
-    constructor(address flywheel_, address builderCodes_, string memory metadataURI_, uint16 maxFeeBasisPoints_)
+    constructor(address flywheel_, address builderCodes_, string memory uriPrefix_, uint16 maxFeeBasisPoints_)
         CampaignHooks(flywheel_)
     {
         builderCodes = BuilderCodes(builderCodes_);
-        metadataURI = metadataURI_;
+        uriPrefix = uriPrefix_;
         maxFeeBasisPoints = maxFeeBasisPoints_;
     }
 
     /// @inheritdoc CampaignHooks
     function campaignURI(address campaign) external view override returns (string memory uri) {
-        return metadataURI;
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, LibString.toHexStringChecksummed(campaign)) : "";
     }
 
     /// @inheritdoc CampaignHooks

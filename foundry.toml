@@ -6,7 +6,7 @@ via_ir = true
 optimizer = true
 optimizer_runs = 200
 
-[profile.deploy]
+[profile.production]
 optimizer = true
 optimizer_runs = 100000
 

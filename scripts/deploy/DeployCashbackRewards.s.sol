@@ -17,7 +17,7 @@ contract DeployCashbackRewards is Script {
         vm.startBroadcast();
 
         // Deploy CashbackRewards hook
-        CashbackRewards hook = new CashbackRewards(flywheel, escrow);
+        CashbackRewards hook = new CashbackRewards{salt: 0}(flywheel, escrow);
         console.log("CashbackRewards deployed at:", address(hook));
 
         vm.stopBroadcast();
