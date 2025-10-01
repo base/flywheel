@@ -2,8 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
+import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
 
-contract AddConversionConfigTest is AdConversionTestBase {
+abstract contract AddConversionConfigTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -16,7 +17,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address unauthorizedCaller,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when conversion config count exceeds maximum limit
     /// @param advertiser Advertiser address
@@ -28,7 +29,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address campaign,
         AdConversion.ConversionConfigInput memory configInput,
         uint16 maxConfigs
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when integer overflow occurs in config count
     /// @param advertiser Advertiser address
@@ -38,7 +39,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
-    ) public;
+    ) public virtual;
 
     // ========================================
     // SUCCESS CASES
@@ -47,26 +48,26 @@ contract AddConversionConfigTest is AdConversionTestBase {
     /// @dev Successfully adds onchain conversion config
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    /// @param name Config name
+    /// @param metadataURI Config metadata URI
     /// @param description Config description
     function test_success_onchainConfig(
         address advertiser,
         address campaign,
         string memory metadataURI,
         string memory description
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully adds offchain conversion config
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
-    /// @param name Config name
+    /// @param metadataURI Config metadata URI
     /// @param description Config description
     function test_success_offchainConfig(
         address advertiser,
         address campaign,
         string memory metadataURI,
         string memory description
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully adds multiple conversion configs to same campaign
     /// @param advertiser Advertiser address
@@ -78,7 +79,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address campaign,
         AdConversion.ConversionConfigInput memory config1,
         AdConversion.ConversionConfigInput memory config2
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully adds config with empty metadata URI
     /// @param advertiser Advertiser address
@@ -90,7 +91,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address campaign,
         string memory metadataURI,
         bool isOnchain
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -106,7 +107,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address campaign,
         string memory longMetadataURI,
         bool isOnchain
-    ) public;
+    ) public virtual;
 
     /// @dev Handles adding config with special characters in metadata URI
     /// @param advertiser Advertiser address
@@ -118,7 +119,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address campaign,
         string memory specialMetadataURI,
         bool isOnchain
-    ) public;
+    ) public virtual;
 
     /// @dev Handles adding maximum number of configs (up to limit)
     /// @param advertiser Advertiser address
@@ -128,7 +129,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput[] memory configInputs
-    ) public;
+    ) public virtual;
 
     /// @dev Handles adding configs with identical metadata URIs (should be allowed)
     /// @param advertiser Advertiser address
@@ -142,7 +143,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         string memory sameMetadataURI,
         bool isOnchain1,
         bool isOnchain2
-    ) public;
+    ) public virtual;
 
     // ========================================
     // CONFIG ID TESTING
@@ -156,7 +157,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput[] memory configInputs
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies config ID 0 is reserved (never assigned)
     /// @param advertiser Advertiser address
@@ -166,7 +167,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies config IDs are unique across campaign
     /// @param advertiser Advertiser address
@@ -176,7 +177,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput[] memory manyConfigInputs
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EVENT TESTING
@@ -190,7 +191,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
-    ) public;
+    ) public virtual;
 
     /// @dev Emits multiple events when adding multiple configs
     /// @param advertiser Advertiser address
@@ -202,7 +203,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address campaign,
         AdConversion.ConversionConfigInput memory config1,
         AdConversion.ConversionConfigInput memory config2
-    ) public;
+    ) public virtual;
 
     // ========================================
     // STATE VERIFICATION
@@ -216,7 +217,7 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput[] memory configInputs
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies config status is set to ACTIVE by default
     /// @param advertiser Advertiser address
@@ -226,5 +227,5 @@ contract AddConversionConfigTest is AdConversionTestBase {
         address advertiser,
         address campaign,
         AdConversion.ConversionConfigInput memory configInput
-    ) public;
+    ) public virtual;
 }

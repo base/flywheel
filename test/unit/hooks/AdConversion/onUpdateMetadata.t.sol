@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
-contract OnUpdateMetadataTest is AdConversionTestBase {
+abstract contract OnUpdateMetadataTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -13,7 +13,8 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param newMetadata New metadata string
     function test_revert_unauthorizedCaller(address unauthorizedCaller, address campaign, string memory newMetadata)
-        public;
+        public
+        virtual;
 
     // ========================================
     // SUCCESS CASES
@@ -24,24 +25,27 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param newMetadata New metadata string
     function test_success_attributionProvider(address attributionProvider, address campaign, string memory newMetadata)
-        public;
+        public
+        virtual;
 
     /// @dev Successfully updates metadata when called by advertiser
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param newMetadata New metadata string
-    function test_success_advertiser(address advertiser, address campaign, string memory newMetadata) public;
+    function test_success_advertiser(address advertiser, address campaign, string memory newMetadata) public virtual;
 
     /// @dev Successfully updates metadata with empty string
     /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
     /// @param campaign Campaign address
-    function test_success_emptyMetadata(address authorizedCaller, address campaign) public;
+    function test_success_emptyMetadata(address authorizedCaller, address campaign) public virtual;
 
     /// @dev Successfully updates metadata with very long string
     /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
     /// @param campaign Campaign address
     /// @param longMetadata Very long metadata string
-    function test_success_longMetadata(address authorizedCaller, address campaign, string memory longMetadata) public;
+    function test_success_longMetadata(address authorizedCaller, address campaign, string memory longMetadata)
+        public
+        virtual;
 
     /// @dev Successfully updates metadata multiple times
     /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
@@ -53,7 +57,7 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
         address campaign,
         string memory firstMetadata,
         string memory secondMetadata
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -63,7 +67,8 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param newMetadata New metadata string
     function test_edge_sameProviderAndAdvertiser(address sameAddress, address campaign, string memory newMetadata)
-        public;
+        public
+        virtual;
 
     /// @dev Handles metadata update across different campaign statuses
     /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
@@ -75,5 +80,5 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
         address campaign,
         string memory newMetadata,
         uint8 campaignStatus
-    ) public;
+    ) public virtual;
 }

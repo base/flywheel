@@ -9,7 +9,7 @@ import {MockERC20} from "./mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
-import {BuilderCodes} from "../../src/BuilderCodes.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 
 /// @notice Comprehensive test base for AdConversion hook testing
 /// @dev Provides utilities for both unit and integration testing with clean setup/teardown
@@ -222,10 +222,12 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
     function _createDefaultConfigs() internal pure returns (AdConversion.ConversionConfigInput[] memory) {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
         configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false, metadataURI: "https://campaign.example.com/offchain-config"
+            isEventOnchain: false,
+            metadataURI: "https://campaign.example.com/offchain-config"
         });
         configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true, metadataURI: "https://campaign.example.com/onchain-config"
+            isEventOnchain: true,
+            metadataURI: "https://campaign.example.com/onchain-config"
         });
         return configs;
     }
@@ -473,7 +475,8 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
         bool expectedIsOnchain,
         string memory expectedMetadataURI
     ) public view {
-        (bool isActive, bool isEventOnchain, string memory metadataURI) = adConversion.conversionConfigs(campaign, configId);
+        (bool isActive, bool isEventOnchain, string memory metadataURI) =
+            adConversion.conversionConfigs(campaign, configId);
 
         assertEq(isActive, expectedIsActive, "Config active status mismatch");
         assertEq(isEventOnchain, expectedIsOnchain, "Config onchain status mismatch");
@@ -522,14 +525,21 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
         uint256 currentAllocatedFee = flywheel.allocatedFee(campaign, token, bytes32(bytes20(attributionProvider)));
 
         // After fee distribution, balance should increase by expected amount
-        assertEq(currentBalance, balanceBeforeDistribution + expectedFeeAmount, "Attribution provider balance incorrect after fee distribution");
+        assertEq(
+            currentBalance,
+            balanceBeforeDistribution + expectedFeeAmount,
+            "Attribution provider balance incorrect after fee distribution"
+        );
 
         // After fee distribution, allocated fee should be zero
         assertEq(currentAllocatedFee, 0, "Allocated fee should be zero after distribution");
     }
 
     /// @notice Assert campaign is properly finalized after complete lifecycle
-    function assertCampaignCompletedLifecycle(address campaign, address token, address attributionProvider) public view {
+    function assertCampaignCompletedLifecycle(address campaign, address token, address attributionProvider)
+        public
+        view
+    {
         // Campaign should be finalized
         assertCampaignStatus(campaign, Flywheel.CampaignStatus.FINALIZED);
 
@@ -546,19 +556,19 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
 
     /// @notice Gets campaign attribution provider from state
     function getCampaignAttributionProvider(address campaign) public view returns (address) {
-        (, , , address attributionProvider, , ) = adConversion.state(campaign);
+        (,,, address attributionProvider,,) = adConversion.state(campaign);
         return attributionProvider;
     }
 
     /// @notice Gets campaign advertiser from state
     function getCampaignAdvertiser(address campaign) public view returns (address) {
-        (address advertiser, , , , , ) = adConversion.state(campaign);
+        (address advertiser,,,,,) = adConversion.state(campaign);
         return advertiser;
     }
 
     /// @notice Gets campaign fee BPS from state
     function getCampaignFeeBps(address campaign) public view returns (uint16) {
-        (, , uint16 feeBps, , , ) = adConversion.state(campaign);
+        (,, uint16 feeBps,,,) = adConversion.state(campaign);
         return feeBps;
     }
 
@@ -615,7 +625,9 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
     /// @notice Creates mock log data for onchain attributions
     function createMockLogData() public view returns (AdConversion.Log memory) {
         return AdConversion.Log({
-            chainId: block.chainid, transactionHash: keccak256(abi.encodePacked("mock_tx", block.timestamp)), index: 0
+            chainId: block.chainid,
+            transactionHash: keccak256(abi.encodePacked("mock_tx", block.timestamp)),
+            index: 0
         });
     }
 
@@ -642,11 +654,7 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
     /// @notice Calls hook onSend directly (for unit testing)
     function callHookOnSend(address sender, address campaign, address token, bytes memory hookData)
         public
-        returns (
-            Flywheel.Payout[] memory payouts,
-            Flywheel.Distribution[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         vm.prank(address(flywheel));
         return adConversion.onSend(sender, campaign, token, hookData);

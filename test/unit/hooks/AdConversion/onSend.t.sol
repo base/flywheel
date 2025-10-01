@@ -2,8 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
+import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
+import {Flywheel} from "../../../../src/Flywheel.sol";
 
-contract OnSendTest is AdConversionTestBase {
+abstract contract OnSendTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -18,7 +20,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when publisher ref code is not registered in registry
     /// @param campaign Campaign address
@@ -30,7 +32,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         string memory unregisteredRefCode,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when publisher ref code is not in campaign allowlist
     /// @param campaign Campaign address with allowlist
@@ -42,7 +44,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         string memory disallowedRefCode,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when conversion config ID does not exist
     /// @param campaign Campaign address
@@ -54,7 +56,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         uint16 invalidConfigId,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when onchain conversion has mismatched config type
     /// @param campaign Campaign address
@@ -66,7 +68,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         uint16 offchainConfigId,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when offchain conversion has mismatched config type
     /// @param campaign Campaign address
@@ -78,7 +80,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         uint16 onchainConfigId,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when integer overflow occurs in fee calculation
     /// @param campaign Campaign address
@@ -90,19 +92,58 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         uint256 overflowAmount,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when hook data is invalid
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param hookData Invalid hook data
-    function test_revert_invalidHookData(address campaign, address token, bytes memory hookData) public;
+    function test_revert_invalidHookData(address campaign, address token, bytes memory hookData) public virtual;
 
     // ========================================
     // SUCCESS CASES
     // ========================================
 
-    /// @dev Successfully processes single offchain conversion attribution
+    /// @dev Successfully processes single offchain conversion attribution (non-fuzz version)
+    function test_success_singleOffchainConversion_simple() public {
+        // Create and fund campaign
+        address campaign = createBasicCampaign();
+        address token = address(tokenA);
+        fundCampaign(campaign, token, DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(campaign, attributionProvider1);
+
+        // Create simple offchain attribution
+        AdConversion.Attribution memory attribution =
+            createOffchainAttribution(REF_CODE_1, publisherPayout1, DEFAULT_ATTRIBUTION_AMOUNT);
+
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = attribution;
+
+        // Calculate expected fee and net amount
+        uint256 expectedFee = (DEFAULT_ATTRIBUTION_AMOUNT * DEFAULT_FEE_BPS) / adConversion.MAX_BPS();
+        uint256 expectedNetAmount = DEFAULT_ATTRIBUTION_AMOUNT - expectedFee;
+
+        // Expect the OffchainConversionProcessed event
+        vm.expectEmit(true, true, true, true, address(adConversion));
+        emit AdConversion.OffchainConversionProcessed(campaign, false, attribution.conversion);
+
+        // Call hook onSend directly with attribution provider as caller
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            callHookOnSend(attributionProvider1, campaign, token, abi.encode(attributions));
+
+        // Verify return values
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertEq(payouts[0].recipient, publisherPayout1, "Payout recipient should match");
+        assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+
+        assertEq(fees.length, 1, "Should have one fee distribution");
+        assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
+        assertEq(fees[0].amount, expectedFee, "Fee amount should match calculated fee");
+
+        assertFalse(sendFeesNow, "Should return false for sendFeesNow");
+    }
+
+    /// @dev Successfully processes single offchain conversion attribution (fuzz version)
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param conversion Single offchain conversion data
@@ -110,7 +151,59 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Conversion memory conversion
-    ) public;
+    ) public {
+        // Fuzz bounds for valid test inputs
+        campaign = address(
+            uint160(
+                bound(uint256(uint160(campaign)), uint256(uint160(address(0x1000))), uint256(uint160(address(0xFFFF))))
+            )
+        );
+        token = address(tokenA); // Use predefined token
+
+        // Constraint fuzz inputs to valid ranges
+        conversion.configId = uint16(bound(conversion.configId, 1, 2)); // Valid config IDs 1-2
+        conversion.payoutAmount = bound(conversion.payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        conversion.publisherRefCode = REF_CODE_1; // Use registered publisher
+        conversion.payoutRecipient = publisherPayout1; // Use valid recipient
+        conversion.timestamp = uint32(block.timestamp);
+
+        // Create and fund campaign
+        address actualCampaign = createBasicCampaign();
+        fundCampaign(actualCampaign, token, DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(actualCampaign, attributionProvider1);
+
+        // Create attribution with the constrained conversion data
+        AdConversion.Attribution memory attribution = AdConversion.Attribution({
+            conversion: conversion,
+            logBytes: "" // Empty for offchain
+        });
+
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = attribution;
+
+        // Calculate expected fee and net amount
+        uint256 expectedFee = (conversion.payoutAmount * DEFAULT_FEE_BPS) / adConversion.MAX_BPS();
+        uint256 expectedNetAmount = conversion.payoutAmount - expectedFee;
+
+        // Expect the OffchainConversionProcessed event
+        vm.expectEmit(true, true, true, true, address(adConversion));
+        emit AdConversion.OffchainConversionProcessed(actualCampaign, false, conversion);
+
+        // Call hook onSend directly with attribution provider as caller
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            callHookOnSend(attributionProvider1, actualCampaign, token, abi.encode(attributions));
+
+        // Verify return values
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertEq(payouts[0].recipient, conversion.payoutRecipient, "Payout recipient should match");
+        assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+
+        assertEq(fees.length, 1, "Should have one fee distribution");
+        assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
+        assertEq(fees[0].amount, expectedFee, "Fee amount should match calculated fee");
+
+        assertFalse(sendFeesNow, "Should return false for sendFeesNow");
+    }
 
     /// @dev Successfully processes single onchain conversion attribution
     /// @param campaign Campaign address
@@ -122,7 +215,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Conversion memory conversion,
         bytes memory logBytes
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes multiple conversion attributions
     /// @param campaign Campaign address
@@ -132,7 +225,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes conversions with inactive conversion config
     /// @param campaign Campaign address
@@ -142,7 +235,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes conversions with zero attribution provider fee
     /// @param campaign Campaign address with zero fee
@@ -152,7 +245,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes conversions with maximum attribution provider fee
     /// @param campaign Campaign address with 100% fee
@@ -162,7 +255,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully consolidates multiple conversions to same recipient
     /// @param campaign Campaign address
@@ -174,7 +267,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         address sameRecipient,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully resolves zero-address recipients to registry payout address
     /// @param campaign Campaign address
@@ -186,14 +279,15 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         string memory publisherRefCode,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes conversions with empty ref codes (no publisher)
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param attributions Array of attributions with empty ref codes
     function test_success_emptyRefCodes(address campaign, address token, AdConversion.Attribution[] memory attributions)
-        public;
+        public
+        virtual;
 
     /// @dev Successfully processes conversions with unregistered config ID (0)
     /// @param campaign Campaign address
@@ -203,7 +297,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -212,7 +306,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @dev Handles empty attributions array (no-op)
     /// @param campaign Campaign address
     /// @param token Token address
-    function test_edge_emptyAttributions(address campaign, address token) public;
+    function test_edge_emptyAttributions(address campaign, address token) public virtual;
 
     /// @dev Handles conversions with zero payout amounts
     /// @param campaign Campaign address
@@ -222,7 +316,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Handles conversions with very large payout amounts
     /// @param campaign Campaign address
@@ -234,7 +328,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         uint256 largeAmount,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Handles maximum number of attributions in single call
     /// @param campaign Campaign address
@@ -244,7 +338,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory manyAttributions
-    ) public;
+    ) public virtual;
 
     /// @dev Handles campaign without allowlist (all publishers allowed)
     /// @param campaign Campaign address without allowlist
@@ -256,7 +350,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         string memory anyPublisherRefCode,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     // ========================================
     // FEE CALCULATION TESTING
@@ -267,21 +361,24 @@ contract OnSendTest is AdConversionTestBase {
     /// @param token Token address
     /// @param payoutAmount Original payout amount before fees
     /// @param feeBps Attribution provider fee in basis points
-    function test_calculatesCorrectFees(address campaign, address token, uint256 payoutAmount, uint16 feeBps) public;
+    function test_calculatesCorrectFees(address campaign, address token, uint256 payoutAmount, uint16 feeBps)
+        public
+        virtual;
 
     /// @dev Verifies fee calculation with rounding down
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param smallAmount Small amount that results in fee rounding
     /// @param feeBps Attribution provider fee in basis points
-    function test_feeRoundingDown(address campaign, address token, uint256 smallAmount, uint16 feeBps) public;
+    function test_feeRoundingDown(address campaign, address token, uint256 smallAmount, uint16 feeBps) public virtual;
 
     /// @dev Verifies fees are accumulated correctly for multiple conversions
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param attributions Array of attributions for fee accumulation
     function test_accumulatesFees(address campaign, address token, AdConversion.Attribution[] memory attributions)
-        public;
+        public
+        virtual;
 
     // ========================================
     // EVENT TESTING
@@ -295,7 +392,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Conversion memory offchainConversion
-    ) public;
+    ) public virtual;
 
     /// @dev Emits OnchainConversionProcessed event for onchain conversions
     /// @param campaign Campaign address
@@ -307,7 +404,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Conversion memory onchainConversion,
         bytes memory logBytes
-    ) public;
+    ) public virtual;
 
     /// @dev Emits multiple conversion events for batch processing
     /// @param campaign Campaign address
@@ -317,7 +414,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory mixedAttributions
-    ) public;
+    ) public virtual;
 
     /// @dev Emits OffchainConversionProcessed with isPublisherPayout flag
     /// @param campaign Campaign address
@@ -327,7 +424,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         AdConversion.Conversion memory conversion,
         bool isPublisherPayout
-    ) public;
+    ) public virtual;
 
     /// @dev Emits correct number of conversion events for batch
     /// @param campaign Campaign address
@@ -337,7 +434,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Emits mixed onchain and offchain conversion events
     /// @param campaign Campaign address
@@ -349,7 +446,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory onchainAttributions,
         AdConversion.Attribution[] memory offchainAttributions
-    ) public;
+    ) public virtual;
 
     /// @dev Emits events with correct isPublisherPayout flags
     /// @param campaign Campaign address
@@ -361,7 +458,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory publisherAttributions,
         AdConversion.Attribution[] memory directPayoutAttributions
-    ) public;
+    ) public virtual;
 
     // ========================================
     // RETURN VALUE VERIFICATION
@@ -375,7 +472,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     // ========================================
     // BATCH ATTRIBUTION PROCESSING TESTS
@@ -389,7 +486,7 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes batch attributions with mixed conversion types
     /// @param campaign Campaign address
@@ -401,7 +498,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory onchainAttributions,
         AdConversion.Attribution[] memory offchainAttributions
-    ) public;
+    ) public virtual;
 
     /// @dev Correctly calculates and accumulates fees across batch
     /// @param campaign Campaign address
@@ -413,14 +510,15 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory attributions,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Processes batch with zero fee correctly
     /// @param campaign Campaign address with zero fee
     /// @param token Token address
     /// @param attributions Array of conversion attributions
     function test_success_batchZeroFee(address campaign, address token, AdConversion.Attribution[] memory attributions)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when batch contains invalid conversion config IDs
     /// @param campaign Campaign address
@@ -432,7 +530,7 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory validAttributions,
         uint16 invalidConfigId
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when batch contains publishers not in allowlist
     /// @param campaign Campaign address with allowlist
@@ -444,10 +542,10 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory validAttributions,
         string memory disallowedRefCode
-    ) public;
+    ) public virtual;
 
     /// @dev Handles empty attribution array (no-op)
     /// @param campaign Campaign address
     /// @param token Token address
-    function test_edge_emptyBatch(address campaign, address token) public;
+    function test_edge_emptyBatch(address campaign, address token) public virtual;
 }

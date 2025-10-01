@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
-contract OnDistributeFeesTest is AdConversionTestBase {
+abstract contract OnDistributeFeesTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -20,7 +20,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address token,
         address recipient,
         uint256 amount
-    ) public;
+    ) public virtual;
 
     // ========================================
     // SUCCESS CASES
@@ -38,7 +38,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address token,
         address recipient,
         uint256 amount
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes fee distribution with provider as recipient
     /// @param attributionProvider Attribution provider address (same as recipient)
@@ -50,7 +50,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address campaign,
         address token,
         uint256 amount
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes fee distribution with different recipient
     /// @param attributionProvider Attribution provider address
@@ -64,7 +64,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address token,
         address differentRecipient,
         uint256 amount
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes fee distribution with native token
     /// @param attributionProvider Attribution provider address
@@ -72,7 +72,8 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param recipient Fee recipient address
     /// @param amount Fee distribution amount
     function test_success_nativeToken(address attributionProvider, address campaign, address recipient, uint256 amount)
-        public;
+        public
+        virtual;
 
     /// @dev Successfully processes fee distribution when accumulated fees exist
     /// @param attributionProvider Attribution provider address
@@ -86,7 +87,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address token,
         address recipient,
         uint256 amount
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully processes fee distribution when no accumulated fees exist
     /// @param attributionProvider Attribution provider address
@@ -100,7 +101,7 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address token,
         address recipient,
         uint256 amount
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -112,7 +113,8 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     function test_edge_zeroAmount(address attributionProvider, address campaign, address token, address recipient)
-        public;
+        public
+        virtual;
 
     /// @dev Handles fee distribution of maximum uint256 amount
     /// @param attributionProvider Attribution provider address
@@ -120,7 +122,8 @@ contract OnDistributeFeesTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Fee recipient address
     function test_edge_maximumAmount(address attributionProvider, address campaign, address token, address recipient)
-        public;
+        public
+        virtual;
 
     /// @dev Handles fee distribution from different campaigns by same provider
     /// @param attributionProvider Attribution provider address
@@ -136,5 +139,5 @@ contract OnDistributeFeesTest is AdConversionTestBase {
         address token,
         address recipient,
         uint256 amount
-    ) public;
+    ) public virtual;
 }

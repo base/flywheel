@@ -2,8 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
+import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
 
-contract OnCreateCampaignTest is AdConversionTestBase {
+abstract contract OnCreateCampaignTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -24,7 +25,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 invalidWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when attribution window exceeds 180 days maximum
     /// @param attributionProvider Attribution provider address
@@ -42,7 +43,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 excessiveWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when attribution provider fee exceeds 100%
     /// @param attributionProvider Attribution provider address
@@ -60,7 +61,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 attributionWindow,
         uint16 invalidFeeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // SUCCESS CASES
@@ -78,7 +79,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string memory uri,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with zero attribution window
     /// @param attributionProvider Attribution provider address
@@ -90,7 +91,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         address advertiser,
         string memory uri,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with maximum 180-day attribution window
     /// @param attributionProvider Attribution provider address
@@ -102,7 +103,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         address advertiser,
         string memory uri,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with zero fee
     /// @param attributionProvider Attribution provider address
@@ -114,7 +115,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         address advertiser,
         string memory uri,
         uint48 attributionWindow
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with maximum 100% fee
     /// @param attributionProvider Attribution provider address
@@ -126,7 +127,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         address advertiser,
         string memory uri,
         uint48 attributionWindow
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with publisher allowlist
     /// @param attributionProvider Attribution provider address
@@ -142,7 +143,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory allowedRefCodes,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign without publisher allowlist
     /// @param attributionProvider Attribution provider address
@@ -156,7 +157,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string memory uri,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with conversion configs
     /// @param attributionProvider Attribution provider address
@@ -172,7 +173,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully creates campaign with empty conversion configs
     /// @param attributionProvider Attribution provider address
@@ -186,7 +187,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string memory uri,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -202,7 +203,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         address advertiser,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Handles campaign with same attribution provider and advertiser
     /// @param sameAddress Address for both attribution provider and advertiser
@@ -214,7 +215,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string memory uri,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EVENT TESTING
@@ -232,7 +233,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string memory uri,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Emits PublisherAddedToAllowlist events for each allowed publisher
     /// @param attributionProvider Attribution provider address
@@ -248,7 +249,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory allowedRefCodes,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Emits ConversionConfigAdded events for each conversion config
     /// @param attributionProvider Attribution provider address
@@ -264,7 +265,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // STATE VERIFICATION
@@ -286,7 +287,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies conversion config count is correctly updated
     /// @param attributionProvider Attribution provider address
@@ -302,7 +303,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory configs,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies allowlist mapping is correctly populated
     /// @param attributionProvider Attribution provider address
@@ -318,7 +319,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory allowedRefCodes,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies campaign metadata URI is correctly stored
     /// @param advertiser Advertiser address
@@ -332,7 +333,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string memory campaignURI,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies allowlist flag is correctly set when no allowlist provided
     /// @param advertiser Advertiser address
@@ -344,7 +345,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         address attributionProvider,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Verifies allowlist flag is correctly set when allowlist provided
     /// @param advertiser Advertiser address
@@ -358,5 +359,5 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory allowedRefCodes,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 }

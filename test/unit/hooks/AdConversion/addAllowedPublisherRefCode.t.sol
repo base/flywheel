@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
-contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
+abstract contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -12,25 +12,28 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param unauthorizedCaller Unauthorized caller address (not advertiser)
     /// @param campaign Campaign address
     /// @param codeSeed Publisher reference code seed to add
-    function test_revert_unauthorizedCaller(address unauthorizedCaller, address campaign, uint256 codeSeed) public;
+    function test_revert_unauthorizedCaller(address unauthorizedCaller, address campaign, uint256 codeSeed)
+        public
+        virtual;
 
     /// @dev Reverts when publisher ref code is not registered in BuilderCodes registry
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param unregisteredCodeSeed Unregistered publisher reference code seed
     function test_revert_unregisteredRefCode(address advertiser, address campaign, uint256 unregisteredCodeSeed)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when campaign does not have an allowlist (hasAllowlist = false)
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address without allowlist
     /// @param codeSeed Registered publisher reference code seed
-    function test_revert_noAllowlist(address advertiser, address campaign, uint256 codeSeed) public;
+    function test_revert_noAllowlist(address advertiser, address campaign, uint256 codeSeed) public virtual;
 
     /// @dev Reverts when trying to add empty ref code
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
-    function test_revert_emptyRefCode(address advertiser, address campaign) public;
+    function test_revert_emptyRefCode(address advertiser, address campaign) public virtual;
 
     // ========================================
     // SUCCESS CASES
@@ -40,7 +43,7 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param codeSeed Registered publisher reference code seed
-    function test_success_addToAllowlist(address advertiser, address campaign, uint256 codeSeed) public;
+    function test_success_addToAllowlist(address advertiser, address campaign, uint256 codeSeed) public virtual;
 
     /// @dev Successfully adds multiple publisher ref codes to campaign allowlist
     /// @param advertiser Advertiser address
@@ -48,13 +51,14 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param codeSeed1 First registered publisher reference code seed
     /// @param codeSeed2 Second registered publisher reference code seed
     function test_success_addMultiple(address advertiser, address campaign, uint256 codeSeed1, uint256 codeSeed2)
-        public;
+        public
+        virtual;
 
     /// @dev Successfully handles adding same ref code multiple times (idempotent)
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param codeSeed Registered publisher reference code seed
-    function test_success_idempotent(address advertiser, address campaign, uint256 codeSeed) public;
+    function test_success_idempotent(address advertiser, address campaign, uint256 codeSeed) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -64,19 +68,23 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param maxLengthRefCodeSeed 32-character publisher reference code seed
-    function test_edge_maxLength(address advertiser, address campaign, uint256 maxLengthRefCodeSeed) public;
+    function test_edge_maxLength(address advertiser, address campaign, uint256 maxLengthRefCodeSeed) public virtual;
 
     /// @dev Handles adding ref code with single character
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param singleCharRefCodeSeed Single-character publisher reference code seed
-    function test_edge_singleCharacter(address advertiser, address campaign, uint256 singleCharRefCodeSeed) public;
+    function test_edge_singleCharacter(address advertiser, address campaign, uint256 singleCharRefCodeSeed)
+        public
+        virtual;
 
     /// @dev Handles adding ref code with special allowed characters
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param specialCharRefCodeSeed Publisher ref code with underscores and numbers seed
-    function test_edge_specialCharacters(address advertiser, address campaign, uint256 specialCharRefCodeSeed) public;
+    function test_edge_specialCharacters(address advertiser, address campaign, uint256 specialCharRefCodeSeed)
+        public
+        virtual;
 
     // ========================================
     // EVENT TESTING
@@ -86,7 +94,9 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param codeSeed Registered publisher reference code seed
-    function test_emitsPublisherAddedToAllowlist(address advertiser, address campaign, uint256 codeSeed) public;
+    function test_emitsPublisherAddedToAllowlist(address advertiser, address campaign, uint256 codeSeed)
+        public
+        virtual;
 
     /// @dev Emits multiple events when adding multiple ref codes
     /// @param advertiser Advertiser address
@@ -94,11 +104,12 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
     /// @param codeSeed1 First registered publisher reference code seed
     /// @param codeSeed2 Second registered publisher reference code seed
     function test_emitsMultipleEvents(address advertiser, address campaign, uint256 codeSeed1, uint256 codeSeed2)
-        public;
+        public
+        virtual;
 
     /// @dev Does not emit event when adding already allowed ref code
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address with allowlist
     /// @param codeSeed Already allowed publisher reference code seed
-    function test_noEventForDuplicate(address advertiser, address campaign, uint256 codeSeed) public;
+    function test_noEventForDuplicate(address advertiser, address campaign, uint256 codeSeed) public virtual;
 }

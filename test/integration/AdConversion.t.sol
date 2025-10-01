@@ -2,8 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../lib/AdConversionTestBase.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
-contract AdConversionIntegrationTest is AdConversionTestBase {
+abstract contract AdConversionIntegrationTest is AdConversionTestBase {
     // ========================================
     // END-TO-END CAMPAIGN LIFECYCLE TESTS
     // ========================================
@@ -105,7 +107,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 campaignFunding,
         uint256[] memory attributionAmounts,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Campaign with both onchain and offchain conversions
     /// @param advertiser Advertiser address
@@ -125,7 +127,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 offchainAmount,
         uint256 onchainAmount,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Campaign with fund recovery scenario (never activated)
     /// @param advertiser Advertiser address
@@ -137,7 +139,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         address attributionProvider,
         uint256 campaignFunding,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // PUBLISHER ALLOWLIST INTEGRATION TESTS
@@ -159,7 +161,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 campaignFunding,
         uint256 attributionAmount,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // CONVERSION CONFIG INTEGRATION TESTS
@@ -181,7 +183,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 campaignFunding,
         uint256 attributionAmount,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // FEE COLLECTION INTEGRATION TESTS
@@ -203,7 +205,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 campaignFunding,
         uint256 attributionAmount,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // MULTI-TOKEN INTEGRATION TESTS
@@ -233,7 +235,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 attribution1,
         uint256 attribution2,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // SECURITY INTEGRATION TESTS
@@ -257,7 +259,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 attributionAmount,
         uint48 attributionWindow,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     /// @dev Malicious pause attack prevention
     /// @param advertiser Advertiser address
@@ -271,7 +273,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         address maliciousActor,
         uint256 campaignFunding,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 
     // ========================================
     // METADATA UPDATE INTEGRATION TESTS
@@ -295,5 +297,5 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         uint256 attributionAmount,
         string memory newMetadata,
         uint16 feeBps
-    ) public;
+    ) public virtual;
 }

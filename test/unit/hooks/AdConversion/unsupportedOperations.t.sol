@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
-contract UnsupportedOperationsTest is AdConversionTestBase {
+abstract contract UnsupportedOperationsTest is AdConversionTestBase {
     // ========================================
     // UNSUPPORTED OPERATIONS REVERT CASES
     // ========================================
@@ -14,7 +14,8 @@ contract UnsupportedOperationsTest is AdConversionTestBase {
     /// @param token Token address
     /// @param hookData Hook-specific data
     function test_onAllocate_revert_unsupported(address caller, address campaign, address token, bytes memory hookData)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when onDeallocate is called (unsupported operation)
     /// @param caller Caller address
@@ -26,7 +27,7 @@ contract UnsupportedOperationsTest is AdConversionTestBase {
         address campaign,
         address token,
         bytes memory hookData
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when onDistribute is called (unsupported operation)
     /// @param caller Caller address
@@ -38,5 +39,5 @@ contract UnsupportedOperationsTest is AdConversionTestBase {
         address campaign,
         address token,
         bytes memory hookData
-    ) public;
+    ) public virtual;
 }

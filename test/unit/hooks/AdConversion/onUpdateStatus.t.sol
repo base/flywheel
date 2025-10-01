@@ -3,7 +3,7 @@ pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
-contract OnUpdateStatusTest is AdConversionTestBase {
+abstract contract OnUpdateStatusTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES - UNAUTHORIZED TRANSITIONS
     // ========================================
@@ -20,7 +20,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         uint8 fromStatus,
         uint8 toStatus,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when attribution provider tries unauthorized INACTIVE → FINALIZING transition
     /// @param attributionProvider Attribution provider address
@@ -30,7 +30,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address attributionProvider,
         address campaign,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when attribution provider tries unauthorized INACTIVE → FINALIZED transition
     /// @param attributionProvider Attribution provider address
@@ -40,42 +40,47 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address attributionProvider,
         address campaign,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     /// @dev Reverts when attribution provider tries unauthorized ACTIVE → INACTIVE transition
     /// @param attributionProvider Attribution provider address
     /// @param campaign Campaign address in ACTIVE status
     /// @param metadata Status update metadata
     function test_revert_providerActiveToInactive(address attributionProvider, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when advertiser tries unauthorized INACTIVE → ACTIVE transition
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param metadata Status update metadata
     function test_revert_advertiserInactiveToActive(address advertiser, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when advertiser tries unauthorized INACTIVE → FINALIZING transition
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param metadata Status update metadata
     function test_revert_advertiserInactiveToFinalizing(address advertiser, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when advertiser tries unauthorized ACTIVE → INACTIVE transition
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address in ACTIVE status
     /// @param metadata Status update metadata
     function test_revert_advertiserActiveToInactive(address advertiser, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when advertiser tries unauthorized ACTIVE → FINALIZED transition
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address in ACTIVE status
     /// @param metadata Status update metadata
     function test_revert_advertiserActiveToFinalized(address advertiser, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Reverts when advertiser tries FINALIZING → FINALIZED before attribution deadline
     /// @param advertiser Advertiser address
@@ -87,7 +92,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint256 currentTime
-    ) public;
+    ) public virtual;
 
     // ========================================
     // SUCCESS CASES - ATTRIBUTION PROVIDER TRANSITIONS
@@ -101,7 +106,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address attributionProvider,
         address campaign,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully allows attribution provider ACTIVE → FINALIZING transition
     /// @param attributionProvider Attribution provider address
@@ -111,7 +116,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address attributionProvider,
         address campaign,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully allows attribution provider ACTIVE → FINALIZED transition
     /// @param attributionProvider Attribution provider address
@@ -121,7 +126,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address attributionProvider,
         address campaign,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     /// @dev Successfully allows attribution provider FINALIZING → FINALIZED transition
     /// @param attributionProvider Attribution provider address
@@ -131,7 +136,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address attributionProvider,
         address campaign,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     // ========================================
     // SUCCESS CASES - ADVERTISER TRANSITIONS
@@ -142,14 +147,16 @@ contract OnUpdateStatusTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param metadata Status update metadata
     function test_success_advertiserInactiveToFinalized(address advertiser, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Successfully allows advertiser ACTIVE → FINALIZING transition
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address in ACTIVE status
     /// @param metadata Status update metadata
     function test_success_advertiserActiveToFinalizing(address advertiser, address campaign, string memory metadata)
-        public;
+        public
+        virtual;
 
     /// @dev Successfully allows advertiser FINALIZING → FINALIZED after attribution deadline
     /// @param advertiser Advertiser address
@@ -161,7 +168,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint256 currentTime
-    ) public;
+    ) public virtual;
 
     // ========================================
     // ATTRIBUTION DEADLINE TESTING
@@ -177,13 +184,13 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint48 attributionWindow
-    ) public;
+    ) public virtual;
 
     /// @dev Does not set attribution deadline when transitioning to FINALIZING with zero window
     /// @param caller Authorized caller address
     /// @param campaign Campaign address with zero attribution window
     /// @param metadata Status update metadata
-    function test_noDeadlineWithZeroWindow(address caller, address campaign, string memory metadata) public;
+    function test_noDeadlineWithZeroWindow(address caller, address campaign, string memory metadata) public virtual;
 
     /// @dev Calculates correct attribution deadline timestamp
     /// @param caller Authorized caller address
@@ -197,7 +204,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         string memory metadata,
         uint48 attributionWindow,
         uint256 currentTime
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EDGE CASES
@@ -208,7 +215,9 @@ contract OnUpdateStatusTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param fromStatus Current valid status
     /// @param toStatus Target valid status
-    function test_edge_emptyMetadata(address caller, address campaign, uint8 fromStatus, uint8 toStatus) public;
+    function test_edge_emptyMetadata(address caller, address campaign, uint8 fromStatus, uint8 toStatus)
+        public
+        virtual;
 
     /// @dev Handles attribution deadline exactly at current timestamp
     /// @param advertiser Advertiser address
@@ -220,13 +229,15 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint256 exactDeadlineTime
-    ) public;
+    ) public virtual;
 
     /// @dev Handles maximum attribution window value
     /// @param caller Authorized caller address
     /// @param campaign Campaign address with maximum attribution window
     /// @param metadata Status update metadata
-    function test_edge_maximumAttributionWindow(address caller, address campaign, string memory metadata) public;
+    function test_edge_maximumAttributionWindow(address caller, address campaign, string memory metadata)
+        public
+        virtual;
 
     /// @dev Handles same attribution provider and advertiser address
     /// @param sameAddress Address for both attribution provider and advertiser
@@ -240,7 +251,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         uint8 fromStatus,
         uint8 toStatus,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     // ========================================
     // EVENT TESTING
@@ -256,13 +267,13 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint48 attributionWindow
-    ) public;
+    ) public virtual;
 
     /// @dev Does not emit AttributionDeadlineUpdated when attribution window is zero
     /// @param caller Authorized caller address
     /// @param campaign Campaign address with zero attribution window
     /// @param metadata Status update metadata
-    function test_noEventWithZeroWindow(address caller, address campaign, string memory metadata) public;
+    function test_noEventWithZeroWindow(address caller, address campaign, string memory metadata) public virtual;
 
     /// @dev Does not emit AttributionDeadlineUpdated for non-FINALIZING transitions
     /// @param caller Authorized caller address
@@ -276,7 +287,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         uint8 fromStatus,
         uint8 toStatus,
         string memory metadata
-    ) public;
+    ) public virtual;
 
     // ========================================
     // COMPLEX TRANSITION SCENARIOS
@@ -294,7 +305,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint48 attributionWindow
-    ) public;
+    ) public virtual;
 
     /// @dev Tests attribution provider can bypass advertiser deadline wait
     /// @param attributionProvider Attribution provider address
@@ -308,5 +319,5 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         address campaign,
         string memory metadata,
         uint256 currentTime
-    ) public;
+    ) public virtual;
 }
