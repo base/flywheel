@@ -14,7 +14,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Withdrawal recipient address
     /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_revert_unauthorizedCaller(
+    function test_revert_unauthorizedCaller(
         address unauthorizedCaller,
         address campaign,
         address token,
@@ -29,7 +29,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param recipient Withdrawal recipient address
     /// @param amount Withdrawal amount
     /// @param currentStatus Current non-finalized campaign status
-    function test_onWithdrawFunds_revert_campaignNotFinalized(
+    function test_revert_campaignNotFinalized(
         address caller,
         address campaign,
         address token,
@@ -48,7 +48,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Withdrawal recipient address
     /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_success_authorizedWithdrawal(
+    function test_success_authorizedWithdrawal(
         address advertiser,
         address campaign,
         address token,
@@ -61,12 +61,8 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param campaign Finalized campaign address
     /// @param token Token address
     /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_success_advertiserAsRecipient(
-        address advertiser,
-        address campaign,
-        address token,
-        uint256 amount
-    ) public;
+    function test_success_advertiserAsRecipient(address advertiser, address campaign, address token, uint256 amount)
+        public;
 
     /// @dev Successfully processes withdrawal with different recipient
     /// @param advertiser Advertiser address
@@ -74,7 +70,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param token Token address
     /// @param differentRecipient Different withdrawal recipient address
     /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_success_differentRecipient(
+    function test_success_differentRecipient(
         address advertiser,
         address campaign,
         address token,
@@ -87,12 +83,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param campaign Finalized campaign address
     /// @param recipient Withdrawal recipient address
     /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_success_nativeToken(
-        address advertiser,
-        address campaign,
-        address recipient,
-        uint256 amount
-    ) public;
+    function test_success_nativeToken(address advertiser, address campaign, address recipient, uint256 amount) public;
 
     // ========================================
     // EDGE CASES
@@ -103,24 +94,14 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param campaign Finalized campaign address
     /// @param token Token address
     /// @param recipient Withdrawal recipient address
-    function test_onWithdrawFunds_edge_zeroAmount(
-        address advertiser,
-        address campaign,
-        address token,
-        address recipient
-    ) public;
+    function test_edge_zeroAmount(address advertiser, address campaign, address token, address recipient) public;
 
     /// @dev Handles withdrawal of maximum uint256 amount
     /// @param advertiser Advertiser address
     /// @param campaign Finalized campaign address
     /// @param token Token address
     /// @param recipient Withdrawal recipient address
-    function test_onWithdrawFunds_edge_maximumAmount(
-        address advertiser,
-        address campaign,
-        address token,
-        address recipient
-    ) public;
+    function test_edge_maximumAmount(address advertiser, address campaign, address token, address recipient) public;
 
     /// @dev Handles multiple withdrawals from same campaign
     /// @param advertiser Advertiser address
@@ -130,7 +111,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param recipient2 Second withdrawal recipient
     /// @param amount1 First withdrawal amount
     /// @param amount2 Second withdrawal amount
-    function test_onWithdrawFunds_edge_multipleWithdrawals(
+    function test_edge_multipleWithdrawals(
         address advertiser,
         address campaign,
         address token,
@@ -150,21 +131,7 @@ contract OnWithdrawFundsTest is AdConversionTestBase {
     /// @param token Token address
     /// @param recipient Withdrawal recipient address
     /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_returnsCorrectWithdrawalData(
-        address advertiser,
-        address campaign,
-        address token,
-        address recipient,
-        uint256 amount
-    ) public;
-
-    /// @dev Verifies return structure matches expected format
-    /// @param advertiser Advertiser address
-    /// @param campaign Finalized campaign address
-    /// @param token Token address
-    /// @param recipient Withdrawal recipient address
-    /// @param amount Withdrawal amount
-    function test_onWithdrawFunds_returnsCorrectStructure(
+    function test_returnsCorrectWithdrawalData(
         address advertiser,
         address campaign,
         address token,
