@@ -2,8 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
+import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
+import {Flywheel} from "../../../../src/Flywheel.sol";
 
-abstract contract OnUpdateMetadataTest is AdConversionTestBase {
+contract OnUpdateMetadataTest is AdConversionTestBase {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -14,71 +16,85 @@ abstract contract OnUpdateMetadataTest is AdConversionTestBase {
     /// @param newMetadata New metadata string
     function test_revert_unauthorizedCaller(address unauthorizedCaller, address campaign, string memory newMetadata)
         public
-        virtual;
+    {
+        vm.assume(unauthorizedCaller != advertiser1);
+        vm.assume(unauthorizedCaller != attributionProvider1);
+        vm.assume(unauthorizedCaller != address(0));
+
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+
+        // Should revert when called by unauthorized caller
+        vm.expectRevert(AdConversion.Unauthorized.selector);
+        callHookOnUpdateMetadata(unauthorizedCaller, testCampaign, bytes(newMetadata));
+    }
 
     // ========================================
     // SUCCESS CASES
     // ========================================
 
-    /// @dev Successfully updates metadata when called by attribution provider
+    /// @dev Successfully allows metadata update when called by attribution provider
     /// @param attributionProvider Attribution provider address
     /// @param campaign Campaign address
     /// @param newMetadata New metadata string
     function test_success_attributionProvider(address attributionProvider, address campaign, string memory newMetadata)
         public
-        virtual;
+    {
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
 
-    /// @dev Successfully updates metadata when called by advertiser
+        // Store original metadata for comparison
+        string memory originalMetadata = adConversion.campaignURI(testCampaign);
+
+        // Should succeed when called by attribution provider (hook only provides authorization)
+        callHookOnUpdateMetadata(attributionProvider1, testCampaign, bytes(newMetadata));
+
+        // Verify metadata remains unchanged (hook only authorizes, doesn't update)
+        assertEq(
+            adConversion.campaignURI(testCampaign), originalMetadata, "Hook should not modify metadata - only authorize"
+        );
+    }
+
+    /// @dev Successfully allows metadata update when called by advertiser
     /// @param advertiser Advertiser address
     /// @param campaign Campaign address
     /// @param newMetadata New metadata string
-    function test_success_advertiser(address advertiser, address campaign, string memory newMetadata) public virtual;
+    function test_success_advertiser(address advertiser, address campaign, string memory newMetadata) public {
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+
+        // Store original metadata for comparison
+        string memory originalMetadata = adConversion.campaignURI(testCampaign);
+
+        // Should succeed when called by advertiser (hook only provides authorization)
+        callHookOnUpdateMetadata(advertiser1, testCampaign, bytes(newMetadata));
+
+        // Verify metadata remains unchanged (hook only authorizes, doesn't update)
+        assertEq(
+            adConversion.campaignURI(testCampaign), originalMetadata, "Hook should not modify metadata - only authorize"
+        );
+    }
 
     /// @dev Successfully updates metadata with empty string
     /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
     /// @param campaign Campaign address
-    function test_success_emptyMetadata(address authorizedCaller, address campaign) public virtual;
+    function test_success_emptyMetadata(address authorizedCaller, address campaign) public {
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
 
-    /// @dev Successfully updates metadata with very long string
-    /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
-    /// @param campaign Campaign address
-    /// @param longMetadata Very long metadata string
-    function test_success_longMetadata(address authorizedCaller, address campaign, string memory longMetadata)
-        public
-        virtual;
+        // Store original metadata
+        string memory originalMetadata = adConversion.campaignURI(testCampaign);
 
-    /// @dev Successfully updates metadata multiple times
-    /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
-    /// @param campaign Campaign address
-    /// @param firstMetadata First metadata string
-    /// @param secondMetadata Second metadata string
-    function test_success_multipleUpdates(
-        address authorizedCaller,
-        address campaign,
-        string memory firstMetadata,
-        string memory secondMetadata
-    ) public virtual;
+        // Should succeed when updating to empty metadata
+        callHookOnUpdateMetadata(advertiser1, testCampaign, "");
 
-    // ========================================
-    // EDGE CASES
-    // ========================================
-    /// @dev Handles metadata update when provider and advertiser are same address
-    /// @param sameAddress Address for both attribution provider and advertiser
-    /// @param campaign Campaign address
-    /// @param newMetadata New metadata string
-    function test_edge_sameProviderAndAdvertiser(address sameAddress, address campaign, string memory newMetadata)
-        public
-        virtual;
-
-    /// @dev Handles metadata update across different campaign statuses
-    /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
-    /// @param campaign Campaign address
-    /// @param newMetadata New metadata string
-    /// @param campaignStatus Current campaign status
-    function test_edge_differentCampaignStatuses(
-        address authorizedCaller,
-        address campaign,
-        string memory newMetadata,
-        uint8 campaignStatus
-    ) public virtual;
+        // Verify metadata remains unchanged (hook only authorizes, doesn't update)
+        assertEq(
+            adConversion.campaignURI(testCampaign), originalMetadata, "Hook should not modify metadata - only authorize"
+        );
+    }
 }
