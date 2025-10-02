@@ -614,6 +614,9 @@ contract SendTest is FlywheelTest {
         vm.assume(recipient != feeRecipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(feeRecipient != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient2 != address(0));
+        vm.assume(feeRecipient2 != feeRecipient);
+        vm.assume(feeRecipient2 != campaign); // Avoid campaign as fee recipient
         amount = boundToValidAmount(amount);
         uint16 feeBpBounded = boundToValidFeeBp(feeBp);
 
