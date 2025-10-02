@@ -86,9 +86,15 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
     uint256 public constant MIN_CAMPAIGN_FUNDING = 1000 * 1e6; // 1K tokens minimum
     uint256 public constant MAX_CAMPAIGN_FUNDING = 500000 * 1e6; // 500K tokens maximum (half of MockERC20 balance)
     uint256 public constant MIN_ATTRIBUTION_AMOUNT = 1 * 1e6; // 1 token minimum
+    uint256 public constant MAX_ATTRIBUTION_AMOUNT = 50000 * 1e6; // 50K tokens maximum (fitting within funding limits)
     uint256 public constant MIN_FEE_BPS = 0; // 0% fee minimum
+    uint16 public constant MAX_REASONABLE_FEE_BPS = MAX_FEE_BPS; // Flex full range of fees
     uint48 public constant MIN_ATTRIBUTION_WINDOW = 0; // No attribution window minimum
     uint48 public constant MAX_ATTRIBUTION_WINDOW = 180 days; // 180 days maximum
+
+    // Fee distribution testing constants
+    uint256 public constant NUM_MULTI_ATTRIBUTIONS = 3; // For tests with multiple attributions
+    uint256 public constant MULTI_ATTRIBUTION_BASE_AMOUNT = MAX_ATTRIBUTION_AMOUNT / NUM_MULTI_ATTRIBUTIONS; // Ensure total fits in funding
 
     // ========================================
     // SETUP AND TEARDOWN
@@ -440,6 +446,120 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
         bytes memory attributionData = abi.encode(attributions);
         vm.prank(attributionProvider);
         flywheel.send(campaign, token, attributionData);
+    }
+
+    /// @notice Generates fees through a single attribution send call
+    /// @dev Creates an attribution with specified amount and fee basis points, then processes it to accumulate fees
+    /// @param campaign Campaign address
+    /// @param token Token address
+    /// @param attributionProvider Attribution provider address
+    /// @param payoutAmount Payout amount for the attribution (will generate fee based on campaign feeBps)
+    /// @param publisherRefCode Publisher ref code to use in attribution
+    /// @return generatedFeeAmount The fee amount that was generated and accumulated
+    function generateFeesWithSingleAttribution(
+        address campaign,
+        address token,
+        address attributionProvider,
+        uint256 payoutAmount,
+        string memory publisherRefCode
+    ) public returns (uint256 generatedFeeAmount) {
+        // Get campaign fee basis points
+        (,, uint16 feeBps,,,) = adConversion.state(campaign);
+
+        // Calculate expected fee amount
+        generatedFeeAmount = (payoutAmount * feeBps) / adConversion.MAX_BPS();
+
+        // Create attribution
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click1",
+                configId: 1,
+                publisherRefCode: publisherRefCode,
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: publisher1,
+                payoutAmount: payoutAmount
+            }),
+            logBytes: ""
+        });
+
+        // Process attribution to generate fees
+        processAttributions(campaign, token, attributions, attributionProvider);
+    }
+
+    /// @notice Generates fees through multiple attributions with varying amounts
+    /// @dev Creates multiple attributions with different amounts to test fee accumulation
+    /// @param campaign Campaign address
+    /// @param token Token address
+    /// @param attributionProvider Attribution provider address
+    /// @param baseAmount Base amount for calculations (other amounts derived from this)
+    /// @return totalGeneratedFeeAmount The total fee amount generated across all attributions
+    function generateFeesWithMultipleAttributions(
+        address campaign,
+        address token,
+        address attributionProvider,
+        uint256 baseAmount
+    ) public returns (uint256 totalGeneratedFeeAmount) {
+        // Get campaign fee basis points
+        (,, uint16 feeBps,,,) = adConversion.state(campaign);
+
+        // Create attributions with different amounts
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](NUM_MULTI_ATTRIBUTIONS);
+
+        // Attribution 1: base amount
+        uint256 amount1 = baseAmount;
+        attributions[0] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(1)),
+                clickId: "click1",
+                configId: 1,
+                publisherRefCode: REF_CODE_1,
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: publisher1,
+                payoutAmount: amount1
+            }),
+            logBytes: ""
+        });
+
+        // Attribution 2: double amount
+        uint256 amount2 = baseAmount * 2;
+        attributions[1] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(2)),
+                clickId: "click2",
+                configId: 1,
+                publisherRefCode: REF_CODE_2,
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: publisher2,
+                payoutAmount: amount2
+            }),
+            logBytes: ""
+        });
+
+        // Attribution 3: half amount
+        uint256 amount3 = baseAmount / 2;
+        attributions[2] = AdConversion.Attribution({
+            conversion: AdConversion.Conversion({
+                eventId: bytes16(uint128(3)),
+                clickId: "click3",
+                configId: 1,
+                publisherRefCode: REF_CODE_3,
+                timestamp: uint32(block.timestamp),
+                payoutRecipient: publisher3,
+                payoutAmount: amount3
+            }),
+            logBytes: ""
+        });
+
+        // Calculate total expected fee (individual calculation to match contract logic)
+        uint256 fee1 = (amount1 * feeBps) / adConversion.MAX_BPS();
+        uint256 fee2 = (amount2 * feeBps) / adConversion.MAX_BPS();
+        uint256 fee3 = (amount3 * feeBps) / adConversion.MAX_BPS();
+        totalGeneratedFeeAmount = fee1 + fee2 + fee3;
+
+        // Process attributions to generate fees
+        processAttributions(campaign, token, attributions, attributionProvider);
     }
 
     // ========================================

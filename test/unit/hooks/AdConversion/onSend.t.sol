@@ -405,7 +405,12 @@ contract OnSendTest is AdConversionTestBase {
 
         // Expect the OnchainConversionProcessed event - we don't need to match exact log data
         vm.expectEmit(true, false, false, false, address(adConversion));
-        emit AdConversion.OnchainConversionProcessed(campaign, false, attribution.conversion, AdConversion.Log({chainId: 0, transactionHash: bytes32(0), index: 0}));
+        emit AdConversion.OnchainConversionProcessed(
+            campaign,
+            false,
+            attribution.conversion,
+            AdConversion.Log({chainId: 0, transactionHash: bytes32(0), index: 0})
+        );
 
         // Call hook directly using base utility
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
@@ -532,11 +537,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param payoutAmount Attribution payout amount
-    function test_success_withInactiveConversionConfig(
-        address campaign,
-        address token,
-        uint256 payoutAmount
-    ) public {
+    function test_success_withInactiveConversionConfig(address campaign, address token, uint256 payoutAmount) public {
         // Constrain to reasonable payout amount
         payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
         // Create campaign with zero fee to test inactive config processing
@@ -563,11 +564,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address with zero fee
     /// @param token Token address
     /// @param payoutAmount Attribution payout amount
-    function test_success_zeroProviderFee(
-        address campaign,
-        address token,
-        uint256 payoutAmount
-    ) public {
+    function test_success_zeroProviderFee(address campaign, address token, uint256 payoutAmount) public {
         // Constrain to reasonable payout amount
         payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
         // Create campaign with zero fee
@@ -603,11 +600,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address with 100% fee
     /// @param token Token address
     /// @param payoutAmount Attribution payout amount
-    function test_success_maximumProviderFee(
-        address campaign,
-        address token,
-        uint256 payoutAmount
-    ) public {
+    function test_success_maximumProviderFee(address campaign, address token, uint256 payoutAmount) public {
         // Constrain to reasonable payout amount
         payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
         // Create campaign with maximum fee (100%)
@@ -684,11 +677,9 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param publisherRefCode Registered publisher reference code
-    function test_success_resolvesZeroAddressRecipients(
-        address campaign,
-        address token,
-        string memory publisherRefCode
-    ) public {
+    function test_success_resolvesZeroAddressRecipients(address campaign, address token, string memory publisherRefCode)
+        public
+    {
         // Create campaign with zero fee for clean testing
         address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
         fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
@@ -743,11 +734,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param payoutAmount Attribution payout amount
-    function test_success_unregisteredConfigIdZero(
-        address campaign,
-        address token,
-        uint256 payoutAmount
-    ) public {
+    function test_success_unregisteredConfigIdZero(address campaign, address token, uint256 payoutAmount) public {
         // Constrain to reasonable payout amount
         payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
 
@@ -829,11 +816,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param largeAmount Very large payout amount
-    function test_edge_largePayoutAmounts(
-        address campaign,
-        address token,
-        uint256 largeAmount
-    ) public {
+    function test_edge_largePayoutAmounts(address campaign, address token, uint256 largeAmount) public {
         // Constrain to reasonable large amount (but within MockERC20 balance limits)
         largeAmount = bound(largeAmount, DEFAULT_ATTRIBUTION_AMOUNT, MAX_CAMPAIGN_FUNDING);
 
@@ -859,10 +842,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @dev Handles maximum number of attributions in single call
     /// @param campaign Campaign address
     /// @param token Token address
-    function test_edge_manyAttributions(
-        address campaign,
-        address token
-    ) public {
+    function test_edge_manyAttributions(address campaign, address token) public {
         // Create campaign with zero fee and maximum safe funding
         address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
         fundCampaign(testCampaign, address(tokenA), MAX_CAMPAIGN_FUNDING); // Use max safe funding
@@ -954,9 +934,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param token Token address
     /// @param payoutAmount Original payout amount before fees
     /// @param feeBps Attribution provider fee in basis points
-    function test_calculatesCorrectFees(address campaign, address token, uint256 payoutAmount, uint16 feeBps)
-        public
-    {
+    function test_calculatesCorrectFees(address campaign, address token, uint256 payoutAmount, uint16 feeBps) public {
         // Constrain fuzz inputs to valid ranges
         payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
@@ -1059,9 +1037,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param token Token address
     /// @param numAttributions Number of attributions to test fee accumulation
     /// @param feeBps Attribution provider fee in basis points
-    function test_accumulatesFees(address campaign, address token, uint256 numAttributions, uint16 feeBps)
-        public
-    {
+    function test_accumulatesFees(address campaign, address token, uint256 numAttributions, uint16 feeBps) public {
         // Constrain the number of attributions to a reasonable range for testing
         numAttributions = bound(numAttributions, 2, 5);
 
@@ -1325,11 +1301,7 @@ contract OnSendTest is AdConversionTestBase {
         }
 
         // Verify conservation of tokens across the batch
-        assertEq(
-            actualTotalPayouts + actualTotalFees,
-            totalOriginalAmount,
-            "Batch should conserve total token amounts"
-        );
+        assertEq(actualTotalPayouts + actualTotalFees, totalOriginalAmount, "Batch should conserve total token amounts");
 
         // Verify we have payouts for all attributions
         assertGt(payouts.length, 0, "Should have payouts for batch");
