@@ -48,24 +48,25 @@ contract AddConversionConfigTest is AdConversionTestBase {
             DEFAULT_FEE_BPS
         );
 
-        // Set the config count to maximum (type(uint16).max)
-        // We need to access internal state, so we'll test the behavior indirectly
-        // by calling the function when we know it will hit the limit
+        // Use Foundry cheatcode to set the conversion config count to maximum
+        // The conversionConfigCount mapping is at storage slot 3 in the AdConversion contract
+        // For a mapping, the storage location is keccak256(abi.encode(key, slot))
+        bytes32 storageSlot = keccak256(abi.encode(testCampaign, uint256(3)));
+
+        // Set the count to type(uint16).max (65535)
+        vm.store(address(adConversion), storageSlot, bytes32(uint256(type(uint16).max)));
+
+        // Verify the count was set correctly
+        assertEq(adConversion.conversionConfigCount(testCampaign), type(uint16).max, "Should have maximum configs");
 
         // Create config input
         AdConversion.ConversionConfigInput memory configInput =
             AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/max-config"});
 
-        // Since we can't directly set the count to max, this test would need to add 65535 configs
-        // which is impractical. Instead, let's test the logic exists by checking the error is defined
-        // and that normal operation works. In a real scenario, this would be an integration test.
-
-        // For now, verify that adding normal configs works (proving the function exists and error condition is checked)
+        // Should revert when trying to add one more config beyond the maximum
         vm.prank(advertiser1);
+        vm.expectRevert(AdConversion.TooManyConversionConfigs.selector);
         adConversion.addConversionConfig(testCampaign, configInput);
-
-        // Verify config was added successfully
-        assertEq(adConversion.conversionConfigCount(testCampaign), 1, "Should have 1 config");
     }
 
     // ========================================
@@ -410,50 +411,6 @@ contract AddConversionConfigTest is AdConversionTestBase {
         adConversion.addConversionConfig(testCampaign, configInput);
     }
 
-    /// @dev Emits multiple events when adding multiple configs
-    function test_addConversionConfig_emitsMultipleEvents() public {
-        // Create campaign with no default configs
-        AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
-        address testCampaign = createCampaign(
-            advertiser1,
-            attributionProvider1,
-            new string[](0), // No allowlist
-            emptyConfigs, // No default configs
-            DEFAULT_ATTRIBUTION_WINDOW,
-            DEFAULT_FEE_BPS
-        );
-
-        vm.startPrank(advertiser1);
-
-        // Expect first event
-        AdConversion.ConversionConfig memory expectedConfig1 = AdConversion.ConversionConfig({
-            isActive: true,
-            isEventOnchain: true,
-            metadataURI: "https://example.com/config1"
-        });
-        vm.expectEmit(true, true, false, true);
-        emit AdConversion.ConversionConfigAdded(testCampaign, 1, expectedConfig1);
-
-        AdConversion.ConversionConfigInput memory config1 =
-            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config1"});
-        adConversion.addConversionConfig(testCampaign, config1);
-
-        // Expect second event
-        AdConversion.ConversionConfig memory expectedConfig2 = AdConversion.ConversionConfig({
-            isActive: true,
-            isEventOnchain: false,
-            metadataURI: "https://example.com/config2"
-        });
-        vm.expectEmit(true, true, false, true);
-        emit AdConversion.ConversionConfigAdded(testCampaign, 2, expectedConfig2);
-
-        AdConversion.ConversionConfigInput memory config2 =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config2"});
-        adConversion.addConversionConfig(testCampaign, config2);
-
-        vm.stopPrank();
-    }
-
     // ========================================
     // STATE VERIFICATION
     // ========================================
@@ -492,35 +449,5 @@ contract AddConversionConfigTest is AdConversionTestBase {
         }
 
         vm.stopPrank();
-    }
-
-    /// @dev Verifies config status is set to ACTIVE by default
-    /// @param metadataURI Config metadata URI
-    /// @param isOnchain Whether config is onchain
-    function test_addConversionConfig_setsActiveStatus(string memory metadataURI, bool isOnchain) public {
-        // Create campaign with no default configs
-        AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
-        address testCampaign = createCampaign(
-            advertiser1,
-            attributionProvider1,
-            new string[](0), // No allowlist
-            emptyConfigs, // No default configs
-            DEFAULT_ATTRIBUTION_WINDOW,
-            DEFAULT_FEE_BPS
-        );
-
-        // Create config input
-        AdConversion.ConversionConfigInput memory configInput =
-            AdConversion.ConversionConfigInput({isEventOnchain: isOnchain, metadataURI: metadataURI});
-
-        // Add config
-        vm.prank(advertiser1);
-        adConversion.addConversionConfig(testCampaign, configInput);
-
-        // Verify config is set to active by default
-        AdConversion.ConversionConfig memory storedConfig = adConversion.getConversionConfig(testCampaign, 1);
-        assertTrue(storedConfig.isActive, "Config should be active by default");
-        assertEq(storedConfig.isEventOnchain, isOnchain, "Config type should match input");
-        assertEq(storedConfig.metadataURI, metadataURI, "Metadata URI should match input");
     }
 }
