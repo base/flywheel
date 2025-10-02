@@ -108,6 +108,9 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         string memory registeredRefCode1 = generateValidRefCodeFromSeed(refCodeSeed1);
         string memory registeredRefCode2 = generateValidRefCodeFromSeed(refCodeSeed2);
 
+        // Ensure the generated ref codes are different to avoid registration conflicts
+        vm.assume(keccak256(bytes(registeredRefCode1)) != keccak256(bytes(registeredRefCode2)));
+
         // Register the ref codes
         vm.prank(registrarSigner);
         builderCodes.register(registeredRefCode1, publisher1, publisherPayout1);
@@ -266,6 +269,9 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         // Generate two registered ref codes
         string memory registeredRefCode1 = generateValidRefCodeFromSeed(refCodeSeed1);
         string memory registeredRefCode2 = generateValidRefCodeFromSeed(refCodeSeed2);
+
+        // Ensure the generated ref codes are different to avoid registration conflicts
+        vm.assume(keccak256(bytes(registeredRefCode1)) != keccak256(bytes(registeredRefCode2)));
 
         // Register the ref codes
         vm.prank(registrarSigner);
