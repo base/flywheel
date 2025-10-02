@@ -326,9 +326,11 @@ contract OnSendTest is AdConversionTestBase {
         uint256 expectedFee = (payoutAmount * feeBps) / adConversion.MAX_BPS();
         uint256 expectedNetAmount = payoutAmount - expectedFee;
 
-        // Expect the OffchainConversionProcessed event
-        vm.expectEmit(true, true, true, true, address(adConversion));
-        emit AdConversion.OffchainConversionProcessed(campaign, false, attribution.conversion);
+        // Only expect the event if there's a net payout amount
+        if (expectedNetAmount > 0) {
+            vm.expectEmit(true, true, true, true, address(adConversion));
+            emit AdConversion.OffchainConversionProcessed(campaign, false, attribution.conversion);
+        }
 
         // Call hook directly using base utility
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
@@ -529,74 +531,245 @@ contract OnSendTest is AdConversionTestBase {
     /// @dev Successfully processes conversions with inactive conversion config
     /// @param campaign Campaign address
     /// @param token Token address
-    /// @param attributions Array of conversion attributions
+    /// @param payoutAmount Attribution payout amount
     function test_success_withInactiveConversionConfig(
         address campaign,
         address token,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 payoutAmount
+    ) public {
+        // Constrain to reasonable payout amount
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        // Create campaign with zero fee to test inactive config processing
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with config ID 0 (which is allowed but inactive)
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, publisherPayout1, payoutAmount);
+        testAttributions[0].conversion.configId = 0; // Inactive config ID
+
+        // Should succeed - config ID 0 is treated as valid/default
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify processing succeeded
+        assertGt(payouts.length, 0, "Should process with inactive config ID");
+        assertEq(payouts[0].recipient, publisherPayout1, "Should route to correct publisher");
+        assertEq(payouts[0].amount, payoutAmount, "Should process full amount with zero fee");
+    }
 
     /// @dev Successfully processes conversions with zero attribution provider fee
     /// @param campaign Campaign address with zero fee
     /// @param token Token address
-    /// @param attributions Array of conversion attributions
+    /// @param payoutAmount Attribution payout amount
     function test_success_zeroProviderFee(
         address campaign,
         address token,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 payoutAmount
+    ) public {
+        // Constrain to reasonable payout amount
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        // Create campaign with zero fee
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            0 // Zero fee
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, publisherPayout1, payoutAmount);
+
+        // Process attribution with zero fee
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify zero fee processing
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertEq(payouts[0].amount, payoutAmount, "Should get full amount with zero fee");
+        assertEq(payouts[0].recipient, publisherPayout1, "Should route to publisher");
+
+        assertEq(fees.length, 0, "Should have no fees with zero fee rate");
+    }
 
     /// @dev Successfully processes conversions with maximum attribution provider fee
     /// @param campaign Campaign address with 100% fee
     /// @param token Token address
-    /// @param attributions Array of conversion attributions
+    /// @param payoutAmount Attribution payout amount
     function test_success_maximumProviderFee(
         address campaign,
         address token,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 payoutAmount
+    ) public {
+        // Constrain to reasonable payout amount
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        // Create campaign with maximum fee (100%)
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            10000 // 100% fee (MAX_BPS)
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, publisherPayout1, payoutAmount);
+
+        // Process attribution with 100% fee
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify maximum fee processing - entire amount goes to fees
+        assertEq(payouts.length, 0, "Should have no payouts with 100% fee");
+
+        assertEq(fees.length, 1, "Should have one fee distribution");
+        assertEq(fees[0].amount, payoutAmount, "Should get full amount as fee");
+        assertEq(fees[0].recipient, attributionProvider1, "Fee should go to attribution provider");
+    }
 
     /// @dev Successfully consolidates multiple conversions to same recipient
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param sameRecipient Common recipient address
-    /// @param attributions Array of attributions to same recipient
+    /// @param payoutAmount1 First attribution payout amount
+    /// @param payoutAmount2 Second attribution payout amount
     function test_success_consolidatesRecipients(
         address campaign,
         address token,
         address sameRecipient,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 payoutAmount1,
+        uint256 payoutAmount2
+    ) public {
+        // Constrain to reasonable payout amounts
+        payoutAmount1 = bound(payoutAmount1, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT / 2);
+        payoutAmount2 = bound(payoutAmount2, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT / 2);
+        vm.assume(sameRecipient != address(0));
+
+        // Create campaign with zero fee for clean consolidation testing
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create multiple attributions with same recipient
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](2);
+
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, sameRecipient, payoutAmount1);
+        testAttributions[1] = createOffchainAttribution(REF_CODE_2, sameRecipient, payoutAmount2);
+
+        uint256 expectedTotal = payoutAmount1 + payoutAmount2;
+
+        // Process attributions
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify consolidation - should have one payout to same recipient
+        assertEq(payouts.length, 1, "Should consolidate to one payout");
+        assertEq(payouts[0].recipient, sameRecipient, "Should consolidate to same recipient");
+        assertEq(payouts[0].amount, expectedTotal, "Should consolidate amounts");
+    }
 
     /// @dev Successfully resolves zero-address recipients to registry payout address
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param publisherRefCode Registered publisher reference code
-    /// @param attributions Array of attributions with zero recipient
     function test_success_resolvesZeroAddressRecipients(
         address campaign,
         address token,
-        string memory publisherRefCode,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        string memory publisherRefCode
+    ) public {
+        // Create campaign with zero fee for clean testing
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with zero address recipient (should resolve to registry payout)
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, address(0), DEFAULT_ATTRIBUTION_AMOUNT);
+
+        // Process attribution with zero address
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify zero address resolution - should resolve to registered payout address
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertNotEq(payouts[0].recipient, address(0), "Should resolve zero address");
+        // The recipient should be the registered payout address for REF_CODE_1
+        address expectedRecipient = builderCodes.payoutAddress(REF_CODE_1);
+        assertEq(payouts[0].recipient, expectedRecipient, "Should resolve to registry payout address");
+        assertEq(payouts[0].amount, DEFAULT_ATTRIBUTION_AMOUNT, "Amount should be preserved");
+    }
 
     /// @dev Successfully processes conversions with empty ref codes (no publisher)
     /// @param campaign Campaign address
     /// @param token Token address
-    /// @param attributions Array of attributions with empty ref codes
-    function test_success_emptyRefCodes(address campaign, address token, AdConversion.Attribution[] memory attributions)
-        public
-    {}
+    /// @param payoutAmount Attribution payout amount
+    function test_success_emptyRefCodes(address campaign, address token, uint256 payoutAmount) public {
+        // Constrain to reasonable payout amount
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+
+        // Create campaign with zero fee to test empty ref code processing
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with empty ref code
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createEmptyRefCodeAttribution(publisherPayout1, payoutAmount);
+
+        // Should succeed - empty ref codes are allowed
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify processing succeeded
+        assertEq(payouts.length, 1, "Should process empty ref code");
+        assertEq(payouts[0].recipient, publisherPayout1, "Should route to specified recipient");
+        assertEq(payouts[0].amount, payoutAmount, "Should process full amount with zero fee");
+        assertEq(fees.length, 0, "Should have no fees with zero fee campaign");
+    }
 
     /// @dev Successfully processes conversions with unregistered config ID (0)
     /// @param campaign Campaign address
     /// @param token Token address
-    /// @param attributions Array of attributions with config ID 0
+    /// @param payoutAmount Attribution payout amount
     function test_success_unregisteredConfigIdZero(
         address campaign,
         address token,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 payoutAmount
+    ) public {
+        // Constrain to reasonable payout amount
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+
+        // Create campaign with zero fee
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with config ID 0 (unregistered but valid)
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createAttributionWithConfigId(0, REF_CODE_1, publisherPayout1, payoutAmount);
+
+        // Should succeed - config ID 0 is treated as valid default
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify processing succeeded
+        assertEq(payouts.length, 1, "Should process config ID 0");
+        assertEq(payouts[0].recipient, publisherPayout1, "Should route to correct publisher");
+        assertEq(payouts[0].amount, payoutAmount, "Should process full amount with zero fee");
+        assertEq(fees.length, 0, "Should have no fees with zero fee campaign");
+    }
 
     // ========================================
     // EDGE CASES
@@ -605,7 +778,24 @@ contract OnSendTest is AdConversionTestBase {
     /// @dev Handles empty attributions array (no-op)
     /// @param campaign Campaign address
     /// @param token Token address
-    function test_edge_emptyAttributions(address campaign, address token) public {}
+    function test_edge_emptyAttributions(address campaign, address token) public {
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create empty attributions array
+        AdConversion.Attribution[] memory emptyAttributions = new AdConversion.Attribution[](0);
+
+        // Process empty attributions - should succeed without error
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(emptyAttributions));
+
+        // Verify empty processing
+        assertEq(payouts.length, 0, "Should have no payouts for empty attributions");
+        assertEq(fees.length, 0, "Should have no fees for empty attributions");
+        assertFalse(sendFeesNow, "sendFeesNow should be false");
+    }
 
     /// @dev Handles conversions with zero payout amounts
     /// @param campaign Campaign address
@@ -615,41 +805,146 @@ contract OnSendTest is AdConversionTestBase {
         address campaign,
         address token,
         AdConversion.Attribution[] memory attributions
-    ) public {}
+    ) public {
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attributions with zero amounts
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](2);
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, publisherPayout1, 0);
+        testAttributions[1] = createOffchainAttribution(REF_CODE_2, publisherPayout2, 0);
+
+        // Process zero amount attributions
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify zero amount handling - should have no payouts or fees
+        assertEq(payouts.length, 0, "Should have no payouts for zero amounts");
+        assertEq(fees.length, 0, "Should have no fees for zero amounts");
+    }
 
     /// @dev Handles conversions with very large payout amounts
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param largeAmount Very large payout amount
-    /// @param attributions Array of attributions with large amounts
     function test_edge_largePayoutAmounts(
         address campaign,
         address token,
-        uint256 largeAmount,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 largeAmount
+    ) public {
+        // Constrain to reasonable large amount (but within MockERC20 balance limits)
+        largeAmount = bound(largeAmount, DEFAULT_ATTRIBUTION_AMOUNT, MAX_CAMPAIGN_FUNDING);
+
+        // Create campaign with zero fee and maximum safe funding
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), MAX_CAMPAIGN_FUNDING); // Use max safe funding
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with large amount
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createOffchainAttribution(REF_CODE_1, publisherPayout1, largeAmount);
+
+        // Process large amount attribution
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify large amount processing
+        assertEq(payouts.length, 1, "Should process large amount");
+        assertEq(payouts[0].amount, largeAmount, "Should preserve large amount");
+        assertEq(payouts[0].recipient, publisherPayout1, "Should route to correct recipient");
+    }
 
     /// @dev Handles maximum number of attributions in single call
     /// @param campaign Campaign address
     /// @param token Token address
-    /// @param manyAttributions Large array of conversion attributions
     function test_edge_manyAttributions(
         address campaign,
-        address token,
-        AdConversion.Attribution[] memory manyAttributions
-    ) public {}
+        address token
+    ) public {
+        // Create campaign with zero fee and maximum safe funding
+        address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
+        fundCampaign(testCampaign, address(tokenA), MAX_CAMPAIGN_FUNDING); // Use max safe funding
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create many attributions (bound to reasonable number)
+        uint256 numAttributions = 10; // Fixed reasonable number
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](numAttributions);
+        uint256 totalAmount = 0;
+
+        for (uint256 i = 0; i < numAttributions; i++) {
+            string memory refCode = (i % 3 == 0) ? REF_CODE_1 : (i % 3 == 1) ? REF_CODE_2 : REF_CODE_3;
+            address recipient = (i % 2 == 0) ? publisherPayout1 : publisherPayout2;
+            uint256 amount = DEFAULT_ATTRIBUTION_AMOUNT + (i * 1000);
+
+            testAttributions[i] = createOffchainAttribution(refCode, recipient, amount);
+            totalAmount += amount;
+        }
+
+        // Process many attributions
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify many attributions processing
+        assertGt(payouts.length, 0, "Should process many attributions");
+
+        // Calculate total payout amount
+        uint256 actualTotal = 0;
+        for (uint256 i = 0; i < payouts.length; i++) {
+            actualTotal += payouts[i].amount;
+        }
+        assertEq(actualTotal, totalAmount, "Should preserve total amount across many attributions");
+    }
 
     /// @dev Handles campaign without allowlist (all publishers allowed)
     /// @param campaign Campaign address without allowlist
     /// @param token Token address
     /// @param anyPublisherRefCode Any registered publisher ref code
-    /// @param attributions Array of attributions with any ref codes
+    /// @param payoutAmount Attribution payout amount
     function test_edge_noAllowlist(
         address campaign,
         address token,
         string memory anyPublisherRefCode,
-        AdConversion.Attribution[] memory attributions
-    ) public {}
+        uint256 payoutAmount
+    ) public {
+        // Constrain inputs
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+
+        // Generate a valid ref code from the provided string seed if needed
+        string memory refCode = generateValidRefCodeFromSeed(uint256(keccak256(bytes(anyPublisherRefCode))));
+
+        // Register the ref code to ensure it's valid
+        vm.prank(registrarSigner);
+        builderCodes.register(refCode, publisher1, publisherPayout1);
+
+        // Create campaign with no allowlist (empty allowlist means no restrictions)
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist - any publisher allowed
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            ZERO_FEE_BPS
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with the registered ref code
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](1);
+        testAttributions[0] = createOffchainAttribution(refCode, publisherPayout1, payoutAmount);
+
+        // Should succeed - no allowlist means any registered publisher is allowed
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Verify processing succeeded
+        assertEq(payouts.length, 1, "Should process any publisher when no allowlist");
+        assertEq(payouts[0].recipient, publisherPayout1, "Should route to publisher payout address");
+        assertEq(payouts[0].amount, payoutAmount, "Should process full amount with zero fee");
+        assertEq(fees.length, 0, "Should have no fees with zero fee campaign");
+    }
     // ========================================
     // FEE CALCULATION TESTING
     // ========================================
@@ -957,16 +1252,16 @@ contract OnSendTest is AdConversionTestBase {
     /// @dev Correctly calculates and accumulates fees across batch
     /// @param campaign Campaign address
     /// @param token Token address
-    /// @param attributions Array of conversion attributions
+    /// @param numAttributionsSeed Seed for determining number of attributions
     /// @param feeBps Attribution provider fee in basis points
     function test_calculatesCorrectBatchFees(
         address campaign,
         address token,
-        AdConversion.Attribution[] memory attributions,
+        uint256 numAttributionsSeed,
         uint16 feeBps
     ) public {
         // Constrain inputs to reasonable ranges
-        uint256 numAttributions = bound(attributions.length, 2, 8);
+        uint256 numAttributions = bound(numAttributionsSeed, 2, 8);
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
 
         // Create campaign with fuzzed fee
@@ -1075,5 +1370,22 @@ contract OnSendTest is AdConversionTestBase {
     /// @dev Handles empty attribution array (no-op)
     /// @param campaign Campaign address
     /// @param token Token address
-    function test_edge_emptyBatch(address campaign, address token) public {}
+    function test_edge_emptyBatch(address campaign, address token) public {
+        // Create campaign
+        address testCampaign = createBasicCampaign();
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create empty attribution array
+        AdConversion.Attribution[] memory emptyAttributions = new AdConversion.Attribution[](0);
+
+        // Should succeed with empty results
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(emptyAttributions));
+
+        // Verify empty processing
+        assertEq(payouts.length, 0, "Should have no payouts for empty batch");
+        assertEq(fees.length, 0, "Should have no fees for empty batch");
+        assertFalse(sendFeesNow, "sendFeesNow should be false for empty batch");
+    }
 }
