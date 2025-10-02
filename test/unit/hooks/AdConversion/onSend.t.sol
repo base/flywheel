@@ -334,10 +334,14 @@ contract OnSendTest is AdConversionTestBase {
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
             callHookOnSend(attributionProvider1, campaign, address(tokenA), abi.encode(attributions));
 
-        // Verify return values
-        assertEq(payouts.length, 1, "Should have one payout");
-        assertEq(payouts[0].recipient, publisherPayout, "Payout recipient should match fuzzed address");
-        assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+        // Verify return values based on whether there's a net payout
+        if (expectedNetAmount > 0) {
+            assertEq(payouts.length, 1, "Should have one payout when net amount > 0");
+            assertEq(payouts[0].recipient, publisherPayout, "Payout recipient should match fuzzed address");
+            assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+        } else {
+            assertEq(payouts.length, 0, "Should have no payouts when entire amount goes to fees");
+        }
 
         if (expectedFee > 0) {
             assertEq(fees.length, 1, "Should have one fee distribution when fee > 0");
@@ -405,10 +409,14 @@ contract OnSendTest is AdConversionTestBase {
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
             callHookOnSend(attributionProvider1, campaign, address(tokenA), abi.encode(attributions));
 
-        // Verify return values
-        assertEq(payouts.length, 1, "Should have one payout");
-        assertEq(payouts[0].recipient, publisherPayout, "Payout recipient should match fuzzed address");
-        assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+        // Verify return values based on whether there's a net payout
+        if (expectedNetAmount > 0) {
+            assertEq(payouts.length, 1, "Should have one payout when net amount > 0");
+            assertEq(payouts[0].recipient, publisherPayout, "Payout recipient should match fuzzed address");
+            assertEq(payouts[0].amount, expectedNetAmount, "Payout amount should be net of fees");
+        } else {
+            assertEq(payouts.length, 0, "Should have no payouts when entire amount goes to fees");
+        }
 
         if (expectedFee > 0) {
             assertEq(fees.length, 1, "Should have one fee distribution when fee > 0");
@@ -491,15 +499,20 @@ contract OnSendTest is AdConversionTestBase {
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
             callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(attributions));
 
-        // Verify batch processing results
-        assertTrue(payouts.length > 0, "Should have at least one payout");
-
         // Calculate total payout amounts
         uint256 actualTotalPayout = 0;
         for (uint256 i = 0; i < payouts.length; i++) {
             actualTotalPayout += payouts[i].amount;
         }
-        assertEq(actualTotalPayout, expectedNetAmount, "Total payout amount should equal expected net amount");
+
+        // Verify batch processing results based on whether there are net payouts
+        if (expectedNetAmount > 0) {
+            assertTrue(payouts.length > 0, "Should have at least one payout when net amount > 0");
+            assertEq(actualTotalPayout, expectedNetAmount, "Total payout should match expected net amount");
+        } else {
+            assertEq(payouts.length, 0, "Should have no payouts when entire amount goes to fees");
+            assertEq(actualTotalPayout, 0, "Total payout should be 0 when no net payouts");
+        }
 
         // Verify fee handling
         if (totalFeeAmount > 0) {
@@ -648,22 +661,178 @@ contract OnSendTest is AdConversionTestBase {
     /// @param feeBps Attribution provider fee in basis points
     function test_calculatesCorrectFees(address campaign, address token, uint256 payoutAmount, uint16 feeBps)
         public
-    {}
+    {
+        // Constrain fuzz inputs to valid ranges
+        payoutAmount = bound(payoutAmount, MIN_ATTRIBUTION_AMOUNT, DEFAULT_ATTRIBUTION_AMOUNT);
+        feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
+
+        // Create campaign with fuzzed fee
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with fuzzed payout amount
+        AdConversion.Attribution memory attribution =
+            createOffchainAttribution(REF_CODE_1, publisherPayout1, payoutAmount);
+
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = attribution;
+
+        // Calculate expected fee
+        uint256 expectedFee = (payoutAmount * feeBps) / adConversion.MAX_BPS();
+        uint256 expectedNetAmount = payoutAmount - expectedFee;
+
+        // Call hook and verify fee calculation
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(attributions));
+
+        // Verify correct fee calculation
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertEq(payouts[0].amount, expectedNetAmount, "Net payout amount should be correct");
+
+        if (expectedFee > 0) {
+            assertEq(fees.length, 1, "Should have one fee distribution when fee > 0");
+            assertEq(fees[0].amount, expectedFee, "Fee amount should be calculated correctly");
+            assertEq(fees[0].recipient, attributionProvider1, "Fee recipient should be attribution provider");
+        } else {
+            assertEq(fees.length, 0, "Should have no fee distributions when fee is 0");
+        }
+    }
 
     /// @dev Verifies fee calculation with rounding down
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param smallAmount Small amount that results in fee rounding
     /// @param feeBps Attribution provider fee in basis points
-    function test_feeRoundingDown(address campaign, address token, uint256 smallAmount, uint16 feeBps) public {}
+    function test_feeRoundingDown(address campaign, address token, uint256 smallAmount, uint16 feeBps) public {
+        // Constrain inputs to create rounding scenarios
+        smallAmount = bound(smallAmount, 1, 9999); // Small amounts that could cause rounding
+        feeBps = uint16(bound(feeBps, 1, MAX_FEE_BPS)); // Non-zero fee to test rounding
+
+        // Skip this test if the fee would be 0 after rounding
+        uint256 expectedFee = (smallAmount * feeBps) / adConversion.MAX_BPS();
+        if (expectedFee == 0) return; // Skip cases where fee rounds to 0
+
+        // Create campaign with fuzzed fee
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create attribution with small amount
+        AdConversion.Attribution memory attribution =
+            createOffchainAttribution(REF_CODE_1, publisherPayout1, smallAmount);
+
+        AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
+        attributions[0] = attribution;
+
+        // Calculate expected amounts with rounding
+        uint256 expectedNetAmount = smallAmount - expectedFee;
+
+        // Call hook
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(attributions));
+
+        // Verify rounding behavior - fee should round DOWN due to integer division
+        assertEq(payouts.length, 1, "Should have one payout");
+        assertEq(payouts[0].amount, expectedNetAmount, "Net amount should account for rounding");
+
+        assertEq(fees.length, 1, "Should have one fee distribution");
+        assertEq(fees[0].amount, expectedFee, "Fee should be rounded down");
+
+        // Verify the total adds up correctly (no tokens lost to rounding)
+        assertEq(payouts[0].amount + fees[0].amount, smallAmount, "Total should equal original amount");
+    }
 
     /// @dev Verifies fees are accumulated correctly for multiple conversions
     /// @param campaign Campaign address
     /// @param token Token address
-    /// @param attributions Array of attributions for fee accumulation
-    function test_accumulatesFees(address campaign, address token, AdConversion.Attribution[] memory attributions)
+    /// @param numAttributions Number of attributions to test fee accumulation
+    /// @param feeBps Attribution provider fee in basis points
+    function test_accumulatesFees(address campaign, address token, uint256 numAttributions, uint16 feeBps)
         public
-    {}
+    {
+        // Constrain the number of attributions to a reasonable range for testing
+        numAttributions = bound(numAttributions, 2, 5);
+
+        // Constrain fee to valid range for accumulation testing
+        feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create multiple attributions with varying amounts
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](numAttributions);
+        uint256 totalPayoutAmount = 0;
+        uint256 expectedTotalFees = 0;
+
+        for (uint256 i = 0; i < numAttributions; i++) {
+            // Use different ref codes to ensure variety
+            string memory refCode = (i % 3 == 0) ? REF_CODE_1 : (i % 3 == 1) ? REF_CODE_2 : REF_CODE_3;
+
+            // Vary the amounts
+            uint256 amount = DEFAULT_ATTRIBUTION_AMOUNT + (i * 1000);
+            totalPayoutAmount += amount;
+
+            // Calculate expected fee for this attribution
+            uint256 feeForThis = (amount * feeBps) / adConversion.MAX_BPS();
+            expectedTotalFees += feeForThis;
+
+            testAttributions[i] = createOffchainAttribution(refCode, publisherPayout1, amount);
+        }
+
+        // Call hook with multiple attributions
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Calculate total fees from all distributions
+        uint256 actualTotalFees = 0;
+        for (uint256 i = 0; i < fees.length; i++) {
+            actualTotalFees += fees[i].amount;
+            assertEq(fees[i].recipient, attributionProvider1, "All fees should go to attribution provider");
+        }
+
+        // Verify fee accumulation
+        if (expectedTotalFees > 0) {
+            assertGt(fees.length, 0, "Should have fee distributions when fees > 0");
+            assertEq(actualTotalFees, expectedTotalFees, "Total accumulated fees should match expected");
+        } else {
+            assertEq(fees.length, 0, "Should have no fee distributions when fees = 0");
+            assertEq(actualTotalFees, 0, "Total fees should be 0 when no fees are charged");
+        }
+
+        // Verify total payouts
+        uint256 actualTotalPayouts = 0;
+        for (uint256 i = 0; i < payouts.length; i++) {
+            actualTotalPayouts += payouts[i].amount;
+        }
+
+        // Total payouts + fees should equal total original amounts
+        assertEq(actualTotalPayouts + actualTotalFees, totalPayoutAmount, "Conservation of tokens");
+    }
 
     // ========================================
     // EVENT TESTING
@@ -795,7 +964,81 @@ contract OnSendTest is AdConversionTestBase {
         address token,
         AdConversion.Attribution[] memory attributions,
         uint16 feeBps
-    ) public {}
+    ) public {
+        // Constrain inputs to reasonable ranges
+        uint256 numAttributions = bound(attributions.length, 2, 8);
+        feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
+
+        // Create campaign with fuzzed fee
+        address testCampaign = createCampaign(
+            advertiser1,
+            attributionProvider1,
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            feeBps
+        );
+
+        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
+        activateCampaign(testCampaign, attributionProvider1);
+
+        // Create batch of attributions with varied amounts
+        AdConversion.Attribution[] memory testAttributions = new AdConversion.Attribution[](numAttributions);
+        uint256 totalOriginalAmount = 0;
+        uint256 expectedTotalFees = 0;
+
+        for (uint256 i = 0; i < numAttributions; i++) {
+            // Use different ref codes and amounts
+            string memory refCode = (i % 3 == 0) ? REF_CODE_1 : (i % 3 == 1) ? REF_CODE_2 : REF_CODE_3;
+            uint256 amount = DEFAULT_ATTRIBUTION_AMOUNT + (i * 5000);
+            totalOriginalAmount += amount;
+
+            // Calculate expected fee for this attribution
+            uint256 individualFee = (amount * feeBps) / adConversion.MAX_BPS();
+            expectedTotalFees += individualFee;
+
+            // Alternate between onchain and offchain to test batch diversity
+            if (i % 2 == 0) {
+                testAttributions[i] = createOffchainAttribution(refCode, publisherPayout1, amount);
+            } else {
+                testAttributions[i] = createOnchainAttribution(refCode, publisherPayout1, amount);
+            }
+        }
+
+        // Call hook with batch
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
+            callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(testAttributions));
+
+        // Calculate actual total fees
+        uint256 actualTotalFees = 0;
+        for (uint256 i = 0; i < fees.length; i++) {
+            actualTotalFees += fees[i].amount;
+        }
+
+        // Calculate actual total payouts
+        uint256 actualTotalPayouts = 0;
+        for (uint256 i = 0; i < payouts.length; i++) {
+            actualTotalPayouts += payouts[i].amount;
+        }
+
+        // Verify batch fee calculations
+        if (expectedTotalFees > 0) {
+            assertGt(fees.length, 0, "Should have fee distributions when fees > 0");
+            assertEq(actualTotalFees, expectedTotalFees, "Batch total fees should match expected");
+        } else {
+            assertEq(fees.length, 0, "Should have no fees when total fees = 0");
+        }
+
+        // Verify conservation of tokens across the batch
+        assertEq(
+            actualTotalPayouts + actualTotalFees,
+            totalOriginalAmount,
+            "Batch should conserve total token amounts"
+        );
+
+        // Verify we have payouts for all attributions
+        assertGt(payouts.length, 0, "Should have payouts for batch");
+    }
 
     /// @dev Processes batch with zero fee correctly
     /// @param campaign Campaign address with zero fee
