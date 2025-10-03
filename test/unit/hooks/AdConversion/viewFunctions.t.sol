@@ -6,7 +6,6 @@ import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
 contract ViewFunctionsTest is AdConversionTestBase {
-
     /// @notice Helper function to combine default configs with additional configs
     function _createCombinedConfigs(AdConversion.ConversionConfigInput[] memory additionalConfigs)
         internal
@@ -14,9 +13,8 @@ contract ViewFunctionsTest is AdConversionTestBase {
         returns (AdConversion.ConversionConfigInput[] memory)
     {
         AdConversion.ConversionConfigInput[] memory defaultConfigs = _createDefaultConfigs();
-        AdConversion.ConversionConfigInput[] memory combined = new AdConversion.ConversionConfigInput[](
-            defaultConfigs.length + additionalConfigs.length
-        );
+        AdConversion.ConversionConfigInput[] memory combined =
+            new AdConversion.ConversionConfigInput[](defaultConfigs.length + additionalConfigs.length);
 
         // Copy default configs first
         for (uint256 i = 0; i < defaultConfigs.length; i++) {
@@ -48,10 +46,7 @@ contract ViewFunctionsTest is AdConversionTestBase {
             expectedURI
         );
 
-        // Verify URI is returned correctly (campaignURI returns prefix + address for non-empty URIs)
-        string memory expectedResult = bytes(expectedURI).length > 0 ?
-            string.concat(expectedURI, LibString.toHexStringChecksummed(testCampaign)) : "";
-        assertEq(adConversion.campaignURI(testCampaign), expectedResult, "Campaign URI should match expected format");
+        assertEq(adConversion.campaignURI(testCampaign), expectedURI, "Campaign URI should match expected format");
     }
 
     /// @dev Returns empty string for campaign with empty URI
@@ -85,14 +80,13 @@ contract ViewFunctionsTest is AdConversionTestBase {
             specialURI
         );
 
-        // campaignURI returns prefix + campaign address for non-empty URIs
-        string memory expectedURI = string.concat(specialURI, LibString.toHexStringChecksummed(testCampaign));
-        assertEq(adConversion.campaignURI(testCampaign), expectedURI, "Special characters should be preserved in prefix + address format");
+        assertEq(adConversion.campaignURI(testCampaign), specialURI, "Special characters should be preserved in URI");
     }
 
     /// @dev Returns correct URI for campaigns with very long strings
     function test_campaignURI_longString() public {
-        string memory longURI = "https://example.com/very/long/path/with/many/segments/that/goes/on/and/on/and/on/with/lots/of/characters/to/test/string/handling/capabilities/of/the/contract/implementation/metadata.json";
+        string memory longURI =
+            "https://example.com/very/long/path/with/many/segments/that/goes/on/and/on/and/on/with/lots/of/characters/to/test/string/handling/capabilities/of/the/contract/implementation/metadata.json";
 
         address testCampaign = createCampaignWithURI(
             advertiser1,
@@ -104,9 +98,7 @@ contract ViewFunctionsTest is AdConversionTestBase {
             longURI
         );
 
-        // campaignURI returns prefix + campaign address for non-empty URIs
-        string memory expectedURI = string.concat(longURI, LibString.toHexStringChecksummed(testCampaign));
-        assertEq(adConversion.campaignURI(testCampaign), expectedURI, "Long URIs should be handled correctly in prefix + address format");
+        assertEq(adConversion.campaignURI(testCampaign), longURI, "Long URIs should be handled correctly");
     }
 
     // ========================================
@@ -181,10 +173,8 @@ contract ViewFunctionsTest is AdConversionTestBase {
     function test_getConversionConfig_returnsCorrectOnchainStatus() public {
         // Create campaign with additional onchain and offchain configs
         AdConversion.ConversionConfigInput[] memory additionalConfigs = new AdConversion.ConversionConfigInput[](2);
-        additionalConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/onchain-test"
-        });
+        additionalConfigs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain-test"});
         additionalConfigs[1] = AdConversion.ConversionConfigInput({
             isEventOnchain: false,
             metadataURI: "https://example.com/offchain-test"
@@ -215,10 +205,7 @@ contract ViewFunctionsTest is AdConversionTestBase {
 
         // Create campaign with custom metadata config
         AdConversion.ConversionConfigInput[] memory additionalConfigs = new AdConversion.ConversionConfigInput[](1);
-        additionalConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: customMetadata
-        });
+        additionalConfigs[0] = AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: customMetadata});
 
         address testCampaign = createCampaignWithURI(
             advertiser1,
@@ -270,10 +257,8 @@ contract ViewFunctionsTest is AdConversionTestBase {
         assertEq(adConversion.conversionConfigCount(testCampaign), 2, "Should have 2 default configs");
 
         // Add one more config
-        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/new-config"
-        });
+        AdConversion.ConversionConfigInput memory newConfig =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/new-config"});
 
         vm.prank(advertiser1);
         adConversion.addConversionConfig(testCampaign, newConfig);
@@ -291,7 +276,9 @@ contract ViewFunctionsTest is AdConversionTestBase {
         adConversion.disableConversionConfig(testCampaign, 1);
 
         // Count should remain the same
-        assertEq(adConversion.conversionConfigCount(testCampaign), initialCount, "Count should not change after disabling");
+        assertEq(
+            adConversion.conversionConfigCount(testCampaign), initialCount, "Count should not change after disabling"
+        );
     }
 
     // ========================================
@@ -380,7 +367,9 @@ contract ViewFunctionsTest is AdConversionTestBase {
         // Should return false for ref codes not in allowlist
         assertFalse(adConversion.allowedPublishers(testCampaign, REF_CODE_2), "REF_CODE_2 should not be allowed");
         assertFalse(adConversion.allowedPublishers(testCampaign, REF_CODE_3), "REF_CODE_3 should not be allowed");
-        assertFalse(adConversion.allowedPublishers(testCampaign, "unregistered"), "Unregistered code should not be allowed");
+        assertFalse(
+            adConversion.allowedPublishers(testCampaign, "unregistered"), "Unregistered code should not be allowed"
+        );
     }
 
     /// @dev Returns false for empty ref code when allowlist exists
@@ -419,7 +408,9 @@ contract ViewFunctionsTest is AdConversionTestBase {
         // Should return false for any ref code when no allowlist exists
         assertFalse(adConversion.allowedPublishers(testCampaign, REF_CODE_1), "Should return false when no allowlist");
         assertFalse(adConversion.allowedPublishers(testCampaign, REF_CODE_2), "Should return false when no allowlist");
-        assertFalse(adConversion.allowedPublishers(testCampaign, ""), "Should return false for empty code when no allowlist");
+        assertFalse(
+            adConversion.allowedPublishers(testCampaign, ""), "Should return false for empty code when no allowlist"
+        );
     }
 
     // ========================================
@@ -441,7 +432,10 @@ contract ViewFunctionsTest is AdConversionTestBase {
         );
 
         // Should return true for any ref code when no allowlist exists
-        assertTrue(adConversion.isPublisherRefCodeAllowed(testCampaign, anyRefCode), "Any ref code should be allowed when no allowlist");
+        assertTrue(
+            adConversion.isPublisherRefCodeAllowed(testCampaign, anyRefCode),
+            "Any ref code should be allowed when no allowlist"
+        );
     }
 
     /// @dev Returns true for allowed ref code when allowlist exists
@@ -483,9 +477,16 @@ contract ViewFunctionsTest is AdConversionTestBase {
         );
 
         // Should return false for ref codes not in allowlist
-        assertFalse(adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_2), "REF_CODE_2 should not be allowed");
-        assertFalse(adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_3), "REF_CODE_3 should not be allowed");
-        assertFalse(adConversion.isPublisherRefCodeAllowed(testCampaign, "unregistered"), "Unregistered code should not be allowed");
+        assertFalse(
+            adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_2), "REF_CODE_2 should not be allowed"
+        );
+        assertFalse(
+            adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_3), "REF_CODE_3 should not be allowed"
+        );
+        assertFalse(
+            adConversion.isPublisherRefCodeAllowed(testCampaign, "unregistered"),
+            "Unregistered code should not be allowed"
+        );
     }
 
     /// @dev Returns false for empty ref code when allowlist exists
@@ -527,25 +528,21 @@ contract ViewFunctionsTest is AdConversionTestBase {
 
         // Other properties should remain intact (config 1 is offchain with offchain metadata)
         assertFalse(disabledConfig.isEventOnchain, "Onchain status should be preserved");
-        assertEq(disabledConfig.metadataURI, "https://campaign.example.com/offchain-config", "Metadata should be preserved");
+        assertEq(
+            disabledConfig.metadataURI, "https://campaign.example.com/offchain-config", "Metadata should be preserved"
+        );
     }
 
     /// @dev Handles maximum valid config ID
     function test_getConversionConfig_edge_maximumConfigId() public {
         // Create campaign with additional configs to test higher IDs
         AdConversion.ConversionConfigInput[] memory additionalConfigs = new AdConversion.ConversionConfigInput[](3);
-        additionalConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/config3"
-        });
-        additionalConfigs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://example.com/config4"
-        });
-        additionalConfigs[2] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/config5"
-        });
+        additionalConfigs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config3"});
+        additionalConfigs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config4"});
+        additionalConfigs[2] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config5"});
 
         address testCampaign = createCampaignWithURI(
             advertiser1,
@@ -590,13 +587,16 @@ contract ViewFunctionsTest is AdConversionTestBase {
         );
 
         // Check consistency across multiple calls
-        // campaignURI returns prefix + campaign address for non-empty URIs
-        string memory expectedURI = string.concat("https://consistent.example.com/metadata", LibString.toHexStringChecksummed(testCampaign));
+        string memory expectedURI = "https://consistent.example.com/metadata";
         for (uint256 i = 0; i < 3; i++) {
             assertEq(adConversion.campaignURI(testCampaign), expectedURI, "URI should be consistent");
             assertTrue(adConversion.hasPublisherAllowlist(testCampaign), "Allowlist flag should be consistent");
-            assertTrue(adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_1), "Allowed code should be consistent");
-            assertFalse(adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_3), "Disallowed code should be consistent");
+            assertTrue(
+                adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_1), "Allowed code should be consistent"
+            );
+            assertFalse(
+                adConversion.isPublisherRefCodeAllowed(testCampaign, REF_CODE_3), "Disallowed code should be consistent"
+            );
             assertEq(adConversion.conversionConfigCount(testCampaign), 2, "Config count should be consistent");
         }
     }
@@ -631,17 +631,20 @@ contract ViewFunctionsTest is AdConversionTestBase {
         );
 
         // Verify each campaign has distinct state
-        // campaignURI returns prefix + campaign address for non-empty URIs
-        string memory expectedURI1 = string.concat("https://campaign1.example.com", LibString.toHexStringChecksummed(campaign1));
-        string memory expectedURI2 = string.concat("https://campaign2.example.com", LibString.toHexStringChecksummed(campaign2));
+        string memory expectedURI1 = "https://campaign1.example.com";
+        string memory expectedURI2 = "https://campaign2.example.com";
 
         assertEq(adConversion.campaignURI(campaign1), expectedURI1, "Campaign1 URI should be distinct");
         assertEq(adConversion.campaignURI(campaign2), expectedURI2, "Campaign2 URI should be distinct");
 
         assertTrue(adConversion.isPublisherRefCodeAllowed(campaign1, REF_CODE_1), "Campaign1 should allow REF_CODE_1");
-        assertFalse(adConversion.isPublisherRefCodeAllowed(campaign1, REF_CODE_2), "Campaign1 should not allow REF_CODE_2");
+        assertFalse(
+            adConversion.isPublisherRefCodeAllowed(campaign1, REF_CODE_2), "Campaign1 should not allow REF_CODE_2"
+        );
 
-        assertFalse(adConversion.isPublisherRefCodeAllowed(campaign2, REF_CODE_1), "Campaign2 should not allow REF_CODE_1");
+        assertFalse(
+            adConversion.isPublisherRefCodeAllowed(campaign2, REF_CODE_1), "Campaign2 should not allow REF_CODE_1"
+        );
         assertTrue(adConversion.isPublisherRefCodeAllowed(campaign2, REF_CODE_2), "Campaign2 should allow REF_CODE_2");
     }
 }

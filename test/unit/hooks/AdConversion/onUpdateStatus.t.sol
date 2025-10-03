@@ -47,6 +47,24 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         );
     }
 
+    /// @dev Tests that same provider/advertiser address has conflicting authorization rules from INACTIVE
+    /// @param sameAddress Same address for advertiser and attribution provider
+    function test_revert_sameProviderAndAdvertiser(address sameAddress) public {
+        // Use predefined test address for both roles to avoid setup issues
+        vm.assume(sameAddress != address(0));
+
+        // Campaign creation should now revert when advertiser and attribution provider are the same
+        vm.expectRevert(AdConversion.SameRoleAddress.selector);
+        createCampaign(
+            sameAddress, // Same address for advertiser
+            sameAddress, // Same address for attribution provider
+            new string[](0), // No allowlist
+            _createDefaultConfigs(),
+            DEFAULT_ATTRIBUTION_WINDOW,
+            DEFAULT_FEE_BPS
+        );
+    }
+
     /// @dev Reverts when attribution provider tries unauthorized INACTIVE → FINALIZING transition
     /// @param attributionProvider Attribution provider address
     /// @param campaign Campaign address
@@ -132,11 +150,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         // Should revert when advertiser tries INACTIVE → ACTIVE
         vm.expectRevert(AdConversion.Unauthorized.selector);
         callHookOnUpdateStatus(
-            advertiser1,
-            testCampaign,
-            Flywheel.CampaignStatus.INACTIVE,
-            Flywheel.CampaignStatus.ACTIVE,
-            bytes(metadata)
+            advertiser1, testCampaign, Flywheel.CampaignStatus.INACTIVE, Flywheel.CampaignStatus.ACTIVE, bytes(metadata)
         );
     }
 
@@ -177,11 +191,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
         // Should revert when advertiser tries ACTIVE → INACTIVE
         vm.expectRevert(AdConversion.Unauthorized.selector);
         callHookOnUpdateStatus(
-            advertiser1,
-            testCampaign,
-            Flywheel.CampaignStatus.ACTIVE,
-            Flywheel.CampaignStatus.INACTIVE,
-            bytes(metadata)
+            advertiser1, testCampaign, Flywheel.CampaignStatus.ACTIVE, Flywheel.CampaignStatus.INACTIVE, bytes(metadata)
         );
     }
 
@@ -579,9 +589,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param fromStatus Current valid status
     /// @param toStatus Target valid status
-    function test_edge_emptyMetadata(address caller, address campaign, uint8 fromStatus, uint8 toStatus)
-        public
-    {
+    function test_edge_emptyMetadata(address caller, address campaign, uint8 fromStatus, uint8 toStatus) public {
         // Create campaign and set up valid transition
         address testCampaign = createBasicCampaign();
         fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
@@ -641,9 +649,7 @@ contract OnUpdateStatusTest is AdConversionTestBase {
     /// @param caller Authorized caller address
     /// @param campaign Campaign address with maximum attribution window
     /// @param metadata Status update metadata
-    function test_edge_maximumAttributionWindow(address caller, address campaign, string memory metadata)
-        public
-    {
+    function test_edge_maximumAttributionWindow(address caller, address campaign, string memory metadata) public {
         // Create campaign with maximum attribution window
         address testCampaign = createCampaign(
             advertiser1,
@@ -670,50 +676,6 @@ contract OnUpdateStatusTest is AdConversionTestBase {
             Flywheel.CampaignStatus.ACTIVE,
             Flywheel.CampaignStatus.FINALIZING,
             bytes(metadata)
-        );
-    }
-
-    /// @dev Tests that same provider/advertiser address has conflicting authorization rules from INACTIVE
-    function test_edge_sameProviderAndAdvertiser() public {
-        // Use predefined test address for both roles to avoid setup issues
-        address sameAddress = advertiser1;
-
-        // Create campaign with same address for provider and advertiser
-        address testCampaign = createCampaign(
-            sameAddress, // Same address for advertiser
-            sameAddress, // Same address for attribution provider
-            new string[](0), // No allowlist
-            _createDefaultConfigs(),
-            DEFAULT_ATTRIBUTION_WINDOW,
-            DEFAULT_FEE_BPS
-        );
-        fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
-
-        // When provider and advertiser are same address, authorization rules conflict from INACTIVE state:
-        // - Advertiser can only do INACTIVE → FINALIZED
-        // - Attribution provider can only do INACTIVE → ACTIVE
-        // Since both rules apply to same address, no transition from INACTIVE is possible
-
-        // Test that INACTIVE → FINALIZED fails (attribution provider rule violation)
-        vm.expectRevert();
-        vm.prank(address(flywheel));
-        adConversion.onUpdateStatus(
-            sameAddress,
-            testCampaign,
-            Flywheel.CampaignStatus.INACTIVE,
-            Flywheel.CampaignStatus.FINALIZED,
-            "same provider and advertiser"
-        );
-
-        // Test that INACTIVE → ACTIVE also fails (advertiser rule violation)
-        vm.expectRevert();
-        vm.prank(address(flywheel));
-        adConversion.onUpdateStatus(
-            sameAddress,
-            testCampaign,
-            Flywheel.CampaignStatus.INACTIVE,
-            Flywheel.CampaignStatus.ACTIVE,
-            "same provider and advertiser"
         );
     }
 

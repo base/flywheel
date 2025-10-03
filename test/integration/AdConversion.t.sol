@@ -980,8 +980,8 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
             "https://initial.example.com/metadata"
         );
 
-        // Verify initial metadata (URI = prefix + campaign address)
-        string memory initialExpectedURI = string.concat("https://initial.example.com/metadata", LibString.toHexStringChecksummed(campaign));
+        // Verify initial metadata (URI is stored directly)
+        string memory initialExpectedURI = "https://initial.example.com/metadata";
         assertCampaignURI(campaign, initialExpectedURI);
 
         // Test metadata update during INACTIVE phase

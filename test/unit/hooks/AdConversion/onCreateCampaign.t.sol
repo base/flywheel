@@ -31,21 +31,14 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Generate invalid window that is not divisible by 1 day (86400 seconds)
         invalidWindow = uint48(bound(invalidWindow, 1, 86399)); // 1 day = 86400 seconds
 
         // Should revert for non-day precision window (expects InvalidAttributionWindow with parameter)
         vm.expectRevert();
-        createCampaignWithURI(
-            advertiser,
-            attributionProvider,
-            allowedRefCodes,
-            configs,
-            invalidWindow,
-            feeBps,
-            uri
-        );
+        createCampaignWithURI(advertiser, attributionProvider, allowedRefCodes, configs, invalidWindow, feeBps, uri);
     }
 
     /// @dev Reverts when attribution window exceeds 180 days maximum
@@ -69,21 +62,14 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Generate excessive window greater than 180 days
         excessiveWindow = uint48(bound(excessiveWindow, MAX_ATTRIBUTION_WINDOW + 86400, type(uint48).max)); // Add 1 day
 
         // Should revert for excessive attribution window (expects InvalidAttributionWindow with parameter)
         vm.expectRevert();
-        createCampaignWithURI(
-            advertiser,
-            attributionProvider,
-            allowedRefCodes,
-            configs,
-            excessiveWindow,
-            feeBps,
-            uri
-        );
+        createCampaignWithURI(advertiser, attributionProvider, allowedRefCodes, configs, excessiveWindow, feeBps, uri);
     }
 
     /// @dev Reverts when attribution provider fee exceeds 100%
@@ -110,6 +96,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         attributionWindow = numDays * 86400; // Convert to seconds
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Generate invalid fee greater than MAX_BPS (10000)
         invalidFeeBps = uint16(bound(invalidFeeBps, MAX_FEE_BPS + 1, type(uint16).max));
@@ -152,6 +139,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs for basic campaign
         string[] memory emptyAllowlist = new string[](0);
@@ -184,6 +172,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -216,6 +205,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -223,13 +213,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Should succeed with maximum attribution window
         bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            emptyConfigs,
-            MAX_ATTRIBUTION_WINDOW,
-            feeBps
+            attributionProvider, advertiser, uri, emptyAllowlist, emptyConfigs, MAX_ATTRIBUTION_WINDOW, feeBps
         );
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
@@ -252,6 +236,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         attributionWindow = numDays * 86400; // Convert to seconds
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -259,13 +244,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Should succeed with zero fee
         bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            ZERO_FEE_BPS
+            attributionProvider, advertiser, uri, emptyAllowlist, emptyConfigs, attributionWindow, ZERO_FEE_BPS
         );
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
@@ -288,6 +267,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         attributionWindow = numDays * 86400; // Convert to seconds
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -295,13 +275,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Should succeed with maximum fee
         bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            MAX_FEE_BPS
+            attributionProvider, advertiser, uri, emptyAllowlist, emptyConfigs, attributionWindow, MAX_FEE_BPS
         );
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
@@ -329,6 +303,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Use predefined registered ref codes for allowlist
         string[] memory validAllowlist = new string[](2);
@@ -339,15 +314,8 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
         // Should succeed with valid allowlist
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            validAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, validAllowlist, emptyConfigs, attributionWindow, feeBps);
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
@@ -372,21 +340,15 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
         // Should succeed without allowlist
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, emptyAllowlist, emptyConfigs, attributionWindow, feeBps);
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
@@ -413,6 +375,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create predefined configs instead of using fuzzed input
         AdConversion.ConversionConfigInput[] memory validConfigs = new AdConversion.ConversionConfigInput[](2);
@@ -429,15 +392,8 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory emptyAllowlist = new string[](0);
 
         // Should succeed with valid conversion configs
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            validConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, emptyAllowlist, validConfigs, attributionWindow, feeBps);
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
@@ -462,21 +418,15 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
         // Should succeed with empty conversion configs
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, emptyAllowlist, emptyConfigs, attributionWindow, feeBps);
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
@@ -503,6 +453,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -544,7 +495,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory emptyAllowlist = new string[](0);
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
-        // Should succeed with same address for provider and advertiser
+        // Should revert when same address is used for provider and advertiser
         bytes memory hookData = abi.encode(
             sameAddress,
             sameAddress, // Same address for both roles
@@ -554,6 +505,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
             attributionWindow,
             feeBps
         );
+        vm.expectRevert(AdConversion.SameRoleAddress.selector);
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
@@ -567,8 +519,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param uri Campaign URI
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    // TODO: Fix event testing - temporarily disabled for compilation
-    /* function test_onCreateCampaign_emitsAdCampaignCreated(
+    function test_onCreateCampaign_emitsAdCampaignCreated(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -583,28 +534,13 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
-        // Create campaign address for event verification
-        address predictedCampaign = flywheel.predictCampaignAddress(
-            advertiser,
-            address(adConversion),
-            uri
-        );
-
-        // Expect the AdCampaignCreated event
-        vm.expectEmit(true, true, false, true);
-        emit AdConversion.AdCampaignCreated(
-            predictedCampaign,
-            attributionProvider,
-            attributionWindow,
-            feeBps
-        );
-
-        // Create campaign (should emit event)
+        // Create hookData for prediction
         bytes memory hookData = abi.encode(
             attributionProvider,
             advertiser,
@@ -614,20 +550,30 @@ contract OnCreateCampaignTest is AdConversionTestBase {
             attributionWindow,
             feeBps
         );
+
+        // Create campaign address for event verification
+        address predictedCampaign = flywheel.predictCampaignAddress(
+            address(adConversion),
+            DEFAULT_CAMPAIGN_NONCE,
+            hookData
+        );
+
+        // Expect the AdCampaignCreated event
+        vm.expectEmit(true, true, false, true);
+        emit AdConversion.AdCampaignCreated(
+            predictedCampaign,
+            attributionProvider,
+            advertiser,
+            uri,
+            attributionWindow
+        );
+
+        // Create campaign (should emit event)
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
-    /// @dev Emits PublisherAddedToAllowlist events for each allowed publisher
-    /// @param attributionProvider Attribution provider address
-    /// @param advertiser Advertiser address
-    /// @param uri Campaign URI
-    /// @param allowedRefCodes Array of allowed publisher ref codes
-    /// @param attributionWindow Attribution window in days
-    /// @param feeBps Attribution provider fee in basis points
-    */ // End of commented function
 
-    // TODO: Fix event testing - temporarily disabled for compilation
-    /* function test_onCreateCampaign_emitsPublisherAddedToAllowlist(
+    function test_onCreateCampaign_emitsPublisherAddedToAllowlist(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -643,6 +589,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Use predefined allowlist with registered ref codes
         string[] memory validAllowlist = new string[](2);
@@ -652,20 +599,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         // Create empty configs
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
-        // Create campaign address for event verification
-        address predictedCampaign = flywheel.predictCampaignAddress(
-            advertiser,
-            address(adConversion),
-            uri
-        );
-
-        // Expect PublisherAddedToAllowlist events for each ref code
-        vm.expectEmit(true, false, false, true);
-        emit AdConversion.PublisherAddedToAllowlist(predictedCampaign, REF_CODE_1);
-        vm.expectEmit(true, false, false, true);
-        emit AdConversion.PublisherAddedToAllowlist(predictedCampaign, REF_CODE_2);
-
-        // Create campaign with allowlist (should emit events)
+        // Create hookData for prediction
         bytes memory hookData = abi.encode(
             attributionProvider,
             advertiser,
@@ -675,20 +609,26 @@ contract OnCreateCampaignTest is AdConversionTestBase {
             attributionWindow,
             feeBps
         );
+
+        // Create campaign address for event verification
+        address predictedCampaign = flywheel.predictCampaignAddress(
+            address(adConversion),
+            DEFAULT_CAMPAIGN_NONCE,
+            hookData
+        );
+
+        // Expect PublisherAddedToAllowlist events for each ref code
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.PublisherAddedToAllowlist(predictedCampaign, REF_CODE_1);
+        vm.expectEmit(true, false, false, true);
+        emit AdConversion.PublisherAddedToAllowlist(predictedCampaign, REF_CODE_2);
+
+        // Create campaign with allowlist (should emit events)
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
-    /// @dev Emits ConversionConfigAdded events for each conversion config
-    /// @param attributionProvider Attribution provider address
-    /// @param advertiser Advertiser address
-    /// @param uri Campaign URI
-    /// @param configs Array of conversion configs
-    /// @param attributionWindow Attribution window in days
-    /// @param feeBps Attribution provider fee in basis points
-    */ // End of commented function
 
-    // TODO: Fix event testing - temporarily disabled for compilation
-    /* function test_onCreateCampaign_emitsConversionConfigAdded(
+    function test_onCreateCampaign_emitsConversionConfigAdded(
         address attributionProvider,
         address advertiser,
         string memory uri,
@@ -704,6 +644,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create predefined configs instead of using fuzzed input
         AdConversion.ConversionConfigInput[] memory validConfigs = new AdConversion.ConversionConfigInput[](2);
@@ -719,11 +660,22 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         // Create empty allowlist
         string[] memory emptyAllowlist = new string[](0);
 
+        // Create hookData for prediction
+        bytes memory hookData = abi.encode(
+            attributionProvider,
+            advertiser,
+            uri,
+            emptyAllowlist,
+            validConfigs,
+            attributionWindow,
+            feeBps
+        );
+
         // Create campaign address for event verification
         address predictedCampaign = flywheel.predictCampaignAddress(
-            advertiser,
             address(adConversion),
-            uri
+            DEFAULT_CAMPAIGN_NONCE,
+            hookData
         );
 
         // Create expected conversion configs for events
@@ -745,15 +697,6 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         emit AdConversion.ConversionConfigAdded(predictedCampaign, 2, expectedConfig2);
 
         // Create campaign with configs (should emit events)
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            validConfigs,
-            attributionWindow,
-            feeBps
-        );
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
 
@@ -769,7 +712,6 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param configs Array of conversion configs
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
-    */ // End of commented function
 
     function test_onCreateCampaign_verifiesStoredState(
         address attributionProvider,
@@ -788,34 +730,29 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Use predefined values for testing
         string[] memory validAllowlist = new string[](1);
         validAllowlist[0] = REF_CODE_1;
 
         AdConversion.ConversionConfigInput[] memory validConfigs = new AdConversion.ConversionConfigInput[](1);
-        validConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/test-config"
-        });
+        validConfigs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/test-config"});
 
         // Create campaign
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            validAllowlist,
-            validConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, validAllowlist, validConfigs, attributionWindow, feeBps);
         address campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Verify stored state
-        // campaignURI() returns prefix + campaign address if prefix is non-empty, otherwise empty string
-        string memory expectedURI = bytes(uri).length > 0 ?
-            string.concat(uri, LibString.toHexStringChecksummed(campaign)) : "";
-        assertEq(adConversion.campaignURI(campaign), expectedURI, "Campaign URI should be stored correctly in expected format");
+        // campaignURI() returns the URI directly as stored
+        string memory expectedURI = uri;
+        assertEq(
+            adConversion.campaignURI(campaign),
+            expectedURI,
+            "Campaign URI should be stored correctly in expected format"
+        );
         assertTrue(adConversion.hasPublisherAllowlist(campaign), "Should have allowlist when provided");
         assertTrue(adConversion.allowedPublishers(campaign, REF_CODE_1), "REF_CODE_1 should be in allowlist");
         assertEq(adConversion.conversionConfigCount(campaign), 1, "Should have 1 conversion config");
@@ -849,35 +786,23 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Test with 3 predefined configs
         AdConversion.ConversionConfigInput[] memory validConfigs = new AdConversion.ConversionConfigInput[](3);
-        validConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/config1"
-        });
-        validConfigs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://example.com/config2"
-        });
-        validConfigs[2] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/config3"
-        });
+        validConfigs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config1"});
+        validConfigs[1] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config2"});
+        validConfigs[2] =
+            AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/config3"});
 
         // Create empty allowlist
         string[] memory emptyAllowlist = new string[](0);
 
         // Create campaign
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            validConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, emptyAllowlist, validConfigs, attributionWindow, feeBps);
         address campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Verify config count
@@ -913,6 +838,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Use predefined allowlist with registered ref codes
         string[] memory validAllowlist = new string[](3);
@@ -924,15 +850,8 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
         // Create campaign
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            validAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, validAllowlist, emptyConfigs, attributionWindow, feeBps);
         address campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Verify allowlist mapping
@@ -966,6 +885,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -973,20 +893,13 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Create campaign
         bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            campaignURI,
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
+            attributionProvider, advertiser, campaignURI, emptyAllowlist, emptyConfigs, attributionWindow, feeBps
         );
         address campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Verify URI is stored correctly
-        // campaignURI() returns prefix + campaign address if prefix is non-empty, otherwise empty string
-        string memory expectedURI = bytes(campaignURI).length > 0 ?
-            string.concat(campaignURI, LibString.toHexStringChecksummed(campaign)) : "";
+        // campaignURI() now returns the URI directly (no address concatenation)
+        string memory expectedURI = campaignURI;
         assertEq(adConversion.campaignURI(campaign), expectedURI, "Campaign URI should match expected format");
     }
 
@@ -1009,6 +922,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Create empty allowlist and configs
         string[] memory emptyAllowlist = new string[](0);
@@ -1016,13 +930,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Create campaign
         bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            "test-uri",
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
+            attributionProvider, advertiser, "test-uri", emptyAllowlist, emptyConfigs, attributionWindow, feeBps
         );
         address campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
@@ -1051,6 +959,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, MAX_FEE_BPS));
         vm.assume(attributionProvider != address(0));
         vm.assume(advertiser != address(0));
+        vm.assume(advertiser != attributionProvider);
 
         // Use predefined allowlist with at least one ref code
         string[] memory validAllowlist = new string[](1);
@@ -1061,13 +970,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Create campaign
         bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            "test-uri",
-            validAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
+            attributionProvider, advertiser, "test-uri", validAllowlist, emptyConfigs, attributionWindow, feeBps
         );
         address campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
