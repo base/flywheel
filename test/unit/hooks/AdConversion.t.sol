@@ -513,6 +513,65 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     // =============================================================
+    //                    ROLE VALIDATION TESTS
+    // =============================================================
+
+    /// @notice Test that campaign creation reverts when attribution provider and advertiser are the same address
+    function test_campaignCreation_revert_sameProviderAndAdvertiser() public {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+
+        // Use same address for both attribution provider and advertiser
+        address sameAddress = address(0x999);
+
+        bytes memory hookData = abi.encode(
+            sameAddress, // attributionProvider
+            sameAddress, // advertiser (SAME ADDRESS)
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(500)
+        );
+
+        vm.expectRevert(AdConversion.SameRoleAddress.selector);
+        flywheel.createCampaign(address(hook), 9999, hookData);
+    }
+
+    /// @notice Test that different addresses for attribution provider and advertiser work correctly
+    function test_campaignCreation_success_differentProviderAndAdvertiser() public {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, // Different address
+            advertiser, // Different address
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(500)
+        );
+
+        address newCampaign = flywheel.createCampaign(address(hook), 9998, hookData);
+
+        // Verify campaign was created successfully
+        assertTrue(newCampaign != address(0));
+
+        // Verify state was stored correctly with different addresses
+        (address storedAdvertiser,, uint16 feeBps, address storedProvider,,) = hook.state(newCampaign);
+        assertEq(storedProvider, attributionProvider);
+        assertEq(storedAdvertiser, advertiser);
+        assertTrue(storedProvider != storedAdvertiser);
+    }
+
+    // =============================================================
     //                    ATTRIBUTION PROVIDER FEE VALIDATION
     // =============================================================
 

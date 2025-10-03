@@ -183,6 +183,9 @@ contract AdConversion is CampaignHooks {
     /// @notice Error thrown when an invalid address is provided
     error ZeroAddress();
 
+    /// @notice Error thrown when attribution provider and advertiser are the same address
+    error SameRoleAddress();
+
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param protocol_ Address of the protocol contract
@@ -204,6 +207,9 @@ contract AdConversion is CampaignHooks {
             uint48 campaignAttributionWindow,
             uint16 attributionProviderFeeBps
         ) = abi.decode(hookData, (address, address, string, string[], ConversionConfigInput[], uint48, uint16));
+
+        // Validate attribution provider and advertiser are different addresses
+        if (attributionProvider == advertiser) revert SameRoleAddress();
 
         // Validate attribution deadline duration (if non-zero, must be in days precision)
         if (campaignAttributionWindow % 1 days != 0) revert InvalidAttributionWindow(campaignAttributionWindow);
