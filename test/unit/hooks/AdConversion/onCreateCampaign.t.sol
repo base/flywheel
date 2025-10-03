@@ -541,37 +541,20 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
         // Create hookData for prediction
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, emptyAllowlist, emptyConfigs, attributionWindow, feeBps);
 
         // Create campaign address for event verification
-        address predictedCampaign = flywheel.predictCampaignAddress(
-            address(adConversion),
-            DEFAULT_CAMPAIGN_NONCE,
-            hookData
-        );
+        address predictedCampaign =
+            flywheel.predictCampaignAddress(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Expect the AdCampaignCreated event
         vm.expectEmit(true, true, false, true);
-        emit AdConversion.AdCampaignCreated(
-            predictedCampaign,
-            attributionProvider,
-            advertiser,
-            uri,
-            attributionWindow
-        );
+        emit AdConversion.AdCampaignCreated(predictedCampaign, attributionProvider, advertiser, uri, attributionWindow);
 
         // Create campaign (should emit event)
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
-
 
     function test_onCreateCampaign_emitsPublisherAddedToAllowlist(
         address attributionProvider,
@@ -600,22 +583,12 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
 
         // Create hookData for prediction
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            validAllowlist,
-            emptyConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, validAllowlist, emptyConfigs, attributionWindow, feeBps);
 
         // Create campaign address for event verification
-        address predictedCampaign = flywheel.predictCampaignAddress(
-            address(adConversion),
-            DEFAULT_CAMPAIGN_NONCE,
-            hookData
-        );
+        address predictedCampaign =
+            flywheel.predictCampaignAddress(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Expect PublisherAddedToAllowlist events for each ref code
         vm.expectEmit(true, false, false, true);
@@ -626,7 +599,6 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         // Create campaign with allowlist (should emit events)
         flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
-
 
     function test_onCreateCampaign_emitsConversionConfigAdded(
         address attributionProvider,
@@ -661,22 +633,12 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         string[] memory emptyAllowlist = new string[](0);
 
         // Create hookData for prediction
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            emptyAllowlist,
-            validConfigs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, emptyAllowlist, validConfigs, attributionWindow, feeBps);
 
         // Create campaign address for event verification
-        address predictedCampaign = flywheel.predictCampaignAddress(
-            address(adConversion),
-            DEFAULT_CAMPAIGN_NONCE,
-            hookData
-        );
+        address predictedCampaign =
+            flywheel.predictCampaignAddress(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
 
         // Create expected conversion configs for events
         AdConversion.ConversionConfig memory expectedConfig1 = AdConversion.ConversionConfig({

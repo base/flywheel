@@ -191,15 +191,8 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
         uint16 feeBps,
         string memory uri
     ) public returns (address campaign) {
-        bytes memory hookData = abi.encode(
-            attributionProvider,
-            advertiser,
-            uri,
-            allowedRefCodes,
-            configs,
-            attributionWindow,
-            feeBps
-        );
+        bytes memory hookData =
+            abi.encode(attributionProvider, advertiser, uri, allowedRefCodes, configs, attributionWindow, feeBps);
 
         campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
