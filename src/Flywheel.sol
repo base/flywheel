@@ -133,7 +133,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the distribution
     /// @param amount Amount of tokens distributed
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutsDistributed(
+    event PayoutDistributed(
         address indexed campaign, address token, bytes32 key, address recipient, uint256 amount, bytes extraData
     );
 
@@ -144,7 +144,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param key Key for the allocation
     /// @param amount Amount of tokens deallocated
     /// @param extraData Extra data for the payout to attach in events
-    event PayoutsDeallocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
+    event PayoutDeallocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
 
     /// @notice Emitted when a fee is sent to a recipient
     ///
@@ -172,7 +172,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param recipient Address receiving the collected fees
     /// @param amount Amount of tokens collected
     /// @param extraData Extra data for the payout to attach in events
-    event FeesDistributed(
+    event FeeDistributed(
         address indexed campaign, address token, bytes32 key, address recipient, uint256 amount, bytes extraData
     );
 
@@ -344,7 +344,7 @@ contract Flywheel is ReentrancyGuardTransient {
             if (amount == 0) continue;
             totalAmount += amount;
             _allocatedPayout[key] -= amount;
-            emit PayoutsDeallocated(campaign, token, key, amount, allocations[i].extraData);
+            emit PayoutDeallocated(campaign, token, key, amount, allocations[i].extraData);
         }
 
         totalAllocatedPayouts[campaign][token] -= totalAmount;
@@ -380,7 +380,7 @@ contract Flywheel is ReentrancyGuardTransient {
             _allocatedPayout[key] -= amount;
             bool success = Campaign(payable(campaign)).sendTokens(token, recipient, amount);
             if (!success) revert SendFailed(token, recipient, amount);
-            emit PayoutsDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
+            emit PayoutDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
         }
 
         totalAllocatedPayouts[campaign][token] -= totalAmount;
@@ -410,7 +410,7 @@ contract Flywheel is ReentrancyGuardTransient {
             if (success) {
                 totalAmount += amount;
                 _allocatedFee[key] -= amount;
-                emit FeesDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
+                emit FeeDistributed(campaign, token, key, recipient, amount, distributions[i].extraData);
             } else {
                 emit FeeTransferFailed(
                     campaign, token, distributions[i].key, recipient, amount, distributions[i].extraData
