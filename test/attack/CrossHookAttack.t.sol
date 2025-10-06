@@ -627,10 +627,10 @@ contract CrossHookAttackTest is Test {
             logBytes: ""
         });
 
-        bytes memory adHookData = abi.encode(attributions);
+        abi.encode(attributions);
 
         // Attribution provider gets large fee from ad campaign
-        uint256 providerBalanceBefore = token.balanceOf(attributionProvider);
+        token.balanceOf(attributionProvider);
 
         // vm.prank(address(flywheel));
         // (

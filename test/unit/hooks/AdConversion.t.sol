@@ -565,7 +565,7 @@ contract AdConversionTest is PublisherTestSetup {
         assertTrue(newCampaign != address(0));
 
         // Verify state was stored correctly with different addresses
-        (address storedAdvertiser,, uint16 feeBps, address storedProvider,,) = hook.state(newCampaign);
+        (address storedAdvertiser,, , address storedProvider,,) = hook.state(newCampaign);
         assertEq(storedProvider, attributionProvider);
         assertEq(storedAdvertiser, advertiser);
         assertTrue(storedProvider != storedAdvertiser);
@@ -613,10 +613,10 @@ contract AdConversionTest is PublisherTestSetup {
             uint16(10000) // Exactly 100%, should succeed
         );
 
-        address campaign = flywheel.createCampaign(address(hook), 123, hookData);
+        address newCampaign = flywheel.createCampaign(address(hook), 123, hookData);
 
         // Verify fee is stored correctly
-        (,, uint16 feeBps,,,) = hook.state(campaign);
+        (,, uint16 feeBps,,,) = hook.state(newCampaign);
         assertEq(feeBps, 10000);
     }
 
@@ -702,14 +702,14 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Campaign 1 should use 5% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts1, Flywheel.Distribution[] memory fees1, bool sendFeesNow1) =
+        (Flywheel.Payout[] memory payouts1, Flywheel.Distribution[] memory fees1, ) =
             hook.onSend(attributionProvider, campaign1, address(token), rewardData);
         assertEq(payouts1[0].amount, 95 ether); // 100 - 5% = 95
         assertEq(fees1[0].amount, 5 ether); // 5% fee
 
         // Campaign 2 should use 15% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts2, Flywheel.Distribution[] memory fees2, bool sendFeesNow2) =
+        (Flywheel.Payout[] memory payouts2, Flywheel.Distribution[] memory fees2, ) =
             hook.onSend(attributionProvider, campaign2, address(token), rewardData);
         assertEq(payouts2[0].amount, 85 ether); // 100 - 15% = 85
         assertEq(fees2[0].amount, 15 ether); // 15% fee
@@ -854,7 +854,7 @@ contract AdConversionTest is PublisherTestSetup {
     // Note: There's no removeAllowedPublisherRefCode function - publishers cannot be removed once added
     // This is by design to prevent accidental removal of authorized publishers
 
-    function test_isPublisherRefCodeAllowed_noAllowlist(uint16 codeNum) public {
+    function test_isPublisherRefCodeAllowed_noAllowlist(uint16 codeNum) public view {
         // Campaign with empty allowlist should allow all publishers
         assertTrue(hook.isPublisherRefCodeAllowed(campaign, generateCode(codeNum)));
     }
@@ -1219,12 +1219,12 @@ contract AdConversionTest is PublisherTestSetup {
     //                    CAMPAIGN URI AND METADATA
     // =============================================================
 
-    function test_campaignURI_returnsCorrectURI() public {
+    function test_campaignURI_returnsCorrectURI() public view {
         string memory uri = hook.campaignURI(campaign);
         assertEq(uri, "https://example.com/campaign");
     }
 
-    function test_getConversionConfig_returnsCorrectConfig() public {
+    function test_getConversionConfig_returnsCorrectConfig() public view {
         AdConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
         assertTrue(config1.isActive);
         assertTrue(config1.isEventOnchain);
@@ -1327,7 +1327,7 @@ contract AdConversionTest is PublisherTestSetup {
         }
     }
 
-    function test_hasPublisherAllowlist_noAllowlist() public {
+    function test_hasPublisherAllowlist_noAllowlist() public view {
         assertEq(hook.hasPublisherAllowlist(campaign), false);
     }
 
@@ -1982,7 +1982,7 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test attribution window bypass vulnerability - ACTIVE → FINALIZED attack
     /// @dev This tests the critical security fix that prevents bypassing attribution windows
     function test_security_attributionWindowBypass_activeToFinalized() public {
-        address campaign = flywheel.createCampaign(
+        address testCampaign = flywheel.createCampaign(
             address(hook),
             200,
             abi.encode(
@@ -1996,24 +1996,24 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Verify campaign is in ACTIVE state
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint256(flywheel.campaignStatus(testCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
         // Advertiser attempts to bypass attribution window by going directly ACTIVE → FINALIZED
         vm.prank(advertiser);
         vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.FINALIZED, "");
 
         // Verify campaign is still ACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint256(flywheel.campaignStatus(testCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
     }
 
     /// @notice Test that proper state transition flow still works after security fix
     /// @dev Ensures the fix doesn't break legitimate ACTIVE → FINALIZING → FINALIZED flow
     function test_security_legitStateTransitionStillWorks() public {
-        address campaign = flywheel.createCampaign(
+        address testCampaign2 = flywheel.createCampaign(
             address(hook),
             201,
             abi.encode(
@@ -2027,26 +2027,26 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(testCampaign2, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Step 1: ACTIVE → FINALIZING (should work)
         vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        flywheel.updateStatus(testCampaign2, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign2)), uint256(Flywheel.CampaignStatus.FINALIZING));
 
         // Step 2: Wait for attribution deadline (7 days for basic campaign)
         vm.warp(block.timestamp + 7 days + 1);
 
         // Step 3: FINALIZING → FINALIZED (should work)
         vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+        flywheel.updateStatus(testCampaign2, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign2)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
     /// @notice Test attribution provider can still perform valid state transitions
     /// @dev Ensures attribution provider privileges are preserved after security fix
     function test_security_attributionProviderBypassStillWorks() public {
-        address campaign = flywheel.createCampaign(
+        address testCampaign3 = flywheel.createCampaign(
             address(hook),
             202,
             abi.encode(
@@ -2060,17 +2060,17 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(testCampaign3, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Attribution provider should be able to go ACTIVE → FINALIZING
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        flywheel.updateStatus(testCampaign3, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign3)), uint256(Flywheel.CampaignStatus.FINALIZING));
 
         // Attribution provider should be able to go FINALIZING → FINALIZED (no deadline wait)
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+        flywheel.updateStatus(testCampaign3, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign3)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
     /// @notice Test attribution provider CANNOT do INACTIVE → FINALIZED (fund recovery is advertiser-only)

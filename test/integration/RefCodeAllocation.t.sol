@@ -52,7 +52,7 @@ contract RefCodeAllocationTest is Test {
         }
     }
 
-    function test_optimalRefCodeToTokenIdToKeyConversion() external {
+    function test_optimalRefCodeToTokenIdToKeyConversion() external view {
         console.log("=== Optimal RefCode -> TokenId -> Bytes32 Key Conversion ===");
         console.log("Using tokenId (uint256) as intermediate step is better than direct string hashing!");
 
@@ -138,7 +138,7 @@ contract RefCodeAllocationTest is Test {
         }
     }
 
-    function test_refCodeKeyVsAddressKey() external {
+    function test_refCodeKeyVsAddressKey() external view {
         // Show difference between ref code keys and address keys
         for (uint256 i = 0; i < 3; i++) {
             bytes32 refCodeKey = refCodeKeys[i];
@@ -156,7 +156,7 @@ contract RefCodeAllocationTest is Test {
         }
     }
 
-    function test_refCodeKeyUniqueness() external {
+    function test_refCodeKeyUniqueness() external view {
         // Verify each ref code produces unique key
         for (uint256 i = 0; i < 3; i++) {
             for (uint256 j = i + 1; j < 3; j++) {
@@ -165,7 +165,7 @@ contract RefCodeAllocationTest is Test {
         }
     }
 
-    function test_builderCanCalculateOwnKey() external {
+    function test_builderCanCalculateOwnKey() external view {
         // Simulate builder checking their own allocation
         string memory myRefCode = "builder1";
 
@@ -179,7 +179,7 @@ contract RefCodeAllocationTest is Test {
         // (In real scenario, this would query actual flywheel.allocatedPayout)
     }
 
-    function test_optimalCollectFeesHookWithRefCodeKeys() external {
+    function test_optimalCollectFeesHookWithRefCodeKeys() external view {
         console.log("=== How Collect Fees Hook Could Use RefCode Keys (Optimal Method) ===");
 
         // 1. Current approach in existing hooks: use address as key
@@ -222,7 +222,7 @@ contract RefCodeAllocationTest is Test {
         console.log("4. Recover code:  builderCodes.toCode(uint256(refCodeKey))  // If needed");
     }
 
-    function test_refCodeKeysWithRandoRecipient() external {
+    function test_refCodeKeysWithRandoRecipient() external view {
         console.log("=== RefCode Keys with Different Recipient (Collect Fees Pattern) ===");
         console.log("Shows: Key (refCode) != Recipient (who gets paid)");
 

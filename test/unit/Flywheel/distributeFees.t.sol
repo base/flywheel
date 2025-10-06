@@ -310,7 +310,7 @@ contract DistributeFeesTest is FlywheelTest {
         uint256 initialBalance1 = mockToken.balanceOf(recipient1);
         uint256 initialBalance2 = mockToken.balanceOf(recipient2);
         uint256 initialAllocation1 = flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient1)));
-        uint256 initialAllocation2 = flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2)));
+        flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2)));
 
         // Record logs to verify only one FeeDistributed event is emitted
         vm.recordLogs();

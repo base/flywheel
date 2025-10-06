@@ -334,7 +334,7 @@ contract CrossFunctionReentrancyAttacker {
         campaign = _campaign;
     }
 
-    function attemptCrossFunctionReentrancy() external {
+    function attemptCrossFunctionReentrancy() external pure {
         // Attempt to call different function during callback
         revert("Cross-function reentrancy attack prevented");
     }
@@ -350,7 +350,7 @@ contract PrivilegeEscalationAttacker {
         targetProvider = _targetProvider;
     }
 
-    function attemptOwnershipTakeover() external {
+    function attemptOwnershipTakeover() external pure {
         // Try to become owner through various means
         revert("Ownership takeover prevented");
     }
@@ -371,7 +371,7 @@ contract FlashLoanAttacker {
         campaign = _campaign;
     }
 
-    function executeFlashLoan() external {
+    function executeFlashLoan() external pure {
         // This would attempt to manipulate attribution in single transaction
         revert("Flash loan attack prevented");
     }
@@ -387,17 +387,17 @@ contract AllowlistBypassAttacker {
         campaign = _campaign;
     }
 
-    function attemptRefCodeSpoofing() external {
+    function attemptRefCodeSpoofing() external pure {
         // Try to spoof allowed ref code
         revert("Ref code spoofing prevented");
     }
 
-    function attemptCaseSensitivityBypass() external {
+    function attemptCaseSensitivityBypass() external pure {
         // Try case variations
         revert("Case sensitivity bypass prevented");
     }
 
-    function attemptUnicodeBypass() external {
+    function attemptUnicodeBypass() external pure {
         // Try unicode variations
         revert("Unicode bypass prevented");
     }
@@ -413,12 +413,12 @@ contract StateManipulationAttacker {
         campaign = _campaign;
     }
 
-    function attemptConfigManipulation() external {
+    function attemptConfigManipulation() external pure {
         // Try to manipulate config indirectly
         revert("Config manipulation prevented");
     }
 
-    function attemptAllowlistManipulation() external {
+    function attemptAllowlistManipulation() external pure {
         // Try to manipulate allowlist indirectly
         revert("Allowlist manipulation prevented");
     }

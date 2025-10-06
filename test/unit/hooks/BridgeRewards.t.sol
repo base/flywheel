@@ -290,7 +290,7 @@ contract BridgeRewardsTest is Test {
         flywheel.updateStatus(bridgeRewardsCampaign, Flywheel.CampaignStatus.FINALIZING, "");
     }
 
-    function test_onUpdateStatus_success() public {
+    function test_onUpdateStatus_success() public view {
         // The setUp already created a campaign and activated it successfully
         // So we just need to verify that this transition worked
         Flywheel.CampaignStatus status = flywheel.campaignStatus(bridgeRewardsCampaign);

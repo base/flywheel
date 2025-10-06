@@ -10,7 +10,7 @@ import {CampaignHooks} from "../../src/CampaignHooks.sol";
 contract TestCampaignHooks is CampaignHooks {
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
-    function campaignURI(address campaign) external view override returns (string memory uri) {
+    function campaignURI(address campaign) external pure override returns (string memory uri) {
         return "";
     }
 
@@ -175,7 +175,6 @@ contract CampaignHooksTest is Test {
     /// @notice Test onWithdrawFunds reverts when not called by flywheel
     function test_onWithdrawFunds_revertsWhenNotFlywheel() public {
         bytes memory hookData = "";
-        uint256 amount = 1000;
 
         vm.prank(user);
         vm.expectRevert();

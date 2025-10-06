@@ -159,7 +159,7 @@ contract FlywheelAttackTest is FlywheelTest {
         address campaign = _createTestCampaign();
 
         // Test hook replacement attack
-        address maliciousHook = address(new MaliciousHook());
+        address(new MaliciousHook());
 
         // Should not be able to change hook after campaign creation
         // (This would require checking if Flywheel allows hook updates)
@@ -340,17 +340,17 @@ contract FlywheelReentrancyAttacker {
         campaign = _campaign;
     }
 
-    function attackReward() external {
+    function attackReward() external pure {
         // Attempt reentrancy in reward function
         revert("Reentrancy attack prevented");
     }
 
-    function attackWithdraw() external {
+    function attackWithdraw() external pure {
         // Attempt reentrancy in withdraw function
         revert("Reentrancy attack prevented");
     }
 
-    function attackCollectFees() external {
+    function attackCollectFees() external pure {
         // Attempt reentrancy in distributeFees function
         revert("Reentrancy attack prevented");
     }
@@ -367,7 +367,7 @@ contract NestedReentrancyAttacker {
         token = _token;
     }
 
-    function executeNestedAttack() external {
+    function executeNestedAttack() external pure {
         // Attempt nested reentrancy through multiple contracts
         revert("Nested reentrancy attack prevented");
     }
@@ -411,12 +411,12 @@ contract FrontRunningAttacker {
         token = _token;
     }
 
-    function attemptRewardFrontRun() external {
+    function attemptRewardFrontRun() external pure {
         // Try to front-run reward transactions
         revert("Front-running attack prevented");
     }
 
-    function attemptStatusFrontRun() external {
+    function attemptStatusFrontRun() external pure {
         // Try to front-run status changes
         revert("Status front-running prevented");
     }
@@ -463,7 +463,7 @@ contract FlashLoanAttacker {
         token = _token;
     }
 
-    function executeFlashLoan() external {
+    function executeFlashLoan() external pure {
         // Simulate flash loan attack
         revert("Flash loan attack prevented");
     }
@@ -478,17 +478,17 @@ contract StateManipulationAttacker {
         campaign = _campaign;
     }
 
-    function attemptStatusManipulation() external {
+    function attemptStatusManipulation() external pure {
         // Try to manipulate campaign status
         revert("Status manipulation prevented");
     }
 
-    function attemptBalanceManipulation() external {
+    function attemptBalanceManipulation() external pure {
         // Try to manipulate balances
         revert("Balance manipulation prevented");
     }
 
-    function attemptFeeManipulation() external {
+    function attemptFeeManipulation() external pure {
         // Try to manipulate fees
         revert("Fee manipulation prevented");
     }
