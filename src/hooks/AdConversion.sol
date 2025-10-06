@@ -384,6 +384,7 @@ contract AdConversion is CampaignHooks {
     /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        view
         override
         returns (Flywheel.Payout memory payout)
     {
@@ -397,6 +398,7 @@ contract AdConversion is CampaignHooks {
     /// @inheritdoc CampaignHooks
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        view
         override
         returns (Flywheel.Distribution[] memory distributions)
     {
@@ -464,7 +466,7 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal override {
+    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal view override {
         if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
             revert Unauthorized();
         }

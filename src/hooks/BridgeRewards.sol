@@ -50,13 +50,14 @@ contract BridgeRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal pure override {
         if (nonce != 0 || hookData.length > 0) revert InvalidCampaignInitialization();
     }
 
     /// @inheritdoc CampaignHooks
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        view
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
@@ -102,6 +103,7 @@ contract BridgeRewards is CampaignHooks {
     /// @dev Will only need to use this function if the initial fee send fails
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        view
         override
         returns (Flywheel.Distribution[] memory distributions)
     {
@@ -118,6 +120,7 @@ contract BridgeRewards is CampaignHooks {
     /// @inheritdoc CampaignHooks
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        pure
         override
         returns (Flywheel.Payout memory payout)
     {
@@ -135,7 +138,7 @@ contract BridgeRewards is CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) internal override {
+    ) internal pure override {
         // This is a perpetual campaign, so it should always be active
         // Campaigns are created as INACTIVE, so still need to let someone turn it on
         if (newStatus != Flywheel.CampaignStatus.ACTIVE) revert Flywheel.InvalidCampaignStatus();

@@ -573,7 +573,7 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to check
-    function _assertCampaignSolvency(address campaign, address token) internal {
+    function _assertCampaignSolvency(address campaign, address token) internal view {
         uint256 totalAllocated = totalAllocatedPayouts[campaign][token] + totalAllocatedFees[campaign][token];
         if (_campaignTokenBalance(campaign, token) < totalAllocated) revert InsufficientCampaignFunds();
     }
