@@ -35,8 +35,8 @@ contract AdFlowTest is PublisherTestSetup {
     uint16 public constant ATTRIBUTION_FEE_BPS = 500; // 5%
 
     // Publisher ref codes
-    string public constant pub1RefCode = "ref1";
-    string public constant pub2RefCode = "ref2";
+    string public constant PUB1_REF_CODE = "ref1";
+    string public constant PUB2_REF_CODE = "ref2";
 
     function setUp() public {
         // Deploy token with initial balances
@@ -76,14 +76,14 @@ contract AdFlowTest is PublisherTestSetup {
 
     function _registerPublishers() internal {
         vm.prank(owner);
-        publisherRegistry.register(pub1RefCode, publisher1, publisher1);
+        publisherRegistry.register(PUB1_REF_CODE, publisher1, publisher1);
 
         // Register publisher 2 with different chain overrides
         vm.prank(owner);
-        publisherRegistry.register(pub2RefCode, publisher2, publisher2);
+        publisherRegistry.register(PUB2_REF_CODE, publisher2, publisher2);
 
-        console2.log("Publisher 1 ref code:", string(abi.encodePacked(pub1RefCode)));
-        console2.log("Publisher 2 ref code:", string(abi.encodePacked(pub2RefCode)));
+        console2.log("Publisher 1 ref code:", string(abi.encodePacked(PUB1_REF_CODE)));
+        console2.log("Publisher 2 ref code:", string(abi.encodePacked(PUB2_REF_CODE)));
     }
 
     function _createCampaign() internal {
@@ -143,7 +143,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 configId: 1,
-                publisherRefCode: pub1RefCode,
+                publisherRefCode: PUB1_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -157,7 +157,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(2)),
                 clickId: "click_456",
                 configId: 1,
-                publisherRefCode: pub2RefCode,
+                publisherRefCode: PUB2_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher2,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -228,7 +228,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "onchain_click_123",
                 configId: 2,
-                publisherRefCode: pub1RefCode,
+                publisherRefCode: PUB1_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -271,7 +271,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_123",
                 configId: 1,
-                publisherRefCode: pub1RefCode,
+                publisherRefCode: PUB1_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
@@ -385,7 +385,7 @@ contract AdFlowTest is PublisherTestSetup {
                 eventId: bytes16(uint128(1)),
                 clickId: "click_disabled_config",
                 configId: 1, // This config was disabled but should still work
-                publisherRefCode: pub1RefCode,
+                publisherRefCode: PUB1_REF_CODE,
                 timestamp: uint32(block.timestamp),
                 payoutRecipient: publisher1,
                 payoutAmount: ATTRIBUTION_AMOUNT
