@@ -5,15 +5,17 @@ import {Flywheel} from "./Flywheel.sol";
 
 /// @title CampaignHooks
 ///
-/// @notice Abstract contract for campaign hooks that process campaign attributions
+/// @notice Abstract contract for campaign hooks with sane defaults for core operations
+///
+/// @author Coinbase (https://github.com/base/flywheel)
 abstract contract CampaignHooks {
-    /// @notice Address of the flywheel contract
+    /// @notice Flywheel contract address
     Flywheel public immutable FLYWHEEL;
 
     /// @notice Thrown when a function is not supported
     error Unsupported();
 
-    /// @notice Modifier to restrict function access to flywheel only
+    /// @notice Modifier to restrict function access to Flywheel only
     modifier onlyFlywheel() {
         require(msg.sender == address(FLYWHEEL));
         _;
@@ -21,34 +23,34 @@ abstract contract CampaignHooks {
 
     /// @notice Constructor for CampaignHooks
     ///
-    /// @param flywheel Address of the flywheel contract
+    /// @param flywheel Address of the Flywheel contract
     constructor(address flywheel) {
         FLYWHEEL = Flywheel(flywheel);
     }
 
-    /// @notice Creates a campaign in the hook
+    /// @notice Create a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param campaign Address of the campaign
     /// @param nonce Nonce used to create the campaign
     /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
     function onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) external onlyFlywheel {
         _onCreateCampaign(campaign, nonce, hookData);
     }
 
     /// @notice Processes immediate payouts for a campaign
     ///
+    /// @dev Only callable by the Flywheel contract
+    ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to be sent
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payouts Array of payouts to be sent
-    /// @return fees Array of fees to be sent immediately
-    /// @return sendFeesNow Whether to send fees now
-    ///
-    /// @dev Only callable by the flywheel contract
+    /// @return payouts Array of payouts to send
+    /// @return fees Array of fees to send or allocate
+    /// @return sendFeesNow Flag to send fees now
     function onSend(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
@@ -57,16 +59,16 @@ abstract contract CampaignHooks {
         return _onSend(sender, campaign, token, hookData);
     }
 
-    /// @notice Processes attribution for a campaign
+    /// @notice Allocate payouts to a key for a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to be distributed
+    /// @param token Address of the token to allocate
     /// @param hookData Data for the campaign hook
     ///
-    /// @return allocations Array of allocations to be distributed
-    ///
-    /// @dev Only callable by the flywheel contract
+    /// @return allocations Array of allocations to allocate
     function onAllocate(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
@@ -75,16 +77,16 @@ abstract contract CampaignHooks {
         return _onAllocate(sender, campaign, token, hookData);
     }
 
-    /// @notice Deallocates allocated rewards from a key for a campaign
+    /// @notice Deallocate payouts from a key for a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to deallocate from the key
     /// @param hookData Data for the campaign hook
     ///
-    /// @return allocations Array of allocations to be deallocated
-    ///
-    /// @dev Only callable by the flywheel contract
+    /// @return allocations Array of allocations to deallocate
     function onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
@@ -93,18 +95,18 @@ abstract contract CampaignHooks {
         return _onDeallocate(sender, campaign, token, hookData);
     }
 
-    /// @notice Distributes payouts for a campaign
+    /// @notice Distribute payouts from a key for a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to be distributed
+    /// @param token Address of the token to distribute
     /// @param hookData Data for the campaign hook
     ///
-    /// @return distributions Array of distributions to be distributed
-    /// @return fees Array of fees to be sent immediately
-    /// @return sendFeesNow Whether to send fees now
-    ///
-    /// @dev Only callable by the flywheel contract
+    /// @return distributions Array of distributions
+    /// @return fees Array of fees to send or allocate
+    /// @return sendFeesNow Flag to send fees now
     function onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
@@ -113,16 +115,16 @@ abstract contract CampaignHooks {
         return _onDistribute(sender, campaign, token, hookData);
     }
 
-    /// @notice Distribute fees earned from a campaign
+    /// @notice Distribute fees for a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to collect fees from
+    /// @param token Address of the token to distribute
     /// @param hookData Data for the campaign hook
     ///
-    /// @return distributions Array of distributions for the fees
-    ///
-    /// @dev Only callable by the flywheel contract
+    /// @return distributions Array of distributions
     function onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
@@ -131,16 +133,16 @@ abstract contract CampaignHooks {
         return _onDistributeFees(sender, campaign, token, hookData);
     }
 
-    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
+    /// @notice Withdraw funding from a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payout The payout to be withdrawn
-    ///
-    /// @dev Only callable by the flywheel contract
+    /// @return payout The token amount and recipient to withdraw
     function onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         external
         onlyFlywheel
@@ -149,14 +151,14 @@ abstract contract CampaignHooks {
         return _onWithdrawFunds(sender, campaign, token, hookData);
     }
 
-    /// @notice Updates the campaign status
+    /// @notice Update the campaign status
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param campaign Address of the campaign
     /// @param oldStatus Old status of the campaign
     /// @param newStatus New status of the campaign
     /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
     function onUpdateStatus(
         address sender,
         address campaign,
@@ -167,13 +169,13 @@ abstract contract CampaignHooks {
         _onUpdateStatus(sender, campaign, oldStatus, newStatus, hookData);
     }
 
-    /// @notice Updates the metadata for a campaign
+    /// @notice Update the metadata for a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Only callable by the flywheel contract
     function onUpdateMetadata(address sender, address campaign, bytes calldata hookData) external onlyFlywheel {
         _onUpdateMetadata(sender, campaign, hookData);
     }
@@ -184,7 +186,7 @@ abstract contract CampaignHooks {
     /// @return uri The URI for the campaign
     function campaignURI(address campaign) external view virtual returns (string memory uri);
 
-    /// @notice Creates a campaign in the hook
+    /// @notice Create a campaign
     ///
     /// @param campaign Address of the campaign
     /// @param nonce Nonce used to create the campaign
@@ -198,9 +200,9 @@ abstract contract CampaignHooks {
     /// @param token Address of the token to be sent
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payouts Array of payouts to be sent
-    /// @return fees Array of fees to be sent immediately
-    /// @return sendFeesNow Whether to send fees now
+    /// @return payouts Array of payouts to send
+    /// @return fees Array of fees to send or allocate
+    /// @return sendFeesNow Flag to send fees now
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
@@ -209,14 +211,14 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
-    /// @notice Processes attribution for a campaign
+    /// @notice Allocate payouts to a key for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to be distributed
+    /// @param token Address of the token to allocate
     /// @param hookData Data for the campaign hook
     ///
-    /// @return allocations Array of allocations to be distributed
+    /// @return allocations Array of allocations to allocate
     function _onAllocate(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
@@ -225,14 +227,14 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
-    /// @notice Deallocates allocated rewards from a key for a campaign
+    /// @notice Deallocate payouts from a key for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to deallocate from the key
     /// @param hookData Data for the campaign hook
     ///
-    /// @return allocations Array of allocations to be deallocated
+    /// @return allocations Array of allocations to deallocate
     function _onDeallocate(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
@@ -241,16 +243,16 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
-    /// @notice Distributes payouts for a campaign
+    /// @notice Distribute payouts from a key for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to be distributed
+    /// @param token Address of the token to distribute
     /// @param hookData Data for the campaign hook
     ///
-    /// @return distributions Array of distributions to be distributed
-    /// @return fees Array of fees to be sent immediately
-    /// @return sendFeesNow Whether to send fees now
+    /// @return distributions Array of distributions
+    /// @return fees Array of fees to send or allocate
+    /// @return sendFeesNow Flag to send fees now
     function _onDistribute(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
@@ -259,14 +261,14 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
-    /// @notice Distribute fees earned from a campaign
+    /// @notice Distribute fees for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    /// @param token Address of the token to collect fees from
+    /// @param token Address of the token to distribute
     /// @param hookData Data for the campaign hook
     ///
-    /// @return distributions Array of distributions for the fees
+    /// @return distributions Array of distributions
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
@@ -275,20 +277,22 @@ abstract contract CampaignHooks {
         revert Unsupported();
     }
 
-    /// @notice Allows sponsor to withdraw remaining tokens from a finalized campaign
+    /// @notice Withdraw funding from a campaign
+    ///
+    /// @dev Only callable by the Flywheel contract
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
     /// @param hookData Data for the campaign hook
     ///
-    /// @return payout The payout to be withdrawn
+    /// @return payout The token amount and recipient to withdraw
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         virtual
         returns (Flywheel.Payout memory payout);
 
-    /// @notice Updates the campaign status
+    /// @notice Update the campaign status
     ///
     /// @param campaign Address of the campaign
     /// @param oldStatus Old status of the campaign
@@ -302,7 +306,7 @@ abstract contract CampaignHooks {
         bytes calldata hookData
     ) internal virtual;
 
-    /// @notice Updates the metadata for a campaign
+    /// @notice Update the metadata for a campaign
     ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
