@@ -524,13 +524,14 @@ contract SendTest is FlywheelTest {
         Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee");
         bytes memory hookData = buildSendHookData(payouts, fees, true); // Try immediate fees
 
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
         uint256 initialFeeRecipientBalance = mockToken.balanceOf(feeRecipient);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
 
         // Fee should NOT be sent (insufficient funds)
-        assertEq(mockToken.balanceOf(recipient), amount);
+        assertEq(mockToken.balanceOf(recipient), initialRecipientBalance + amount);
         assertEq(mockToken.balanceOf(feeRecipient), initialFeeRecipientBalance);
         // Fee should be allocated instead when send fails
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), feeAmount);
