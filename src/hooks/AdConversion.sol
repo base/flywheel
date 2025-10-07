@@ -8,11 +8,11 @@ import {Flywheel} from "../Flywheel.sol";
 
 /// @title AdConversion
 ///
-/// @notice Attribution hook for processing ad conversions
+/// @notice Hooks for processing conversions on advertising campaigns
 ///
 /// @dev Handles both onchain and offchain conversion events
 ///
-/// @author Coinbase
+/// @author Coinbase (https://github.com/base/flywheel)
 contract AdConversion is CampaignHooks {
     // Conversion configuration structure
     struct ConversionConfig {
@@ -142,12 +142,23 @@ contract AdConversion is CampaignHooks {
     event AttributionDeadlineUpdated(address indexed campaign, uint48 deadline);
 
     /// @notice Emitted when a new conversion config is added to a campaign
+    ///
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config
+    /// @param config The conversion config
     event ConversionConfigAdded(address indexed campaign, uint16 indexed configId, ConversionConfig config);
 
     /// @notice Emitted when a conversion config is disabled
+    ///
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config
+    /// @param isActive Whether the conversion config is active
     event ConversionConfigStatusChanged(address indexed campaign, uint16 indexed configId, bool isActive);
 
     /// @notice Emitted when a publisher is added to campaign allowlist
+    ///
+    /// @param campaign Address of the campaign
+    /// @param publisherRefCode Referral code of the publisher
     event PublisherAddedToAllowlist(address indexed campaign, string publisherRefCode);
 
     /// @notice Emitted when an ad campaign is created
@@ -168,8 +179,7 @@ contract AdConversion is CampaignHooks {
     /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
 
-    /// @notice Emitted when an invalid fee BPS is provided
-    ///
+    /// @notice Error thrown when an invalid fee BPS is provided
     /// @param feeBps The invalid fee BPS
     error InvalidFeeBps(uint16 feeBps);
 
@@ -192,7 +202,6 @@ contract AdConversion is CampaignHooks {
     error TooManyConversionConfigs();
 
     /// @notice Error thrown when attribution deadline duration is invalid (if non-zero, must be in days precision)
-    ///
     /// @param duration The invalid duration
     error InvalidAttributionWindow(uint48 duration);
 
@@ -208,18 +217,19 @@ contract AdConversion is CampaignHooks {
 
     /// @notice Constructor for ConversionAttestation
     ///
-    /// @param flywheel Address of the protocol contract
-    /// @param builderCodes Address of the referral code registry contract
+    /// @param flywheel Address of the Flywheel contract
+    /// @param builderCodes Address of the BuilderCodes contract used for publishers
     constructor(address flywheel, address builderCodes) CampaignHooks(flywheel) {
         if (builderCodes == address(0)) revert ZeroAddress();
-
         BUILDER_CODES = BuilderCodes(builderCodes);
     }
 
     /// @notice Adds a referral code to the campaign allowlist
+    ///
+    /// @dev Only advertiser can add referral codes to allowlist
+    ///
     /// @param campaign Address of the campaign
     /// @param publisherRefCode Referral code to add
-    /// @dev Only advertiser can add referral codes to allowlist
     function addAllowedPublisherRefCode(address campaign, string memory publisherRefCode) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
@@ -238,9 +248,11 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @notice Adds a new conversion config to an existing campaign
+    ///
+    /// @dev Only advertiser can add conversion configs
+    ///
     /// @param campaign Address of the campaign
     /// @param config The conversion config input (without isActive)
-    /// @dev Only advertiser can add conversion configs
     function addConversionConfig(address campaign, ConversionConfigInput memory config) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
@@ -258,9 +270,11 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @notice Disables a conversion config for a campaign
+    ///
+    /// @dev Only advertiser can disable conversion configs
+    ///
     /// @param campaign Address of the campaign
     /// @param configId The ID of the conversion config to disable
-    /// @dev Only advertiser can disable conversion configs
     function disableConversionConfig(address campaign, uint16 configId) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
@@ -280,16 +294,20 @@ contract AdConversion is CampaignHooks {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Checks if a campaign has a publisher allowlist
+    ///
     /// @param campaign Address of the campaign
-    /// @return True if the campaign has an allowlist
+    ///
+    /// @return hasAllowlist True if the campaign has an allowlist
     function hasPublisherAllowlist(address campaign) external view returns (bool) {
         return state[campaign].hasAllowlist;
     }
 
     /// @notice Checks if a referral code is allowed for a campaign
+    ///
     /// @param campaign Address of the campaign
     /// @param publisherRefCode Referral code to check
-    /// @return True if the referral code is allowed (or if no allowlist exists)
+    ///
+    /// @return allowed True if the referral code is allowed (or if no allowlist exists)
     function isPublisherRefCodeAllowed(address campaign, string memory publisherRefCode) external view returns (bool) {
         // If no allowlist exists, all referral codes are allowed
         if (!state[campaign].hasAllowlist) return true;
@@ -297,9 +315,11 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @notice Gets a conversion config for a campaign
+    ///
     /// @param campaign Address of the campaign
     /// @param configId The ID of the conversion config
-    /// @return The conversion config
+    ///
+    /// @return config The conversion config
     function getConversionConfig(address campaign, uint16 configId) external view returns (ConversionConfig memory) {
         if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
         return conversionConfigs[campaign][configId];
@@ -509,7 +529,7 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
+    /// @dev Only advertisers on finalized campaigns are allowed to withdraw funds
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
         view
@@ -567,6 +587,7 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
+    /// @dev Only attribution provider or advertiser can update metadata
     function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal view override {
         if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
             revert Unauthorized();
