@@ -6,8 +6,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardTransient} from "solady/utils/ReentrancyGuardTransient.sol";
 
 import {Campaign} from "./Campaign.sol";
-import {Constants} from "./Constants.sol";
 import {CampaignHooks} from "./CampaignHooks.sol";
+import {Constants} from "./Constants.sol";
 
 /// @title Flywheel
 ///

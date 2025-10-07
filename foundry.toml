@@ -30,7 +30,7 @@ lint_on_build = false
 exclude_lints = [
     "mixed-case-variable", # *URI variable names
     "mixed-case-function", # *URI function names
-    "asm-keccak256", # EIP-712 hashing
+    "asm-keccak256", # Campaign create2 salt hashing
     "erc20-unchecked-transfer", # Tests
     "unused-import" # BuilderCodesTest imports for purpose of dependent tests
 ]

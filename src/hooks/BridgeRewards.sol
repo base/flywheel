@@ -25,7 +25,7 @@ contract BridgeRewards is CampaignHooks {
     BuilderCodes public immutable BUILDER_CODES;
 
     /// @notice URI prefix for the campaign
-    string public URI_PREFIX;
+    string public uriPrefix;
 
     /// @notice Error thrown to enforce only one campaign can be initialized
     error InvalidCampaignInitialization();
@@ -36,17 +36,17 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Hooks constructor
     ///
     /// @param flywheel Address of the flywheel contract
-    constructor(address flywheel, address builderCodes, string memory uriPrefix, uint16 maxFeeBasisPoints)
+    constructor(address flywheel, address builderCodes, string memory uriPrefix_, uint16 maxFeeBasisPoints)
         CampaignHooks(flywheel)
     {
         BUILDER_CODES = BuilderCodes(builderCodes);
-        URI_PREFIX = uriPrefix;
+        uriPrefix = uriPrefix_;
         MAX_FEE_BASIS_POINTS = maxFeeBasisPoints;
     }
 
     /// @inheritdoc CampaignHooks
     function campaignURI(address campaign) external view override returns (string memory uri) {
-        return bytes(URI_PREFIX).length > 0 ? string.concat(URI_PREFIX, LibString.toHexStringChecksummed(campaign)) : "";
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, LibString.toHexStringChecksummed(campaign)) : "";
     }
 
     /// @inheritdoc CampaignHooks
