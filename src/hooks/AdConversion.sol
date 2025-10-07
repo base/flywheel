@@ -215,7 +215,7 @@ contract AdConversion is CampaignHooks {
     ///                    External Functions                    ///
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Constructor for ConversionAttestation
+    /// @notice Constructor for AdConversion
     ///
     /// @param flywheel Address of the Flywheel contract
     /// @param builderCodes Address of the BuilderCodes contract used for publishers
