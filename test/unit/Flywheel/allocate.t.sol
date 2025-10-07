@@ -178,9 +178,7 @@ contract AllocateTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutAllocatedSig;
-            if (isFromFlywheel && isPayoutAllocated) {
-                revert("PayoutAllocated was emitted for zero-amount allocation");
-            }
+            if (isFromFlywheel && isPayoutAllocated) revert("PayoutAllocated was emitted for zero-amount allocation");
         }
     }
 
@@ -225,9 +223,7 @@ contract AllocateTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutAllocatedSig;
-            if (isFromFlywheel && isPayoutAllocated) {
-                payoutAllocatedCount++;
-            }
+            if (isFromFlywheel && isPayoutAllocated) payoutAllocatedCount++;
         }
         assertEq(payoutAllocatedCount, 1, "Should emit exactly one PayoutAllocated event for non-zero amount");
     }

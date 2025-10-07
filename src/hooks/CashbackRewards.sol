@@ -303,9 +303,7 @@ contract CashbackRewards is SimpleRewards {
             (ESCROW.getHash(paymentReward.paymentInfo), paymentReward.payoutAmount, paymentReward.paymentInfo.payer);
 
         // Check reward amount non-zero
-        if (amount == 0) {
-            return (paymentInfoHash, amount, payer, abi.encodeWithSelector(ZeroPayoutAmount.selector));
-        }
+        if (amount == 0) return (paymentInfoHash, amount, payer, abi.encodeWithSelector(ZeroPayoutAmount.selector));
 
         // Check the token matches the payment token
         if (paymentReward.paymentInfo.token != token) {

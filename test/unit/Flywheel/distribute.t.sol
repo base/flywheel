@@ -567,12 +567,8 @@ contract DistributeTest is FlywheelTest {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
             bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
-            if (isFromFlywheel && isFeeAllocated) {
-                revert("FeeAllocated was emitted for zero-amount fee");
-            }
-            if (isFromFlywheel && isFeeTransferFailed) {
-                revert("FeeTransferFailed was emitted for zero-amount fee");
-            }
+            if (isFromFlywheel && isFeeAllocated) revert("FeeAllocated was emitted for zero-amount fee");
+            if (isFromFlywheel && isFeeTransferFailed) revert("FeeTransferFailed was emitted for zero-amount fee");
         }
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
         assertEq(
@@ -759,9 +755,7 @@ contract DistributeTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDistributedSig;
-            if (isFromFlywheel && isPayoutDistributed) {
-                PayoutDistributedCount++;
-            }
+            if (isFromFlywheel && isPayoutDistributed) PayoutDistributedCount++;
         }
         assertEq(PayoutDistributedCount, 1, "Should emit exactly one PayoutDistributed event for non-zero amount");
     }

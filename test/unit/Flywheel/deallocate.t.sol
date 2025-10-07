@@ -355,9 +355,7 @@ contract DeallocateTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDeallocatedSig;
-            if (isFromFlywheel && isPayoutDeallocated) {
-                PayoutDeallocatedCount++;
-            }
+            if (isFromFlywheel && isPayoutDeallocated) PayoutDeallocatedCount++;
         }
         assertEq(PayoutDeallocatedCount, 1, "Should emit exactly one PayoutDeallocated event for non-zero amount");
     }

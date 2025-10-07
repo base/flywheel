@@ -37,3 +37,4 @@ exclude_lints = [
 
 [fmt]
 sort_imports = true
+single_line_statement_blocks = "preserve"

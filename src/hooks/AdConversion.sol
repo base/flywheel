@@ -304,9 +304,7 @@ contract AdConversion is CampaignHooks {
 
             // Validating that the config exists
             if (configId != 0) {
-                if (configId > conversionConfigCount[campaign]) {
-                    revert InvalidConversionConfigId();
-                }
+                if (configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
 
                 ConversionConfig memory config = conversionConfigs[campaign][configId];
 
@@ -424,19 +422,13 @@ contract AdConversion is CampaignHooks {
         address advertiser = state[campaign].advertiser;
 
         // Only attribution provider and advertiser can update status
-        if (sender != attributionProvider && sender != advertiser) {
-            revert Unauthorized();
-        }
+        if (sender != attributionProvider && sender != advertiser) revert Unauthorized();
 
         // Advertiser constraints from INACTIVE: only INACTIVE → FINALIZED allowed
         if (oldStatus == Flywheel.CampaignStatus.INACTIVE) {
-            if (sender == advertiser && newStatus != Flywheel.CampaignStatus.FINALIZED) {
-                revert Unauthorized();
-            }
+            if (sender == advertiser && newStatus != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
             // Attribution provider constraint: cannot do INACTIVE → FINALIZING/FINALIZED (fund recovery is advertiser-only)
-            if (sender == attributionProvider && (newStatus != Flywheel.CampaignStatus.ACTIVE)) {
-                revert Unauthorized();
-            }
+            if (sender == attributionProvider && (newStatus != Flywheel.CampaignStatus.ACTIVE)) revert Unauthorized();
         }
 
         // Security restriction: No one can pause active campaigns (ACTIVE → INACTIVE)
@@ -446,9 +438,7 @@ contract AdConversion is CampaignHooks {
 
         // Attribution window protection: Advertiser cannot bypass FINALIZING (ACTIVE → FINALIZED) but Attribution Provider can
         if (oldStatus == Flywheel.CampaignStatus.ACTIVE && newStatus == Flywheel.CampaignStatus.FINALIZED) {
-            if (sender == advertiser) {
-                revert Unauthorized();
-            }
+            if (sender == advertiser) revert Unauthorized();
         }
 
         // Set attribution deadline when entering FINALIZING
@@ -459,9 +449,7 @@ contract AdConversion is CampaignHooks {
 
         // Attribution deadline enforcement for FINALIZING → FINALIZED for Advertiser
         if (oldStatus == Flywheel.CampaignStatus.FINALIZING && newStatus == Flywheel.CampaignStatus.FINALIZED) {
-            if (sender == advertiser && state[campaign].attributionDeadline > block.timestamp) {
-                revert Unauthorized();
-            }
+            if (sender == advertiser && state[campaign].attributionDeadline > block.timestamp) revert Unauthorized();
         }
     }
 
@@ -480,19 +468,13 @@ contract AdConversion is CampaignHooks {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
         // Validate referral code exists in registry
-        if (!BUILDER_CODES.isRegistered(publisherRefCode)) {
-            revert InvalidPublisherRefCode();
-        }
+        if (!BUILDER_CODES.isRegistered(publisherRefCode)) revert InvalidPublisherRefCode();
 
         // @notice: if the allowlist is not enabled during campaign creation, we revert
-        if (!state[campaign].hasAllowlist) {
-            revert Unauthorized();
-        }
+        if (!state[campaign].hasAllowlist) revert Unauthorized();
 
         // Check if already allowed to avoid redundant operations
-        if (allowedPublishers[campaign][publisherRefCode]) {
-            return; // Already allowed, no-op
-        }
+        if (allowedPublishers[campaign][publisherRefCode]) return; // Already allowed, no-op
 
         // Add to mapping
         allowedPublishers[campaign][publisherRefCode] = true;
@@ -526,9 +508,7 @@ contract AdConversion is CampaignHooks {
     function disableConversionConfig(address campaign, uint16 configId) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
-        if (configId == 0 || configId > conversionConfigCount[campaign]) {
-            revert InvalidConversionConfigId();
-        }
+        if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
 
         // Check if config is already disabled
         if (!conversionConfigs[campaign][configId].isActive) revert ConversionConfigDisabled();
@@ -552,9 +532,7 @@ contract AdConversion is CampaignHooks {
     /// @return True if the referral code is allowed (or if no allowlist exists)
     function isPublisherRefCodeAllowed(address campaign, string memory publisherRefCode) external view returns (bool) {
         // If no allowlist exists, all referral codes are allowed
-        if (!state[campaign].hasAllowlist) {
-            return true;
-        }
+        if (!state[campaign].hasAllowlist) return true;
         return allowedPublishers[campaign][publisherRefCode];
     }
 
@@ -563,9 +541,7 @@ contract AdConversion is CampaignHooks {
     /// @param configId The ID of the conversion config
     /// @return The conversion config
     function getConversionConfig(address campaign, uint16 configId) external view returns (ConversionConfig memory) {
-        if (configId == 0 || configId > conversionConfigCount[campaign]) {
-            revert InvalidConversionConfigId();
-        }
+        if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
         return conversionConfigs[campaign][configId];
     }
 }

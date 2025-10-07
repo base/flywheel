@@ -180,9 +180,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         while (value != 0) {
             digits -= 1;
             buffer[digits] = bytes1(uint8(48 + uint256(value % 16)));
-            if (uint8(buffer[digits]) > 57) {
-                buffer[digits] = bytes1(uint8(buffer[digits]) + 39);
-            }
+            if (uint8(buffer[digits]) > 57) buffer[digits] = bytes1(uint8(buffer[digits]) + 39);
             value /= 16;
         }
         return string(buffer);

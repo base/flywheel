@@ -332,9 +332,7 @@ contract DistributeFeesTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == FeeDistributedSig;
-            if (isFromFlywheel && isFeeDistributed) {
-                FeeDistributedCount++;
-            }
+            if (isFromFlywheel && isFeeDistributed) FeeDistributedCount++;
         }
         assertEq(FeeDistributedCount, 1, "Should emit exactly one FeeDistributed event for non-zero amount");
     }

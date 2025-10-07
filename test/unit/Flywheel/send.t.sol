@@ -313,9 +313,7 @@ contract SendTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutSent = logs[i].topics.length > 0 && logs[i].topics[0] == payoutSentSig;
-            if (isFromFlywheel && isPayoutSent) {
-                revert("PayoutSent was emitted for zero-amount payout");
-            }
+            if (isFromFlywheel && isPayoutSent) revert("PayoutSent was emitted for zero-amount payout");
         }
     }
 
@@ -365,9 +363,7 @@ contract SendTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutSent = logs[i].topics.length > 0 && logs[i].topics[0] == payoutSentSig;
-            if (isFromFlywheel && isPayoutSent) {
-                payoutSentCount++;
-            }
+            if (isFromFlywheel && isPayoutSent) payoutSentCount++;
         }
         assertEq(payoutSentCount, 1, "Should emit exactly one PayoutSent event for non-zero amount");
         assertEq(mockToken.balanceOf(campaign), 0);
@@ -587,12 +583,8 @@ contract SendTest is FlywheelTest {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
             bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
-            if (isFromFlywheel && isFeeAllocated) {
-                revert("FeeAllocated was emitted for zero-amount fee");
-            }
-            if (isFromFlywheel && isFeeTransferFailed) {
-                revert("FeeTransferFailed was emitted for zero-amount fee");
-            }
+            if (isFromFlywheel && isFeeAllocated) revert("FeeAllocated was emitted for zero-amount fee");
+            if (isFromFlywheel && isFeeTransferFailed) revert("FeeTransferFailed was emitted for zero-amount fee");
         }
     }
 

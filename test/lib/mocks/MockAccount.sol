@@ -48,9 +48,7 @@ contract MockAccount is IERC1271 {
         override
         returns (bytes4 magicValue)
     {
-        if (SignatureCheckerLib.isValidSignatureNow(owner, hash, signature)) {
-            return MAGICVALUE;
-        }
+        if (SignatureCheckerLib.isValidSignatureNow(owner, hash, signature)) return MAGICVALUE;
         return bytes4(0);
     }
 }

@@ -262,9 +262,7 @@ abstract contract AdConversionTest is FlywheelTest {
         }
 
         // Verify results
-        if (expectedRecipient != address(0)) {
-            _assertTokenBalance(expectedRecipient, expectedPayout);
-        }
+        if (expectedRecipient != address(0)) _assertTokenBalance(expectedRecipient, expectedPayout);
         _assertFeeAllocation(campaign, ATTRIBUTION_PROVIDER, expectedFee);
     }
 
@@ -300,9 +298,7 @@ abstract contract AdConversionTest is FlywheelTest {
         }
 
         // Verify results
-        if (expectedRecipient != address(0)) {
-            _assertTokenBalance(expectedRecipient, expectedPayout);
-        }
+        if (expectedRecipient != address(0)) _assertTokenBalance(expectedRecipient, expectedPayout);
         _assertFeeAllocation(campaign, ATTRIBUTION_PROVIDER, expectedFee);
     }
 
