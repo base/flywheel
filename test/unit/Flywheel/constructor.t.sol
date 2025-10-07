@@ -14,16 +14,16 @@ contract ConstructorTest is Test {
         Flywheel flywheel = new Flywheel();
 
         // Verify that campaignImplementation is set and is not zero address
-        address impl = flywheel.campaignImplementation();
+        address impl = flywheel.CAMPAIGN_IMPLEMENTATION();
         assertTrue(impl != address(0), "Campaign implementation should not be zero address");
 
         // Verify that the implementation has code (is actually deployed)
         assertTrue(impl.code.length > 0, "Campaign implementation should have code");
 
         // Verify that the implementation is actually a Campaign contract
-        // We can check this by calling the flywheel() function
-        (bool success, bytes memory data) = impl.staticcall(abi.encodeWithSignature("flywheel()"));
-        assertTrue(success, "Implementation should have flywheel() function");
+        // We can check this by calling the FLYWHEEL() function
+        (bool success, bytes memory data) = impl.staticcall(abi.encodeWithSignature("FLYWHEEL()"));
+        assertTrue(success, "Implementation should have FLYWHEEL() function");
         address returnedFlywheel = abi.decode(data, (address));
         assertEq(returnedFlywheel, address(flywheel), "Campaign implementation should reference the flywheel");
     }

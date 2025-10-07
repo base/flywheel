@@ -99,7 +99,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
+        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
         bytes memory hookData = abi.encode(user, code, feeBps);
@@ -171,7 +171,7 @@ contract BridgeRewardsTest is Test {
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         // Use fee higher than maximum (2%)
-        uint16 maxFeeBps = bridgeRewards.maxFeeBasisPoints();
+        uint16 maxFeeBps = bridgeRewards.MAX_FEE_BASIS_POINTS();
         vm.assume(feeBps > maxFeeBps);
         vm.assume(bridgedAmount < type(uint256).max / maxFeeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
@@ -205,7 +205,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
+        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
         vm.assume(bridgedAmount < type(uint256).max / 2 / feeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
         bytes memory hookData = abi.encode(user, code, feeBps);
@@ -317,7 +317,7 @@ contract BridgeRewardsTest is Test {
 
         // Prepare hook data (user, code, fee)
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgeRewards.maxFeeBasisPoints());
+        vm.assume(feeBps <= bridgeRewards.MAX_FEE_BASIS_POINTS());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
         bytes memory hookData = abi.encode(user, code, feeBps);

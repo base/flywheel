@@ -59,7 +59,7 @@ contract CampaignHooksTest is Test {
 
     /// @notice Test constructor sets flywheel correctly
     function test_constructor_setsFlywheel() public view {
-        assertEq(address(hooks.flywheel()), address(flywheel));
+        assertEq(address(hooks.FLYWHEEL()), address(flywheel));
     }
 
     /// @notice Test onCreateCampaign can be called by flywheel
@@ -205,6 +205,6 @@ contract CampaignHooksTest is Test {
     function test_constructor_withZeroAddress() public {
         // Should be able to create with zero address (no validation in constructor)
         TestCampaignHooks hooksWithZero = new TestCampaignHooks(address(0));
-        assertEq(address(hooksWithZero.flywheel()), address(0));
+        assertEq(address(hooksWithZero.FLYWHEEL()), address(0));
     }
 }
