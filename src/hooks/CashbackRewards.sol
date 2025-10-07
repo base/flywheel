@@ -12,11 +12,11 @@ import {SimpleRewards} from "./SimpleRewards.sol";
 /// @notice Reward buyers for their purchases made with the Commerce Payments Protocol (https://github.com/base/commerce-payments)
 ///
 /// @dev Rewards must be made in the same token as the original payment token (cashback)
-/// @dev Rewards can be made in any amount (supports %, fixed, etc.)
-/// @dev Maximum reward percentage can be optionally configured per campaign
+/// @dev Rewards can be made in any amount (supports %-based, fixed, etc.)
 /// @dev Rewards can be made on any payment (supports custom filtering for platforms, wallets, merchants, etc.)
+/// @dev Rewards can be capped by a maximum reward percentage configurable per campaign
 ///
-/// @author Coinbase
+/// @author Coinbase (https://github.com/base/flywheel)
 contract CashbackRewards is SimpleRewards {
     /// @notice Operation types for reward validation
     enum RewardOperation {
