@@ -13,21 +13,6 @@ contract UpdateMetadataTest is FlywheelTest {
         setUpFlywheelBase();
     }
 
-    /// @dev Expects InvalidCampaignStatus
-    /// @dev Reverts when campaign is FINALIZED
-    /// @param hookData Arbitrary hook data forwarded to hooks.onUpdateMetadata
-    function test_reverts_whenFinalized(bytes memory hookData) public {
-        // Move campaign to FINALIZED state
-        activateCampaign(campaign, manager);
-        finalizeCampaign(campaign, manager);
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
-
-        // Try to update metadata - should fail
-        vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        vm.prank(manager);
-        flywheel.updateMetadata(campaign, hookData);
-    }
-
     /// @dev Verifies updateMetadata succeeds and forwards to hooks.onUpdateMetadata
     /// @dev Expects ContractURIUpdated event from hook
     /// @param newURI New campaign URI to apply via hook

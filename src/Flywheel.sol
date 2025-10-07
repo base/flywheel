@@ -543,10 +543,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param campaign Address of the campaign
     /// @param hookData Data for the campaign hook
     function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant onlyExists(campaign) {
-        // Check campaign is not finalized
-        if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
-
-        // Delegate more restrictions to the hooks contract
+        // Delegate restrictions to the hooks contract
         _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
 
         // Emit the metadata updated events
