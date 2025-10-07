@@ -20,7 +20,7 @@ import {SimpleRewards} from "./SimpleRewards.sol";
 contract CashbackRewards is SimpleRewards {
     /// @notice Operation types for reward validation
     enum RewardOperation {
-        REWARD,
+        SEND,
         ALLOCATE,
         DEALLOCATE,
         DISTRIBUTE
@@ -112,11 +112,11 @@ contract CashbackRewards is SimpleRewards {
         for (uint256 i = 0; i < inputLen; i++) {
             // Validate the payment reward
             (bytes32 paymentInfoHash, uint120 amount, address payer, bytes memory err) =
-                _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.REWARD);
+                _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.SEND);
 
             // Skip this reward if there was a non-reverted error
             if (err.length > 0) {
-                _revertOrEmitError(revertOnError, paymentInfoHash, amount, RewardOperation.REWARD, err);
+                _revertOrEmitError(revertOnError, paymentInfoHash, amount, RewardOperation.SEND, err);
                 continue;
             }
 
