@@ -99,22 +99,6 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param hooks Address of the campaign hooks contract
     event CampaignCreated(address indexed campaign, address hooks);
 
-    /// @notice Emitted when a campaign's metadata is updated
-    ///
-    /// @param campaign Address of the campaign
-    /// @param uri The URI for the campaign
-    event CampaignMetadataUpdated(address indexed campaign, string uri);
-
-    /// @notice Emitted when a campaign's status is updated
-    ///
-    /// @param campaign Address of the campaign
-    /// @param sender Address that triggered the status change
-    /// @param oldStatus Previous status of the campaign
-    /// @param newStatus New status of the campaign
-    event CampaignStatusUpdated(
-        address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
-    );
-
     /// @notice Emitted when a payout is sent to a recipient
     ///
     /// @param campaign Address of the campaign
@@ -206,6 +190,22 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param amount Amount of tokens withdrawn
     /// @param extraData Extra data for the payout to attach in events
     event FundsWithdrawn(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
+
+    /// @notice Emitted when a campaign's status is updated
+    ///
+    /// @param campaign Address of the campaign
+    /// @param sender Address that triggered the status change
+    /// @param oldStatus Previous status of the campaign
+    /// @param newStatus New status of the campaign
+    event CampaignStatusUpdated(
+        address indexed campaign, address sender, CampaignStatus oldStatus, CampaignStatus newStatus
+    );
+
+    /// @notice Emitted when a campaign's metadata is updated
+    ///
+    /// @param campaign Address of the campaign
+    /// @param uri The URI for the campaign
+    event CampaignMetadataUpdated(address indexed campaign, string uri);
 
     ////////////////////////////////////////////////////////////////
     ///                          Errors                          ///
@@ -510,6 +510,10 @@ contract Flywheel is ReentrancyGuardTransient {
         emit CampaignMetadataUpdated(campaign, campaignURI(campaign));
         Campaign(payable(campaign)).updateContractURI();
     }
+
+    ////////////////////////////////////////////////////////////////
+    ///                 External View Functions                  ///
+    ////////////////////////////////////////////////////////////////
 
     /// @notice Returns the address of a campaign given its creation parameters
     ///
