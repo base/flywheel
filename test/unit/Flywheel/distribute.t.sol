@@ -601,6 +601,7 @@ contract DistributeTest is FlywheelTest {
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(feeRecipient1 != campaign); // Avoid campaign as fee recipient
         vm.assume(feeRecipient2 != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient1 != feeRecipient2); // Avoid duplicate fee recipients
         amount = boundToValidAmount(amount);
         uint16 feeBpBounded = boundToValidFeeBp(feeBp);
 
