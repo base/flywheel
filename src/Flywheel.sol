@@ -70,6 +70,10 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @notice Implementation for Campaign contracts
     address public immutable CAMPAIGN_IMPLEMENTATION;
 
+    ////////////////////////////////////////////////////////////////
+    ///                         Storage                          ///
+    ////////////////////////////////////////////////////////////////
+
     /// @notice Allocated payouts that are pending distribution
     mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedPayout;
 
@@ -84,6 +88,10 @@ contract Flywheel is ReentrancyGuardTransient {
 
     /// @notice Stored campaign information
     mapping(address campaign => CampaignInfo) internal _campaigns;
+
+    ////////////////////////////////////////////////////////////////
+    ///                          Events                          ///
+    ////////////////////////////////////////////////////////////////
 
     /// @notice Emitted when a new campaign is created
     ///
@@ -199,6 +207,10 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param extraData Extra data for the payout to attach in events
     event FundsWithdrawn(address indexed campaign, address token, address recipient, uint256 amount, bytes extraData);
 
+    ////////////////////////////////////////////////////////////////
+    ///                          Errors                          ///
+    ////////////////////////////////////////////////////////////////
+
     /// @notice Thrown when campaign does not exist
     error CampaignDoesNotExist();
 
@@ -218,6 +230,10 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @notice Thrown when campaign does not have enough balance for an operation
     error InsufficientCampaignFunds();
 
+    ////////////////////////////////////////////////////////////////
+    ///                        Modifiers                         ///
+    ////////////////////////////////////////////////////////////////
+
     /// @notice Check if a campaign exists
     /// @param campaign Address of the campaign
     modifier onlyExists(address campaign) {
@@ -232,6 +248,10 @@ contract Flywheel is ReentrancyGuardTransient {
         if (status == CampaignStatus.INACTIVE || status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _;
     }
+
+    ////////////////////////////////////////////////////////////////
+    ///                    External Functions                    ///
+    ////////////////////////////////////////////////////////////////
 
     /// @notice Constructor for the Flywheel contract
     /// @dev Deploys the Campaign implementation for cloning
@@ -541,6 +561,10 @@ contract Flywheel is ReentrancyGuardTransient {
     function campaignURI(address campaign) public view onlyExists(campaign) returns (string memory uri) {
         return _campaigns[campaign].hooks.campaignURI(campaign);
     }
+
+    ////////////////////////////////////////////////////////////////
+    ///                    Internal Functions                    ///
+    ////////////////////////////////////////////////////////////////
 
     /// @notice Processes fees, either sending or allocating them to a key
     ///
