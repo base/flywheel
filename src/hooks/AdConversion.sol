@@ -91,7 +91,7 @@ contract AdConversion is CampaignHooks {
     uint16 public constant MAX_CONVERSION_CONFIGS = type(uint16).max;
 
     /// @notice Address of the publisher registry contract
-    BuilderCodes public immutable publisherCodesRegistry;
+    BuilderCodes public immutable BUILDER_CODES;
 
     /// @notice Mapping of campaign addresses to finalization information
     mapping(address campaign => CampaignState) public state;
@@ -188,12 +188,12 @@ contract AdConversion is CampaignHooks {
 
     /// @notice Constructor for ConversionAttestation
     ///
-    /// @param protocol_ Address of the protocol contract
-    /// @param publisherCodesRegistry_ Address of the referral code registry contract
-    constructor(address protocol_, address publisherCodesRegistry_) CampaignHooks(protocol_) {
-        if (publisherCodesRegistry_ == address(0)) revert ZeroAddress();
+    /// @param flywheel Address of the protocol contract
+    /// @param builderCodes Address of the referral code registry contract
+    constructor(address flywheel, address builderCodes) CampaignHooks(flywheel) {
+        if (builderCodes == address(0)) revert ZeroAddress();
 
-        publisherCodesRegistry = BuilderCodes(publisherCodesRegistry_);
+        BUILDER_CODES = BuilderCodes(builderCodes);
     }
 
     /// @inheritdoc CampaignHooks
@@ -287,7 +287,7 @@ contract AdConversion is CampaignHooks {
         for (uint256 i = 0; i < count; i++) {
             // Validate referral code exists in the registry
             string memory publisherRefCode = attributions[i].conversion.publisherRefCode;
-            if (bytes(publisherRefCode).length != 0 && !publisherCodesRegistry.isRegistered(publisherRefCode)) {
+            if (bytes(publisherRefCode).length != 0 && !BUILDER_CODES.isRegistered(publisherRefCode)) {
                 revert InvalidPublisherRefCode();
             }
 
@@ -322,7 +322,7 @@ contract AdConversion is CampaignHooks {
 
             // If the recipient is the zero address, we use the referral code registry to get the payout address
             if (isPublisherPayout) {
-                payoutAddress = publisherCodesRegistry.payoutAddress(publisherRefCode);
+                payoutAddress = BUILDER_CODES.payoutAddress(publisherRefCode);
                 attributions[i].conversion.payoutRecipient = payoutAddress;
             }
 
@@ -389,7 +389,7 @@ contract AdConversion is CampaignHooks {
         returns (Flywheel.Payout memory payout)
     {
         if (sender != state[campaign].advertiser) revert Unauthorized();
-        if (flywheel.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+        if (FLYWHEEL.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
 
         (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
         return (Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}));
@@ -404,7 +404,7 @@ contract AdConversion is CampaignHooks {
     {
         if (sender != state[campaign].attributionProvider) revert Unauthorized();
         bytes32 key = bytes32(bytes20(sender));
-        uint256 amount = flywheel.allocatedFee(campaign, token, key);
+        uint256 amount = FLYWHEEL.allocatedFee(campaign, token, key);
         address recipient = abi.decode(hookData, (address));
 
         distributions = new Flywheel.Distribution[](1);
@@ -480,7 +480,7 @@ contract AdConversion is CampaignHooks {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
         // Validate referral code exists in registry
-        if (!publisherCodesRegistry.isRegistered(publisherRefCode)) {
+        if (!BUILDER_CODES.isRegistered(publisherRefCode)) {
             revert InvalidPublisherRefCode();
         }
 

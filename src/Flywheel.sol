@@ -6,8 +6,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardTransient} from "solady/utils/ReentrancyGuardTransient.sol";
 
 import {Campaign} from "./Campaign.sol";
-import {CampaignHooks} from "./CampaignHooks.sol";
 import {Constants} from "./Constants.sol";
+import {CampaignHooks} from "./CampaignHooks.sol";
 
 /// @title Flywheel
 ///
@@ -68,7 +68,7 @@ contract Flywheel is ReentrancyGuardTransient {
     }
 
     /// @notice Implementation for Campaign contracts
-    address public immutable campaignImplementation;
+    address public immutable CAMPAIGN_IMPLEMENTATION;
 
     /// @notice Allocated rewards that are pending distribution
     mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedPayout;
@@ -236,7 +236,7 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @dev Deploys a new Campaign implementation for cloning
     constructor() {
-        campaignImplementation = address(new Campaign());
+        CAMPAIGN_IMPLEMENTATION = address(new Campaign());
     }
 
     /// @notice Creates a new campaign
@@ -260,7 +260,7 @@ contract Flywheel is ReentrancyGuardTransient {
         campaign = predictCampaignAddress(hooks, nonce, hookData);
         if (campaign.code.length > 0) return campaign;
 
-        campaign = Clones.cloneDeterministic(campaignImplementation, _campaignSalt(hooks, nonce, hookData));
+        campaign = Clones.cloneDeterministic(CAMPAIGN_IMPLEMENTATION, _campaignSalt(hooks, nonce, hookData));
         _campaigns[campaign] = CampaignInfo({status: CampaignStatus.INACTIVE, hooks: CampaignHooks(hooks)});
         emit CampaignCreated(campaign, hooks);
         CampaignHooks(hooks).onCreateCampaign(campaign, nonce, hookData);
@@ -493,7 +493,7 @@ contract Flywheel is ReentrancyGuardTransient {
         view
         returns (address campaign)
     {
-        return Clones.predictDeterministicAddress(campaignImplementation, _campaignSalt(hooks, nonce, hookData));
+        return Clones.predictDeterministicAddress(CAMPAIGN_IMPLEMENTATION, _campaignSalt(hooks, nonce, hookData));
     }
 
     /// @notice Checks if a campaign exists

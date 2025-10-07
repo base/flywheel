@@ -13,7 +13,7 @@ import {Constants} from "./Constants.sol";
 /// @dev Deployed on demand by protocol via clones
 contract Campaign {
     /// @notice Address that created this token store
-    address public immutable flywheel;
+    address public immutable FLYWHEEL;
 
     /// @notice Emitted when the contract URI is updated
     event ContractURIUpdated();
@@ -23,7 +23,7 @@ contract Campaign {
 
     /// @notice Constructor
     constructor() {
-        flywheel = msg.sender;
+        FLYWHEEL = msg.sender;
     }
 
     /// @notice Allow receiving native token
@@ -37,7 +37,7 @@ contract Campaign {
     ///
     /// @return success True if the transfer was successful
     function sendTokens(address token, address recipient, uint256 amount) external returns (bool success) {
-        if (msg.sender != flywheel) revert OnlyFlywheel();
+        if (msg.sender != FLYWHEEL) revert OnlyFlywheel();
         if (token == Constants.NATIVE_TOKEN) {
             (success,) = payable(recipient).call{value: amount}("");
         } else {
@@ -47,7 +47,7 @@ contract Campaign {
 
     /// @notice Updates the metadata for the contract
     function updateContractURI() external {
-        if (msg.sender != flywheel) revert OnlyFlywheel();
+        if (msg.sender != FLYWHEEL) revert OnlyFlywheel();
         emit ContractURIUpdated();
     }
 
@@ -55,6 +55,6 @@ contract Campaign {
     ///
     /// @return uri The URI for the contract
     function contractURI() external view returns (string memory uri) {
-        return Flywheel(flywheel).campaignURI(address(this));
+        return Flywheel(FLYWHEEL).campaignURI(address(this));
     }
 }

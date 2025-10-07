@@ -46,7 +46,7 @@ contract CashbackRewards is SimpleRewards {
     uint256 public constant BASIS_POINTS_100_PERCENT = 10_000;
 
     /// @notice The escrow contract to track payment states and calculate payment hash
-    AuthCaptureEscrow public immutable escrow;
+    AuthCaptureEscrow public immutable ESCROW;
 
     /// @notice Tracks an optional maximum reward percentage per campaign in basis points (10_000 = 100%)
     mapping(address campaign => uint256 maxRewardBasisPoints) public maxRewardBasisPoints;
@@ -81,10 +81,10 @@ contract CashbackRewards is SimpleRewards {
 
     /// @notice Constructor
     ///
-    /// @param flywheel_ The Flywheel core protocol contract address
-    /// @param escrow_ The AuthCaptureEscrow contract address
-    constructor(address flywheel_, address escrow_) SimpleRewards(flywheel_) {
-        escrow = AuthCaptureEscrow(escrow_);
+    /// @param flywheel The Flywheel core protocol contract address
+    /// @param escrow The AuthCaptureEscrow contract address
+    constructor(address flywheel, address escrow) SimpleRewards(flywheel) {
+        ESCROW = AuthCaptureEscrow(escrow);
     }
 
     /// @inheritdoc CampaignHooks
@@ -224,11 +224,7 @@ contract CashbackRewards is SimpleRewards {
         internal
         override
         onlyManager(sender, campaign)
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            Flywheel.Distribution[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
@@ -304,7 +300,7 @@ contract CashbackRewards is SimpleRewards {
         RewardOperation operation
     ) internal view returns (bytes32 paymentInfoHash, uint120 amount, address payer, bytes memory err) {
         (paymentInfoHash, amount, payer) =
-            (escrow.getHash(paymentReward.paymentInfo), paymentReward.payoutAmount, paymentReward.paymentInfo.payer);
+            (ESCROW.getHash(paymentReward.paymentInfo), paymentReward.payoutAmount, paymentReward.paymentInfo.payer);
 
         // Check reward amount non-zero
         if (amount == 0) {
@@ -318,7 +314,7 @@ contract CashbackRewards is SimpleRewards {
 
         // Check payment has been collected
         (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
-            escrow.paymentState(paymentInfoHash);
+            ESCROW.paymentState(paymentInfoHash);
         if (!hasCollectedPayment) {
             return (paymentInfoHash, amount, payer, abi.encodeWithSelector(PaymentNotCollected.selector));
         }

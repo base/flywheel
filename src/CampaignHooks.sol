@@ -8,22 +8,22 @@ import {Flywheel} from "./Flywheel.sol";
 /// @notice Abstract contract for campaign hooks that process campaign attributions
 abstract contract CampaignHooks {
     /// @notice Address of the flywheel contract
-    Flywheel public immutable flywheel;
+    Flywheel public immutable FLYWHEEL;
 
     /// @notice Thrown when a function is not supported
     error Unsupported();
 
     /// @notice Modifier to restrict function access to flywheel only
     modifier onlyFlywheel() {
-        require(msg.sender == address(flywheel));
+        require(msg.sender == address(FLYWHEEL));
         _;
     }
 
     /// @notice Constructor for CampaignHooks
     ///
-    /// @param flywheel_ Address of the flywheel contract
-    constructor(address flywheel_) {
-        flywheel = Flywheel(flywheel_);
+    /// @param flywheel Address of the flywheel contract
+    constructor(address flywheel) {
+        FLYWHEEL = Flywheel(flywheel);
     }
 
     /// @notice Creates a campaign in the hook
