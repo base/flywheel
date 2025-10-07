@@ -236,7 +236,7 @@ contract AdConversion is CampaignHooks {
         // Validate referral code exists in registry
         if (!BUILDER_CODES.isRegistered(publisherRefCode)) revert InvalidPublisherRefCode();
 
-        // @notice: if the allowlist is not enabled during campaign creation, we revert
+        // Check if allowlist is enabled for campaign
         if (!state[campaign].hasAllowlist) revert Unauthorized();
 
         // Check if already allowed to avoid redundant operations
@@ -256,28 +256,31 @@ contract AdConversion is CampaignHooks {
     function addConversionConfig(address campaign, ConversionConfigInput memory config) external {
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
+        // Check if we have reached the maximum number of conversion configs
         uint16 currentCount = conversionConfigCount[campaign];
         if (currentCount >= type(uint16).max) revert TooManyConversionConfigs();
 
-        // Add the new config - always set isActive to true
+        // Add the new config with `isActive` set to true
         uint16 newConfigId = currentCount + 1;
         ConversionConfig memory activeConfig =
             ConversionConfig({isActive: true, isEventOnchain: config.isEventOnchain, metadataURI: config.metadataURI});
         conversionConfigs[campaign][newConfigId] = activeConfig;
         conversionConfigCount[campaign] = newConfigId;
-
         emit ConversionConfigAdded(campaign, newConfigId, activeConfig);
     }
 
     /// @notice Disables a conversion config for a campaign
     ///
     /// @dev Only advertiser can disable conversion configs
+    /// @dev Disabled configs cannot be re-enabled
     ///
     /// @param campaign Address of the campaign
     /// @param configId The ID of the conversion config to disable
     function disableConversionConfig(address campaign, uint16 configId) external {
+        // Check if the sender is the advertiser
         if (msg.sender != state[campaign].advertiser) revert Unauthorized();
 
+        // Check if the config ID is valid
         if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
 
         // Check if config is already disabled
@@ -285,7 +288,6 @@ contract AdConversion is CampaignHooks {
 
         // Disable the config
         conversionConfigs[campaign][configId].isActive = false;
-
         emit ConversionConfigStatusChanged(campaign, configId, false);
     }
 
@@ -484,7 +486,6 @@ contract AdConversion is CampaignHooks {
 
             // Emit onchain conversion if logBytes is present, else emit offchain conversion
             Conversion memory conversion = attributions[i].conversion;
-
             if (logBytes.length > 0) {
                 emit OnchainConversionProcessed(campaign, isPublisherPayout, conversion, abi.decode(logBytes, (Log)));
             } else {
@@ -518,7 +519,9 @@ contract AdConversion is CampaignHooks {
         override
         returns (Flywheel.Distribution[] memory distributions)
     {
+        // Check if the sender is the attribution provider
         if (sender != state[campaign].attributionProvider) revert Unauthorized();
+
         bytes32 key = bytes32(bytes20(sender));
         uint256 amount = FLYWHEEL.allocatedFee(campaign, token, key);
         address recipient = abi.decode(hookData, (address));
@@ -536,7 +539,10 @@ contract AdConversion is CampaignHooks {
         override
         returns (Flywheel.Payout memory payout)
     {
+        // Check if the sender is the advertiser
         if (sender != state[campaign].advertiser) revert Unauthorized();
+
+        // Check if the campaign is finalized
         if (FLYWHEEL.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
 
         (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
