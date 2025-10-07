@@ -84,6 +84,10 @@ contract AdConversion is CampaignHooks {
         uint48 attributionDeadline;
     }
 
+    ////////////////////////////////////////////////////////////////
+    ///                        Constants                         ///
+    ////////////////////////////////////////////////////////////////
+
     /// @notice Maximum basis points
     uint16 public constant MAX_BPS = 10_000;
 
@@ -92,6 +96,10 @@ contract AdConversion is CampaignHooks {
 
     /// @notice Address of the publisher registry contract
     BuilderCodes public immutable BUILDER_CODES;
+
+    ////////////////////////////////////////////////////////////////
+    ///                         Storage                          ///
+    ////////////////////////////////////////////////////////////////
 
     /// @notice Mapping of campaign addresses to finalization information
     mapping(address campaign => CampaignState) public state;
@@ -107,6 +115,10 @@ contract AdConversion is CampaignHooks {
 
     /// @notice Mapping of campaign addresses to their URI prefix
     mapping(address campaign => string uri) public override campaignURI;
+
+    ////////////////////////////////////////////////////////////////
+    ///                          Events                          ///
+    ////////////////////////////////////////////////////////////////
 
     /// @notice Emitted when an offchain attribution event occurred
     ///
@@ -149,6 +161,10 @@ contract AdConversion is CampaignHooks {
         address indexed campaign, address attributionProvider, address advertiser, string uri, uint48 attributionWindow
     );
 
+    ////////////////////////////////////////////////////////////////
+    ///                          Errors                          ///
+    ////////////////////////////////////////////////////////////////
+
     /// @notice Error thrown when an unauthorized action is attempted
     error Unauthorized();
 
@@ -186,6 +202,10 @@ contract AdConversion is CampaignHooks {
     /// @notice Error thrown when attribution provider and advertiser are the same address
     error SameRoleAddress();
 
+    ////////////////////////////////////////////////////////////////
+    ///                    External Functions                    ///
+    ////////////////////////////////////////////////////////////////
+
     /// @notice Constructor for ConversionAttestation
     ///
     /// @param flywheel Address of the protocol contract
@@ -195,6 +215,99 @@ contract AdConversion is CampaignHooks {
 
         BUILDER_CODES = BuilderCodes(builderCodes);
     }
+
+    /// @notice Adds a referral code to the campaign allowlist
+    /// @param campaign Address of the campaign
+    /// @param publisherRefCode Referral code to add
+    /// @dev Only advertiser can add referral codes to allowlist
+    function addAllowedPublisherRefCode(address campaign, string memory publisherRefCode) external {
+        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
+
+        // Validate referral code exists in registry
+        if (!BUILDER_CODES.isRegistered(publisherRefCode)) revert InvalidPublisherRefCode();
+
+        // @notice: if the allowlist is not enabled during campaign creation, we revert
+        if (!state[campaign].hasAllowlist) revert Unauthorized();
+
+        // Check if already allowed to avoid redundant operations
+        if (allowedPublishers[campaign][publisherRefCode]) return; // Already allowed, no-op
+
+        // Add to mapping
+        allowedPublishers[campaign][publisherRefCode] = true;
+        emit PublisherAddedToAllowlist(campaign, publisherRefCode);
+    }
+
+    /// @notice Adds a new conversion config to an existing campaign
+    /// @param campaign Address of the campaign
+    /// @param config The conversion config input (without isActive)
+    /// @dev Only advertiser can add conversion configs
+    function addConversionConfig(address campaign, ConversionConfigInput memory config) external {
+        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
+
+        uint16 currentCount = conversionConfigCount[campaign];
+        if (currentCount >= type(uint16).max) revert TooManyConversionConfigs();
+
+        // Add the new config - always set isActive to true
+        uint16 newConfigId = currentCount + 1;
+        ConversionConfig memory activeConfig =
+            ConversionConfig({isActive: true, isEventOnchain: config.isEventOnchain, metadataURI: config.metadataURI});
+        conversionConfigs[campaign][newConfigId] = activeConfig;
+        conversionConfigCount[campaign] = newConfigId;
+
+        emit ConversionConfigAdded(campaign, newConfigId, activeConfig);
+    }
+
+    /// @notice Disables a conversion config for a campaign
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config to disable
+    /// @dev Only advertiser can disable conversion configs
+    function disableConversionConfig(address campaign, uint16 configId) external {
+        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
+
+        if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
+
+        // Check if config is already disabled
+        if (!conversionConfigs[campaign][configId].isActive) revert ConversionConfigDisabled();
+
+        // Disable the config
+        conversionConfigs[campaign][configId].isActive = false;
+
+        emit ConversionConfigStatusChanged(campaign, configId, false);
+    }
+
+    ////////////////////////////////////////////////////////////////
+    ///                 External View Functions                  ///
+    ////////////////////////////////////////////////////////////////
+
+    /// @notice Checks if a campaign has a publisher allowlist
+    /// @param campaign Address of the campaign
+    /// @return True if the campaign has an allowlist
+    function hasPublisherAllowlist(address campaign) external view returns (bool) {
+        return state[campaign].hasAllowlist;
+    }
+
+    /// @notice Checks if a referral code is allowed for a campaign
+    /// @param campaign Address of the campaign
+    /// @param publisherRefCode Referral code to check
+    /// @return True if the referral code is allowed (or if no allowlist exists)
+    function isPublisherRefCodeAllowed(address campaign, string memory publisherRefCode) external view returns (bool) {
+        // If no allowlist exists, all referral codes are allowed
+        if (!state[campaign].hasAllowlist) return true;
+        return allowedPublishers[campaign][publisherRefCode];
+    }
+
+    /// @notice Gets a conversion config for a campaign
+    /// @param campaign Address of the campaign
+    /// @param configId The ID of the conversion config
+    /// @return The conversion config
+    function getConversionConfig(address campaign, uint16 configId) external view returns (ConversionConfig memory) {
+        if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
+        return conversionConfigs[campaign][configId];
+    }
+
+    ////////////////////////////////////////////////////////////////
+    ///                    Internal Functions                    ///
+    ////////////////////////////////////////////////////////////////
 
     /// @inheritdoc CampaignHooks
     function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
@@ -379,21 +492,6 @@ contract AdConversion is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
-    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
-        internal
-        view
-        override
-        returns (Flywheel.Payout memory payout)
-    {
-        if (sender != state[campaign].advertiser) revert Unauthorized();
-        if (FLYWHEEL.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
-
-        (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
-        return (Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}));
-    }
-
-    /// @inheritdoc CampaignHooks
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
         view
@@ -408,6 +506,21 @@ contract AdConversion is CampaignHooks {
         distributions = new Flywheel.Distribution[](1);
         distributions[0] = Flywheel.Distribution({recipient: recipient, key: key, amount: amount, extraData: ""});
         return distributions;
+    }
+
+    /// @inheritdoc CampaignHooks
+    /// @dev Only advertiser allowed to withdraw funds on finalized campaigns
+    function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
+        internal
+        view
+        override
+        returns (Flywheel.Payout memory payout)
+    {
+        if (sender != state[campaign].advertiser) revert Unauthorized();
+        if (FLYWHEEL.campaignStatus(campaign) != Flywheel.CampaignStatus.FINALIZED) revert Unauthorized();
+
+        (address recipient, uint256 amount) = abi.decode(hookData, (address, uint256));
+        return (Flywheel.Payout({recipient: recipient, amount: amount, extraData: ""}));
     }
 
     /// @inheritdoc CampaignHooks
@@ -458,90 +571,5 @@ contract AdConversion is CampaignHooks {
         if (sender != state[campaign].attributionProvider && sender != state[campaign].advertiser) {
             revert Unauthorized();
         }
-    }
-
-    /// @notice Adds a referral code to the campaign allowlist
-    /// @param campaign Address of the campaign
-    /// @param publisherRefCode Referral code to add
-    /// @dev Only advertiser can add referral codes to allowlist
-    function addAllowedPublisherRefCode(address campaign, string memory publisherRefCode) external {
-        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
-
-        // Validate referral code exists in registry
-        if (!BUILDER_CODES.isRegistered(publisherRefCode)) revert InvalidPublisherRefCode();
-
-        // @notice: if the allowlist is not enabled during campaign creation, we revert
-        if (!state[campaign].hasAllowlist) revert Unauthorized();
-
-        // Check if already allowed to avoid redundant operations
-        if (allowedPublishers[campaign][publisherRefCode]) return; // Already allowed, no-op
-
-        // Add to mapping
-        allowedPublishers[campaign][publisherRefCode] = true;
-        emit PublisherAddedToAllowlist(campaign, publisherRefCode);
-    }
-
-    /// @notice Adds a new conversion config to an existing campaign
-    /// @param campaign Address of the campaign
-    /// @param config The conversion config input (without isActive)
-    /// @dev Only advertiser can add conversion configs
-    function addConversionConfig(address campaign, ConversionConfigInput memory config) external {
-        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
-
-        uint16 currentCount = conversionConfigCount[campaign];
-        if (currentCount >= type(uint16).max) revert TooManyConversionConfigs();
-
-        // Add the new config - always set isActive to true
-        uint16 newConfigId = currentCount + 1;
-        ConversionConfig memory activeConfig =
-            ConversionConfig({isActive: true, isEventOnchain: config.isEventOnchain, metadataURI: config.metadataURI});
-        conversionConfigs[campaign][newConfigId] = activeConfig;
-        conversionConfigCount[campaign] = newConfigId;
-
-        emit ConversionConfigAdded(campaign, newConfigId, activeConfig);
-    }
-
-    /// @notice Disables a conversion config for a campaign
-    /// @param campaign Address of the campaign
-    /// @param configId The ID of the conversion config to disable
-    /// @dev Only advertiser can disable conversion configs
-    function disableConversionConfig(address campaign, uint16 configId) external {
-        if (msg.sender != state[campaign].advertiser) revert Unauthorized();
-
-        if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
-
-        // Check if config is already disabled
-        if (!conversionConfigs[campaign][configId].isActive) revert ConversionConfigDisabled();
-
-        // Disable the config
-        conversionConfigs[campaign][configId].isActive = false;
-
-        emit ConversionConfigStatusChanged(campaign, configId, false);
-    }
-
-    /// @notice Checks if a campaign has a publisher allowlist
-    /// @param campaign Address of the campaign
-    /// @return True if the campaign has an allowlist
-    function hasPublisherAllowlist(address campaign) external view returns (bool) {
-        return state[campaign].hasAllowlist;
-    }
-
-    /// @notice Checks if a referral code is allowed for a campaign
-    /// @param campaign Address of the campaign
-    /// @param publisherRefCode Referral code to check
-    /// @return True if the referral code is allowed (or if no allowlist exists)
-    function isPublisherRefCodeAllowed(address campaign, string memory publisherRefCode) external view returns (bool) {
-        // If no allowlist exists, all referral codes are allowed
-        if (!state[campaign].hasAllowlist) return true;
-        return allowedPublishers[campaign][publisherRefCode];
-    }
-
-    /// @notice Gets a conversion config for a campaign
-    /// @param campaign Address of the campaign
-    /// @param configId The ID of the conversion config
-    /// @return The conversion config
-    function getConversionConfig(address campaign, uint16 configId) external view returns (ConversionConfig memory) {
-        if (configId == 0 || configId > conversionConfigCount[campaign]) revert InvalidConversionConfigId();
-        return conversionConfigs[campaign][configId];
     }
 }
