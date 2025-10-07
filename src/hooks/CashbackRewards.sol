@@ -3,8 +3,8 @@ pragma solidity ^0.8.29;
 
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
-import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {Flywheel} from "../Flywheel.sol";
 import {SimpleRewards} from "./SimpleRewards.sol";
 
 /// @title CashbackRewards

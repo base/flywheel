@@ -34,3 +34,6 @@ exclude_lints = [
     "erc20-unchecked-transfer", # Tests
     "unused-import" # BuilderCodesTest imports for purpose of dependent tests
 ]
+
+[fmt]
+sort_imports = true

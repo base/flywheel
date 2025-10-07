@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 
-import {PublisherTestSetup, PublisherSetupHelper} from "../lib/PublisherSetupHelper.sol";
+import {PublisherSetupHelper, PublisherTestSetup} from "../lib/PublisherSetupHelper.sol";
 import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";

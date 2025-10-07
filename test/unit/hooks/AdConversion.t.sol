@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+import {Test} from "forge-std/Test.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
-import {PublisherTestSetup, PublisherSetupHelper} from "../../lib/PublisherSetupHelper.sol";
+import {PublisherSetupHelper, PublisherTestSetup} from "../../lib/PublisherSetupHelper.sol";
 import {MockERC20} from "../../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../../src/Flywheel.sol";
@@ -565,7 +565,7 @@ contract AdConversionTest is PublisherTestSetup {
         assertTrue(newCampaign != address(0));
 
         // Verify state was stored correctly with different addresses
-        (address storedAdvertiser,, , address storedProvider,,) = hook.state(newCampaign);
+        (address storedAdvertiser,,, address storedProvider,,) = hook.state(newCampaign);
         assertEq(storedProvider, attributionProvider);
         assertEq(storedAdvertiser, advertiser);
         assertTrue(storedProvider != storedAdvertiser);
@@ -702,14 +702,14 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Campaign 1 should use 5% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts1, Flywheel.Distribution[] memory fees1, ) =
+        (Flywheel.Payout[] memory payouts1, Flywheel.Distribution[] memory fees1,) =
             hook.onSend(attributionProvider, campaign1, address(token), rewardData);
         assertEq(payouts1[0].amount, 95 ether); // 100 - 5% = 95
         assertEq(fees1[0].amount, 5 ether); // 5% fee
 
         // Campaign 2 should use 15% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts2, Flywheel.Distribution[] memory fees2, ) =
+        (Flywheel.Payout[] memory payouts2, Flywheel.Distribution[] memory fees2,) =
             hook.onSend(attributionProvider, campaign2, address(token), rewardData);
         assertEq(payouts2[0].amount, 85 ether); // 100 - 15% = 85
         assertEq(fees2[0].amount, 15 ether); // 15% fee

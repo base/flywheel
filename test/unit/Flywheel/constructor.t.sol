@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Campaign} from "../../../src/Campaign.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
+import {Test} from "forge-std/Test.sol";
 
 /// @title ConstructorTest
 /// @notice Tests for Flywheel constructor

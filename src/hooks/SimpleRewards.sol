@@ -3,8 +3,8 @@ pragma solidity ^0.8.29;
 
 import {LibString} from "solady/utils/LibString.sol";
 
-import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {Flywheel} from "../Flywheel.sol";
 
 /// @title SimpleRewards
 ///
@@ -117,11 +117,7 @@ contract SimpleRewards is CampaignHooks {
         virtual
         override
         onlyManager(sender, campaign)
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            Flywheel.Distribution[] memory fees,
-            bool sendFeesNow
-        )
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
         distributions = new Flywheel.Distribution[](payouts.length);

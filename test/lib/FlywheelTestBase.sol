@@ -4,10 +4,11 @@ pragma solidity ^0.8.29;
 import {Test} from "forge-std/Test.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
+
+import {FailingERC20} from "./mocks/FailingERC20.sol";
 import {MockCampaignHooksWithFees} from "./mocks/MockCampaignHooksWithFees.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {RevertingReceiver} from "./mocks/RevertingReceiver.sol";
-import {FailingERC20} from "./mocks/FailingERC20.sol";
 
 /// @title FlywheelTestBase
 /// @notice Minimal shared setup for Flywheel unit tests using MockCampaignHooksWithFees as the hook

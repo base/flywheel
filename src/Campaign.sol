@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {Flywheel} from "./Flywheel.sol";
 import {Constants} from "./Constants.sol";
+import {Flywheel} from "./Flywheel.sol";
 
 /// @title Campaign
 ///

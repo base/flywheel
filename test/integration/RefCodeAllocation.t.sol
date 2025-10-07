@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
-import {SimpleRewards} from "../../src/hooks/SimpleRewards.sol";
+import {Test} from "forge-std/Test.sol";
+import {console} from "forge-std/console.sol";
 
 import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
-import {Flywheel} from "../../src/Flywheel.sol";
 import {Campaign} from "../../src/Campaign.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
 
 /// @title RefCodeAllocationTest
 /// @notice Demonstrates deterministic ref code to bytes32 key conversion for allocation tracking
