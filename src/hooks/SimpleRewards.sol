@@ -9,6 +9,8 @@ import {Flywheel} from "../Flywheel.sol";
 /// @title SimpleRewards
 ///
 /// @notice Campaign Hooks for simple rewards controlled by a campaign manager
+///
+/// @author Coinbase (https://github.com/base/flywheel)
 contract SimpleRewards is CampaignHooks {
     /// @notice Owners of the campaigns
     mapping(address campaign => address owner) public owners;
@@ -16,7 +18,7 @@ contract SimpleRewards is CampaignHooks {
     /// @notice Managers of the campaigns
     mapping(address campaign => address manager) public managers;
 
-    /// @notice Mapping of campaign addresses to their URI prefix
+    /// @notice URI prefixes for campaign metadata
     mapping(address campaign => string uriPrefix) internal _uriPrefix;
 
     /// @notice Emitted when a campaign is created
@@ -31,10 +33,10 @@ contract SimpleRewards is CampaignHooks {
 
     /// @notice Modifier to check if the sender is the manager of the campaign
     ///
+    /// @dev Reverts if the sender is not the manager of the campaign
+    ///
     /// @param sender Address of the sender
     /// @param campaign Address of the campaign
-    ///
-    /// @dev Reverts if the sender is not the manager of the campaign
     modifier onlyManager(address sender, address campaign) {
         if (sender != managers[campaign]) revert Unauthorized();
         _;
