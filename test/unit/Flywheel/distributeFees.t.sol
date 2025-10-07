@@ -82,6 +82,7 @@ contract DistributeFeesTest is FlywheelTest {
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, amount, address(this));

@@ -284,6 +284,7 @@ contract DistributeTest is FlywheelTest {
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, allocateAmount, address(this));

@@ -187,12 +187,13 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Verifies that deallocate calls work with an ERC20 token
     /// @param allocateAmount Allocation amount
     /// @param deallocateAmount Deallocation amount
-    function test_succeeds_withERC20Token(uint256 allocateAmount, uint256 deallocateAmount) public {
-        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
+    function test_succeeds_withERC20Token(address recipient, uint256 allocateAmount, uint256 deallocateAmount) public {
+        recipient = boundToValidPayableAddress(recipient);
         allocateAmount = boundToValidAmount(allocateAmount);
         deallocateAmount = boundToValidAmount(deallocateAmount);
         vm.assume(allocateAmount > 0);
         vm.assume(deallocateAmount <= allocateAmount);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, allocateAmount, address(this));
