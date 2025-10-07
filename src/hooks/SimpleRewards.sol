@@ -43,7 +43,6 @@ contract SimpleRewards is CampaignHooks {
     }
 
     /// @notice Hooks constructor
-    ///
     /// @param flywheel_ Address of the flywheel contract
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
@@ -82,8 +81,8 @@ contract SimpleRewards is CampaignHooks {
         returns (Flywheel.Allocation[] memory allocations)
     {
         Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        allocations = new Flywheel.Allocation[](payouts.length);
         uint256 count = payouts.length;
+        allocations = new Flywheel.Allocation[](count);
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
                 key: bytes32(bytes20(payouts[i].recipient)),
@@ -102,8 +101,8 @@ contract SimpleRewards is CampaignHooks {
         returns (Flywheel.Allocation[] memory allocations)
     {
         Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        allocations = new Flywheel.Allocation[](payouts.length);
         uint256 count = payouts.length;
+        allocations = new Flywheel.Allocation[](count);
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
                 key: bytes32(bytes20(payouts[i].recipient)),
@@ -122,8 +121,8 @@ contract SimpleRewards is CampaignHooks {
         returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         Flywheel.Payout[] memory payouts = abi.decode(hookData, (Flywheel.Payout[]));
-        distributions = new Flywheel.Distribution[](payouts.length);
         uint256 count = payouts.length;
+        distributions = new Flywheel.Distribution[](count);
         for (uint256 i = 0; i < count; i++) {
             distributions[i] = Flywheel.Distribution({
                 recipient: payouts[i].recipient,
