@@ -5,6 +5,12 @@ sort_imports = true
 via_ir = true
 optimizer = true
 optimizer_runs = 200
+ignored_error_codes = [
+    5667, # Unused function parameter
+    3860, # Contract too large (tests)
+    5574, # Contract too large (tests)
+    2394  # Transient storage warning from Solady
+]
 
 [profile.production]
 optimizer = true
@@ -18,3 +24,13 @@ src = "test"
 [etherscan]
 # For Base Sepolia, try using the Basescan endpoint directly
 base-sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
+
+[lint]
+lint_on_build = false
+exclude_lints = [
+    "mixed-case-variable", # *URI variable names
+    "mixed-case-function", # *URI function names
+    "asm-keccak256", # EIP-712 hashing
+    "erc20-unchecked-transfer", # Tests
+    "unused-import" # BuilderCodesTest imports for purpose of dependent tests
+]
