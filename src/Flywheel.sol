@@ -11,9 +11,9 @@ import {Constants} from "./Constants.sol";
 
 /// @title Flywheel
 ///
-/// @notice Main contract for managing advertising campaigns and attribution
+/// @notice Protocol entrypoint for creating and managing campaigns for token payouts
 ///
-/// @dev Structures campaign metadata, lifecycle, payouts, and fees
+/// @author Coinbase (https://github.com/base/flywheel)
 contract Flywheel is ReentrancyGuardTransient {
     /// @notice Possible states a campaign can be in
     enum CampaignStatus {
@@ -27,62 +27,62 @@ contract Flywheel is ReentrancyGuardTransient {
         FINALIZED
     }
 
-    /// @notice Campaign information structure
+    /// @notice Stored campaign information
     struct CampaignInfo {
-        /// @dev status Current status of the campaign
+        /// @dev Current status of the campaign
         CampaignStatus status;
-        /// @dev hooks Address of the campaign hooks contract
+        /// @dev Address of the campaign hooks contract
         CampaignHooks hooks;
     }
 
-    /// @notice Payout for a recipient
+    /// @notice Payout to send to a recipient
     struct Payout {
-        /// @dev recipient Address receiving the payout
+        /// @dev Address receiving the payout
         address recipient;
-        /// @dev amount Amount of tokens to be paid out
+        /// @dev Amount of tokens to be paid out
         uint256 amount;
-        /// @dev extraData Extra data for the payout to attach in events
+        /// @dev Extra data for the payout to attach in events
         bytes extraData;
     }
 
-    /// @notice Allocation for a key
+    /// @notice Allocation to commit to for future distribution
     struct Allocation {
-        /// @dev key Key for the allocation
+        /// @dev Key for the allocation
         bytes32 key;
-        /// @dev amount Amount of tokens to be paid out
+        /// @dev Amount of tokens to be paid out
         uint256 amount;
-        /// @dev extraData Extra data to attach in events
+        /// @dev Extra data to attach in events
         bytes extraData;
     }
 
-    /// @notice Distribution for a key to a recipient
+    /// @notice Distribution to send to a recipient from a previous allocation
     struct Distribution {
-        /// @dev recipient Address receiving the distribution
+        /// @dev Address receiving the distribution
         address recipient;
-        /// @dev key Key for the allocation
+        /// @dev Key for the allocation
         bytes32 key;
-        /// @dev amount Amount of tokens to be paid out
+        /// @dev Amount of tokens to be distributed
         uint256 amount;
-        /// @dev extraData Extra data to attach in events
+        /// @dev Extra data to attach in events
         bytes extraData;
     }
 
     /// @notice Implementation for Campaign contracts
     address public immutable CAMPAIGN_IMPLEMENTATION;
 
-    /// @notice Allocated rewards that are pending distribution
+    /// @notice Allocated payouts that are pending distribution
     mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedPayout;
 
-    /// @notice Fees that are pending collection
+    /// @notice Allocated fees that are pending collection
     mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedFee;
 
-    /// @notice Total funds reserved for a campaign's allocations
+    /// @notice Total funds reserved for a campaign's payouts
     mapping(address campaign => mapping(address token => uint256 amount)) public totalAllocatedPayouts;
 
     /// @notice Total funds reserved for a campaign's fees
     mapping(address campaign => mapping(address token => uint256 amount)) public totalAllocatedFees;
 
-    /// @notice Campaign state
+    /// @notice Stored campaign information
     mapping(address campaign => CampaignInfo) internal _campaigns;
 
     /// @notice Emitted when a new campaign is created
@@ -91,13 +91,13 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param hooks Address of the campaign hooks contract
     event CampaignCreated(address indexed campaign, address hooks);
 
-    /// @notice Emitted when a campaign is updated
+    /// @notice Emitted when a campaign's metadata is updated
     ///
     /// @param campaign Address of the campaign
     /// @param uri The URI for the campaign
     event CampaignMetadataUpdated(address indexed campaign, string uri);
 
-    /// @notice Emitted when a campaign status is updated
+    /// @notice Emitted when a campaign's status is updated
     ///
     /// @param campaign Address of the campaign
     /// @param sender Address that triggered the status change
@@ -164,19 +164,21 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param extraData Extra data for the payout to attach in events
     event FeeAllocated(address indexed campaign, address token, bytes32 key, uint256 amount, bytes extraData);
 
-    /// @notice Emitted when accumulated fees are collected
+    /// @notice Emitted when accumulated fees are distributed
     ///
     /// @param campaign Address of the campaign
-    /// @param token Address of the collected token
+    /// @param token Address of the distributed token
     /// @param key Key for the fees
-    /// @param recipient Address receiving the collected fees
-    /// @param amount Amount of tokens collected
+    /// @param recipient Address receiving the distributed fees
+    /// @param amount Amount of tokens distributed
     /// @param extraData Extra data for the payout to attach in events
     event FeeDistributed(
         address indexed campaign, address token, bytes32 key, address recipient, uint256 amount, bytes extraData
     );
 
     /// @notice Emitted when a fee transfer fails
+    ///
+    /// @dev Applies to both attempted sends and distributions of fees
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token that failed to transfer
@@ -210,13 +212,13 @@ contract Flywheel is ReentrancyGuardTransient {
     error ZeroAmount();
 
     /// @notice Thrown when a token send fails without a fallback
+    /// @dev Applies to both attempted payouts and funding withdrawals
     error SendFailed(address token, address recipient, uint256 amount);
 
     /// @notice Thrown when campaign does not have enough balance for an operation
     error InsufficientCampaignFunds();
 
     /// @notice Check if a campaign exists
-    ///
     /// @param campaign Address of the campaign
     modifier onlyExists(address campaign) {
         if (!campaignExists(campaign)) revert CampaignDoesNotExist();
@@ -224,7 +226,6 @@ contract Flywheel is ReentrancyGuardTransient {
     }
 
     /// @notice Check if a campaign's status allows payouts
-    ///
     /// @param campaign Address of the campaign
     modifier acceptingPayouts(address campaign) {
         CampaignStatus status = _campaigns[campaign].status;
@@ -233,22 +234,22 @@ contract Flywheel is ReentrancyGuardTransient {
     }
 
     /// @notice Constructor for the Flywheel contract
-    ///
-    /// @dev Deploys a new Campaign implementation for cloning
+    /// @dev Deploys the Campaign implementation for cloning
     constructor() {
         CAMPAIGN_IMPLEMENTATION = address(new Campaign());
     }
 
     /// @notice Creates a new campaign
     ///
+    /// @dev Call `predictCampaignAddress` to know the address of the campaign without deploying it
+    /// @dev Execution does not revert if the campaign is already created
+    /// @dev Emits CampaignCreated before any events are emitted by the hooks contract
+    ///
     /// @param hooks Address of the campaign hooks contract
     /// @param nonce Nonce used to create the campaign
     /// @param hookData Data for the campaign hook
     ///
     /// @return campaign Address of the newly created campaign
-    ///
-    /// @dev Call `predictCampaignAddress` to know the address of the campaign without deploying it
-    /// @dev Execution does not revert if the campaign is already created
     function createCampaign(address hooks, uint256 nonce, bytes calldata hookData)
         external
         nonReentrant
@@ -267,6 +268,9 @@ contract Flywheel is ReentrancyGuardTransient {
     }
 
     /// @notice Sends immediate payouts to recipients for a campaign
+    ///
+    /// @dev All payouts must succeed or the entire transaction reverts
+    /// @dev Transaction does not revert if a fee send fails, emitting an event instead
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to send
@@ -295,11 +299,11 @@ contract Flywheel is ReentrancyGuardTransient {
 
     /// @notice Allocates payouts to a key for a campaign
     ///
+    /// @dev Allocated payouts are transferred to recipients on `distribute`
+    ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to be distributed
     /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Allocated payouts are transferred to recipients on `distribute`
     function allocate(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
@@ -353,12 +357,14 @@ contract Flywheel is ReentrancyGuardTransient {
 
     /// @notice Distributes allocated payouts to recipients for a campaign
     ///
+    /// @dev Payouts must first be allocated to a recipient before they can be distributed
+    /// @dev Use `reward` for immediate payouts
+    /// @dev All payouts must succeed or the entire transaction reverts
+    /// @dev Transaction does not revert if a fee send fails, emitting an event instead
+    ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to distribute
     /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Payouts must first be allocated to a recipient before they can be distributed
-    /// @dev Use `reward` for immediate payouts
     function distribute(address campaign, address token, bytes calldata hookData)
         external
         nonReentrant
@@ -388,6 +394,8 @@ contract Flywheel is ReentrancyGuardTransient {
     }
 
     /// @notice Collects fees from a campaign
+    ///
+    /// @dev Transaction does not revert if a fee send fails, emitting an event instead
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to collect fees from
@@ -422,7 +430,9 @@ contract Flywheel is ReentrancyGuardTransient {
         _assertCampaignSolvency(campaign, token);
     }
 
-    /// @notice Withdraw tokens from a campaign
+    /// @notice Withdraw funding from a campaign
+    ///
+    /// @dev Allocated payouts are ignored for solvency requirements if the campaign is finalized
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to withdraw
@@ -470,10 +480,10 @@ contract Flywheel is ReentrancyGuardTransient {
 
     /// @notice Updates the metadata for a campaign
     ///
+    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
+    ///
     /// @param campaign Address of the campaign
     /// @param hookData Data for the campaign hook
-    ///
-    /// @dev Indexers should update their metadata cache for this campaign by fetching the campaignURI
     function updateMetadata(address campaign, bytes calldata hookData) external nonReentrant onlyExists(campaign) {
         if (_campaigns[campaign].status == CampaignStatus.FINALIZED) revert InvalidCampaignStatus();
         _campaigns[campaign].hooks.onUpdateMetadata(msg.sender, campaign, hookData);
@@ -500,7 +510,7 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return true if the campaign exists, false otherwise
+    /// @return exists True if the campaign exists, false otherwise
     function campaignExists(address campaign) public view returns (bool) {
         return address(_campaigns[campaign].hooks) != address(0);
     }
@@ -509,7 +519,7 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return hooks of the campaign
+    /// @return hooks Hooks contract for the campaign
     function campaignHooks(address campaign) public view onlyExists(campaign) returns (address hooks) {
         return address(_campaigns[campaign].hooks);
     }
@@ -518,7 +528,7 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return status of the campaign
+    /// @return status Current status of the campaign
     function campaignStatus(address campaign) public view onlyExists(campaign) returns (CampaignStatus status) {
         return _campaigns[campaign].status;
     }
@@ -527,12 +537,14 @@ contract Flywheel is ReentrancyGuardTransient {
     ///
     /// @param campaign Address of the campaign
     ///
-    /// @return uri The URI for the campaign
+    /// @return uri URI for campaign metadata
     function campaignURI(address campaign) public view onlyExists(campaign) returns (string memory uri) {
         return _campaigns[campaign].hooks.campaignURI(campaign);
     }
 
     /// @notice Processes fees, either sending or allocating them to a key
+    ///
+    /// @dev Failed fees emit events and are converted into allocations
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token to allocate the fee from
@@ -578,11 +590,13 @@ contract Flywheel is ReentrancyGuardTransient {
         if (_campaignTokenBalance(campaign, token) < totalAllocated) revert InsufficientCampaignFunds();
     }
 
-    /// @notice Returns the campaign balance for a given token, supporting native token via EIP-7528 convention
+    /// @notice Returns the campaign balance for a given token, supporting native token via ERC-7528 convention
     ///
     /// @param campaign Address of the campaign
     /// @param token Address of the token, or native token sentinel
-    function _campaignTokenBalance(address campaign, address token) internal view returns (uint256) {
+    ///
+    /// @param balance Balance of the campaign for the given token
+    function _campaignTokenBalance(address campaign, address token) internal view returns (uint256 balance) {
         return token == Constants.NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
     }
 
