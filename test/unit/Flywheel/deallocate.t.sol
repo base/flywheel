@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
-import {Vm} from "forge-std/Vm.sol";
+
 import {stdError} from "forge-std/StdError.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title DeallocateTest
 /// @notice Tests for Flywheel.deallocate
@@ -186,12 +187,13 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Verifies that deallocate calls work with an ERC20 token
     /// @param allocateAmount Allocation amount
     /// @param deallocateAmount Deallocation amount
-    function test_succeeds_withERC20Token(uint256 allocateAmount, uint256 deallocateAmount) public {
-        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
+    function test_succeeds_withERC20Token(address recipient, uint256 allocateAmount, uint256 deallocateAmount) public {
+        recipient = boundToValidPayableAddress(recipient);
         allocateAmount = boundToValidAmount(allocateAmount);
         deallocateAmount = boundToValidAmount(deallocateAmount);
         vm.assume(allocateAmount > 0);
         vm.assume(deallocateAmount <= allocateAmount);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, allocateAmount, address(this));
@@ -354,9 +356,7 @@ contract DeallocateTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDeallocatedSig;
-            if (isFromFlywheel && isPayoutDeallocated) {
-                PayoutDeallocatedCount++;
-            }
+            if (isFromFlywheel && isPayoutDeallocated) PayoutDeallocatedCount++;
         }
         assertEq(PayoutDeallocatedCount, 1, "Should emit exactly one PayoutDeallocated event for non-zero amount");
     }

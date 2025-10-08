@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.29;
 
-import {Test} from "forge-std/Test.sol";
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 import {ERC3009PaymentCollector} from "commerce-payments/collectors/ERC3009PaymentCollector.sol";
-import {IERC3009} from "commerce-payments/interfaces/IERC3009.sol";
+
 import {OperatorRefundCollector} from "commerce-payments/collectors/OperatorRefundCollector.sol";
+import {IERC3009} from "commerce-payments/interfaces/IERC3009.sol";
+import {Test} from "forge-std/Test.sol";
+
 import {LibString} from "solady/utils/LibString.sol";
 
 import {MockERC3009Token} from "../../lib/commerce-payments/test/mocks/MockERC3009Token.sol";
 
-import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
+import {CashbackRewards} from "../../src/hooks/CashbackRewards.sol";
 
 contract CashbackRewardsTest is Test {
     // Test bounds constants when necessary for fuzzing

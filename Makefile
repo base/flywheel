@@ -9,4 +9,4 @@ docs-clean:
 	rm -rf test/docs/gen
 
 build-production:
-	FOUNDRY_PROFILE=production forge build
+	FOUNDRY_PROFILE=production forge build --build-info src

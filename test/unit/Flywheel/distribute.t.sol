@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {stdError} from "forge-std/StdError.sol";
-import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
+import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+import {stdError} from "forge-std/StdError.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title DistributeTest
 /// @notice Tests for Flywheel.distribute
@@ -285,6 +286,7 @@ contract DistributeTest is FlywheelTest {
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, allocateAmount, address(this));
@@ -568,12 +570,8 @@ contract DistributeTest is FlywheelTest {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
             bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
-            if (isFromFlywheel && isFeeAllocated) {
-                revert("FeeAllocated was emitted for zero-amount fee");
-            }
-            if (isFromFlywheel && isFeeTransferFailed) {
-                revert("FeeTransferFailed was emitted for zero-amount fee");
-            }
+            if (isFromFlywheel && isFeeAllocated) revert("FeeAllocated was emitted for zero-amount fee");
+            if (isFromFlywheel && isFeeTransferFailed) revert("FeeTransferFailed was emitted for zero-amount fee");
         }
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
         assertEq(
@@ -604,6 +602,7 @@ contract DistributeTest is FlywheelTest {
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(feeRecipient1 != campaign); // Avoid campaign as fee recipient
         vm.assume(feeRecipient2 != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient1 != feeRecipient2); // Avoid duplicate fee recipients
         amount = boundToValidAmount(amount);
         uint16 feeBpBounded = boundToValidFeeBp(feeBp);
 
@@ -760,9 +759,7 @@ contract DistributeTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDistributedSig;
-            if (isFromFlywheel && isPayoutDistributed) {
-                PayoutDistributedCount++;
-            }
+            if (isFromFlywheel && isPayoutDistributed) PayoutDistributedCount++;
         }
         assertEq(PayoutDistributedCount, 1, "Should emit exactly one PayoutDistributed event for non-zero amount");
     }

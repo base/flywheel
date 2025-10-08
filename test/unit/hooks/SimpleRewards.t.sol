@@ -5,9 +5,9 @@ import {Test} from "forge-std/Test.sol";
 
 import {MockERC20} from "../../lib/mocks/MockERC20.sol";
 
+import {Constants} from "../../../src/Constants.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
 import {SimpleRewards} from "../../../src/hooks/SimpleRewards.sol";
-import {Constants} from "../../../src/Constants.sol";
 
 contract SimpleRewardsTest is Test {
     Flywheel public flywheel;

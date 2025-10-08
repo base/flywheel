@@ -45,7 +45,7 @@ contract PredictCampaignAddressTest is FlywheelTest {
     /// @param hookData Encoded SimpleRewards hook data (owner, manager, uri)
     /// @param nonce1 First nonce
     /// @param nonce2 Second nonce
-    function test_changesWithNonce(address hooks, bytes memory hookData, uint256 nonce1, uint256 nonce2) public {
+    function test_changesWithNonce(address hooks, bytes memory hookData, uint256 nonce1, uint256 nonce2) public view {
         vm.assume(hooks != address(0)); // Avoid zero address
         vm.assume(nonce1 != nonce2); // Ensure nonces are different
 
@@ -64,6 +64,7 @@ contract PredictCampaignAddressTest is FlywheelTest {
     /// @param nonce Deterministic salt used by predict/create
     function test_changesWithHookData(address hooks, bytes memory hookData1, bytes memory hookData2, uint256 nonce)
         public
+        view
     {
         vm.assume(hooks != address(0)); // Avoid zero address
         vm.assume(keccak256(hookData1) != keccak256(hookData2)); // Ensure hookData is different
@@ -81,7 +82,7 @@ contract PredictCampaignAddressTest is FlywheelTest {
     /// @param hooks2 Second hooks address
     /// @param hookData Encoded SimpleRewards hook data (owner, manager, uri)
     /// @param nonce Deterministic salt used by predict/create
-    function test_changesWithHooks(address hooks1, address hooks2, bytes memory hookData, uint256 nonce) public {
+    function test_changesWithHooks(address hooks1, address hooks2, bytes memory hookData, uint256 nonce) public view {
         vm.assume(hooks1 != address(0)); // Avoid zero address
         vm.assume(hooks2 != address(0)); // Avoid zero address
         vm.assume(hooks1 != hooks2); // Ensure hooks are different

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
+import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title SendTest
 /// @notice Tests for Flywheel.send
@@ -314,9 +315,7 @@ contract SendTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutSent = logs[i].topics.length > 0 && logs[i].topics[0] == payoutSentSig;
-            if (isFromFlywheel && isPayoutSent) {
-                revert("PayoutSent was emitted for zero-amount payout");
-            }
+            if (isFromFlywheel && isPayoutSent) revert("PayoutSent was emitted for zero-amount payout");
         }
     }
 
@@ -324,9 +323,11 @@ contract SendTest is FlywheelTest {
     /// @param recipient1 First recipient address (will receive zero amount)
     /// @param recipient2 Second recipient address (will receive non-zero amount)
     /// @param amount Non-zero payout amount
-    function test_ignoresZeroAmountPayouts_intermixedWithNonZero(address recipient1, address recipient2, uint256 amount)
-        public
-    {
+    function test_ignoresZeroAmountPayouts_intermixedWithNonZero(
+        address recipient1,
+        address recipient2,
+        uint256 amount
+    ) public {
         recipient1 = boundToValidPayableAddress(recipient1);
         recipient2 = boundToValidPayableAddress(recipient2);
         vm.assume(recipient1 != recipient2);
@@ -366,9 +367,7 @@ contract SendTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isPayoutSent = logs[i].topics.length > 0 && logs[i].topics[0] == payoutSentSig;
-            if (isFromFlywheel && isPayoutSent) {
-                payoutSentCount++;
-            }
+            if (isFromFlywheel && isPayoutSent) payoutSentCount++;
         }
         assertEq(payoutSentCount, 1, "Should emit exactly one PayoutSent event for non-zero amount");
         assertEq(mockToken.balanceOf(campaign), 0);
@@ -379,9 +378,12 @@ contract SendTest is FlywheelTest {
     /// @param recipient2 Second recipient address
     /// @param amount1 First payout amount
     /// @param amount2 Second payout amount
-    function test_succeeds_withMultiplePayouts(address recipient1, address recipient2, uint256 amount1, uint256 amount2)
-        public
-    {
+    function test_succeeds_withMultiplePayouts(
+        address recipient1,
+        address recipient2,
+        uint256 amount1,
+        uint256 amount2
+    ) public {
         recipient1 = boundToValidPayableAddress(recipient1);
         recipient2 = boundToValidPayableAddress(recipient2);
         vm.assume(recipient1 != recipient2);
@@ -510,6 +512,7 @@ contract SendTest is FlywheelTest {
     ) public {
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
+        vm.assume(recipient != feeRecipient); // Avoid duplicate recipients
         // Force fee recipient to be address(0) to make fee transfer fail
         feeRecipient = address(0);
         amount = boundToValidAmount(amount);
@@ -528,13 +531,14 @@ contract SendTest is FlywheelTest {
         Flywheel.Distribution[] memory fees = buildSingleFee(feeRecipient, feeKey, feeAmount, "fee");
         bytes memory hookData = buildSendHookData(payouts, fees, true); // Try immediate fees
 
+        uint256 initialRecipientBalance = mockToken.balanceOf(recipient);
         uint256 initialFeeRecipientBalance = mockToken.balanceOf(feeRecipient);
 
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), hookData);
 
         // Fee should NOT be sent (insufficient funds)
-        assertEq(mockToken.balanceOf(recipient), amount);
+        assertEq(mockToken.balanceOf(recipient), initialRecipientBalance + amount);
         assertEq(mockToken.balanceOf(feeRecipient), initialFeeRecipientBalance);
         // Fee should be allocated instead when send fails
         assertEq(flywheel.allocatedFee(campaign, address(mockToken), feeKey), feeAmount);
@@ -547,9 +551,7 @@ contract SendTest is FlywheelTest {
     /// @param amount Payout amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
-    function test_skipsFeesOfZeroAmount(address recipient, uint256 amount, uint256 feeBp, address feeRecipient)
-        public
-    {
+    function test_skipsFeesOfZeroAmount(address recipient, uint256 amount, uint256 feeBp, address feeRecipient) public {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
         vm.assume(recipient != feeRecipient);
@@ -587,12 +589,8 @@ contract SendTest is FlywheelTest {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
             bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
-            if (isFromFlywheel && isFeeAllocated) {
-                revert("FeeAllocated was emitted for zero-amount fee");
-            }
-            if (isFromFlywheel && isFeeTransferFailed) {
-                revert("FeeTransferFailed was emitted for zero-amount fee");
-            }
+            if (isFromFlywheel && isFeeAllocated) revert("FeeAllocated was emitted for zero-amount fee");
+            if (isFromFlywheel && isFeeTransferFailed) revert("FeeTransferFailed was emitted for zero-amount fee");
         }
     }
 
@@ -612,12 +610,14 @@ contract SendTest is FlywheelTest {
         recipient = boundToValidPayableAddress(recipient);
         feeRecipient = boundToValidPayableAddress(feeRecipient);
         vm.assume(recipient != feeRecipient);
+        vm.assume(recipient != feeRecipient2);
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(feeRecipient != campaign); // Avoid campaign as fee recipient
         vm.assume(feeRecipient2 != address(0));
         vm.assume(feeRecipient2 != recipient);
         vm.assume(feeRecipient2 != feeRecipient);
         vm.assume(feeRecipient2 != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient != feeRecipient2); // Avoid duplicate fee recipients
         amount = boundToValidAmount(amount);
         uint16 feeBpBounded = boundToValidFeeBp(feeBp);
 
@@ -641,16 +641,10 @@ contract SendTest is FlywheelTest {
         // Create multiple fees
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](2);
         fees[0] = Flywheel.Distribution({
-            recipient: feeRecipient,
-            key: bytes32(bytes20(feeRecipient)),
-            amount: feeAmount,
-            extraData: "fee1"
+            recipient: feeRecipient, key: bytes32(bytes20(feeRecipient)), amount: feeAmount, extraData: "fee1"
         });
         fees[1] = Flywheel.Distribution({
-            recipient: feeRecipient2,
-            key: bytes32(bytes20(feeRecipient2)),
-            amount: feeAmount,
-            extraData: "fee2"
+            recipient: feeRecipient2, key: bytes32(bytes20(feeRecipient2)), amount: feeAmount, extraData: "fee2"
         });
 
         bytes memory hookData = buildSendHookData(payouts, fees, true);

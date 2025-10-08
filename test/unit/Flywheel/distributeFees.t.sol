@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
+import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title DistributeFeesTest
 /// @notice Tests for Flywheel.distributeFees
@@ -81,6 +82,7 @@ contract DistributeFeesTest is FlywheelTest {
         vm.assume(recipient != campaign); // Avoid self-transfers
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, amount, address(this));
@@ -310,7 +312,7 @@ contract DistributeFeesTest is FlywheelTest {
         uint256 initialBalance1 = mockToken.balanceOf(recipient1);
         uint256 initialBalance2 = mockToken.balanceOf(recipient2);
         uint256 initialAllocation1 = flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient1)));
-        uint256 initialAllocation2 = flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2)));
+        flywheel.allocatedFee(campaign, address(mockToken), bytes32(bytes20(recipient2)));
 
         // Record logs to verify only one FeeDistributed event is emitted
         vm.recordLogs();
@@ -331,9 +333,7 @@ contract DistributeFeesTest is FlywheelTest {
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == FeeDistributedSig;
-            if (isFromFlywheel && isFeeDistributed) {
-                FeeDistributedCount++;
-            }
+            if (isFromFlywheel && isFeeDistributed) FeeDistributedCount++;
         }
         assertEq(FeeDistributedCount, 1, "Should emit exactly one FeeDistributed event for non-zero amount");
     }
