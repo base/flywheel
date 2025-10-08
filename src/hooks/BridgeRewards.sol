@@ -2,8 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+import {LibString} from "solady/utils/LibString.sol";
 
-import {BuilderCodes} from "../BuilderCodes.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 
@@ -18,13 +19,13 @@ contract BridgeRewards is CampaignHooks {
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @notice Maximum fee basis points
-    uint16 public immutable maxFeeBasisPoints;
+    uint16 public immutable MAX_FEE_BASIS_POINTS;
 
     /// @notice Address of the BuilderCodes contract
-    BuilderCodes public immutable builderCodes;
+    BuilderCodes public immutable BUILDER_CODES;
 
-    /// @notice Metadata URI for the campaign
-    string public metadataURI;
+    /// @notice URI prefix for the campaign
+    string public uriPrefix;
 
     /// @notice Error thrown to enforce only one campaign can be initialized
     error InvalidCampaignInitialization();
@@ -34,28 +35,29 @@ contract BridgeRewards is CampaignHooks {
 
     /// @notice Hooks constructor
     ///
-    /// @param flywheel_ Address of the flywheel contract
-    constructor(address flywheel_, address builderCodes_, string memory metadataURI_, uint16 maxFeeBasisPoints_)
-        CampaignHooks(flywheel_)
+    /// @param flywheel Address of the flywheel contract
+    constructor(address flywheel, address builderCodes, string memory uriPrefix_, uint16 maxFeeBasisPoints)
+        CampaignHooks(flywheel)
     {
-        builderCodes = BuilderCodes(builderCodes_);
-        metadataURI = metadataURI_;
-        maxFeeBasisPoints = maxFeeBasisPoints_;
+        BUILDER_CODES = BuilderCodes(builderCodes);
+        uriPrefix = uriPrefix_;
+        MAX_FEE_BASIS_POINTS = maxFeeBasisPoints;
     }
 
     /// @inheritdoc CampaignHooks
     function campaignURI(address campaign) external view override returns (string memory uri) {
-        return metadataURI;
+        return bytes(uriPrefix).length > 0 ? string.concat(uriPrefix, LibString.toHexStringChecksummed(campaign)) : "";
     }
 
     /// @inheritdoc CampaignHooks
-    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
+    function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal pure override {
         if (nonce != 0 || hookData.length > 0) revert InvalidCampaignInitialization();
     }
 
     /// @inheritdoc CampaignHooks
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        view
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
@@ -63,16 +65,16 @@ contract BridgeRewards is CampaignHooks {
 
         // Calculate bridged amount as current balance minus total fees allocated and not yet sent
         uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
-        bridgedAmount -= flywheel.totalAllocatedFees(campaign, token);
+        bridgedAmount -= FLYWHEEL.totalAllocatedFees(campaign, token);
 
         // Check bridged amount nonzero
         if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
         // set feeBps to 0 if builder code not registered
-        feeBps = builderCodes.isRegistered(builderCodes.toCode(uint256(code))) ? feeBps : 0;
+        feeBps = BUILDER_CODES.isRegistered(BUILDER_CODES.toCode(uint256(code))) ? feeBps : 0;
 
-        // set feeBps to maxFeeBasisPoints if feeBps exceeds maxFeeBasisPoints
-        feeBps = feeBps > maxFeeBasisPoints ? maxFeeBasisPoints : feeBps;
+        // set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
+        feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
 
         // Prepare payout
         uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
@@ -89,7 +91,7 @@ contract BridgeRewards is CampaignHooks {
             fees = new Flywheel.Distribution[](1);
             fees[0] = Flywheel.Distribution({
                 key: code, // allow fee send to fallback to builder code
-                recipient: builderCodes.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
+                recipient: BUILDER_CODES.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
                 extraData: ""
             });
@@ -101,15 +103,16 @@ contract BridgeRewards is CampaignHooks {
     /// @dev Will only need to use this function if the initial fee send fails
     function _onDistributeFees(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        view
         override
         returns (Flywheel.Distribution[] memory distributions)
     {
         bytes32 code = bytes32(hookData);
         distributions = new Flywheel.Distribution[](1);
         distributions[0] = Flywheel.Distribution({
-            recipient: builderCodes.payoutAddress(uint256(code)),
+            recipient: BUILDER_CODES.payoutAddress(uint256(code)),
             key: code,
-            amount: flywheel.allocatedFee(campaign, token, code),
+            amount: FLYWHEEL.allocatedFee(campaign, token, code),
             extraData: ""
         });
     }
@@ -117,6 +120,7 @@ contract BridgeRewards is CampaignHooks {
     /// @inheritdoc CampaignHooks
     function _onWithdrawFunds(address sender, address campaign, address token, bytes calldata hookData)
         internal
+        pure
         override
         returns (Flywheel.Payout memory payout)
     {
@@ -134,7 +138,7 @@ contract BridgeRewards is CampaignHooks {
         Flywheel.CampaignStatus oldStatus,
         Flywheel.CampaignStatus newStatus,
         bytes calldata hookData
-    ) internal override {
+    ) internal pure override {
         // This is a perpetual campaign, so it should always be active
         // Campaigns are created as INACTIVE, so still need to let someone turn it on
         if (newStatus != Flywheel.CampaignStatus.ACTIVE) revert Flywheel.InvalidCampaignStatus();

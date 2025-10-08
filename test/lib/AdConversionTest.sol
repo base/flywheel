@@ -3,8 +3,8 @@ pragma solidity ^0.8.29;
 
 import {FlywheelTest} from "./FlywheelTest.sol";
 
-import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
 /// @notice Common test helpers for AdConversion hook testing
 abstract contract AdConversionTest is FlywheelTest {
@@ -262,9 +262,7 @@ abstract contract AdConversionTest is FlywheelTest {
         }
 
         // Verify results
-        if (expectedRecipient != address(0)) {
-            _assertTokenBalance(expectedRecipient, expectedPayout);
-        }
+        if (expectedRecipient != address(0)) _assertTokenBalance(expectedRecipient, expectedPayout);
         _assertFeeAllocation(campaign, ATTRIBUTION_PROVIDER, expectedFee);
     }
 
@@ -300,9 +298,7 @@ abstract contract AdConversionTest is FlywheelTest {
         }
 
         // Verify results
-        if (expectedRecipient != address(0)) {
-            _assertTokenBalance(expectedRecipient, expectedPayout);
-        }
+        if (expectedRecipient != address(0)) _assertTokenBalance(expectedRecipient, expectedPayout);
         _assertFeeAllocation(campaign, ATTRIBUTION_PROVIDER, expectedFee);
     }
 

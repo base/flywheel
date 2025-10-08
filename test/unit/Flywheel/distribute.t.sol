@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
-import {Vm} from "forge-std/Vm.sol";
-import {stdError} from "forge-std/StdError.sol";
-import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+
 import {FailingERC20} from "../../lib/mocks/FailingERC20.sol";
+import {RevertingReceiver} from "../../lib/mocks/RevertingReceiver.sol";
+import {stdError} from "forge-std/StdError.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title DistributeTest
 /// @notice Tests for Flywheel.distribute
@@ -245,6 +246,7 @@ contract DistributeTest is FlywheelTest {
         public
     {
         recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
@@ -280,9 +282,11 @@ contract DistributeTest is FlywheelTest {
     /// @param distributeAmount Distribution amount
     function test_succeeds_withERC20Token(address recipient, uint256 allocateAmount, uint256 distributeAmount) public {
         recipient = boundToValidPayableAddress(recipient);
+        vm.assume(recipient != campaign); // Avoid self-transfers
         allocateAmount = boundToValidAmount(allocateAmount);
         distributeAmount = boundToValidAmount(distributeAmount);
         vm.assume(distributeAmount <= allocateAmount);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, allocateAmount, address(this));
@@ -566,12 +570,8 @@ contract DistributeTest is FlywheelTest {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
             bool isFeeAllocated = logs[i].topics.length > 0 && logs[i].topics[0] == feeAllocatedSig;
             bool isFeeTransferFailed = logs[i].topics.length > 0 && logs[i].topics[0] == feeTransferFailedSig;
-            if (isFromFlywheel && isFeeAllocated) {
-                revert("FeeAllocated was emitted for zero-amount fee");
-            }
-            if (isFromFlywheel && isFeeTransferFailed) {
-                revert("FeeTransferFailed was emitted for zero-amount fee");
-            }
+            if (isFromFlywheel && isFeeAllocated) revert("FeeAllocated was emitted for zero-amount fee");
+            if (isFromFlywheel && isFeeTransferFailed) revert("FeeTransferFailed was emitted for zero-amount fee");
         }
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), allocateAmount - distributeAmount);
         assertEq(
@@ -598,9 +598,11 @@ contract DistributeTest is FlywheelTest {
         feeRecipient2 = boundToValidPayableAddress(feeRecipient2);
         vm.assume(recipient != feeRecipient1);
         vm.assume(recipient != feeRecipient2);
+        vm.assume(feeRecipient1 != feeRecipient2);
         vm.assume(recipient != campaign); // Avoid self-transfers
         vm.assume(feeRecipient1 != campaign); // Avoid campaign as fee recipient
         vm.assume(feeRecipient2 != campaign); // Avoid campaign as fee recipient
+        vm.assume(feeRecipient1 != feeRecipient2); // Avoid duplicate fee recipients
         amount = boundToValidAmount(amount);
         uint16 feeBpBounded = boundToValidFeeBp(feeBp);
 
@@ -675,7 +677,7 @@ contract DistributeTest is FlywheelTest {
         uint256 initialAllocatedAmount =
             flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient)));
 
-        // Record logs to assert no PayoutsDistributed event is emitted
+        // Record logs to assert no PayoutDistributed event is emitted
         vm.recordLogs();
 
         vm.prank(manager);
@@ -687,14 +689,14 @@ contract DistributeTest is FlywheelTest {
             flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), initialAllocatedAmount
         );
 
-        // Assert no PayoutsDistributed event emitted by flywheel
+        // Assert no PayoutDistributed event emitted by flywheel
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 payoutsDistributedSig = keccak256("PayoutsDistributed(address,address,bytes32,address,uint256,bytes)");
+        bytes32 PayoutDistributedSig = keccak256("PayoutDistributed(address,address,bytes32,address,uint256,bytes)");
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
-            bool isPayoutsDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDistributedSig;
-            if (isFromFlywheel && isPayoutsDistributed) {
-                revert("PayoutsDistributed was emitted for zero-amount distribution");
+            bool isPayoutDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDistributedSig;
+            if (isFromFlywheel && isPayoutDistributed) {
+                revert("PayoutDistributed was emitted for zero-amount distribution");
             }
         }
     }
@@ -736,7 +738,7 @@ contract DistributeTest is FlywheelTest {
         uint256 initialBalance1 = mockToken.balanceOf(recipient1);
         uint256 initialBalance2 = mockToken.balanceOf(recipient2);
 
-        // Record logs to verify only one PayoutsDistributed event is emitted
+        // Record logs to verify only one PayoutDistributed event is emitted
         vm.recordLogs();
         vm.prank(manager);
         flywheel.distribute(campaign, address(mockToken), hookData);
@@ -750,18 +752,16 @@ contract DistributeTest is FlywheelTest {
         // Recipient2 allocation should be consumed
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2))), 0);
 
-        // Verify only one PayoutsDistributed event was emitted (for non-zero amount)
+        // Verify only one PayoutDistributed event was emitted (for non-zero amount)
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 payoutsDistributedSig = keccak256("PayoutsDistributed(address,address,bytes32,address,uint256,bytes)");
-        uint256 payoutsDistributedCount = 0;
+        bytes32 PayoutDistributedSig = keccak256("PayoutDistributed(address,address,bytes32,address,uint256,bytes)");
+        uint256 PayoutDistributedCount = 0;
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
-            bool isPayoutsDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDistributedSig;
-            if (isFromFlywheel && isPayoutsDistributed) {
-                payoutsDistributedCount++;
-            }
+            bool isPayoutDistributed = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDistributedSig;
+            if (isFromFlywheel && isPayoutDistributed) PayoutDistributedCount++;
         }
-        assertEq(payoutsDistributedCount, 1, "Should emit exactly one PayoutsDistributed event for non-zero amount");
+        assertEq(PayoutDistributedCount, 1, "Should emit exactly one PayoutDistributed event for non-zero amount");
     }
 
     /// @dev Verifies that distribute calls work with multiple distributions
@@ -864,10 +864,10 @@ contract DistributeTest is FlywheelTest {
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
     }
 
-    /// @dev Verifies that the PayoutsDistributed event is emitted for each distribution
+    /// @dev Verifies that the PayoutDistributed event is emitted for each distribution
     /// @param recipient Recipient address
     /// @param amount Distribution amount
-    function test_emitsPayoutsDistributedEvent(address recipient, uint256 amount, bytes memory eventTestData) public {
+    function test_emitsPayoutDistributedEvent(address recipient, uint256 amount, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
 
@@ -884,7 +884,7 @@ contract DistributeTest is FlywheelTest {
         bytes memory hookData = buildSendHookData(payouts, fees, false);
 
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutsDistributed(
+        emit Flywheel.PayoutDistributed(
             campaign, address(mockToken), bytes32(bytes20(recipient)), recipient, amount, eventTestData
         );
 
@@ -1070,13 +1070,13 @@ contract DistributeTest is FlywheelTest {
         flywheel.distribute(campaign, address(mockToken), hookData);
     }
 
-    /// @dev Verifies that the FeesDistributed event is emitted for each fee distribution
+    /// @dev Verifies that the FeeDistributed event is emitted for each fee distribution
     /// @param recipient Recipient address
     /// @param amount Distribution amount
     /// @param feeBp Fee basis points
     /// @param feeRecipient Fee recipient address
     /// @param eventTestData Extra data for the fee to attach in events
-    function test_emitsFeesDistributedEvent(
+    function test_emitsFeeDistributedEvent(
         address recipient,
         uint256 amount,
         uint256 feeBp,
@@ -1107,9 +1107,9 @@ contract DistributeTest is FlywheelTest {
         vm.prank(manager);
         flywheel.send(campaign, address(mockToken), abi.encode(new Flywheel.Payout[](0), feeAllocations, false));
 
-        // Now use distributeFees to emit FeesDistributed event
+        // Now use distributeFees to emit FeeDistributed event
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.FeesDistributed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, eventTestData);
+        emit Flywheel.FeeDistributed(campaign, address(mockToken), feeKey, feeRecipient, feeAmount, eventTestData);
 
         vm.prank(manager);
         flywheel.distributeFees(campaign, address(mockToken), abi.encode(feeAllocations));

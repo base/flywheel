@@ -3,8 +3,8 @@ pragma solidity ^0.8.29;
 
 import {AuthCaptureEscrow} from "commerce-payments/AuthCaptureEscrow.sol";
 
-import {Flywheel} from "../Flywheel.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {Flywheel} from "../Flywheel.sol";
 import {SimpleRewards} from "./SimpleRewards.sol";
 
 /// @title CashbackRewards
@@ -12,15 +12,15 @@ import {SimpleRewards} from "./SimpleRewards.sol";
 /// @notice Reward buyers for their purchases made with the Commerce Payments Protocol (https://github.com/base/commerce-payments)
 ///
 /// @dev Rewards must be made in the same token as the original payment token (cashback)
-/// @dev Rewards can be made in any amount (supports %, fixed, etc.)
-/// @dev Maximum reward percentage can be optionally configured per campaign
+/// @dev Rewards can be made in any amount (supports %-based, fixed, etc.)
 /// @dev Rewards can be made on any payment (supports custom filtering for platforms, wallets, merchants, etc.)
+/// @dev Rewards can be capped by a maximum reward percentage configurable per campaign
 ///
-/// @author Coinbase
+/// @author Coinbase (https://github.com/base/flywheel)
 contract CashbackRewards is SimpleRewards {
     /// @notice Operation types for reward validation
     enum RewardOperation {
-        REWARD,
+        SEND,
         ALLOCATE,
         DEALLOCATE,
         DISTRIBUTE
@@ -46,7 +46,7 @@ contract CashbackRewards is SimpleRewards {
     uint256 public constant BASIS_POINTS_100_PERCENT = 10_000;
 
     /// @notice The escrow contract to track payment states and calculate payment hash
-    AuthCaptureEscrow public immutable escrow;
+    AuthCaptureEscrow public immutable ESCROW;
 
     /// @notice Tracks an optional maximum reward percentage per campaign in basis points (10_000 = 100%)
     mapping(address campaign => uint256 maxRewardBasisPoints) public maxRewardBasisPoints;
@@ -81,21 +81,21 @@ contract CashbackRewards is SimpleRewards {
 
     /// @notice Constructor
     ///
-    /// @param flywheel_ The Flywheel core protocol contract address
-    /// @param escrow_ The AuthCaptureEscrow contract address
-    constructor(address flywheel_, address escrow_) SimpleRewards(flywheel_) {
-        escrow = AuthCaptureEscrow(escrow_);
+    /// @param flywheel The Flywheel core protocol contract address
+    /// @param escrow The AuthCaptureEscrow contract address
+    constructor(address flywheel, address escrow) SimpleRewards(flywheel) {
+        ESCROW = AuthCaptureEscrow(escrow);
     }
 
     /// @inheritdoc CampaignHooks
     function _onCreateCampaign(address campaign, uint256 nonce, bytes calldata hookData) internal override {
-        (address owner, address manager, string memory uri, uint16 maxRewardBasisPoints_) =
+        (address owner, address manager, string memory uriPrefix, uint16 maxRewardBasisPoints_) =
             abi.decode(hookData, (address, address, string, uint16));
         owners[campaign] = owner;
         managers[campaign] = manager;
-        campaignURI[campaign] = uri;
+        _uriPrefix[campaign] = uriPrefix;
         maxRewardBasisPoints[campaign] = uint256(maxRewardBasisPoints_);
-        emit CampaignCreated(campaign, owner, manager, uri);
+        emit CampaignCreated(campaign, owner, manager);
     }
 
     /// @inheritdoc CampaignHooks
@@ -103,7 +103,7 @@ contract CashbackRewards is SimpleRewards {
         internal
         override
         onlyManager(sender, campaign)
-        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory, /*fees*/ bool /*sendFeesNow*/ )
+        returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
@@ -112,11 +112,11 @@ contract CashbackRewards is SimpleRewards {
         for (uint256 i = 0; i < inputLen; i++) {
             // Validate the payment reward
             (bytes32 paymentInfoHash, uint120 amount, address payer, bytes memory err) =
-                _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.REWARD);
+                _validatePaymentReward(paymentRewards[i], campaign, token, RewardOperation.SEND);
 
             // Skip this reward if there was a non-reverted error
             if (err.length > 0) {
-                _revertOrEmitError(revertOnError, paymentInfoHash, amount, RewardOperation.REWARD, err);
+                _revertOrEmitError(revertOnError, paymentInfoHash, amount, RewardOperation.SEND, err);
                 continue;
             }
 
@@ -224,11 +224,7 @@ contract CashbackRewards is SimpleRewards {
         internal
         override
         onlyManager(sender, campaign)
-        returns (
-            Flywheel.Distribution[] memory distributions,
-            Flywheel.Distribution[] memory, /*fees*/
-            bool /*sendFeesNow*/
-        )
+        returns (Flywheel.Distribution[] memory distributions, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
         (PaymentReward[] memory paymentRewards, bool revertOnError) = abi.decode(hookData, (PaymentReward[], bool));
         (uint256 inputLen, uint256 outputLen) = (paymentRewards.length, 0);
@@ -304,12 +300,10 @@ contract CashbackRewards is SimpleRewards {
         RewardOperation operation
     ) internal view returns (bytes32 paymentInfoHash, uint120 amount, address payer, bytes memory err) {
         (paymentInfoHash, amount, payer) =
-            (escrow.getHash(paymentReward.paymentInfo), paymentReward.payoutAmount, paymentReward.paymentInfo.payer);
+            (ESCROW.getHash(paymentReward.paymentInfo), paymentReward.payoutAmount, paymentReward.paymentInfo.payer);
 
         // Check reward amount non-zero
-        if (amount == 0) {
-            return (paymentInfoHash, amount, payer, abi.encodeWithSelector(ZeroPayoutAmount.selector));
-        }
+        if (amount == 0) return (paymentInfoHash, amount, payer, abi.encodeWithSelector(ZeroPayoutAmount.selector));
 
         // Check the token matches the payment token
         if (paymentReward.paymentInfo.token != token) {
@@ -318,7 +312,7 @@ contract CashbackRewards is SimpleRewards {
 
         // Check payment has been collected
         (bool hasCollectedPayment, uint120 capturableAmount, uint120 refundableAmount) =
-            escrow.paymentState(paymentInfoHash);
+            ESCROW.paymentState(paymentInfoHash);
         if (!hasCollectedPayment) {
             return (paymentInfoHash, amount, payer, abi.encodeWithSelector(PaymentNotCollected.selector));
         }

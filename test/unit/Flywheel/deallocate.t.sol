@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {Constants} from "../../../src/Constants.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 import {FlywheelTest} from "../../lib/FlywheelTestBase.sol";
-import {Vm} from "forge-std/Vm.sol";
+
 import {stdError} from "forge-std/StdError.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 /// @title DeallocateTest
 /// @notice Tests for Flywheel.deallocate
@@ -186,12 +187,13 @@ contract DeallocateTest is FlywheelTest {
     /// @dev Verifies that deallocate calls work with an ERC20 token
     /// @param allocateAmount Allocation amount
     /// @param deallocateAmount Deallocation amount
-    function test_succeeds_withERC20Token(uint256 allocateAmount, uint256 deallocateAmount) public {
-        address recipient = boundToValidPayableAddress(makeAddr("recipient"));
+    function test_succeeds_withERC20Token(address recipient, uint256 allocateAmount, uint256 deallocateAmount) public {
+        recipient = boundToValidPayableAddress(recipient);
         allocateAmount = boundToValidAmount(allocateAmount);
         deallocateAmount = boundToValidAmount(deallocateAmount);
         vm.assume(allocateAmount > 0);
         vm.assume(deallocateAmount <= allocateAmount);
+        vm.assume(recipient != campaign);
 
         activateCampaign(campaign, manager);
         fundCampaign(campaign, allocateAmount, address(this));
@@ -284,14 +286,14 @@ contract DeallocateTest is FlywheelTest {
         assertEq(flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient))), initialAllocated);
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), initialTotalAllocated);
 
-        // Assert no PayoutsDeallocated event emitted by flywheel
+        // Assert no PayoutDeallocated event emitted by flywheel
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 payoutsDeallocatedSig = keccak256("PayoutsDeallocated(address,address,bytes32,uint256,bytes)");
+        bytes32 PayoutDeallocatedSig = keccak256("PayoutDeallocated(address,address,bytes32,uint256,bytes)");
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
-            bool isPayoutsDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDeallocatedSig;
-            if (isFromFlywheel && isPayoutsDeallocated) {
-                revert("PayoutsDeallocated was emitted for zero-amount deallocation");
+            bool isPayoutDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDeallocatedSig;
+            if (isFromFlywheel && isPayoutDeallocated) {
+                revert("PayoutDeallocated was emitted for zero-amount deallocation");
             }
         }
     }
@@ -330,7 +332,7 @@ contract DeallocateTest is FlywheelTest {
         uint256 initialAllocation2 =
             flywheel.allocatedPayout(campaign, address(mockToken), bytes32(bytes20(recipient2)));
 
-        // Record logs to verify only one PayoutsDeallocated event is emitted
+        // Record logs to verify only one PayoutDeallocated event is emitted
         vm.recordLogs();
         vm.prank(manager);
         flywheel.deallocate(campaign, address(mockToken), abi.encode(deallocatePayouts));
@@ -347,18 +349,16 @@ contract DeallocateTest is FlywheelTest {
         // Total allocations should only reflect the non-zero deallocation
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
 
-        // Verify only one PayoutsDeallocated event was emitted (for non-zero amount)
+        // Verify only one PayoutDeallocated event was emitted (for non-zero amount)
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 payoutsDeallocatedSig = keccak256("PayoutsDeallocated(address,address,bytes32,uint256,bytes)");
-        uint256 payoutsDeallocatedCount = 0;
+        bytes32 PayoutDeallocatedSig = keccak256("PayoutDeallocated(address,address,bytes32,uint256,bytes)");
+        uint256 PayoutDeallocatedCount = 0;
         for (uint256 i = 0; i < logs.length; i++) {
             bool isFromFlywheel = logs[i].emitter == address(flywheel);
-            bool isPayoutsDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == payoutsDeallocatedSig;
-            if (isFromFlywheel && isPayoutsDeallocated) {
-                payoutsDeallocatedCount++;
-            }
+            bool isPayoutDeallocated = logs[i].topics.length > 0 && logs[i].topics[0] == PayoutDeallocatedSig;
+            if (isFromFlywheel && isPayoutDeallocated) PayoutDeallocatedCount++;
         }
-        assertEq(payoutsDeallocatedCount, 1, "Should emit exactly one PayoutsDeallocated event for non-zero amount");
+        assertEq(PayoutDeallocatedCount, 1, "Should emit exactly one PayoutDeallocated event for non-zero amount");
     }
 
     /// @dev Verifies that deallocate calls work with multiple deallocations
@@ -444,11 +444,11 @@ contract DeallocateTest is FlywheelTest {
         assertEq(flywheel.totalAllocatedPayouts(campaign, address(mockToken)), 0);
     }
 
-    /// @dev Verifies that the PayoutsDeallocated event is emitted for each deallocation
+    /// @dev Verifies that the PayoutDeallocated event is emitted for each deallocation
     /// @param amount Deallocation amount
     /// @param recipient Recipient address
     /// @param eventTestData Extra data for the payout to attach in events
-    function test_emitsPayoutsDeallocatedEvent(uint256 amount, address recipient, bytes memory eventTestData) public {
+    function test_emitsPayoutDeallocatedEvent(uint256 amount, address recipient, bytes memory eventTestData) public {
         recipient = boundToValidPayableAddress(recipient);
         amount = boundToValidAmount(amount);
         vm.assume(amount > 0);
@@ -460,9 +460,9 @@ contract DeallocateTest is FlywheelTest {
         Flywheel.Payout[] memory payouts = buildSinglePayout(recipient, amount, eventTestData);
         managerAllocate(campaign, address(mockToken), payouts);
 
-        // Now deallocate and expect the PayoutsDeallocated event
+        // Now deallocate and expect the PayoutDeallocated event
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutsDeallocated(
+        emit Flywheel.PayoutDeallocated(
             campaign, address(mockToken), bytes32(bytes20(recipient)), amount, eventTestData
         );
 

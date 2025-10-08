@@ -282,7 +282,7 @@ contract OnDeallocateTest is CashbackRewardsTest {
 
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
         vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutsDeallocated(
+        emit Flywheel.PayoutDeallocated(
             unlimitedCashbackCampaign,
             address(usdc),
             bytes32(bytes20(buyer)),

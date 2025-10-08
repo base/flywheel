@@ -1,35 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {Flywheel} from "./Flywheel.sol";
 import {Constants} from "./Constants.sol";
+import {Flywheel} from "./Flywheel.sol";
 
 /// @title Campaign
 ///
 /// @notice Holds funds for a single campaign
 ///
 /// @dev Deployed on demand by protocol via clones
+/// @dev Follows ERC-7572 convention for contract metadata
+///
+/// @author Coinbase (https://github.com/base/flywheel)
 contract Campaign {
-    /// @notice Address that created this token store
-    address public immutable flywheel;
+    /// @notice Flywheel contract address
+    address public immutable FLYWHEEL;
 
     /// @notice Emitted when the contract URI is updated
     event ContractURIUpdated();
 
-    /// @notice Call sender is not flywheel
+    /// @notice Call sender is not Flywheel
     error OnlyFlywheel();
 
     /// @notice Constructor
     constructor() {
-        flywheel = msg.sender;
+        FLYWHEEL = msg.sender;
     }
 
     /// @notice Allow receiving native token
     receive() external payable {}
 
-    /// @notice Send tokens to a recipient, called by escrow during capture/refund
+    /// @notice Send tokens to a recipient
+    ///
+    /// @dev Delegates all logic of when to send tokens to Flywheel
     ///
     /// @param token The token being received
     /// @param recipient Address to receive the tokens
@@ -37,7 +42,7 @@ contract Campaign {
     ///
     /// @return success True if the transfer was successful
     function sendTokens(address token, address recipient, uint256 amount) external returns (bool success) {
-        if (msg.sender != flywheel) revert OnlyFlywheel();
+        if (msg.sender != FLYWHEEL) revert OnlyFlywheel();
         if (token == Constants.NATIVE_TOKEN) {
             (success,) = payable(recipient).call{value: amount}("");
         } else {
@@ -47,7 +52,7 @@ contract Campaign {
 
     /// @notice Updates the metadata for the contract
     function updateContractURI() external {
-        if (msg.sender != flywheel) revert OnlyFlywheel();
+        if (msg.sender != FLYWHEEL) revert OnlyFlywheel();
         emit ContractURIUpdated();
     }
 
@@ -55,6 +60,6 @@ contract Campaign {
     ///
     /// @return uri The URI for the contract
     function contractURI() external view returns (string memory uri) {
-        return Flywheel(flywheel).campaignURI(address(this));
+        return Flywheel(FLYWHEEL).campaignURI(address(this));
     }
 }

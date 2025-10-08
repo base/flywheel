@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {Constants} from "../../src/Constants.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {FlywheelTest} from "../lib/FlywheelTestBase.sol";
 import {MockERC20} from "../lib/mocks/MockERC20.sol";
-import {Constants} from "../../src/Constants.sol";
 
 /// @title MultiTokenTest
 /// @notice Tests for per-token isolation in Flywheel accounting and flows
