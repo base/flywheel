@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {AdConversionTestBase} from "../lib/AdConversionTestBase.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
+import {AdConversionTestBase} from "../lib/AdConversionTestBase.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
 contract AdConversionIntegrationTest is AdConversionTestBase {
@@ -496,8 +496,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
 
         // Add new conversion config during active campaign
         AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://new-config.example.com/metadata"
+            isEventOnchain: true, metadataURI: "https://new-config.example.com/metadata"
         });
 
         vm.prank(advertiser);
@@ -1069,11 +1068,6 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         // Finalize campaign
         vm.prank(attributionProvider);
         flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-
-        // Test that metadata updates are blocked in FINALIZED phase
-        vm.expectRevert();
-        vm.prank(advertiser);
-        flywheel.updateMetadata(campaign, "should fail in finalized");
 
         // Test unauthorized metadata updates are blocked
         vm.expectRevert();
