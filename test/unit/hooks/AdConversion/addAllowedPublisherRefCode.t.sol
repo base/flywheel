@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
-
+import {Vm} from "forge-std/Vm.sol";
 import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
 
@@ -27,10 +27,10 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
 
     /// @dev Reverts when publisher ref code is not registered in BuilderCodes registry
     /// @param refCodeSeed Seed for generating the unregistered ref code
-    function test_revert_unregisteredRefCode(uint256 refCodeSeed) public {
+    function test_revert_invalidPublisherRefCode(uint256 refCodeSeed) public {
         vm.assume(refCodeSeed != 0);
 
-        // Generate an unregistered ref code
+        // Generate an unregistered ref code (which is invalid according to AdConversion)
         string memory unregisteredRefCode = generateValidRefCodeFromSeed(refCodeSeed);
         vm.assume(!builderCodes.isRegistered(unregisteredRefCode));
 
@@ -95,7 +95,8 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
 
         // Verify the ref code was added to allowlist
         assertTrue(
-            adConversion.allowedPublishers(testCampaign, registeredRefCode), "REF_CODE_1 should be added to allowlist"
+            adConversion.allowedPublishers(testCampaign, registeredRefCode),
+            "new registered ref code should be added to allowlist"
         );
     }
 
@@ -130,10 +131,12 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
 
         // Verify both ref codes were added to allowlist
         assertTrue(
-            adConversion.allowedPublishers(testCampaign, registeredRefCode1), "REF_CODE_1 should be added to allowlist"
+            adConversion.allowedPublishers(testCampaign, registeredRefCode1),
+            "new registeredRefCode1 should be added to allowlist"
         );
         assertTrue(
-            adConversion.allowedPublishers(testCampaign, registeredRefCode2), "REF_CODE_2 should be added to allowlist"
+            adConversion.allowedPublishers(testCampaign, registeredRefCode2),
+            "new registeredRefCode2 should be added to allowlist"
         );
     }
 
@@ -162,7 +165,7 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         // Verify ref code is still properly allowed (no errors occurred)
         assertTrue(
             adConversion.allowedPublishers(testCampaign, registeredRefCode),
-            "registeredRefCode should remain in allowlist"
+            "registeredRefCode should remain in allowlist after adding it multiple times"
         );
     }
 
@@ -189,7 +192,7 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         // Verify the ref code was added to allowlist
         assertTrue(
             adConversion.allowedPublishers(testCampaign, maxLengthRefCode),
-            "Max length ref code should be added to allowlist"
+            "Max length ref code should be added to allowlist after adding it"
         );
     }
 
@@ -229,7 +232,7 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         // Verify the ref code was added to allowlist
         assertTrue(
             adConversion.allowedPublishers(testCampaign, specialCharRefCode),
-            "Special character ref code should be added to allowlist"
+            "Special character ref code should be added to allowlist after adding it"
         );
     }
 
@@ -314,6 +317,7 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         address testCampaign = createCampaignWithAllowlist(advertiser1, attributionProvider1, allowedRefCodes);
 
         vm.startPrank(advertiser1);
+        vm.recordLogs();
 
         // First addition should emit event
         vm.expectEmit(true, false, false, true);
@@ -329,7 +333,21 @@ contract AddAllowedPublisherRefCodeTest is AdConversionTestBase {
         // Verify ref code is still properly allowed
         assertTrue(
             adConversion.allowedPublishers(testCampaign, registeredRefCode),
-            "registeredRefCode should remain in allowlist"
+            "registeredRefCode should remain in allowlist after adding it multiple times"
         );
+
+        // Verify only one PublisherAddedToAllowlist event was emitted by the AdConversion hook for this campaign
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 sig = keccak256("PublisherAddedToAllowlist(address,string)");
+        bytes32 campaignTopic = bytes32(uint256(uint160(testCampaign)));
+        uint256 found;
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics.length > 1 && entries[i].topics[0] == sig && entries[i].topics[1] == campaignTopic) {
+                if (entries[i].emitter == address(adConversion)) {
+                    found++;
+                }
+            }
+        }
+        assertEq(found, 1, "should emit PublisherAddedToAllowlist exactly once by hook");
     }
 }
