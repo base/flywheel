@@ -35,12 +35,8 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
     // ========================================
 
     /// @dev Successfully allows metadata update when called by attribution provider
-    /// @param attributionProvider Attribution provider address
-    /// @param campaign Campaign address
     /// @param newMetadata New metadata string
-    function test_success_attributionProvider(address attributionProvider, address campaign, string memory newMetadata)
-        public
-    {
+    function test_success_attributionProvider(string memory newMetadata) public {
         // Create campaign
         address testCampaign = createBasicCampaign();
         fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
@@ -58,10 +54,8 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
     }
 
     /// @dev Successfully allows metadata update when called by advertiser
-    /// @param advertiser Advertiser address
-    /// @param campaign Campaign address
     /// @param newMetadata New metadata string
-    function test_success_advertiser(address advertiser, address campaign, string memory newMetadata) public {
+    function test_success_advertiser(string memory newMetadata) public {
         // Create campaign
         address testCampaign = createBasicCampaign();
         fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
@@ -79,9 +73,7 @@ contract OnUpdateMetadataTest is AdConversionTestBase {
     }
 
     /// @dev Successfully updates metadata with empty string
-    /// @param authorizedCaller Authorized caller (attribution provider or advertiser)
-    /// @param campaign Campaign address
-    function test_success_emptyMetadata(address authorizedCaller, address campaign) public {
+    function test_success_emptyMetadata() public {
         // Create campaign
         address testCampaign = createBasicCampaign();
         fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);

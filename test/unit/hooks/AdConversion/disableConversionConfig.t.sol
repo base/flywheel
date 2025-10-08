@@ -24,6 +24,7 @@ contract DisableConversionConfigTest is AdConversionTestBase {
     }
 
     /// @dev Reverts when conversion config ID does not exist
+    /// @param invalidConfigId Invalid conversion config ID
     function test_revert_configDoesNotExist(uint16 invalidConfigId) public {
         vm.assume(invalidConfigId > 2);
 
@@ -136,8 +137,7 @@ contract DisableConversionConfigTest is AdConversionTestBase {
         allConfigs[0] = defaultConfigs[0];
         allConfigs[1] = defaultConfigs[1];
         allConfigs[2] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/onchain-config"
+            isEventOnchain: true, metadataURI: "https://example.com/onchain-config"
         });
 
         address testCampaign = createCampaign(
@@ -175,8 +175,7 @@ contract DisableConversionConfigTest is AdConversionTestBase {
         allConfigs[0] = defaultConfigs[0];
         allConfigs[1] = defaultConfigs[1];
         allConfigs[2] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://example.com/offchain-config"
+            isEventOnchain: false, metadataURI: "https://example.com/offchain-config"
         });
 
         address testCampaign = createCampaign(

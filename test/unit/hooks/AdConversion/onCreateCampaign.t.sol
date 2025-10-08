@@ -10,6 +10,23 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     // REVERT CASES
     // ========================================
 
+    /// @dev Reverts when same address is used for provider and advertiser
+    /// @param sameAddress Same address for advertiser and attribution provider
+    function test_revert_sameRoleAddress(address sameAddress) public {
+        vm.assume(sameAddress != address(0));
+
+        // Create empty allowlist and configs
+        string[] memory emptyAllowlist = new string[](0);
+        AdConversion.ConversionConfigInput[] memory emptyConfigs = new AdConversion.ConversionConfigInput[](0);
+
+        // Should revert when same address is used for provider and advertiser
+        bytes memory hookData = abi.encode(
+            sameAddress, sameAddress, "https://example.com/campaign", emptyAllowlist, emptyConfigs, 1 days, 1000
+        );
+        vm.expectRevert(AdConversion.SameRoleAddress.selector);
+        flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
+    }
+
     /// @dev Reverts when attribution window duration is not in days precision
     /// @param attributionProvider Attribution provider address
     /// @param advertiser Advertiser address
@@ -37,7 +54,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         invalidWindow = uint48(bound(invalidWindow, 1, 86399)); // 1 day = 86400 seconds
 
         // Should revert for non-day precision window (expects InvalidAttributionWindow with parameter)
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidAttributionWindow.selector, invalidWindow));
         createCampaignWithURI(advertiser, attributionProvider, allowedRefCodes, configs, invalidWindow, feeBps, uri);
     }
 
@@ -68,7 +85,7 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         excessiveWindow = uint48(bound(excessiveWindow, MAX_ATTRIBUTION_WINDOW + 86400, type(uint48).max)); // Add 1 day
 
         // Should revert for excessive attribution window (expects InvalidAttributionWindow with parameter)
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(AdConversion.InvalidAttributionWindow.selector, excessiveWindow));
         createCampaignWithURI(advertiser, attributionProvider, allowedRefCodes, configs, excessiveWindow, feeBps, uri);
     }
 
@@ -284,14 +301,12 @@ contract OnCreateCampaignTest is AdConversionTestBase {
     /// @param attributionProvider Attribution provider address
     /// @param advertiser Advertiser address
     /// @param uri Campaign URI
-    /// @param allowedRefCodes Array of allowed publisher ref codes
     /// @param attributionWindow Attribution window in days
     /// @param feeBps Attribution provider fee in basis points
     function test_success_withAllowlist(
         address attributionProvider,
         address advertiser,
         string memory uri,
-        string[] memory allowedRefCodes,
         uint48 attributionWindow,
         uint16 feeBps
     ) public {
@@ -380,12 +395,10 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         // Create predefined configs instead of using fuzzed input
         AdConversion.ConversionConfigInput[] memory validConfigs = new AdConversion.ConversionConfigInput[](2);
         validConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/onchain-config"
+            isEventOnchain: true, metadataURI: "https://example.com/onchain-config"
         });
         validConfigs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://example.com/offchain-config"
+            isEventOnchain: false, metadataURI: "https://example.com/offchain-config"
         });
 
         // Create empty allowlist
@@ -621,12 +634,10 @@ contract OnCreateCampaignTest is AdConversionTestBase {
         // Create predefined configs instead of using fuzzed input
         AdConversion.ConversionConfigInput[] memory validConfigs = new AdConversion.ConversionConfigInput[](2);
         validConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://example.com/onchain-config"
+            isEventOnchain: true, metadataURI: "https://example.com/onchain-config"
         });
         validConfigs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://example.com/offchain-config"
+            isEventOnchain: false, metadataURI: "https://example.com/offchain-config"
         });
 
         // Create empty allowlist
@@ -642,14 +653,10 @@ contract OnCreateCampaignTest is AdConversionTestBase {
 
         // Create expected conversion configs for events
         AdConversion.ConversionConfig memory expectedConfig1 = AdConversion.ConversionConfig({
-            isActive: true,
-            isEventOnchain: true,
-            metadataURI: "https://example.com/onchain-config"
+            isActive: true, isEventOnchain: true, metadataURI: "https://example.com/onchain-config"
         });
         AdConversion.ConversionConfig memory expectedConfig2 = AdConversion.ConversionConfig({
-            isActive: true,
-            isEventOnchain: false,
-            metadataURI: "https://example.com/offchain-config"
+            isActive: true, isEventOnchain: false, metadataURI: "https://example.com/offchain-config"
         });
 
         // Expect ConversionConfigAdded events
