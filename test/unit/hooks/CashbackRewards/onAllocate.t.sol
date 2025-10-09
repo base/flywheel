@@ -10,9 +10,11 @@ import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../../../../src/hooks/SimpleRewards.sol";
 
 contract OnAllocateTest is CashbackRewardsTest {
-    function test_revertsOnUnauthorizedCaller(uint120 paymentAmount, uint120 allocateAmount, address unauthorizedCaller)
-        public
-    {
+    function test_revertsOnUnauthorizedCaller(
+        uint120 paymentAmount,
+        uint120 allocateAmount,
+        address unauthorizedCaller
+    ) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
         vm.assume(unauthorizedCaller != manager && unauthorizedCaller != address(0));

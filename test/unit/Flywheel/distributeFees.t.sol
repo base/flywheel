@@ -279,10 +279,7 @@ contract DistributeFeesTest is FlywheelTest {
         // First allocate fees to both recipients (only fund for recipient2's non-zero amount)
         Flywheel.Distribution[] memory feeAllocations = new Flywheel.Distribution[](2);
         feeAllocations[0] = Flywheel.Distribution({
-            recipient: recipient1,
-            key: bytes32(bytes20(recipient1)),
-            amount: 0,
-            extraData: "zero_fee_allocation"
+            recipient: recipient1, key: bytes32(bytes20(recipient1)), amount: 0, extraData: "zero_fee_allocation"
         });
         feeAllocations[1] = Flywheel.Distribution({
             recipient: recipient2,
@@ -297,10 +294,7 @@ contract DistributeFeesTest is FlywheelTest {
         // Create distributions: one zero amount, one non-zero amount
         Flywheel.Distribution[] memory distributions = new Flywheel.Distribution[](2);
         distributions[0] = Flywheel.Distribution({
-            recipient: recipient1,
-            key: bytes32(bytes20(recipient1)),
-            amount: 0,
-            extraData: "zero_fee_distribution"
+            recipient: recipient1, key: bytes32(bytes20(recipient1)), amount: 0, extraData: "zero_fee_distribution"
         });
         distributions[1] = Flywheel.Distribution({
             recipient: recipient2,
@@ -365,16 +359,10 @@ contract DistributeFeesTest is FlywheelTest {
         // First allocate fees to both recipients using send with deferred fees
         Flywheel.Distribution[] memory feeAllocations = new Flywheel.Distribution[](2);
         feeAllocations[0] = Flywheel.Distribution({
-            recipient: recipient1,
-            key: bytes32(bytes20(recipient1)),
-            amount: amount1,
-            extraData: "fee1"
+            recipient: recipient1, key: bytes32(bytes20(recipient1)), amount: amount1, extraData: "fee1"
         });
         feeAllocations[1] = Flywheel.Distribution({
-            recipient: recipient2,
-            key: bytes32(bytes20(recipient2)),
-            amount: amount2,
-            extraData: "fee2"
+            recipient: recipient2, key: bytes32(bytes20(recipient2)), amount: amount2, extraData: "fee2"
         });
 
         vm.prank(manager);

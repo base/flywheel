@@ -93,12 +93,10 @@ contract AdFlowTest is PublisherTestSetup {
         // Create conversion configs
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
         configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://campaign.com/offchain-metadata"
+            isEventOnchain: false, metadataURI: "https://campaign.com/offchain-metadata"
         });
         configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://campaign.com/onchain-metadata"
+            isEventOnchain: true, metadataURI: "https://campaign.com/onchain-metadata"
         });
 
         bytes memory hookData = abi.encode(
@@ -328,16 +326,13 @@ contract AdFlowTest is PublisherTestSetup {
             campaign,
             3,
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: false,
-                metadataURI: "https://campaign.com/new-config-metadata"
+                isActive: true, isEventOnchain: false, metadataURI: "https://campaign.com/new-config-metadata"
             })
         );
         adHook.addConversionConfig(
             campaign,
             AdConversion.ConversionConfigInput({
-                isEventOnchain: false,
-                metadataURI: "https://campaign.com/new-config-metadata"
+                isEventOnchain: false, metadataURI: "https://campaign.com/new-config-metadata"
             })
         );
         vm.stopPrank();
@@ -365,8 +360,7 @@ contract AdFlowTest is PublisherTestSetup {
         adHook.addConversionConfig(
             campaign,
             AdConversion.ConversionConfigInput({
-                isEventOnchain: false,
-                metadataURI: "https://campaign.com/unauthorized-config"
+                isEventOnchain: false, metadataURI: "https://campaign.com/unauthorized-config"
             })
         );
 

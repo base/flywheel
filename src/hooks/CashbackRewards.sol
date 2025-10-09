@@ -161,9 +161,7 @@ contract CashbackRewards is SimpleRewards {
 
             // Append to return array
             allocations[outputLen++] = Flywheel.Allocation({
-                key: bytes32(bytes20(payer)),
-                amount: amount,
-                extraData: abi.encodePacked(paymentInfoHash)
+                key: bytes32(bytes20(payer)), amount: amount, extraData: abi.encodePacked(paymentInfoHash)
             });
         }
 
@@ -207,9 +205,7 @@ contract CashbackRewards is SimpleRewards {
 
             // Append to return array
             allocations[outputLen++] = Flywheel.Allocation({
-                key: bytes32(bytes20(payer)),
-                amount: amount,
-                extraData: abi.encodePacked(paymentInfoHash)
+                key: bytes32(bytes20(payer)), amount: amount, extraData: abi.encodePacked(paymentInfoHash)
             });
         }
 

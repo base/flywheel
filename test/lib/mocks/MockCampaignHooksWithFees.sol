@@ -72,9 +72,7 @@ contract MockCampaignHooksWithFees is CampaignHooks {
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)), amount: payouts[i].amount, extraData: payouts[i].extraData
             });
         }
     }
@@ -93,9 +91,7 @@ contract MockCampaignHooksWithFees is CampaignHooks {
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)), amount: payouts[i].amount, extraData: payouts[i].extraData
             });
         }
     }

@@ -108,7 +108,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -221,7 +223,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})) // logBytes for OFFCHAIN is invalid
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            ) // logBytes for OFFCHAIN is invalid
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -335,9 +339,7 @@ contract AdConversionTest is PublisherTestSetup {
             expectedCampaign,
             1,
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: true,
-                metadataURI: "https://example.com/config0"
+                isActive: true, isEventOnchain: true, metadataURI: "https://example.com/config0"
             })
         );
 
@@ -346,9 +348,7 @@ contract AdConversionTest is PublisherTestSetup {
             expectedCampaign,
             2,
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: false,
-                metadataURI: "https://example.com/config1"
+                isActive: true, isEventOnchain: false, metadataURI: "https://example.com/config1"
             })
         );
 
@@ -781,9 +781,7 @@ contract AdConversionTest is PublisherTestSetup {
             campaign,
             3, // Next ID
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: true,
-                metadataURI: "https://example.com/new-config"
+                isActive: true, isEventOnchain: true, metadataURI: "https://example.com/new-config"
             })
         );
 
@@ -798,8 +796,9 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_addConversionConfig_revert_unauthorized() public {
-        AdConversion.ConversionConfigInput memory newConfig =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/unauthorized"});
+        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
+            isEventOnchain: false, metadataURI: "https://example.com/unauthorized"
+        });
 
         vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(randomUser);
@@ -875,7 +874,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -947,7 +948,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -1079,7 +1082,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         attributions[1] = AdConversion.Attribution({
@@ -1177,7 +1182,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -1199,7 +1206,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);

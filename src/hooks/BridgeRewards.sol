@@ -80,9 +80,7 @@ contract BridgeRewards is CampaignHooks {
         uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
         payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({
-            recipient: user,
-            amount: bridgedAmount - feeAmount,
-            extraData: abi.encode(code, feeAmount)
+            recipient: user, amount: bridgedAmount - feeAmount, extraData: abi.encode(code, feeAmount)
         });
 
         // Prepare fee if applicable

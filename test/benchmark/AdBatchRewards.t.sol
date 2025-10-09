@@ -122,9 +122,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 ? bytes("")
                 : abi.encode(
                     AdConversion.Log({
-                        chainId: block.chainid,
-                        transactionHash: bytes32(uint256(txHashSeed)),
-                        index: uint256(eventId)
+                        chainId: block.chainid, transactionHash: bytes32(uint256(txHashSeed)), index: uint256(eventId)
                     })
                 )
         });
@@ -300,7 +298,9 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 logBytes: configId == 3
                     ? bytes("")
                     : abi.encode(
-                        AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(i + 1)), index: uint256(i)})
+                        AdConversion.Log({
+                            chainId: block.chainid, transactionHash: bytes32(uint256(i + 1)), index: uint256(i)
+                        })
                     )
             });
         }

@@ -75,7 +75,8 @@ contract Flywheel is ReentrancyGuardTransient {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Allocated payouts that are pending distribution
-    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedPayout;
+    mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public
+        allocatedPayout;
 
     /// @notice Allocated fees that are pending collection
     mapping(address campaign => mapping(address token => mapping(bytes32 key => uint256 amount))) public allocatedFee;
@@ -677,11 +678,7 @@ contract Flywheel is ReentrancyGuardTransient {
     /// @param hookData Data for the campaign hook
     ///
     /// @return salt The salt for the campaign
-    function _campaignSalt(address hooks, uint256 nonce, bytes calldata hookData)
-        internal
-        pure
-        returns (bytes32 salt)
-    {
+    function _campaignSalt(address hooks, uint256 nonce, bytes calldata hookData) internal pure returns (bytes32 salt) {
         return keccak256(abi.encode(hooks, nonce, hookData));
     }
 

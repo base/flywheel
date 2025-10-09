@@ -171,11 +171,7 @@ abstract contract AdConversionTest is FlywheelTest {
     }
 
     /// @notice Creates OFAC funds re-routing attribution
-    function _createOfacReroutingAttribution(uint256 amount)
-        internal
-        view
-        returns (AdConversion.Attribution[] memory)
-    {
+    function _createOfacReroutingAttribution(uint256 amount) internal view returns (AdConversion.Attribution[] memory) {
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
         attributions[0] = AdConversion.Attribution({

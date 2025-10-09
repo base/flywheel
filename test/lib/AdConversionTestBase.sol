@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {Test} from "forge-std/Test.sol";
 
-import {PublisherTestSetup, PublisherSetupHelper} from "./PublisherSetupHelper.sol";
+import {PublisherSetupHelper, PublisherTestSetup} from "./PublisherSetupHelper.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
@@ -191,8 +191,9 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
         uint16 feeBps,
         string memory uri
     ) public returns (address campaign) {
-        bytes memory hookData =
-            abi.encode(attributionProvider, advertiser, uri, allowedRefCodes, configs, attributionWindow, feeBps);
+        bytes memory hookData = abi.encode(
+            attributionProvider, advertiser, uri, allowedRefCodes, configs, attributionWindow, feeBps
+        );
 
         campaign = flywheel.createCampaign(address(adConversion), DEFAULT_CAMPAIGN_NONCE, hookData);
     }
@@ -244,12 +245,10 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
     function _createDefaultConfigs() internal pure returns (AdConversion.ConversionConfigInput[] memory) {
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](2);
         configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://campaign.example.com/offchain-config"
+            isEventOnchain: false, metadataURI: "https://campaign.example.com/offchain-config"
         });
         configs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "https://campaign.example.com/onchain-config"
+            isEventOnchain: true, metadataURI: "https://campaign.example.com/onchain-config"
         });
         return configs;
     }
@@ -787,9 +786,7 @@ abstract contract AdConversionTestBase is PublisherTestSetup {
     /// @notice Creates mock log data for onchain attributions
     function createMockLogData() public view returns (AdConversion.Log memory) {
         return AdConversion.Log({
-            chainId: block.chainid,
-            transactionHash: keccak256(abi.encodePacked("mock_tx", block.timestamp)),
-            index: 0
+            chainId: block.chainid, transactionHash: keccak256(abi.encodePacked("mock_tx", block.timestamp)), index: 0
         });
     }
 

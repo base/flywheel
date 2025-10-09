@@ -85,9 +85,7 @@ contract SimpleRewards is CampaignHooks {
         allocations = new Flywheel.Allocation[](count);
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)), amount: payouts[i].amount, extraData: payouts[i].extraData
             });
         }
     }
@@ -105,9 +103,7 @@ contract SimpleRewards is CampaignHooks {
         allocations = new Flywheel.Allocation[](count);
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)), amount: payouts[i].amount, extraData: payouts[i].extraData
             });
         }
     }

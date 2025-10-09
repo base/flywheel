@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
-import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
 import {Flywheel} from "../../../../src/Flywheel.sol";
+import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
+import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
 contract OnSendTest is AdConversionTestBase {
     // ========================================
@@ -677,9 +677,11 @@ contract OnSendTest is AdConversionTestBase {
     /// @param campaign Campaign address
     /// @param token Token address
     /// @param publisherRefCode Registered publisher reference code
-    function test_success_resolvesZeroAddressRecipients(address campaign, address token, string memory publisherRefCode)
-        public
-    {
+    function test_success_resolvesZeroAddressRecipients(
+        address campaign,
+        address token,
+        string memory publisherRefCode
+    ) public {
         // Create campaign with zero fee for clean testing
         address testCampaign = createZeroFeeCampaign(advertiser1, attributionProvider1);
         fundCampaign(testCampaign, address(tokenA), DEFAULT_CAMPAIGN_FUNDING);
@@ -925,6 +927,7 @@ contract OnSendTest is AdConversionTestBase {
         assertEq(payouts[0].amount, payoutAmount, "Should process full amount with zero fee");
         assertEq(fees.length, 0, "Should have no fees with zero fee campaign");
     }
+
     // ========================================
     // FEE CALCULATION TESTING
     // ========================================
@@ -1312,8 +1315,7 @@ contract OnSendTest is AdConversionTestBase {
     /// @param token Token address
     /// @param attributions Array of conversion attributions
     function test_success_batchZeroFee(address campaign, address token, AdConversion.Attribution[] memory attributions)
-        public
-    {}
+        public {}
 
     /// @dev Reverts when batch contains invalid conversion config IDs
     /// @param campaign Campaign address

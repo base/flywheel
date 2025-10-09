@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
+import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
 contract ViewFunctionsTest is AdConversionTestBase {
@@ -28,6 +28,7 @@ contract ViewFunctionsTest is AdConversionTestBase {
 
         return combined;
     }
+
     // ========================================
     // CAMPAIGN URI TESTING
     // ========================================
@@ -176,8 +177,7 @@ contract ViewFunctionsTest is AdConversionTestBase {
         additionalConfigs[0] =
             AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain-test"});
         additionalConfigs[1] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://example.com/offchain-test"
+            isEventOnchain: false, metadataURI: "https://example.com/offchain-test"
         });
 
         address testCampaign = createCampaignWithURI(
@@ -226,10 +226,11 @@ contract ViewFunctionsTest is AdConversionTestBase {
     function test_getConversionConfig_emptyMetadataURI() public {
         // Create campaign with empty metadata config
         AdConversion.ConversionConfigInput[] memory additionalConfigs = new AdConversion.ConversionConfigInput[](1);
-        additionalConfigs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: true,
-            metadataURI: "" // Empty metadata
-        });
+        additionalConfigs[0] =
+            AdConversion.ConversionConfigInput({
+                isEventOnchain: true,
+                metadataURI: "" // Empty metadata
+            });
 
         address testCampaign = createCampaignWithURI(
             advertiser1,

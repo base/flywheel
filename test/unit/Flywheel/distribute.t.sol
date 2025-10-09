@@ -312,9 +312,7 @@ contract DistributeTest is FlywheelTest {
     /// @param recipient Recipient address
     /// @param allocateAmount Allocation amount
     /// @param distributeAmount Distribution amount
-    function test_succeeds_withNativeToken(address recipient, uint256 allocateAmount, uint256 distributeAmount)
-        public
-    {
+    function test_succeeds_withNativeToken(address recipient, uint256 allocateAmount, uint256 distributeAmount) public {
         // Use a simple, clean address to avoid any edge cases
         recipient = boundToValidPayableAddress(recipient);
         vm.assume(recipient != campaign); // Avoid self-transfers
@@ -628,16 +626,10 @@ contract DistributeTest is FlywheelTest {
         // Create multiple fees
         Flywheel.Distribution[] memory fees = new Flywheel.Distribution[](2);
         fees[0] = Flywheel.Distribution({
-            recipient: feeRecipient1,
-            key: bytes32(bytes20(feeRecipient1)),
-            amount: feeAmount,
-            extraData: "fee1"
+            recipient: feeRecipient1, key: bytes32(bytes20(feeRecipient1)), amount: feeAmount, extraData: "fee1"
         });
         fees[1] = Flywheel.Distribution({
-            recipient: feeRecipient2,
-            key: bytes32(bytes20(feeRecipient2)),
-            amount: feeAmount,
-            extraData: "fee2"
+            recipient: feeRecipient2, key: bytes32(bytes20(feeRecipient2)), amount: feeAmount, extraData: "fee2"
         });
 
         bytes memory hookData = buildSendHookData(payouts, fees, true);

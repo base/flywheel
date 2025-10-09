@@ -588,9 +588,7 @@ contract SimpleRewardsTest is Test {
         for (uint256 i = 0; i < 10; i++) {
             uint256 amount = BASE_REWARD * (i + 1); // Escalating rewards
             batchPayouts[i] = Flywheel.Payout({
-                recipient: contributors[i],
-                amount: amount,
-                extraData: abi.encodePacked("batch-contribution-", i)
+                recipient: contributors[i], amount: amount, extraData: abi.encodePacked("batch-contribution-", i)
             });
             totalRewards += amount;
         }
@@ -648,9 +646,7 @@ contract SimpleRewardsTest is Test {
         // Use case 3: Educational content creation (allocate/distribute workflow)
         Flywheel.Payout[] memory allocations = new Flywheel.Payout[](1);
         allocations[0] = Flywheel.Payout({
-            recipient: recipient1,
-            amount: BASE_REWARD * 2,
-            extraData: "educational-tutorial-creation"
+            recipient: recipient1, amount: BASE_REWARD * 2, extraData: "educational-tutorial-creation"
         });
 
         // Allocate for review
@@ -659,9 +655,7 @@ contract SimpleRewardsTest is Test {
 
         Flywheel.Payout[] memory distributions = new Flywheel.Payout[](1);
         distributions[0] = Flywheel.Payout({
-            recipient: recipient1,
-            amount: BASE_REWARD * 2,
-            extraData: "educational-tutorial-creation"
+            recipient: recipient1, amount: BASE_REWARD * 2, extraData: "educational-tutorial-creation"
         });
 
         uint256 balanceBeforeDistribution = token.balanceOf(recipient1);

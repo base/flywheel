@@ -384,9 +384,7 @@ contract AdConversion is CampaignHooks {
             uint16 configId = i + 1;
             // Always set isActive to true for new configs
             ConversionConfig memory activeConfig = ConversionConfig({
-                isActive: true,
-                isEventOnchain: configs[i].isEventOnchain,
-                metadataURI: configs[i].metadataURI
+                isActive: true, isEventOnchain: configs[i].isEventOnchain, metadataURI: configs[i].metadataURI
             });
             conversionConfigs[campaign][configId] = activeConfig;
             emit ConversionConfigAdded(campaign, configId, activeConfig);

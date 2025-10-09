@@ -104,9 +104,11 @@ contract OnDeallocateTest is CashbackRewardsTest {
         flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
     }
 
-    function test_successfulPartialDeallocation(uint120 paymentAmount, uint120 allocateAmount, uint120 deallocateAmount)
-        public
-    {
+    function test_successfulPartialDeallocation(
+        uint120 paymentAmount,
+        uint120 allocateAmount,
+        uint120 deallocateAmount
+    ) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_ALLOCATION_AMOUNT, MAX_ALLOCATION_AMOUNT));
         deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, allocateAmount));

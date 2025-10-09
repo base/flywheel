@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 import {AdConversion} from "../../../../src/hooks/AdConversion.sol";
+import {AdConversionTestBase} from "../../../lib/AdConversionTestBase.sol";
 
 contract AddConversionConfigTest is AdConversionTestBase {
     // ========================================

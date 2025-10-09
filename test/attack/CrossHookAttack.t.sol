@@ -159,8 +159,9 @@ contract CrossHookAttackTest is Test {
         // Create AdConversion campaign
         string[] memory allowedRefCodes = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
-        configs[0] =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://ad-campaign.com/metadata"});
+        configs[0] = AdConversion.ConversionConfigInput({
+            isEventOnchain: false, metadataURI: "https://ad-campaign.com/metadata"
+        });
 
         bytes memory adHookData = abi.encode(
             attributionProvider,
@@ -594,8 +595,7 @@ contract CrossHookAttackTest is Test {
         string[] memory allowedRefCodes = new string[](0);
         AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
         configs[0] = AdConversion.ConversionConfigInput({
-            isEventOnchain: false,
-            metadataURI: "https://high-fee-campaign.com/metadata"
+            isEventOnchain: false, metadataURI: "https://high-fee-campaign.com/metadata"
         });
 
         bytes memory highFeeHookData = abi.encode(

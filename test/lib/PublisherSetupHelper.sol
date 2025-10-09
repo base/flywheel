@@ -51,10 +51,7 @@ library PublisherSetupHelper {
         string memory metadataUrl
     ) internal pure returns (PublisherConfig memory) {
         return PublisherConfig({
-            refCode: refCode,
-            owner: owner,
-            payoutRecipient: payoutRecipient,
-            metadataUrl: metadataUrl
+            refCode: refCode, owner: owner, payoutRecipient: payoutRecipient, metadataUrl: metadataUrl
         });
     }
 }
