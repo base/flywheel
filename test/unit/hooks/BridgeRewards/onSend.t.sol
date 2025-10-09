@@ -90,14 +90,26 @@ contract OnSendTest is BridgeRewardsTest {
         uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
         uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
-        uint256 userBalanceBefore = usdc.balanceOf(user);
-        uint256 builderBalanceBefore = usdc.balanceOf(builder);
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
 
-        assertEq(usdc.balanceOf(user), userBalanceBefore + expectedUserAmount, "User should receive correct amount");
-        assertEq(usdc.balanceOf(builder), builderBalanceBefore + expectedFeeAmount, "Builder should receive fee");
-        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+        if (expectedFeeAmount > 0) {
+            assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+            assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+            assertEq(fees[0].recipient, builder, "Fee should go to builder");
+            assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
+        } else {
+            assertFalse(sendFeesNow, "Should not send fees when fee amount = 0");
+        }
     }
 
     /// @dev Sets fee to zero when builder code is not registered in BuilderCodes
@@ -117,13 +129,21 @@ contract OnSendTest is BridgeRewardsTest {
 
         bytes memory hookData = abi.encode(user, unregisteredCode, feeBps);
 
-        uint256 userBalanceBefore = usdc.balanceOf(user);
-
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
 
         // User should receive full amount (no fee for unregistered codes)
-        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
-        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, bridgedAmount, "User should receive full amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(unregisteredCode, uint256(0)),
+            "Payout extraData should contain code and zero fee"
+        );
+
+        assertFalse(sendFeesNow, "Should not send fees for unregistered codes");
+        assertEq(fees.length, 0, "Should have no fee distributions");
     }
 
     /// @dev Caps fee at maxFeeBasisPoints when requested fee exceeds maximum
@@ -148,14 +168,22 @@ contract OnSendTest is BridgeRewardsTest {
         uint256 expectedFeeAmount = (bridgedAmount * MAX_FEE_BASIS_POINTS) / 1e4;
         uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
-        uint256 userBalanceBefore = usdc.balanceOf(user);
-        uint256 builderBalanceBefore = usdc.balanceOf(builder);
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and capped fee"
+        );
 
-        assertEq(usdc.balanceOf(user), userBalanceBefore + expectedUserAmount, "User should receive correct amount");
-        assertEq(usdc.balanceOf(builder), builderBalanceBefore + expectedFeeAmount, "Builder should receive capped fee");
-        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+        assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+        assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+        assertEq(fees[0].recipient, builder, "Fee should go to builder");
+        assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be capped");
     }
 
     /// @dev Returns zero fees when fee basis points is zero
@@ -171,11 +199,20 @@ contract OnSendTest is BridgeRewardsTest {
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, uint16(0));
 
-        uint256 userBalanceBefore = usdc.balanceOf(user);
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, bridgedAmount, "User should receive full amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, uint256(0)),
+            "Payout extraData should contain code and zero fee"
+        );
 
-        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertFalse(sendFeesNow, "Should not send fees when fee is zero");
+        assertEq(fees.length, 0, "Should have no fee distributions");
     }
 
     /// @dev Returns nonzero fees when fee basis points is nonzero
@@ -187,18 +224,34 @@ contract OnSendTest is BridgeRewardsTest {
         feeBps = uint16(bound(feeBps, 1, MAX_FEE_BASIS_POINTS)); // Ensure non-zero fee
         vm.assume(user != address(0));
 
+        // Ensure fee amount will actually be > 0 to avoid false positive failures
+        uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
+        vm.assume(expectedFeeAmount > 0);
+
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
-        uint256 builderBalanceBefore = usdc.balanceOf(builder);
+        uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
 
-        uint256 expectedFee = (bridgedAmount * feeBps) / 1e4;
-        assertEq(usdc.balanceOf(builder), builderBalanceBefore + expectedFee, "Builder should receive fee");
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
+
+        assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+        assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+        assertEq(fees[0].recipient, builder, "Fee should go to builder");
+        assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
     }
 
     /// @dev Calculates bridged amount correctly with native token (ETH)
@@ -224,13 +277,26 @@ contract OnSendTest is BridgeRewardsTest {
         uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
         uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
-        uint256 userBalanceBefore = user.balance;
-        uint256 builderBalanceBefore = builder.balance;
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
 
-        flywheel.send(bridgeRewardsCampaign, Constants.NATIVE_TOKEN, hookData);
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
 
-        assertEq(user.balance, userBalanceBefore + expectedUserAmount, "User should receive correct ETH amount");
-        assertEq(builder.balance, builderBalanceBefore + expectedFeeAmount, "Builder should receive ETH fee");
+        if (expectedFeeAmount > 0) {
+            assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+            assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+            assertEq(fees[0].recipient, builder, "Fee should go to builder");
+            assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
+        } else {
+            assertFalse(sendFeesNow, "Should not send fees when fee amount = 0");
+        }
     }
 
     /// @dev Excludes allocated fees from bridged amount calculation
@@ -261,9 +327,29 @@ contract OnSendTest is BridgeRewardsTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
+        uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
+        uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
-        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Campaign should be empty");
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
+
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
+
+        if (expectedFeeAmount > 0) {
+            assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+            assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+            assertEq(fees[0].recipient, builder, "Fee should go to builder");
+            assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
+        } else {
+            assertFalse(sendFeesNow, "Should not send fees when fee amount = 0");
+        }
     }
 
     // ========================================
@@ -284,8 +370,29 @@ contract OnSendTest is BridgeRewardsTest {
         usdc.mint(bridgeRewardsCampaign, maxAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
-        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Should handle max amount");
+        uint256 expectedFeeAmount = (maxAmount * feeBps) / 1e4;
+        uint256 expectedUserAmount = maxAmount - expectedFeeAmount;
+
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
+
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
+
+        if (expectedFeeAmount > 0) {
+            assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+            assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+            assertEq(fees[0].recipient, builder, "Fee should go to builder");
+            assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
+        } else {
+            assertFalse(sendFeesNow, "Should not send fees when fee amount = 0");
+        }
     }
 
     /// @dev Handles minimum non-zero bridged amount (1 wei)
@@ -303,8 +410,29 @@ contract OnSendTest is BridgeRewardsTest {
         usdc.mint(bridgeRewardsCampaign, minAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
-        flywheel.send(bridgeRewardsCampaign, address(usdc), hookData);
-        assertEq(usdc.balanceOf(bridgeRewardsCampaign), 0, "Should handle minimum amount");
+        uint256 expectedFeeAmount = (minAmount * feeBps) / 1e4;
+        uint256 expectedUserAmount = minAmount - expectedFeeAmount;
+
+        vm.prank(address(flywheel));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
+            bridgeRewards.onSend(address(this), bridgeRewardsCampaign, address(usdc), hookData);
+
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
+
+        if (expectedFeeAmount > 0) {
+            assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+            assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+            assertEq(fees[0].recipient, builder, "Fee should go to builder");
+            assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
+        } else {
+            assertFalse(sendFeesNow, "Should not send fees when fee amount = 0");
+        }
     }
 
     // ========================================
@@ -322,21 +450,32 @@ contract OnSendTest is BridgeRewardsTest {
         vm.assume(user != address(0));
 
         // Ensure fee amount will be > 0
-        uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
-        vm.assume(feeAmount > 0);
+        uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
+        vm.assume(expectedFeeAmount > 0);
+        uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
-        // Call onSend directly to check return values
         vm.prank(address(flywheel));
-        (,, bool sendFeesNow) = bridgeRewards.onSend(
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeRewards.onSend(
             address(this), bridgeRewardsCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps)
         );
 
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
+
         assertTrue(sendFeesNow, "sendFeesNow should be true when fees > 0");
+        assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+        assertEq(fees[0].recipient, builder, "Fee should go to builder");
+        assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
     }
 
     /// @dev Verifies sendFeesNow behavior when fee amount is zero
@@ -354,11 +493,20 @@ contract OnSendTest is BridgeRewardsTest {
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         vm.prank(address(flywheel));
-        (,, bool sendFeesNow) = bridgeRewards.onSend(
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeRewards.onSend(
             address(this), bridgeRewardsCampaign, address(usdc), abi.encode(user, unregisteredCode, feeBps)
         );
 
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, bridgedAmount, "User should receive full amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(unregisteredCode, uint256(0)),
+            "Payout extraData should contain code and zero fee"
+        );
+
         assertFalse(sendFeesNow, "sendFeesNow should be false when fees = 0");
+        assertEq(fees.length, 0, "Should have no fee distributions");
     }
 
     /// @dev Verifies correct payout extraData contains builder code and fee amount
@@ -376,16 +524,27 @@ contract OnSendTest is BridgeRewardsTest {
 
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
+        uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
+        uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
+
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts,,) = bridgeRewards.onSend(
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeRewards.onSend(
             address(this), bridgeRewardsCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps)
         );
 
         (bytes32 extractedCode, uint256 extractedFeeAmount) = abi.decode(payouts[0].extraData, (bytes32, uint256));
-        uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
 
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
         assertEq(extractedCode, codeBytes32, "Payout extraData should contain correct builder code");
         assertEq(extractedFeeAmount, expectedFeeAmount, "Payout extraData should contain correct fee amount");
+
+        if (expectedFeeAmount > 0) {
+            assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
+            assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+        } else {
+            assertFalse(sendFeesNow, "Should not send fees when fee amount = 0");
+        }
     }
 
     /// @dev Verifies fee distribution uses builder code as key
@@ -399,8 +558,9 @@ contract OnSendTest is BridgeRewardsTest {
         vm.assume(user != address(0));
 
         // Ensure fee amount will be > 0 to avoid empty fees array
-        uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
-        vm.assume(feeAmount > 0);
+        uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
+        vm.assume(expectedFeeAmount > 0);
+        uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
@@ -408,11 +568,22 @@ contract OnSendTest is BridgeRewardsTest {
         usdc.mint(bridgeRewardsCampaign, bridgedAmount);
 
         vm.prank(address(flywheel));
-        (, Flywheel.Distribution[] memory fees,) = bridgeRewards.onSend(
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeRewards.onSend(
             address(this), bridgeRewardsCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps)
         );
 
+        assertEq(payouts[0].recipient, user, "User should receive correct recipient");
+        assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
+        assertEq(
+            payouts[0].extraData,
+            abi.encode(codeBytes32, expectedFeeAmount),
+            "Payout extraData should contain code and fee"
+        );
+
+        assertTrue(sendFeesNow, "Should send fees when fee amount > 0");
         assertTrue(fees.length > 0, "Should have at least one fee distribution");
         assertEq(fees[0].key, codeBytes32, "Fee distribution should use builder code as key");
+        assertEq(fees[0].recipient, builder, "Fee should go to builder");
+        assertEq(fees[0].amount, expectedFeeAmount, "Fee amount should be correct");
     }
 }

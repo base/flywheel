@@ -26,7 +26,8 @@ contract OnWithdrawFundsTest is BridgeRewardsTest {
         uint256 recipientBalanceBefore = usdc.balanceOf(recipient);
 
         vm.prank(address(flywheel));
-        bridgeRewards.onWithdrawFunds(address(this), bridgeRewardsCampaign, address(usdc), hookData);
+        Flywheel.Payout memory returnedPayout =
+            bridgeRewards.onWithdrawFunds(address(this), bridgeRewardsCampaign, address(usdc), hookData);
 
         assertEq(returnedPayout.recipient, recipient, "Returned payout recipient should match expected");
         assertEq(returnedPayout.amount, amount, "Returned payout amount should match expected");
