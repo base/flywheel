@@ -9,23 +9,19 @@ contract OnUpdateMetadataTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Accepts metadata update from any sender (no access restrictions)
-    function test_success_noAccessRestrictions() public {
+    /// @param randomCaller Random caller address
+    function test_success_noAccessRestrictions(address randomCaller) public {
         // Test that any address can update metadata (the hook has no access restrictions)
-        address randomCaller = address(0x999);
+        vm.assume(randomCaller != address(0));
+        vm.assume(randomCaller != user);
+        vm.assume(randomCaller != builder);
 
         vm.prank(randomCaller);
         flywheel.updateMetadata(bridgeRewardsCampaign, "some metadata");
 
         // Should not revert - the hook allows anyone to trigger metadata updates
         // Even though metadataURI is fixed, its returned data may change over time
-
-        // Test with different callers
-        vm.prank(user);
+        vm.prank(randomCaller);
         flywheel.updateMetadata(bridgeRewardsCampaign, "different metadata");
-
-        vm.prank(builder);
-        flywheel.updateMetadata(bridgeRewardsCampaign, "builder metadata");
-
-        // All should succeed without reverts
     }
 }
