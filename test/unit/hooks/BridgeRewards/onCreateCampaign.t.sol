@@ -12,7 +12,7 @@ contract OnCreateCampaignTest is BridgeRewardsTest {
 
     /// @dev Reverts when nonce is not zero (only one campaign allowed)
     /// @param nonZeroNonce Any nonce value except zero
-    function test_onCreateCampaign_revert_nonZeroNonce(uint256 nonZeroNonce) public {
+    function test_revert_nonZeroNonce(uint256 nonZeroNonce) public {
         vm.assume(nonZeroNonce != 0);
 
         vm.expectRevert(BridgeRewards.InvalidCampaignInitialization.selector);
@@ -21,7 +21,7 @@ contract OnCreateCampaignTest is BridgeRewardsTest {
 
     /// @dev Reverts when hookData is not empty (no configuration allowed)
     /// @param nonEmptyHookData Any non-empty bytes data
-    function test_onCreateCampaign_revert_nonEmptyHookData(bytes memory nonEmptyHookData) public {
+    function test_revert_nonEmptyHookData(bytes memory nonEmptyHookData) public {
         vm.assume(nonEmptyHookData.length > 0);
 
         vm.expectRevert(BridgeRewards.InvalidCampaignInitialization.selector);
@@ -33,7 +33,7 @@ contract OnCreateCampaignTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Accepts campaign creation with nonce zero and empty hookData
-    function test_onCreateCampaign_success_validParameters() public {
+    function test_success_validParameters() public {
         // Create a new BridgeRewards contract to get a different campaign address
         BridgeRewards bridgeRewards2 = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI, 200);
         address newCampaign = flywheel.createCampaign(address(bridgeRewards2), 0, "");

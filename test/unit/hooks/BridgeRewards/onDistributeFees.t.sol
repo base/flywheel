@@ -11,7 +11,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
 
     /// @dev Should revert when hookData cannot be decoded as bytes32 (builder code)
     /// @param hookData The malformed hook data that should cause revert
-    function test_onDistributeFees_revert_invalidHookData(bytes memory hookData) public {
+    function test_revert_invalidHookData(bytes memory hookData) public {
         // Use data that cannot be decoded as bytes32 (too short)
         bytes memory invalidData = abi.encodePacked(uint8(1));
 
@@ -21,7 +21,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
     }
 
     /// @dev Reverts when builder code is not registered in BuilderCodes
-    function test_onDistributeFees_revert_unregisteredBuilderCode() public {
+    function test_revert_unregisteredBuilderCode() public {
         // Use unregistered but valid code
         string memory unregisteredCodeStr = "unregistered_fee";
         bytes32 unregisteredCode = bytes32(builderCodes.toTokenId(unregisteredCodeStr));
@@ -39,7 +39,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Creates distribution to correct payout address for builder code
-    function test_onDistributeFees_success_usesBuilderPayoutAddress() public {
+    function test_success_usesBuilderPayoutAddress() public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
@@ -54,7 +54,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
 
     /// @dev Sets distribution amount to full allocated fee amount for the builder code
     /// @param allocatedFeeAmount Amount of fees allocated for the builder code
-    function test_onDistributeFees_success_distributesFullAmount(uint256 allocatedFeeAmount) public {
+    function test_success_distributesFullAmount(uint256 allocatedFeeAmount) public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
@@ -71,7 +71,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
     }
 
     /// @dev Uses builder code as distribution key for fee tracking
-    function test_onDistributeFees_success_usesBuilderCodeAsKey() public {
+    function test_success_usesBuilderCodeAsKey() public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
@@ -88,7 +88,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Verifies single distribution is returned for valid builder code
-    function test_onDistributeFees_singleDistribution() public {
+    function test_singleDistribution() public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
@@ -101,7 +101,7 @@ contract OnDistributeFeesTest is BridgeRewardsTest {
     }
 
     /// @dev Verifies distribution extraData is empty for fee distributions
-    function test_onDistributeFees_emptyExtraData() public {
+    function test_emptyExtraData() public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 

@@ -11,7 +11,7 @@ contract OnSendTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Reverts when campaign balance minus allocated fees equals zero
-    function test_onSend_revert_zeroBridgedAmount() public {
+    function test_revert_zeroBridgedAmount() public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
         bytes memory hookData = abi.encode(user, codeBytes32, uint16(100));
@@ -23,7 +23,7 @@ contract OnSendTest is BridgeRewardsTest {
 
     /// @dev Reverts when caller is not flywheel
     /// @param caller Caller address
-    function test_onSend_revert_onlyFlywheel(address caller) public {
+    function test_revert_onlyFlywheel(address caller) public {
         vm.assume(caller != address(flywheel));
 
         string memory code = _registerBuilderCode();
@@ -38,7 +38,7 @@ contract OnSendTest is BridgeRewardsTest {
 
     /// @dev Reverts when hookData cannot be correctly decoded
     /// @param hookData The malformed hook data that should cause revert
-    function test_onSend_revert_invalidHookData(bytes memory hookData) public {
+    function test_revert_invalidHookData(bytes memory hookData) public {
         // Fund campaign to avoid ZeroBridgedAmount error first
         usdc.mint(bridgeRewardsCampaign, 100 ether);
 
@@ -57,7 +57,7 @@ contract OnSendTest is BridgeRewardsTest {
     /// @dev Calculates correct payout and fee amounts with registered builder code
     /// @param bridgedAmount Amount available for bridging
     /// @param feeBps Fee basis points within valid range
-    function test_onSend_success_registeredBuilderCode(uint256 bridgedAmount, uint16 feeBps) public {
+    function test_success_registeredBuilderCode(uint256 bridgedAmount, uint16 feeBps) public {
         vm.assume(bridgedAmount > 0);
         vm.assume(bridgedAmount < 1e30); // Conservative bound to avoid arithmetic overflow
         vm.assume(feeBps <= MAX_FEE_BASIS_POINTS); // Within max fee basis points
@@ -86,7 +86,7 @@ contract OnSendTest is BridgeRewardsTest {
     /// @dev Sets fee to zero when builder code is not registered in BuilderCodes
     /// @param bridgedAmount Amount available for bridging
     /// @param feeBps Fee basis points (ignored for unregistered codes)
-    function test_onSend_success_unregisteredBuilderCode(uint256 bridgedAmount, uint16 feeBps) public {
+    function test_success_unregisteredBuilderCode(uint256 bridgedAmount, uint16 feeBps) public {
         vm.assume(bridgedAmount > 0);
 
         // Use an unregistered but valid code
@@ -110,7 +110,7 @@ contract OnSendTest is BridgeRewardsTest {
     /// @dev Caps fee at maxFeeBasisPoints when requested fee exceeds maximum
     /// @param bridgedAmount Amount available for bridging
     /// @param excessiveFeeBps Fee basis points exceeding maximum
-    function test_onSend_success_feeExceedsMaximum(uint256 bridgedAmount, uint16 excessiveFeeBps) public {
+    function test_success_feeExceedsMaximum(uint256 bridgedAmount, uint16 excessiveFeeBps) public {
         vm.assume(bridgedAmount > 0);
         vm.assume(bridgedAmount < 1e30); // Conservative bound to avoid arithmetic overflow
         vm.assume(excessiveFeeBps > MAX_FEE_BASIS_POINTS); // Exceeds max fee basis points
@@ -139,7 +139,7 @@ contract OnSendTest is BridgeRewardsTest {
 
     /// @dev Returns zero fees when fee basis points is zero
     /// @param bridgedAmount Amount available for bridging
-    function test_onSend_success_zeroFeeBps(uint256 bridgedAmount) public {
+    function test_success_zeroFeeBps(uint256 bridgedAmount) public {
         vm.assume(bridgedAmount > 0);
 
         string memory code = _registerBuilderCode();
@@ -157,7 +157,7 @@ contract OnSendTest is BridgeRewardsTest {
 
     /// @dev Returns nonzero fees when fee basis points is nonzero
     /// @param bridgedAmount Amount available for bridging
-    function test_onSend_success_nonzeroFeeBps(uint256 bridgedAmount) public {
+    function test_success_nonzeroFeeBps(uint256 bridgedAmount) public {
         vm.assume(bridgedAmount > 0);
         vm.assume(bridgedAmount < type(uint256).max / 100);
 
@@ -178,7 +178,7 @@ contract OnSendTest is BridgeRewardsTest {
     /// @dev Calculates bridged amount correctly with native token (ETH)
     /// @param bridgedAmount Amount available for bridging
     /// @param feeBps Fee basis points within valid range
-    function test_onSend_success_nativeToken(uint256 bridgedAmount, uint16 feeBps) public {
+    function test_success_nativeToken(uint256 bridgedAmount, uint16 feeBps) public {
         vm.assume(bridgedAmount > 0);
         vm.assume(bridgedAmount < 1e30); // Conservative bound to avoid arithmetic overflow
         vm.assume(feeBps <= MAX_FEE_BASIS_POINTS);
@@ -207,9 +207,7 @@ contract OnSendTest is BridgeRewardsTest {
     /// @param totalBalance Total campaign balance
     /// @param allocatedFees Already allocated fees
     /// @param feeBps Fee basis points within valid range
-    function test_onSend_success_withExistingAllocatedFees(uint256 totalBalance, uint256 allocatedFees, uint16 feeBps)
-        public
-    {
+    function test_success_withExistingAllocatedFees(uint256 totalBalance, uint256 allocatedFees, uint16 feeBps) public {
         // Bound inputs to avoid arithmetic overflow
         totalBalance = bound(totalBalance, 1, 1e30);
         allocatedFees = bound(allocatedFees, 0, totalBalance - 1);
@@ -236,7 +234,7 @@ contract OnSendTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Handles maximum possible bridged amount without overflow
-    function test_onSend_edge_maximumBridgedAmount() public {
+    function test_edge_maximumBridgedAmount() public {
         uint256 maxAmount = type(uint256).max / 1e4; // Avoid overflow in fee calculation
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
@@ -249,7 +247,7 @@ contract OnSendTest is BridgeRewardsTest {
     }
 
     /// @dev Handles minimum non-zero bridged amount (1 wei)
-    function test_onSend_edge_minimumBridgedAmount() public {
+    function test_edge_minimumBridgedAmount() public {
         string memory code = _registerBuilderCode();
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 

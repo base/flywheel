@@ -9,7 +9,7 @@ contract OnUpdateMetadataTest is BridgeRewardsTest {
     // ========================================
 
     /// @dev Accepts metadata update from any sender (no access restrictions)
-    function test_onUpdateMetadata_success_noAccessRestrictions() public {
+    function test_success_noAccessRestrictions() public {
         // Test that any address can update metadata (the hook has no access restrictions)
         address randomCaller = address(0x999);
 
