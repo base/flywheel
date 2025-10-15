@@ -2,13 +2,12 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "solidity.compileUsingRemoteVersion": "v0.8.29",
   "solidity.formatter": "forge",
   "solidity.packageDefaultDependenciesContractsDirectory": "src",
   "solidity.packageDefaultDependenciesDirectory": "lib",
   "[solidity]": {
-    "editor.defaultFormatter": "JuanBlanco.solidity",
     "editor.formatOnSave": true
   }
 }
