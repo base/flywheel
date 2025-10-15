@@ -141,6 +141,30 @@ contract CashbackRewardsTest is Test {
         return abi.encode(paymentRewards, true);
     }
 
+    /// @notice Create hook data for cashback rewards with revertOnError = false
+    function createCashbackHookDataNoRevert(AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint120 rewardAmount)
+        public
+        pure
+        returns (bytes memory)
+    {
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](1);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: paymentInfo, payoutAmount: rewardAmount});
+        return abi.encode(paymentRewards, false);
+    }
+
+    /// @notice Create hook data for mixed payment rewards (some valid, some invalid) with revertOnError = false
+    function createMixedCashbackHookDataNoRevert(
+        AuthCaptureEscrow.PaymentInfo memory validPayment,
+        uint120 validReward,
+        AuthCaptureEscrow.PaymentInfo memory invalidPayment,
+        uint120 invalidReward
+    ) public pure returns (bytes memory) {
+        CashbackRewards.PaymentReward[] memory paymentRewards = new CashbackRewards.PaymentReward[](2);
+        paymentRewards[0] = CashbackRewards.PaymentReward({paymentInfo: validPayment, payoutAmount: validReward});
+        paymentRewards[1] = CashbackRewards.PaymentReward({paymentInfo: invalidPayment, payoutAmount: invalidReward});
+        return abi.encode(paymentRewards, false);
+    }
+
     /// @notice Sign ERC3009 receiveWithAuthorization for payment
     function signERC3009Payment(AuthCaptureEscrow.PaymentInfo memory paymentInfo, uint256 signerPk)
         public

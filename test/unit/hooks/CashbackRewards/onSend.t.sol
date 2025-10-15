@@ -10,7 +10,15 @@ import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../../../../src/hooks/SimpleRewards.sol";
 
 contract OnRewardTest is CashbackRewardsTest {
-    function test_revertsOnUnauthorizedCaller(uint120 paymentAmount, uint120 rewardAmount, address unauthorizedCaller)
+    // ========================================
+    // REVERT CASES
+    // ========================================
+
+    /// @dev Reverts when caller is not authorized manager
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount to attempt
+    /// @param unauthorizedCaller Address that is not the campaign manager
+    function test_revert_unauthorizedCaller(uint120 paymentAmount, uint120 rewardAmount, address unauthorizedCaller)
         public
     {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
@@ -27,7 +35,9 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnZeroAmount(uint120 paymentAmount) public {
+    /// @dev Reverts when attempting to reward zero amount
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_revert_zeroAmount(uint120 paymentAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
@@ -40,7 +50,11 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnWrongToken(uint120 paymentAmount, uint120 rewardAmount, address wrongToken) public {
+    /// @dev Reverts when payment token differs from campaign token
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount to attempt
+    /// @param wrongToken Incorrect token address used in payment
+    function test_revert_wrongToken(uint120 paymentAmount, uint120 rewardAmount, address wrongToken) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
         vm.assume(wrongToken != address(usdc) && wrongToken != address(0));
@@ -55,7 +69,10 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnUnauthorizedPayment(uint120 paymentAmount, uint120 rewardAmount) public {
+    /// @dev Reverts when attempting to reward payment that hasn't been collected
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount to attempt
+    function test_revert_unauthorizedPayment(uint120 paymentAmount, uint120 rewardAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -67,7 +84,10 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnInsufficientFunds(uint120 paymentAmount, uint120 excessiveReward) public {
+    /// @dev Reverts when campaign has insufficient funds for reward
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param excessiveReward Reward amount that exceeds campaign balance
+    function test_revert_insufficientFunds(uint120 paymentAmount, uint120 excessiveReward) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         excessiveReward = uint120(bound(excessiveReward, EXCESSIVE_MIN_REWARD, type(uint120).max));
 
@@ -81,7 +101,8 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnMaxRewardPercentageExceeded() public {
+    /// @dev Reverts when reward exceeds maximum percentage limit for campaign
+    function test_revert_maxRewardPercentageExceeded() public {
         // Use hardcoded values to make the percentage test crystal clear
         uint120 paymentAmount = 1000e6; // 1000 USDC payment
         uint120 excessRewardAmount = paymentAmount / 1000; // 0.1% of payment
@@ -106,7 +127,14 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(limitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_successfulReward(uint120 paymentAmount, uint120 rewardAmount) public {
+    // ========================================
+    // SUCCESS CASES
+    // ========================================
+
+    /// @dev Successfully processes single payment reward
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount to distribute
+    function test_success_singleReward(uint120 paymentAmount, uint120 rewardAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -126,7 +154,10 @@ contract OnRewardTest is CashbackRewardsTest {
         assertEq(rewardsAfter.distributed, rewardsBefore.distributed + rewardAmount);
     }
 
-    function test_successfulRewardWithinMaxPercentage(uint120 paymentAmount, uint120 rewardAmount) public {
+    /// @dev Successfully processes reward within maximum percentage limit
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount within percentage limit
+    function test_success_rewardWithinMaxPercentage(uint120 paymentAmount, uint120 rewardAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         uint120 maxValidReward = uint120(
             (uint256(paymentAmount) * uint256(TEST_MAX_REWARD_BASIS_POINTS)) / uint256(MAX_REWARD_BASIS_POINTS_DIVISOR)
@@ -145,9 +176,15 @@ contract OnRewardTest is CashbackRewardsTest {
         assertEq(rewards.distributed, rewardAmount);
     }
 
-    function test_rewardAfterExistingAllocation(uint120 paymentAmount, uint120 allocateAmount, uint120 rewardAmount)
-        public
-    {
+    /// @dev Successfully processes reward after existing allocation for different payment
+    /// @param paymentAmount Payment amount in USDC for both transactions
+    /// @param allocateAmount Amount to allocate for first payment
+    /// @param rewardAmount Amount to reward for second payment
+    function test_success_rewardAfterExistingAllocation(
+        uint120 paymentAmount,
+        uint120 allocateAmount,
+        uint120 rewardAmount
+    ) public {
         // Use reasonable bounds to ensure buyer can afford both payments
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, 1000000e6)); // Max 1M USDC
         allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT / 2));
@@ -179,7 +216,12 @@ contract OnRewardTest is CashbackRewardsTest {
         assertEq(rewardRewards.distributed, rewardAmount);
     }
 
-    function test_rewardAfterExistingDistribution(
+    /// @dev Successfully processes reward after existing distribution for different payment
+    /// @param paymentAmount Payment amount in USDC for both transactions
+    /// @param allocateAmount Amount to allocate for first payment
+    /// @param distributeAmount Amount to distribute for first payment
+    /// @param rewardAmount Amount to reward for second payment
+    function test_success_rewardAfterExistingDistribution(
         uint120 paymentAmount,
         uint120 allocateAmount,
         uint120 distributeAmount,
@@ -221,7 +263,8 @@ contract OnRewardTest is CashbackRewardsTest {
         assertEq(rewardRewards.distributed, rewardAmount);
     }
 
-    function test_cumulativeRewardPercentageValidation() public {
+    /// @dev Successfully processes multiple rewards for same payment within cumulative percentage limit
+    function test_success_cumulativeRewardPercentageValidation() public {
         uint120 paymentAmount = 1000e6; // 1000 USDC payment
         uint120 firstReward = 5e6; // 5 USDC (0.5%)
         uint120 secondReward = 5e6; // 5 USDC (0.5%) - total now 1.0%
@@ -251,7 +294,12 @@ contract OnRewardTest is CashbackRewardsTest {
         flywheel.send(limitedCashbackCampaign, address(usdc), thirdRewardHookData);
     }
 
-    function test_batchRewardMultiplePayments(
+    /// @dev Successfully processes batch rewards for multiple payments
+    /// @param firstPaymentAmount Payment amount in USDC for first transaction
+    /// @param secondPaymentAmount Payment amount in USDC for second transaction
+    /// @param firstReward Reward amount for first payment
+    /// @param secondReward Reward amount for second payment
+    function test_success_batchRewardMultiplePayments(
         uint120 firstPaymentAmount,
         uint120 secondPaymentAmount,
         uint120 firstReward,
@@ -299,7 +347,180 @@ contract OnRewardTest is CashbackRewardsTest {
         assertEq(secondRewardsAfter.distributed, secondRewardsBefore.distributed + secondReward);
     }
 
-    function test_emitsFlywheelEvents() public {
+    // ========================================
+    // EDGE CASES
+    // ========================================
+
+    /// @dev Verifies RewardFailed event is emitted when attempting to reward zero amount with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_edge_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse(uint120 paymentAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, 0);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        chargePayment(paymentInfo);
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            0,
+            CashbackRewards.RewardOperation.SEND,
+            abi.encodeWithSelector(CashbackRewards.ZeroPayoutAmount.selector)
+        );
+
+        vm.prank(manager);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    /// @dev Verifies RewardFailed event is emitted when payment token differs from campaign token with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount to attempt distribution
+    /// @param wrongToken Incorrect token address used in payment
+    function test_edge_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 rewardAmount,
+        address wrongToken
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
+        vm.assume(wrongToken != address(usdc) && wrongToken != address(0));
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        paymentInfo.token = wrongToken; // Wrong token
+
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, rewardAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            rewardAmount,
+            CashbackRewards.RewardOperation.SEND,
+            abi.encodeWithSelector(CashbackRewards.TokenMismatch.selector)
+        );
+
+        vm.prank(manager);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    /// @dev Verifies RewardFailed event is emitted when attempting to reward uncollected payment with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param rewardAmount Reward amount to attempt distribution
+    function test_edge_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 rewardAmount
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, rewardAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+
+        // Don't charge the payment - leave it uncollected
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            rewardAmount,
+            CashbackRewards.RewardOperation.SEND,
+            abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector)
+        );
+
+        vm.prank(manager);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    /// @dev Verifies RewardFailed event is emitted when reward exceeds max percentage limit with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction (bounded to avoid overflow)
+    function test_edge_emitsRewardFailed_onMaxPercentageExceeded_whenRevertOnErrorFalse(uint120 paymentAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, 1000000e6)); // Max 1M USDC to avoid overflow
+
+        // Calculate max allowed amount (1% of payment)
+        uint120 maxAllowedAmount = (paymentAmount * TEST_MAX_REWARD_BASIS_POINTS) / MAX_REWARD_BASIS_POINTS_DIVISOR;
+
+        // Skip test if maxAllowedAmount would be 0 (payment too small)
+        vm.assume(maxAllowedAmount > 0);
+
+        uint120 excessRewardAmount = 1;
+        uint120 excessiveReward = maxAllowedAmount + excessRewardAmount; // Just over the limit
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, excessiveReward);
+
+        chargePayment(paymentInfo);
+
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            paymentInfoHash,
+            excessiveReward,
+            CashbackRewards.RewardOperation.SEND,
+            abi.encodeWithSelector(
+                CashbackRewards.RewardExceedsMaxPercentage.selector,
+                paymentInfoHash,
+                maxAllowedAmount,
+                excessRewardAmount
+            )
+        );
+
+        vm.prank(manager);
+        flywheel.send(limitedCashbackCampaign, address(usdc), hookData);
+    }
+
+    /// @dev Verifies mixed batch processing handles valid and invalid payments correctly with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for both transactions
+    /// @param rewardAmount Reward amount to attempt distribution
+    function test_edge_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 rewardAmount
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        rewardAmount = uint120(bound(rewardAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
+
+        // Create valid payment (charged)
+        AuthCaptureEscrow.PaymentInfo memory validPayment = createPaymentInfo(buyer, paymentAmount);
+        validPayment.salt = uint256(keccak256("valid"));
+        chargePayment(validPayment);
+
+        // Create invalid payment (not charged)
+        AuthCaptureEscrow.PaymentInfo memory invalidPayment = createPaymentInfo(buyer, paymentAmount);
+        invalidPayment.salt = uint256(keccak256("invalid"));
+
+        bytes memory hookData =
+            createMixedCashbackHookDataNoRevert(validPayment, rewardAmount, invalidPayment, rewardAmount);
+        bytes32 invalidPaymentHash = escrow.getHash(invalidPayment);
+
+        // Expect event for the invalid payment
+        vm.expectEmit(true, true, true, true);
+        emit CashbackRewards.RewardFailed(
+            invalidPaymentHash,
+            rewardAmount,
+            CashbackRewards.RewardOperation.SEND,
+            abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector)
+        );
+
+        // Should not revert, but process the valid payment and emit event for invalid
+        vm.prank(manager);
+        flywheel.send(unlimitedCashbackCampaign, address(usdc), hookData);
+
+        // Verify the valid payment was processed
+        CashbackRewards.RewardState memory validRewards = getRewardsInfo(validPayment, unlimitedCashbackCampaign);
+        assertEq(validRewards.distributed, rewardAmount);
+
+        // Verify the invalid payment was not processed
+        CashbackRewards.RewardState memory invalidRewards = getRewardsInfo(invalidPayment, unlimitedCashbackCampaign);
+        assertEq(invalidRewards.distributed, 0);
+    }
+
+    // ========================================
+    // STATE VERIFICATION
+    // ========================================
+
+    /// @dev Verifies correct Flywheel event emission for successful reward
+    function test_onSend_emitsFlywheelEvents() public {
         uint120 paymentAmount = 1000e6;
         uint120 rewardAmount = 100e6;
 

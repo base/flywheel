@@ -6,7 +6,16 @@ import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 import {CashbackRewardsTest} from "../../../lib/CashbackRewardsTest.sol";
 
 contract OnCreateCampaignTest is CashbackRewardsTest {
-    function test_createCampaignWithZeroMaxReward(
+    // ========================================
+    // SUCCESS CASES
+    // ========================================
+
+    /// @dev Successfully creates campaign with zero max reward (unlimited)
+    /// @param testOwner Address to be set as campaign owner
+    /// @param testManager Address to be set as campaign manager
+    /// @param testUri URI string for the campaign
+    /// @param nonce Unique nonce for campaign creation
+    function test_success_createCampaignWithZeroMaxReward(
         address testOwner,
         address testManager,
         string memory testUri,
@@ -28,7 +37,13 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), 0);
     }
 
-    function test_createCampaignWithNonZeroMaxReward(
+    /// @dev Successfully creates campaign with non-zero max reward
+    /// @param testOwner Address to be set as campaign owner
+    /// @param testManager Address to be set as campaign manager
+    /// @param maxRewardBps Maximum reward basis points to enforce
+    /// @param testUri URI string for the campaign
+    /// @param nonce Unique nonce for campaign creation
+    function test_success_createCampaignWithNonZeroMaxReward(
         address testOwner,
         address testManager,
         uint16 maxRewardBps,
@@ -51,30 +66,16 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBps));
     }
 
-    function test_createCampaignEmitsCampaignCreatedEvent(
-        address testOwner,
-        address testManager,
-        string memory testUri,
-        uint16 maxRewardBasisPoints,
-        uint256 nonce
-    ) public {
-        vm.assume(testOwner != address(0) && testManager != address(0));
-        vm.assume(bytes(testUri).length <= 1000);
-        vm.assume(bytes(testUri).length > 0);
-
-        bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBasisPoints);
-
-        vm.prank(testManager);
-        address actualCampaign = flywheel.createCampaign(address(cashbackRewards), nonce, hookData);
-
-        // Verify the campaign was created and has correct parameters
-        assertEq(cashbackRewards.owners(actualCampaign), testOwner);
-        assertEq(cashbackRewards.managers(actualCampaign), testManager);
-        assertEq(cashbackRewards.campaignURI(actualCampaign), _concat(testUri, actualCampaign));
-        assertEq(cashbackRewards.maxRewardBasisPoints(actualCampaign), uint256(maxRewardBasisPoints));
-    }
-
-    function test_createMultipleCampaignsWithDifferentNonces(
+    /// @dev Successfully creates multiple campaigns with different nonces
+    /// @param testOwner Address to be set as campaign owner for both campaigns
+    /// @param testManager Address to be set as campaign manager for both campaigns
+    /// @param firstUri URI string for the first campaign
+    /// @param secondUri URI string for the second campaign
+    /// @param firstMaxRewardBps Maximum reward basis points for first campaign
+    /// @param secondMaxRewardBps Maximum reward basis points for second campaign
+    /// @param firstNonce Unique nonce for first campaign creation
+    /// @param secondNonce Unique nonce for second campaign creation
+    function test_success_createMultipleCampaignsWithDifferentNonces(
         address testOwner,
         address testManager,
         string memory firstUri,
@@ -117,7 +118,12 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         assertEq(cashbackRewards.maxRewardBasisPoints(secondCampaign), uint256(secondMaxRewardBps));
     }
 
-    function test_createCampaignWithSameOwnerAndManager(
+    /// @dev Successfully creates campaign with same address as both owner and manager
+    /// @param sameAddress Address to be set as both owner and manager
+    /// @param testUri URI string for the campaign
+    /// @param maxRewardBasisPoints Maximum reward basis points to enforce
+    /// @param nonce Unique nonce for campaign creation
+    function test_success_createCampaignWithSameOwnerAndManager(
         address sameAddress,
         string memory testUri,
         uint16 maxRewardBasisPoints,
@@ -139,7 +145,16 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBasisPoints));
     }
 
-    function test_createCampaignWithEmptyUri(
+    // ========================================
+    // EDGE CASES
+    // ========================================
+
+    /// @dev Successfully creates campaign with empty URI string
+    /// @param testOwner Address to be set as campaign owner
+    /// @param testManager Address to be set as campaign manager
+    /// @param maxRewardBasisPoints Maximum reward basis points to enforce
+    /// @param nonce Unique nonce for campaign creation
+    function test_edge_createCampaignWithEmptyUri(
         address testOwner,
         address testManager,
         uint16 maxRewardBasisPoints,
@@ -158,5 +173,38 @@ contract OnCreateCampaignTest is CashbackRewardsTest {
         assertEq(cashbackRewards.owners(newCampaign), testOwner);
         assertEq(cashbackRewards.managers(newCampaign), testManager);
         assertEq(cashbackRewards.maxRewardBasisPoints(newCampaign), uint256(maxRewardBasisPoints));
+    }
+
+    // ========================================
+    // STATE VERIFICATION
+    // ========================================
+
+    /// @dev Verifies campaign creation properly sets all state variables
+    /// @param testOwner Address to be set as campaign owner
+    /// @param testManager Address to be set as campaign manager
+    /// @param testUri URI string for the campaign
+    /// @param maxRewardBasisPoints Maximum reward basis points to enforce
+    /// @param nonce Unique nonce for campaign creation
+    function test_onCreateCampaign_setsCorrectState(
+        address testOwner,
+        address testManager,
+        string memory testUri,
+        uint16 maxRewardBasisPoints,
+        uint256 nonce
+    ) public {
+        vm.assume(testOwner != address(0) && testManager != address(0));
+        vm.assume(bytes(testUri).length <= 1000);
+        vm.assume(bytes(testUri).length > 0);
+
+        bytes memory hookData = abi.encode(testOwner, testManager, testUri, maxRewardBasisPoints);
+
+        vm.prank(testManager);
+        address actualCampaign = flywheel.createCampaign(address(cashbackRewards), nonce, hookData);
+
+        // Verify the campaign was created and has correct parameters
+        assertEq(cashbackRewards.owners(actualCampaign), testOwner);
+        assertEq(cashbackRewards.managers(actualCampaign), testManager);
+        assertEq(cashbackRewards.campaignURI(actualCampaign), _concat(testUri, actualCampaign));
+        assertEq(cashbackRewards.maxRewardBasisPoints(actualCampaign), uint256(maxRewardBasisPoints));
     }
 }
