@@ -235,8 +235,10 @@ contract OnAllocateTest is CashbackRewardsTest {
         flywheel.allocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse() public {
-        uint120 paymentAmount = 1000e6;
+    /// @dev Verifies RewardFailed event is emitted when attempting to allocate zero amount with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse(uint120 paymentAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
         bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, 0);
@@ -256,12 +258,21 @@ contract OnAllocateTest is CashbackRewardsTest {
         flywheel.allocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse() public {
-        uint120 paymentAmount = 1000e6;
-        uint120 allocateAmount = 100e6;
+    /// @dev Verifies RewardFailed event is emitted when payment token differs from campaign token with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocateAmount Allocation amount to attempt
+    /// @param wrongToken Incorrect token address used in payment
+    function test_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 allocateAmount,
+        address wrongToken
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
+        vm.assume(wrongToken != address(usdc) && wrongToken != address(0));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
-        paymentInfo.token = address(0x1234); // Wrong token
+        paymentInfo.token = wrongToken; // Wrong token
 
         bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, allocateAmount);
         bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
@@ -278,9 +289,15 @@ contract OnAllocateTest is CashbackRewardsTest {
         flywheel.allocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse() public {
-        uint120 paymentAmount = 1000e6;
-        uint120 allocateAmount = 100e6;
+    /// @dev Verifies RewardFailed event is emitted when attempting to allocate for uncollected payment with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocateAmount Allocation amount to attempt
+    function test_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 allocateAmount
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
         bytes memory hookData = createCashbackHookDataNoRevert(paymentInfo, allocateAmount);
@@ -300,9 +317,15 @@ contract OnAllocateTest is CashbackRewardsTest {
         flywheel.allocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse() public {
-        uint120 paymentAmount = 1000e6;
-        uint120 allocateAmount = 100e6;
+    /// @dev Verifies mixed batch processing handles valid and invalid allocations correctly with revertOnError=false
+    /// @param paymentAmount Payment amount in USDC for both transactions
+    /// @param allocateAmount Allocation amount to attempt for both payments
+    function test_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 allocateAmount
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
         // Create valid payment (authorized)
         AuthCaptureEscrow.PaymentInfo memory validPayment = createPaymentInfo(buyer, paymentAmount);
@@ -313,7 +336,8 @@ contract OnAllocateTest is CashbackRewardsTest {
         AuthCaptureEscrow.PaymentInfo memory invalidPayment = createPaymentInfo(buyer, paymentAmount);
         invalidPayment.salt = uint256(keccak256("invalid"));
 
-        bytes memory hookData = createMixedCashbackHookDataNoRevert(validPayment, allocateAmount, invalidPayment, allocateAmount);
+        bytes memory hookData =
+            createMixedCashbackHookDataNoRevert(validPayment, allocateAmount, invalidPayment, allocateAmount);
         bytes32 invalidPaymentHash = escrow.getHash(invalidPayment);
 
         // Expect event for the invalid payment
