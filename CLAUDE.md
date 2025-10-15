@@ -14,7 +14,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `forge test --gas-report` - Generate gas usage report
 - `forge coverage --ir-minimum` - Generate test coverage report
 
+  ## File Safety
+  - Never edit files if uncommitted changes exist. Alert user and suggest committing first.
+  
 ### Development Workflow
+
 
 - `forge clean` - Clean build artifacts
 - `forge fmt` - Format Solidity code
@@ -131,8 +135,8 @@ import {MyHelper} from './MyHelper.sol';
 ##### 7. Testing Standards
 
 - **Test file names**: `ContractName.t.sol`
-- **Test contract names**: `ContractNameTest` or `FunctionNameTest`
-- **Test function names**: `test_functionName_outcome_optionalContext`
+- **Test contract names**: `ContractNameTest` or `functionNameTest`
+- **Test function names**: If the test contract is already named after the function, omit the funciton name from the test, such as : `test_outcome_optionalContext`, otherwise, if it's not already clear which function is being tested due to the name of the test contract, include the function name in the test name like `test_functionName_outcome_optionalContext` 
 
 **Test Organization Principles:**
 
@@ -172,6 +176,32 @@ import {MyHelper} from './MyHelper.sol';
   - Cross-campaign security attack vectors
   - Hook interoperability and data confusion attacks
   - Economic manipulation across multiple campaign types
+
+
+  ## Test Implementation Rules (implementing pre-written test stubs)
+  - Only implement existing test stubs, never create new test functions
+  - Only modify specified test files
+  - Use inherited test library functions; add utilities to base classes if needed
+  - Run `forge fmt` after code changes
+  - For revert tests, find typed errors in contract or dependencies
+
+  ## Fuzz Testing
+  - Modify fuzz parameters if they don't make sense for the test case
+  - Always make sure that any fuzz parameter that is present in a test is actually used.
+  - Use `bound()` over `vm.assume()` when possible
+  - Define constants instead of magic numbers (e.g., `TOKEN_BALANCE_MAX`)
+  - Look at working examples for guidance
+
+  ## Test Quality
+  - Run tests after implementation with `-vvvv` for debugging
+  - Fix all failures systematically until 100% pass
+  - Assert everything necessary to verify expected behavior
+  - Handle naming conflicts by adding function name even if the function under test is obvious from the name of the test contract: `test_functionName_scenario`
+  - Comment only non-obvious or crucial setup, avoid narration
+  - Run full test suite before finishing to ensure no regressions
+
+  ## Bug Reporting
+  - If you suspect a protocol bug during testing, stop immediately and report findings with reasoning
 
 ### Contract Structure & Organization
 

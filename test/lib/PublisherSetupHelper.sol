@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 import {Test} from "forge-std/Test.sol";
 import {LibString} from "solady/utils/LibString.sol";
-
-import {BuilderCodes} from "../../src/BuilderCodes.sol";
 
 /// @notice Helper library for easy publisher setup in tests
 library PublisherSetupHelper {
@@ -52,10 +51,7 @@ library PublisherSetupHelper {
         string memory metadataUrl
     ) internal pure returns (PublisherConfig memory) {
         return PublisherConfig({
-            refCode: refCode,
-            owner: owner,
-            payoutRecipient: payoutRecipient,
-            metadataUrl: metadataUrl
+            refCode: refCode, owner: owner, payoutRecipient: payoutRecipient, metadataUrl: metadataUrl
         });
     }
 }

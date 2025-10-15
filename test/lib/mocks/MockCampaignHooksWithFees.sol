@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Flywheel} from "../../../src/Flywheel.sol";
 import {CampaignHooks} from "../../../src/CampaignHooks.sol";
+import {Flywheel} from "../../../src/Flywheel.sol";
 
 /// @title MockCampaignHooksWithFees
 /// @notice A minimal hook modeled after SimpleRewards that also supports fee passthrough
@@ -72,9 +72,7 @@ contract MockCampaignHooksWithFees is CampaignHooks {
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)), amount: payouts[i].amount, extraData: payouts[i].extraData
             });
         }
     }
@@ -93,9 +91,7 @@ contract MockCampaignHooksWithFees is CampaignHooks {
         uint256 count = payouts.length;
         for (uint256 i = 0; i < count; i++) {
             allocations[i] = Flywheel.Allocation({
-                key: bytes32(bytes20(payouts[i].recipient)),
-                amount: payouts[i].amount,
-                extraData: payouts[i].extraData
+                key: bytes32(bytes20(payouts[i].recipient)), amount: payouts[i].amount, extraData: payouts[i].extraData
             });
         }
     }

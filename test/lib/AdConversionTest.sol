@@ -3,8 +3,8 @@ pragma solidity ^0.8.29;
 
 import {FlywheelTest} from "./FlywheelTest.sol";
 
-import {AdConversion} from "../../src/hooks/AdConversion.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
+import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
 /// @notice Common test helpers for AdConversion hook testing
 abstract contract AdConversionTest is FlywheelTest {
@@ -171,11 +171,7 @@ abstract contract AdConversionTest is FlywheelTest {
     }
 
     /// @notice Creates OFAC funds re-routing attribution
-    function _createOfacReroutingAttribution(uint256 amount)
-        internal
-        view
-        returns (AdConversion.Attribution[] memory)
-    {
+    function _createOfacReroutingAttribution(uint256 amount) internal view returns (AdConversion.Attribution[] memory) {
         AdConversion.Attribution[] memory attributions = new AdConversion.Attribution[](1);
 
         attributions[0] = AdConversion.Attribution({
@@ -262,9 +258,7 @@ abstract contract AdConversionTest is FlywheelTest {
         }
 
         // Verify results
-        if (expectedRecipient != address(0)) {
-            _assertTokenBalance(expectedRecipient, expectedPayout);
-        }
+        if (expectedRecipient != address(0)) _assertTokenBalance(expectedRecipient, expectedPayout);
         _assertFeeAllocation(campaign, ATTRIBUTION_PROVIDER, expectedFee);
     }
 
@@ -300,9 +294,7 @@ abstract contract AdConversionTest is FlywheelTest {
         }
 
         // Verify results
-        if (expectedRecipient != address(0)) {
-            _assertTokenBalance(expectedRecipient, expectedPayout);
-        }
+        if (expectedRecipient != address(0)) _assertTokenBalance(expectedRecipient, expectedPayout);
         _assertFeeAllocation(campaign, ATTRIBUTION_PROVIDER, expectedFee);
     }
 

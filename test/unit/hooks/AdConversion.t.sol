@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {LibString} from "solady/utils/LibString.sol";
 
-import {PublisherTestSetup, PublisherSetupHelper} from "../../lib/PublisherSetupHelper.sol";
+import {PublisherSetupHelper, PublisherTestSetup} from "../../lib/PublisherSetupHelper.sol";
 import {MockERC20} from "../../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../../src/Flywheel.sol";
-import {BuilderCodes} from "../../../src/BuilderCodes.sol";
 import {AdConversion} from "../../../src/hooks/AdConversion.sol";
 
 contract AdConversionTest is PublisherTestSetup {
@@ -107,7 +108,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -220,7 +223,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})) // logBytes for OFFCHAIN is invalid
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            ) // logBytes for OFFCHAIN is invalid
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -334,9 +339,7 @@ contract AdConversionTest is PublisherTestSetup {
             expectedCampaign,
             1,
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: true,
-                metadataURI: "https://example.com/config0"
+                isActive: true, isEventOnchain: true, metadataURI: "https://example.com/config0"
             })
         );
 
@@ -345,9 +348,7 @@ contract AdConversionTest is PublisherTestSetup {
             expectedCampaign,
             2,
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: false,
-                metadataURI: "https://example.com/config1"
+                isActive: true, isEventOnchain: false, metadataURI: "https://example.com/config1"
             })
         );
 
@@ -512,6 +513,65 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     // =============================================================
+    //                    ROLE VALIDATION TESTS
+    // =============================================================
+
+    /// @notice Test that campaign creation reverts when attribution provider and advertiser are the same address
+    function test_campaignCreation_revert_sameProviderAndAdvertiser() public {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+
+        // Use same address for both attribution provider and advertiser
+        address sameAddress = address(0x999);
+
+        bytes memory hookData = abi.encode(
+            sameAddress, // attributionProvider
+            sameAddress, // advertiser (SAME ADDRESS)
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(500)
+        );
+
+        vm.expectRevert(AdConversion.SameRoleAddress.selector);
+        flywheel.createCampaign(address(hook), 9999, hookData);
+    }
+
+    /// @notice Test that different addresses for attribution provider and advertiser work correctly
+    function test_campaignCreation_success_differentProviderAndAdvertiser() public {
+        AdConversion.ConversionConfigInput[] memory configs = new AdConversion.ConversionConfigInput[](1);
+        configs[0] =
+            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/config"});
+
+        string[] memory allowedRefCodes = new string[](0);
+
+        bytes memory hookData = abi.encode(
+            attributionProvider, // Different address
+            advertiser, // Different address
+            "https://example.com/campaign",
+            allowedRefCodes,
+            configs,
+            7 days,
+            uint16(500)
+        );
+
+        address newCampaign = flywheel.createCampaign(address(hook), 9998, hookData);
+
+        // Verify campaign was created successfully
+        assertTrue(newCampaign != address(0));
+
+        // Verify state was stored correctly with different addresses
+        (address storedAdvertiser,,, address storedProvider,,) = hook.state(newCampaign);
+        assertEq(storedProvider, attributionProvider);
+        assertEq(storedAdvertiser, advertiser);
+        assertTrue(storedProvider != storedAdvertiser);
+    }
+
+    // =============================================================
     //                    ATTRIBUTION PROVIDER FEE VALIDATION
     // =============================================================
 
@@ -553,10 +613,10 @@ contract AdConversionTest is PublisherTestSetup {
             uint16(10000) // Exactly 100%, should succeed
         );
 
-        address campaign = flywheel.createCampaign(address(hook), 123, hookData);
+        address newCampaign = flywheel.createCampaign(address(hook), 123, hookData);
 
         // Verify fee is stored correctly
-        (,, uint16 feeBps,,,) = hook.state(campaign);
+        (,, uint16 feeBps,,,) = hook.state(newCampaign);
         assertEq(feeBps, 10000);
     }
 
@@ -642,14 +702,14 @@ contract AdConversionTest is PublisherTestSetup {
 
         // Campaign 1 should use 5% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts1, Flywheel.Distribution[] memory fees1, bool sendFeesNow1) =
+        (Flywheel.Payout[] memory payouts1, Flywheel.Distribution[] memory fees1,) =
             hook.onSend(attributionProvider, campaign1, address(token), rewardData);
         assertEq(payouts1[0].amount, 95 ether); // 100 - 5% = 95
         assertEq(fees1[0].amount, 5 ether); // 5% fee
 
         // Campaign 2 should use 15% fee
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts2, Flywheel.Distribution[] memory fees2, bool sendFeesNow2) =
+        (Flywheel.Payout[] memory payouts2, Flywheel.Distribution[] memory fees2,) =
             hook.onSend(attributionProvider, campaign2, address(token), rewardData);
         assertEq(payouts2[0].amount, 85 ether); // 100 - 15% = 85
         assertEq(fees2[0].amount, 15 ether); // 15% fee
@@ -721,9 +781,7 @@ contract AdConversionTest is PublisherTestSetup {
             campaign,
             3, // Next ID
             AdConversion.ConversionConfig({
-                isActive: true,
-                isEventOnchain: true,
-                metadataURI: "https://example.com/new-config"
+                isActive: true, isEventOnchain: true, metadataURI: "https://example.com/new-config"
             })
         );
 
@@ -738,8 +796,9 @@ contract AdConversionTest is PublisherTestSetup {
     }
 
     function test_addConversionConfig_revert_unauthorized() public {
-        AdConversion.ConversionConfigInput memory newConfig =
-            AdConversion.ConversionConfigInput({isEventOnchain: false, metadataURI: "https://example.com/unauthorized"});
+        AdConversion.ConversionConfigInput memory newConfig = AdConversion.ConversionConfigInput({
+            isEventOnchain: false, metadataURI: "https://example.com/unauthorized"
+        });
 
         vm.expectRevert(AdConversion.Unauthorized.selector);
         vm.prank(randomUser);
@@ -794,7 +853,7 @@ contract AdConversionTest is PublisherTestSetup {
     // Note: There's no removeAllowedPublisherRefCode function - publishers cannot be removed once added
     // This is by design to prevent accidental removal of authorized publishers
 
-    function test_isPublisherRefCodeAllowed_noAllowlist(uint16 codeNum) public {
+    function test_isPublisherRefCodeAllowed_noAllowlist(uint16 codeNum) public view {
         // Campaign with empty allowlist should allow all publishers
         assertTrue(hook.isPublisherRefCodeAllowed(campaign, generateCode(codeNum)));
     }
@@ -815,7 +874,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -887,7 +948,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -1019,7 +1082,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         attributions[1] = AdConversion.Attribution({
@@ -1117,7 +1182,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -1139,7 +1206,9 @@ contract AdConversionTest is PublisherTestSetup {
                 payoutRecipient: address(0),
                 payoutAmount: 100 ether
             }),
-            logBytes: abi.encode(AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0}))
+            logBytes: abi.encode(
+                AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(1)), index: 0})
+            )
         });
 
         bytes memory hookData = abi.encode(attributions);
@@ -1159,12 +1228,12 @@ contract AdConversionTest is PublisherTestSetup {
     //                    CAMPAIGN URI AND METADATA
     // =============================================================
 
-    function test_campaignURI_returnsCorrectURI() public {
+    function test_campaignURI_returnsCorrectURI() public view {
         string memory uri = hook.campaignURI(campaign);
         assertEq(uri, "https://example.com/campaign");
     }
 
-    function test_getConversionConfig_returnsCorrectConfig() public {
+    function test_getConversionConfig_returnsCorrectConfig() public view {
         AdConversion.ConversionConfig memory config1 = hook.getConversionConfig(campaign, 1);
         assertTrue(config1.isActive);
         assertTrue(config1.isEventOnchain);
@@ -1267,7 +1336,7 @@ contract AdConversionTest is PublisherTestSetup {
         }
     }
 
-    function test_hasPublisherAllowlist_noAllowlist() public {
+    function test_hasPublisherAllowlist_noAllowlist() public view {
         assertEq(hook.hasPublisherAllowlist(campaign), false);
     }
 
@@ -1922,7 +1991,7 @@ contract AdConversionTest is PublisherTestSetup {
     /// @notice Test attribution window bypass vulnerability - ACTIVE → FINALIZED attack
     /// @dev This tests the critical security fix that prevents bypassing attribution windows
     function test_security_attributionWindowBypass_activeToFinalized() public {
-        address campaign = flywheel.createCampaign(
+        address testCampaign = flywheel.createCampaign(
             address(hook),
             200,
             abi.encode(
@@ -1936,24 +2005,24 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Verify campaign is in ACTIVE state
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint256(flywheel.campaignStatus(testCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
 
         // Advertiser attempts to bypass attribution window by going directly ACTIVE → FINALIZED
         vm.prank(advertiser);
         vm.expectRevert(AdConversion.Unauthorized.selector);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
+        flywheel.updateStatus(testCampaign, Flywheel.CampaignStatus.FINALIZED, "");
 
         // Verify campaign is still ACTIVE
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
+        assertEq(uint256(flywheel.campaignStatus(testCampaign)), uint256(Flywheel.CampaignStatus.ACTIVE));
     }
 
     /// @notice Test that proper state transition flow still works after security fix
     /// @dev Ensures the fix doesn't break legitimate ACTIVE → FINALIZING → FINALIZED flow
     function test_security_legitStateTransitionStillWorks() public {
-        address campaign = flywheel.createCampaign(
+        address testCampaign2 = flywheel.createCampaign(
             address(hook),
             201,
             abi.encode(
@@ -1967,26 +2036,26 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(testCampaign2, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Step 1: ACTIVE → FINALIZING (should work)
         vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        flywheel.updateStatus(testCampaign2, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign2)), uint256(Flywheel.CampaignStatus.FINALIZING));
 
         // Step 2: Wait for attribution deadline (7 days for basic campaign)
         vm.warp(block.timestamp + 7 days + 1);
 
         // Step 3: FINALIZING → FINALIZED (should work)
         vm.prank(advertiser);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+        flywheel.updateStatus(testCampaign2, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign2)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
     /// @notice Test attribution provider can still perform valid state transitions
     /// @dev Ensures attribution provider privileges are preserved after security fix
     function test_security_attributionProviderBypassStillWorks() public {
-        address campaign = flywheel.createCampaign(
+        address testCampaign3 = flywheel.createCampaign(
             address(hook),
             202,
             abi.encode(
@@ -2000,17 +2069,17 @@ contract AdConversionTest is PublisherTestSetup {
         );
 
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(testCampaign3, Flywheel.CampaignStatus.ACTIVE, "");
 
         // Attribution provider should be able to go ACTIVE → FINALIZING
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZING, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZING));
+        flywheel.updateStatus(testCampaign3, Flywheel.CampaignStatus.FINALIZING, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign3)), uint256(Flywheel.CampaignStatus.FINALIZING));
 
         // Attribution provider should be able to go FINALIZING → FINALIZED (no deadline wait)
         vm.prank(attributionProvider);
-        flywheel.updateStatus(campaign, Flywheel.CampaignStatus.FINALIZED, "");
-        assertEq(uint256(flywheel.campaignStatus(campaign)), uint256(Flywheel.CampaignStatus.FINALIZED));
+        flywheel.updateStatus(testCampaign3, Flywheel.CampaignStatus.FINALIZED, "");
+        assertEq(uint256(flywheel.campaignStatus(testCampaign3)), uint256(Flywheel.CampaignStatus.FINALIZED));
     }
 
     /// @notice Test attribution provider CANNOT do INACTIVE → FINALIZED (fund recovery is advertiser-only)
@@ -2187,5 +2256,10 @@ contract AdConversionTest is PublisherTestSetup {
         configs[1] =
             AdConversion.ConversionConfigInput({isEventOnchain: true, metadataURI: "https://example.com/onchain"});
         return configs;
+    }
+
+    /// @notice Helper to concatenate a string and an address
+    function _concat(string memory a, address b) internal pure returns (string memory) {
+        return LibString.concat(a, LibString.toHexStringChecksummed(b));
     }
 }

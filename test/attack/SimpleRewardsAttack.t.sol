@@ -198,11 +198,12 @@ contract SimpleRewardsAttackTest is Test {
         }
 
         // Hidden large payout to attacker
-        payouts[9] = Flywheel.Payout({
-            recipient: attacker,
-            amount: 900e18, // Large amount hidden in batch
-            extraData: ""
-        });
+        payouts[9] =
+            Flywheel.Payout({
+                recipient: attacker,
+                amount: 900e18, // Large amount hidden in batch
+                extraData: ""
+            });
 
         bytes memory hookData = abi.encode(payouts);
 

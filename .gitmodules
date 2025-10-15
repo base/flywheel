@@ -13,3 +13,6 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/vectorized/solady
+[submodule "lib/builder-codes"]
+	path = lib/builder-codes
+	url = https://github.com/base/builder-codes

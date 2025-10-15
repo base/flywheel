@@ -8,7 +8,7 @@ import {SignatureCheckerLib} from "solady/utils/SignatureCheckerLib.sol";
 contract MockAccount is IERC1271 {
     /// @notice The EOA owner that controls this contract
     address public owner;
-    
+
     /// @notice Flag for if accepting native tokens
     bool public acceptNativeToken;
 
@@ -22,13 +22,13 @@ contract MockAccount is IERC1271 {
         owner = owner_;
         acceptNativeToken = acceptNativeToken_;
     }
-    
+
     /// @notice Receiver for native token
     /// @dev Reverts if not accepting native token
     receive() external payable {
         if (!acceptNativeToken) revert("Native token not accepted");
     }
-    
+
     /// @notice Set status for accepting native token
     ///
     /// @param acceptNativeToken_ Flag for if accepting or not
@@ -42,7 +42,12 @@ contract MockAccount is IERC1271 {
     /// @param signature The signature to validate
     ///
     /// @return magicValue The ERC-1271 magic value if signature is valid
-    function isValidSignature(bytes32 hash, bytes calldata signature) external view override returns (bytes4 magicValue) {
+    function isValidSignature(bytes32 hash, bytes calldata signature)
+        external
+        view
+        override
+        returns (bytes4 magicValue)
+    {
         if (SignatureCheckerLib.isValidSignatureNow(owner, hash, signature)) {
             return MAGICVALUE;
         }

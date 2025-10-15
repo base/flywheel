@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+import {Test} from "forge-std/Test.sol";
 
-import {PublisherTestSetup, PublisherSetupHelper} from "../lib/PublisherSetupHelper.sol";
+import {PublisherSetupHelper, PublisherTestSetup} from "../lib/PublisherSetupHelper.sol";
 import {MockERC20} from "../lib/mocks/MockERC20.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
-import {BuilderCodes} from "../../src/BuilderCodes.sol";
 import {AdConversion} from "../../src/hooks/AdConversion.sol";
 
 contract AdBatchRewardsTest is PublisherTestSetup {
@@ -122,9 +122,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 ? bytes("")
                 : abi.encode(
                     AdConversion.Log({
-                        chainId: block.chainid,
-                        transactionHash: bytes32(uint256(txHashSeed)),
-                        index: uint256(eventId)
+                        chainId: block.chainid, transactionHash: bytes32(uint256(txHashSeed)), index: uint256(eventId)
                     })
                 )
         });
@@ -180,9 +178,7 @@ contract AdBatchRewardsTest is PublisherTestSetup {
         while (value != 0) {
             digits -= 1;
             buffer[digits] = bytes1(uint8(48 + uint256(value % 16)));
-            if (uint8(buffer[digits]) > 57) {
-                buffer[digits] = bytes1(uint8(buffer[digits]) + 39);
-            }
+            if (uint8(buffer[digits]) > 57) buffer[digits] = bytes1(uint8(buffer[digits]) + 39);
             value /= 16;
         }
         return string(buffer);
@@ -302,7 +298,9 @@ contract AdBatchRewardsTest is PublisherTestSetup {
                 logBytes: configId == 3
                     ? bytes("")
                     : abi.encode(
-                        AdConversion.Log({chainId: block.chainid, transactionHash: bytes32(uint256(i + 1)), index: uint256(i)})
+                        AdConversion.Log({
+                            chainId: block.chainid, transactionHash: bytes32(uint256(i + 1)), index: uint256(i)
+                        })
                     )
             });
         }

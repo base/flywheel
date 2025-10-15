@@ -3,14 +3,14 @@ pragma solidity ^0.8.29;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Flywheel} from "../../src/Flywheel.sol";
 import {CampaignHooks} from "../../src/CampaignHooks.sol";
+import {Flywheel} from "../../src/Flywheel.sol";
 
 /// @notice Test implementation of CampaignHooks for testing the abstract base contract
 contract TestCampaignHooks is CampaignHooks {
     constructor(address flywheel_) CampaignHooks(flywheel_) {}
 
-    function campaignURI(address campaign) external view override returns (string memory uri) {
+    function campaignURI(address campaign) external pure override returns (string memory uri) {
         return "";
     }
 
@@ -59,7 +59,7 @@ contract CampaignHooksTest is Test {
 
     /// @notice Test constructor sets flywheel correctly
     function test_constructor_setsFlywheel() public view {
-        assertEq(address(hooks.flywheel()), address(flywheel));
+        assertEq(address(hooks.FLYWHEEL()), address(flywheel));
     }
 
     /// @notice Test onCreateCampaign can be called by flywheel
@@ -175,7 +175,6 @@ contract CampaignHooksTest is Test {
     /// @notice Test onWithdrawFunds reverts when not called by flywheel
     function test_onWithdrawFunds_revertsWhenNotFlywheel() public {
         bytes memory hookData = "";
-        uint256 amount = 1000;
 
         vm.prank(user);
         vm.expectRevert();
@@ -206,6 +205,6 @@ contract CampaignHooksTest is Test {
     function test_constructor_withZeroAddress() public {
         // Should be able to create with zero address (no validation in constructor)
         TestCampaignHooks hooksWithZero = new TestCampaignHooks(address(0));
-        assertEq(address(hooksWithZero.flywheel()), address(0));
+        assertEq(address(hooksWithZero.FLYWHEEL()), address(0));
     }
 }
