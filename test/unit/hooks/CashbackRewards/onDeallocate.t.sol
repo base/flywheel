@@ -10,7 +10,15 @@ import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../../../../src/hooks/SimpleRewards.sol";
 
 contract OnDeallocateTest is CashbackRewardsTest {
-    function test_revertsOnUnauthorizedCaller(
+    // ========================================
+    // REVERT CASES
+    // ========================================
+
+    /// @dev Reverts when caller is not authorized manager
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param deallocateAmount Amount to deallocate for the payment
+    /// @param unauthorizedCaller Address that is not the campaign manager
+    function test_revert_unauthorizedCaller(
         uint120 paymentAmount,
         uint120 deallocateAmount,
         address unauthorizedCaller
@@ -31,19 +39,9 @@ contract OnDeallocateTest is CashbackRewardsTest {
         flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnUnauthorizedPayment(uint120 paymentAmount, uint120 deallocateAmount) public {
-        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
-        deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
-
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
-        bytes memory hookData = createCashbackHookData(paymentInfo, deallocateAmount);
-
-        vm.prank(manager);
-        vm.expectRevert(abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector));
-        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
-    }
-
-    function test_revertsOnZeroAmount(uint120 paymentAmount) public {
+    /// @dev Reverts when attempting to deallocate zero amount
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_revert_zeroAmount(uint120 paymentAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
@@ -56,7 +54,11 @@ contract OnDeallocateTest is CashbackRewardsTest {
         flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnWrongToken(uint120 paymentAmount, uint120 deallocateAmount, address wrongToken) public {
+    /// @dev Reverts when payment token differs from campaign token
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param deallocateAmount Amount to deallocate for the payment
+    /// @param wrongToken Incorrect token address used in payment
+    function test_revert_wrongToken(uint120 paymentAmount, uint120 deallocateAmount, address wrongToken) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
         vm.assume(wrongToken != address(usdc) && wrongToken != address(0));
@@ -71,20 +73,24 @@ contract OnDeallocateTest is CashbackRewardsTest {
         flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnPaymentNotCollected(uint120 paymentAmount, uint120 deallocateAmount) public {
+    /// @dev Reverts when attempting to deallocate for payment that hasn't been collected
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param deallocateAmount Amount to deallocate for the payment
+    function test_revert_unauthorizedPayment(uint120 paymentAmount, uint120 deallocateAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
         bytes memory hookData = createCashbackHookData(paymentInfo, deallocateAmount);
 
-        // Don't authorize payment - this should fail before InsufficientAllocation check
-        vm.expectRevert(CashbackRewards.PaymentNotCollected.selector);
         vm.prank(manager);
+        vm.expectRevert(abi.encodeWithSelector(CashbackRewards.PaymentNotCollected.selector));
         flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnInsufficientAllocation(uint120 paymentAmount) public {
+    /// @dev Reverts when attempting to deallocate more than allocated amount
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_revert_insufficientAllocation(uint120 paymentAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         uint120 allocateAmount = 100e6;
         uint120 excessiveDeallocate = 200e6;
@@ -104,11 +110,17 @@ contract OnDeallocateTest is CashbackRewardsTest {
         flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
     }
 
-    function test_successfulPartialDeallocation(
-        uint120 paymentAmount,
-        uint120 allocateAmount,
-        uint120 deallocateAmount
-    ) public {
+    // ========================================
+    // SUCCESS CASES
+    // ========================================
+
+    /// @dev Successfully deallocates partial amount from allocated funds
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocateAmount Amount to allocate initially
+    /// @param deallocateAmount Amount to deallocate (partial)
+    function test_success_partialDeallocation(uint120 paymentAmount, uint120 allocateAmount, uint120 deallocateAmount)
+        public
+    {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_ALLOCATION_AMOUNT, MAX_ALLOCATION_AMOUNT));
         deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, allocateAmount));
@@ -133,7 +145,10 @@ contract OnDeallocateTest is CashbackRewardsTest {
         assertEq(usdc.balanceOf(unlimitedCashbackCampaign), initialCampaignBalance);
     }
 
-    function test_successfulFullDeallocationWithMaxValue(uint120 paymentAmount, uint120 allocateAmount) public {
+    /// @dev Successfully deallocates all allocated funds using max value
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocateAmount Amount to allocate initially
+    function test_success_fullDeallocationWithMaxValue(uint120 paymentAmount, uint120 allocateAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -161,7 +176,9 @@ contract OnDeallocateTest is CashbackRewardsTest {
         assertEq(usdc.balanceOf(unlimitedCashbackCampaign), initialCampaignBalance);
     }
 
-    function test_deallocateZeroWhenNothingAllocated(uint120 paymentAmount) public {
+    /// @dev Successfully deallocates zero when nothing was allocated
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_success_deallocateZeroWhenNothingAllocated(uint120 paymentAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
@@ -180,7 +197,10 @@ contract OnDeallocateTest is CashbackRewardsTest {
         assertEq(finalRewards.distributed, 0);
     }
 
-    function test_multipleDeallocationsSamePayment(uint120 paymentAmount, uint120 allocateAmount) public {
+    /// @dev Successfully processes multiple deallocations for same payment
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocateAmount Amount to allocate initially
+    function test_success_multipleDeallocationsSamePayment(uint120 paymentAmount, uint120 allocateAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_ALLOCATION_AMOUNT, MAX_ALLOCATION_AMOUNT));
         uint120 firstDeallocate = allocateAmount / 2;
@@ -209,7 +229,14 @@ contract OnDeallocateTest is CashbackRewardsTest {
         assertEq(finalRewards.distributed, 0);
     }
 
-    function test_batchDeallocateMultiplePayments(
+    /// @dev Successfully processes batch deallocations for multiple payments
+    /// @param firstPaymentAmount Payment amount in USDC for first transaction
+    /// @param secondPaymentAmount Payment amount in USDC for second transaction
+    /// @param firstAllocation Allocation amount for first payment
+    /// @param secondAllocation Allocation amount for second payment
+    /// @param firstDeallocate Deallocation amount for first payment
+    /// @param secondDeallocate Deallocation amount for second payment
+    function test_success_batchDeallocateMultiplePayments(
         uint120 firstPaymentAmount,
         uint120 secondPaymentAmount,
         uint120 firstAllocation,
@@ -270,39 +297,17 @@ contract OnDeallocateTest is CashbackRewardsTest {
         assertEq(secondRewardsAfter.distributed, secondRewardsBefore.distributed);
     }
 
-    function test_emitsFlywheelEvents(uint120 paymentAmount, uint120 allocateAmount, uint120 deallocateAmount) public {
-        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
-        allocateAmount = uint120(bound(allocateAmount, MIN_ALLOCATION_AMOUNT, MAX_ALLOCATION_AMOUNT));
-        deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, allocateAmount));
-
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
-
-        authorizePayment(paymentInfo);
-        bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
-        vm.prank(manager);
-        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
-
-        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
-        vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutDeallocated(
-            unlimitedCashbackCampaign,
-            address(usdc),
-            bytes32(bytes20(buyer)),
-            deallocateAmount,
-            abi.encodePacked(paymentInfoHash)
-        );
-
-        bytes memory deallocateHookData = createCashbackHookData(paymentInfo, deallocateAmount);
-        vm.prank(manager);
-        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
-    }
+    // ========================================
+    // EDGE CASES
+    // ========================================
 
     /// @dev Verifies RewardFailed event is emitted when attempting to deallocate zero amount with revertOnError=false
     /// @param paymentAmount Payment amount in USDC for the transaction
     /// @param allocateAmount Allocation amount to set up for deallocation
-    function test_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse(uint120 paymentAmount, uint120 allocateAmount)
-        public
-    {
+    function test_edge_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 allocateAmount
+    ) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -335,7 +340,7 @@ contract OnDeallocateTest is CashbackRewardsTest {
     /// @param allocateAmount Allocation amount to set up for deallocation
     /// @param deallocateAmount Deallocation amount to attempt
     /// @param wrongToken Incorrect token address used in payment
-    function test_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse(
+    function test_edge_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse(
         uint120 paymentAmount,
         uint120 allocateAmount,
         uint120 deallocateAmount,
@@ -374,7 +379,7 @@ contract OnDeallocateTest is CashbackRewardsTest {
     /// @dev Verifies RewardFailed event is emitted when attempting to deallocate for uncollected payment with revertOnError=false
     /// @param paymentAmount Payment amount in USDC for the transaction
     /// @param deallocateAmount Deallocation amount to attempt
-    function test_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse(
+    function test_edge_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse(
         uint120 paymentAmount,
         uint120 deallocateAmount
     ) public {
@@ -403,7 +408,7 @@ contract OnDeallocateTest is CashbackRewardsTest {
     /// @param paymentAmount Payment amount in USDC for both transactions
     /// @param allocateAmount Allocation amount to set up for deallocation
     /// @param deallocateAmount Deallocation amount to attempt
-    function test_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse(
+    function test_edge_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse(
         uint120 paymentAmount,
         uint120 allocateAmount,
         uint120 deallocateAmount
@@ -448,5 +453,44 @@ contract OnDeallocateTest is CashbackRewardsTest {
         // Verify the invalid payment was not processed
         CashbackRewards.RewardState memory invalidRewards = getRewardsInfo(invalidPayment, unlimitedCashbackCampaign);
         assertEq(invalidRewards.allocated, 0);
+    }
+
+    // ========================================
+    // STATE VERIFICATION
+    // ========================================
+
+    /// @dev Verifies correct Flywheel event emission for successful deallocation
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocateAmount Amount to allocate initially
+    /// @param deallocateAmount Amount to deallocate
+    function test_onDeallocate_emitsFlywheelEvents(
+        uint120 paymentAmount,
+        uint120 allocateAmount,
+        uint120 deallocateAmount
+    ) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        allocateAmount = uint120(bound(allocateAmount, MIN_ALLOCATION_AMOUNT, MAX_ALLOCATION_AMOUNT));
+        deallocateAmount = uint120(bound(deallocateAmount, MIN_REWARD_AMOUNT, allocateAmount));
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+
+        authorizePayment(paymentInfo);
+        bytes memory allocateHookData = createCashbackHookData(paymentInfo, allocateAmount);
+        vm.prank(manager);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
+
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        vm.expectEmit(true, true, true, true);
+        emit Flywheel.PayoutDeallocated(
+            unlimitedCashbackCampaign,
+            address(usdc),
+            bytes32(bytes20(buyer)),
+            deallocateAmount,
+            abi.encodePacked(paymentInfoHash)
+        );
+
+        bytes memory deallocateHookData = createCashbackHookData(paymentInfo, deallocateAmount);
+        vm.prank(manager);
+        flywheel.deallocate(unlimitedCashbackCampaign, address(usdc), deallocateHookData);
     }
 }

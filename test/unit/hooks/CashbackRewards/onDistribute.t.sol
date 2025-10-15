@@ -10,7 +10,15 @@ import {CashbackRewards} from "../../../../src/hooks/CashbackRewards.sol";
 import {SimpleRewards} from "../../../../src/hooks/SimpleRewards.sol";
 
 contract OnDistributeTest is CashbackRewardsTest {
-    function test_revertsOnUnauthorizedCaller(
+    // ========================================
+    // REVERT CASES
+    // ========================================
+
+    /// @dev Reverts when caller is not authorized manager
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute for the payment
+    /// @param unauthorizedCaller Address that is not the campaign manager
+    function test_revert_unauthorizedCaller(
         uint120 paymentAmount,
         uint120 distributeAmount,
         address unauthorizedCaller
@@ -27,7 +35,9 @@ contract OnDistributeTest is CashbackRewardsTest {
         flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnZeroAmount(uint120 paymentAmount) public {
+    /// @dev Reverts when attempting to distribute zero amount
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    function test_revert_zeroAmount(uint120 paymentAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
 
         AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
@@ -40,7 +50,11 @@ contract OnDistributeTest is CashbackRewardsTest {
         flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnWrongToken(uint120 paymentAmount, uint120 distributeAmount, address wrongToken) public {
+    /// @dev Reverts when payment token differs from campaign token
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute for the payment
+    /// @param wrongToken Incorrect token address used in payment
+    function test_revert_wrongToken(uint120 paymentAmount, uint120 distributeAmount, address wrongToken) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
         vm.assume(wrongToken != address(usdc) && wrongToken != address(0));
@@ -55,7 +69,10 @@ contract OnDistributeTest is CashbackRewardsTest {
         flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnUnauthorizedPayment(uint120 paymentAmount, uint120 distributeAmount) public {
+    /// @dev Reverts when attempting to distribute for payment that hasn't been collected
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute for the payment
+    function test_revert_unauthorizedPayment(uint120 paymentAmount, uint120 distributeAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -67,7 +84,10 @@ contract OnDistributeTest is CashbackRewardsTest {
         flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_revertsOnInsufficientAllocation(uint120 paymentAmount, uint120 distributeAmount) public {
+    /// @dev Reverts when attempting to distribute more than allocated amount
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute (exceeds allocation)
+    function test_revert_insufficientAllocation(uint120 paymentAmount, uint120 distributeAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -81,7 +101,14 @@ contract OnDistributeTest is CashbackRewardsTest {
         flywheel.distribute(unlimitedCashbackCampaign, address(usdc), hookData);
     }
 
-    function test_successfulDistribute(uint120 paymentAmount, uint120 distributeAmount) public {
+    // ========================================
+    // SUCCESS CASES
+    // ========================================
+
+    /// @dev Successfully distributes allocated funds to recipient
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute
+    function test_success_singleDistribution(uint120 paymentAmount, uint120 distributeAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -105,7 +132,10 @@ contract OnDistributeTest is CashbackRewardsTest {
         assertEq(rewardsAfter.distributed, rewardsBefore.distributed + distributeAmount);
     }
 
-    function test_successfulDistributeWithinMaxPercentage(uint120 paymentAmount, uint120 distributeAmount) public {
+    /// @dev Successfully distributes within maximum percentage limit
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute within percentage limit
+    function test_success_distributeWithinMaxPercentage(uint120 paymentAmount, uint120 distributeAmount) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         uint120 maxValidDistribute = uint120(
             (uint256(paymentAmount) * uint256(TEST_MAX_REWARD_BASIS_POINTS)) / uint256(MAX_REWARD_BASIS_POINTS_DIVISOR)
@@ -129,9 +159,15 @@ contract OnDistributeTest is CashbackRewardsTest {
         assertEq(rewards.distributed, distributeAmount);
     }
 
-    function test_partialDistribution(uint120 paymentAmount, uint120 allocationAmount, uint120 distributionAmount)
-        public
-    {
+    /// @dev Successfully distributes partial amount from allocated funds
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocationAmount Amount to allocate initially
+    /// @param distributionAmount Amount to distribute (partial)
+    function test_success_partialDistribution(
+        uint120 paymentAmount,
+        uint120 allocationAmount,
+        uint120 distributionAmount
+    ) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocationAmount = uint120(bound(allocationAmount, MIN_ALLOCATION_AMOUNT, MAX_ALLOCATION_AMOUNT));
         distributionAmount = uint120(bound(distributionAmount, MIN_REWARD_AMOUNT, allocationAmount));
@@ -153,7 +189,12 @@ contract OnDistributeTest is CashbackRewardsTest {
         assertEq(rewards.distributed, distributionAmount);
     }
 
-    function test_multipleDistributions(
+    /// @dev Successfully processes multiple distributions for same payment
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param allocationAmount Amount to allocate initially
+    /// @param firstDistribution Amount for first distribution
+    /// @param secondDistribution Amount for second distribution
+    function test_success_multipleDistributions(
         uint120 paymentAmount,
         uint120 allocationAmount,
         uint120 firstDistribution,
@@ -185,7 +226,14 @@ contract OnDistributeTest is CashbackRewardsTest {
         assertEq(rewards.distributed, firstDistribution + secondDistribution);
     }
 
-    function test_batchDistributeMultiplePayments(
+    /// @dev Successfully processes batch distributions for multiple payments
+    /// @param firstPaymentAmount Payment amount in USDC for first transaction
+    /// @param secondPaymentAmount Payment amount in USDC for second transaction
+    /// @param firstAllocation Allocation amount for first payment
+    /// @param secondAllocation Allocation amount for second payment
+    /// @param firstDistribute Distribution amount for first payment
+    /// @param secondDistribute Distribution amount for second payment
+    function test_success_batchDistributeMultiplePayments(
         uint120 firstPaymentAmount,
         uint120 secondPaymentAmount,
         uint120 firstAllocation,
@@ -246,40 +294,17 @@ contract OnDistributeTest is CashbackRewardsTest {
         assertEq(secondRewardsAfter.distributed, secondRewardsBefore.distributed + secondDistribute);
     }
 
-    function test_emitsFlywheelEvents(uint120 paymentAmount, uint120 distributeAmount) public {
-        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
-        distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
-
-        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
-        bytes memory allocateHookData = createCashbackHookData(paymentInfo, distributeAmount);
-        bytes memory distributeHookData = createCashbackHookData(paymentInfo, distributeAmount);
-
-        chargePayment(paymentInfo);
-
-        vm.prank(manager);
-        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
-
-        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
-        vm.expectEmit(true, true, true, true);
-        emit Flywheel.PayoutDistributed(
-            unlimitedCashbackCampaign,
-            address(usdc),
-            bytes32(bytes20(buyer)),
-            buyer,
-            distributeAmount,
-            abi.encodePacked(paymentInfoHash)
-        );
-
-        vm.prank(manager);
-        flywheel.distribute(unlimitedCashbackCampaign, address(usdc), distributeHookData);
-    }
+    // ========================================
+    // EDGE CASES
+    // ========================================
 
     /// @dev Verifies RewardFailed event is emitted when attempting to distribute zero amount with revertOnError=false
     /// @param paymentAmount Payment amount in USDC for the transaction
     /// @param allocateAmount Allocation amount to set up for distribution
-    function test_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse(uint120 paymentAmount, uint120 allocateAmount)
-        public
-    {
+    function test_edge_emitsRewardFailed_onZeroAmount_whenRevertOnErrorFalse(
+        uint120 paymentAmount,
+        uint120 allocateAmount
+    ) public {
         paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
         allocateAmount = uint120(bound(allocateAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
 
@@ -312,7 +337,7 @@ contract OnDistributeTest is CashbackRewardsTest {
     /// @param allocateAmount Allocation amount to set up for distribution
     /// @param distributeAmount Distribution amount to attempt
     /// @param wrongToken Incorrect token address used in payment
-    function test_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse(
+    function test_edge_emitsRewardFailed_onWrongToken_whenRevertOnErrorFalse(
         uint120 paymentAmount,
         uint120 allocateAmount,
         uint120 distributeAmount,
@@ -351,7 +376,7 @@ contract OnDistributeTest is CashbackRewardsTest {
     /// @dev Verifies RewardFailed event is emitted when attempting to distribute for uncollected payment with revertOnError=false
     /// @param paymentAmount Payment amount in USDC for the transaction
     /// @param distributeAmount Distribution amount to attempt
-    function test_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse(
+    function test_edge_emitsRewardFailed_onPaymentNotCollected_whenRevertOnErrorFalse(
         uint120 paymentAmount,
         uint120 distributeAmount
     ) public {
@@ -380,7 +405,7 @@ contract OnDistributeTest is CashbackRewardsTest {
     /// @param paymentAmount Payment amount in USDC for both transactions
     /// @param allocateAmount Allocation amount to set up for distribution
     /// @param distributeAmount Distribution amount to attempt
-    function test_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse(
+    function test_edge_mixedPayments_someValidSomeInvalid_whenRevertOnErrorFalse(
         uint120 paymentAmount,
         uint120 allocateAmount,
         uint120 distributeAmount
@@ -427,5 +452,40 @@ contract OnDistributeTest is CashbackRewardsTest {
         CashbackRewards.RewardState memory invalidRewards = getRewardsInfo(invalidPayment, unlimitedCashbackCampaign);
         assertEq(invalidRewards.allocated, 0);
         assertEq(invalidRewards.distributed, 0);
+    }
+
+    // ========================================
+    // STATE VERIFICATION
+    // ========================================
+
+    /// @dev Verifies correct Flywheel event emission for successful distribution
+    /// @param paymentAmount Payment amount in USDC for the transaction
+    /// @param distributeAmount Amount to distribute
+    function test_onDistribute_emitsFlywheelEvents(uint120 paymentAmount, uint120 distributeAmount) public {
+        paymentAmount = uint120(bound(paymentAmount, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT));
+        distributeAmount = uint120(bound(distributeAmount, MIN_REWARD_AMOUNT, MAX_REWARD_AMOUNT));
+
+        AuthCaptureEscrow.PaymentInfo memory paymentInfo = createPaymentInfo(buyer, paymentAmount);
+        bytes memory allocateHookData = createCashbackHookData(paymentInfo, distributeAmount);
+        bytes memory distributeHookData = createCashbackHookData(paymentInfo, distributeAmount);
+
+        chargePayment(paymentInfo);
+
+        vm.prank(manager);
+        flywheel.allocate(unlimitedCashbackCampaign, address(usdc), allocateHookData);
+
+        bytes32 paymentInfoHash = escrow.getHash(paymentInfo);
+        vm.expectEmit(true, true, true, true);
+        emit Flywheel.PayoutDistributed(
+            unlimitedCashbackCampaign,
+            address(usdc),
+            bytes32(bytes20(buyer)),
+            buyer,
+            distributeAmount,
+            abi.encodePacked(paymentInfoHash)
+        );
+
+        vm.prank(manager);
+        flywheel.distribute(unlimitedCashbackCampaign, address(usdc), distributeHookData);
     }
 }
