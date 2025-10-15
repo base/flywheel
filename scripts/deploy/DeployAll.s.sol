@@ -4,11 +4,11 @@ pragma solidity 0.8.29;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
-import {DeployFlywheel} from "./DeployFlywheel.s.sol";
 import {DeployAdConversion} from "./DeployAdConversion.s.sol";
-import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
-import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
 import {DeployBridgeRewards} from "./DeployBridgeRewards.s.sol";
+import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
+import {DeployFlywheel} from "./DeployFlywheel.s.sol";
+import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
 
 /// @notice Script for deploying all Flywheel protocol contracts in the correct order
 contract DeployAll is Script {
