@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BridgeRewardsTest} from "../../../lib/BridgeRewardsTest.sol";
+import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
 
-contract OnUpdateMetadataTest is BridgeRewardsTest {
+contract OnUpdateMetadataTest is BridgePartnersTest {
     // ========================================
     // SUCCESS CASES
     // ========================================
@@ -17,11 +17,11 @@ contract OnUpdateMetadataTest is BridgeRewardsTest {
         vm.assume(randomCaller != builder);
 
         vm.prank(randomCaller);
-        flywheel.updateMetadata(bridgeRewardsCampaign, "some metadata");
+        flywheel.updateMetadata(bridgePartnersCampaign, "some metadata");
 
         // Should not revert - the hook allows anyone to trigger metadata updates
         // Even though metadataURI is fixed, its returned data may change over time
         vm.prank(randomCaller);
-        flywheel.updateMetadata(bridgeRewardsCampaign, "different metadata");
+        flywheel.updateMetadata(bridgePartnersCampaign, "different metadata");
     }
 }

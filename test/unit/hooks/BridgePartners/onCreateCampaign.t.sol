@@ -2,10 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgeRewards} from "../../../../src/hooks/BridgeRewards.sol";
-import {BridgeRewardsTest} from "../../../lib/BridgeRewardsTest.sol";
+import {BridgePartners} from "../../../../src/hooks/BridgePartners.sol";
+import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
 
-contract OnCreateCampaignTest is BridgeRewardsTest {
+contract OnCreateCampaignTest is BridgePartnersTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -15,8 +15,8 @@ contract OnCreateCampaignTest is BridgeRewardsTest {
     function test_revert_nonZeroNonce(uint256 nonZeroNonce) public {
         vm.assume(nonZeroNonce != 0);
 
-        vm.expectRevert(BridgeRewards.InvalidCampaignInitialization.selector);
-        flywheel.createCampaign(address(bridgeRewards), nonZeroNonce, "");
+        vm.expectRevert(BridgePartners.InvalidCampaignInitialization.selector);
+        flywheel.createCampaign(address(bridgePartners), nonZeroNonce, "");
     }
 
     /// @dev Reverts when hookData is not empty (no configuration allowed)
@@ -24,8 +24,8 @@ contract OnCreateCampaignTest is BridgeRewardsTest {
     function test_revert_nonEmptyHookData(bytes memory nonEmptyHookData) public {
         vm.assume(nonEmptyHookData.length > 0);
 
-        vm.expectRevert(BridgeRewards.InvalidCampaignInitialization.selector);
-        flywheel.createCampaign(address(bridgeRewards), 0, nonEmptyHookData);
+        vm.expectRevert(BridgePartners.InvalidCampaignInitialization.selector);
+        flywheel.createCampaign(address(bridgePartners), 0, nonEmptyHookData);
     }
 
     // ========================================
@@ -34,9 +34,8 @@ contract OnCreateCampaignTest is BridgeRewardsTest {
 
     /// @dev Accepts campaign creation with nonce zero and empty hookData
     function test_success_validParameters() public {
-        // Create a new BridgeRewards contract to get a different campaign address
-        BridgeRewards bridgeRewards2 = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI, 200);
-        address newCampaign = flywheel.createCampaign(address(bridgeRewards2), 0, "");
+        // Create a new BridgePartners contract to get a different campaign address
+        (, address newCampaign) = _createBridgePartnersCampaign();
 
         // Verify campaign was created successfully
         assertTrue(newCampaign != address(0));

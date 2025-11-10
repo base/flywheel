@@ -2,10 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgeRewards} from "../../../../src/hooks/BridgeRewards.sol";
-import {BridgeRewardsTest} from "../../../lib/BridgeRewardsTest.sol";
+import {BridgePartners} from "../../../../src/hooks/BridgePartners.sol";
+import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
 
-contract OnUpdateStatusTest is BridgeRewardsTest {
+contract OnUpdateStatusTest is BridgePartnersTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -20,7 +20,7 @@ contract OnUpdateStatusTest is BridgeRewardsTest {
         vm.assume(invalidStatus != Flywheel.CampaignStatus.ACTIVE);
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(bridgeRewardsCampaign, invalidStatus, "");
+        flywheel.updateStatus(bridgePartnersCampaign, invalidStatus, "");
     }
 
     // ========================================
@@ -33,9 +33,8 @@ contract OnUpdateStatusTest is BridgeRewardsTest {
         // The statusValue parameter is not used since we only test transition to ACTIVE
         // But we keep it to maintain the fuzz testing pattern
 
-        // Create a new BridgeRewards contract to get a different campaign address
-        BridgeRewards bridgeRewards2 = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI, 200);
-        address testCampaign = flywheel.createCampaign(address(bridgeRewards2), 0, "");
+        // Create a new BridgePartners contract to get a different campaign address
+        (, address testCampaign) = _createBridgePartnersCampaign();
 
         // The campaign starts as INACTIVE, and we can only transition to ACTIVE
         // This test verifies that ACTIVE status is always allowed

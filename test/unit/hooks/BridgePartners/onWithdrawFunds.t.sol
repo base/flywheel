@@ -2,9 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgeRewardsTest} from "../../../lib/BridgeRewardsTest.sol";
+import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
 
-contract OnWithdrawFundsTest is BridgeRewardsTest {
+contract OnWithdrawFundsTest is BridgePartnersTest {
     // ========================================
     // SUCCESS CASES
     // ========================================
@@ -21,13 +21,13 @@ contract OnWithdrawFundsTest is BridgeRewardsTest {
         bytes memory hookData = abi.encode(expectedPayout);
 
         // Fund campaign to enable withdrawal
-        usdc.mint(bridgeRewardsCampaign, amount);
+        usdc.mint(bridgePartnersCampaign, amount);
 
         uint256 recipientBalanceBefore = usdc.balanceOf(recipient);
 
         vm.prank(address(flywheel));
         Flywheel.Payout memory returnedPayout =
-            bridgeRewards.onWithdrawFunds(address(this), bridgeRewardsCampaign, address(usdc), hookData);
+            bridgePartners.onWithdrawFunds(address(this), bridgePartnersCampaign, address(usdc), hookData);
 
         assertEq(returnedPayout.recipient, recipient, "Returned payout recipient should match expected");
         assertEq(returnedPayout.amount, amount, "Returned payout amount should match expected");
