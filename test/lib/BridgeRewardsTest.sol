@@ -9,7 +9,6 @@ import {console} from "forge-std/console.sol";
 import {Flywheel} from "../../src/Flywheel.sol";
 import {BridgeRewards} from "../../src/hooks/BridgeRewards.sol";
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
-import {PseudoRandomRegistrar} from "builder-codes/PseudoRandomRegistrar.sol";
 
 contract BridgeRewardsTest is Test {
     uint256 internal constant OWNER_PK = uint256(keccak256("owner"));
@@ -24,7 +23,6 @@ contract BridgeRewardsTest is Test {
     address public builder;
 
     BuilderCodes public builderCodes;
-    PseudoRandomRegistrar public pseudoRandomRegistrar;
 
     Flywheel public flywheel;
     BridgeRewards public bridgeRewards;
@@ -44,15 +42,6 @@ contract BridgeRewardsTest is Test {
             abi.encodeWithSelector(BuilderCodes.initialize.selector, owner, owner, URI_PREFIX);
         builderCodes = BuilderCodes(address(new ERC1967Proxy(builderCodesImpl, builderCodesInitData)));
 
-        // Deploy registrar with correct BuilderCodes address
-        pseudoRandomRegistrar = new PseudoRandomRegistrar(address(builderCodes));
-
-        // Owner can now grant roles because owner has all roles (hasRole override)
-        // and initialize granted owner the REGISTER_ROLE explicitly
-        vm.startPrank(owner);
-        builderCodes.grantRole(builderCodes.REGISTER_ROLE(), address(pseudoRandomRegistrar));
-        vm.stopPrank();
-
         usdc = new MockERC3009Token("USD Coin", "USDC", 6);
         flywheel = new Flywheel();
         bridgeRewards = new BridgeRewards(address(flywheel), address(builderCodes), CAMPAIGN_URI, MAX_FEE_BASIS_POINTS);
@@ -66,15 +55,33 @@ contract BridgeRewardsTest is Test {
         vm.label(user, "User");
         vm.label(builder, "Builder");
         vm.label(address(builderCodes), "BuilderCodes");
-        vm.label(address(pseudoRandomRegistrar), "Registrar");
         vm.label(address(usdc), "USDC");
         vm.label(address(flywheel), "Flywheel");
         vm.label(address(bridgeRewards), "BridgeRewards");
         vm.label(bridgeRewardsCampaign, "BridgeRewardsCampaign");
     }
 
-    function _registerBuilderCode() internal returns (string memory code) {
-        vm.prank(builder);
-        return pseudoRandomRegistrar.register(builder);
+    function _registerBuilderCode(uint256 seed) internal returns (string memory code) {
+        vm.prank(owner);
+        code = _computeCode(seed);
+        builderCodes.register(code, builder, builder);
+        return code;
+    }
+
+    function _computeCode(uint256 seed) internal view returns (string memory code) {
+        bytes memory allowedCharacters = bytes("0123456789abcdefghijklmnopqrstuvwxyz");
+        uint256 len = allowedCharacters.length;
+        uint256 CODE_LENGTH = 8;
+        bytes memory codeBytes = new bytes(CODE_LENGTH);
+
+        // Iteratively generate code with modulo arithmetic on pseudo-random hash
+        uint256 hashNum =
+            uint256(keccak256(abi.encodePacked(seed, block.timestamp, blockhash(block.number - 1), block.prevrandao)));
+        for (uint256 i; i < CODE_LENGTH; i++) {
+            codeBytes[i] = allowedCharacters[hashNum % len];
+            hashNum /= len;
+        }
+
+        return string(codeBytes);
     }
 }
