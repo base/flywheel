@@ -3,7 +3,9 @@ pragma solidity 0.8.29;
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
+
 import {Test} from "forge-std/Test.sol";
+import {LibString} from "solady/utils/LibString.sol";
 
 import {MockERC3009Token} from "../../../lib/commerce-payments/test/mocks/MockERC3009Token.sol";
 import {MockAccount} from "../../lib/mocks/MockAccount.sol";
@@ -297,13 +299,28 @@ contract BridgePartnersTest is Test {
         assertEq(uint256(status), uint256(Flywheel.CampaignStatus.ACTIVE), "Campaign should be active");
     }
 
-    function test_onUpdateMetadata_success() public {
-        // Anyone should be able to update metadata (no access control)
-        vm.prank(user);
-        flywheel.updateMetadata(bridgePartnersCampaign, "");
+    function test_onUpdateMetadata_success_updatesUriPrefix(string memory newUriPrefix) public {
+        vm.assume(bytes(newUriPrefix).length > 0);
+        vm.prank(owner);
+        flywheel.updateMetadata(bridgePartnersCampaign, bytes(newUriPrefix));
+        assertEq(bridgePartners.uriPrefix(), newUriPrefix, "Uri prefix should be updated");
+        assertEq(
+            flywheel.campaignURI(bridgePartnersCampaign),
+            string.concat(newUriPrefix, LibString.toHexStringChecksummed(bridgePartnersCampaign)),
+            "Campaign URI should be updated"
+        );
+    }
 
-        // Should not revert - the hook allows anyone to trigger metadata updates
-        // This is useful for refreshing cached metadata even though the URI is fixed
+    function test_onUpdateMetadata_success_noUriPrefixChange() public {
+        string memory oldUriPrefix = bridgePartners.uriPrefix();
+        vm.prank(owner);
+        flywheel.updateMetadata(bridgePartnersCampaign, "");
+        assertEq(bridgePartners.uriPrefix(), oldUriPrefix, "Uri prefix should not change");
+        assertEq(
+            flywheel.campaignURI(bridgePartnersCampaign),
+            string.concat(oldUriPrefix, LibString.toHexStringChecksummed(bridgePartnersCampaign)),
+            "Campaign URI should not change"
+        );
     }
 
     // =============================================================

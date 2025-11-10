@@ -14,7 +14,7 @@ contract ConstructorTest is BridgePartnersTest {
         assertEq(address(bridgePartners.BUILDER_CODES()), address(builderCodes));
     }
 
-    /// @dev Sets metadataURI correctly
+    /// @dev Sets uriPrefix correctly
     function test_setsMetadataURI() public {
         assertEq(bridgePartners.uriPrefix(), CAMPAIGN_URI);
     }
@@ -22,5 +22,10 @@ contract ConstructorTest is BridgePartnersTest {
     /// @dev Sets maxFeeBasisPoints correctly
     function test_setsMaxFeeBasisPoints() public {
         assertEq(bridgePartners.MAX_FEE_BASIS_POINTS(), MAX_FEE_BASIS_POINTS);
+    }
+
+    /// @dev Sets metadataManager correctly
+    function test_setsMetadataManager() public {
+        assertEq(address(bridgePartners.METADATA_MANAGER()), address(owner));
     }
 }
