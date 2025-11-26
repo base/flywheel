@@ -15,7 +15,7 @@ contract ConstructorTest is BridgeReferralsTest {
     }
 
     /// @dev Sets uriPrefix correctly
-    function test_setsMetadataURI() public {
+    function test_setsUriPrefix() public {
         assertEq(bridgeReferrals.uriPrefix(), CAMPAIGN_URI);
     }
 
