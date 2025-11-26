@@ -3,10 +3,10 @@ pragma solidity ^0.8.29;
 
 import {Constants} from "../../../../src/Constants.sol";
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgePartners} from "../../../../src/hooks/BridgePartners.sol";
-import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
+import {BridgeReferrals} from "../../../../src/hooks/BridgeReferrals.sol";
+import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
 
-contract OnSendTest is BridgePartnersTest {
+contract OnSendTest is BridgeReferralsTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -23,8 +23,8 @@ contract OnSendTest is BridgePartnersTest {
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
         // Campaign should have zero balance (no funds transferred)
-        vm.expectRevert(BridgePartners.ZeroBridgedAmount.selector);
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        vm.expectRevert(BridgeReferrals.ZeroBridgedAmount.selector);
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
     }
 
     /// @dev Reverts when caller is not flywheel
@@ -40,10 +40,10 @@ contract OnSendTest is BridgePartnersTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
-        // Direct call to bridgePartners should revert (only flywheel can call)
+        // Direct call to bridgeReferrals should revert (only flywheel can call)
         vm.prank(caller);
         vm.expectRevert();
-        bridgePartners.onSend(caller, bridgePartnersCampaign, address(usdc), hookData);
+        bridgeReferrals.onSend(caller, bridgeReferralsCampaign, address(usdc), hookData);
     }
 
     /// @dev Reverts when hookData cannot be correctly decoded
@@ -59,10 +59,10 @@ contract OnSendTest is BridgePartnersTest {
         campaignBalance = bound(campaignBalance, 1 ether, 1000 ether);
 
         // Fund campaign to avoid ZeroBridgedAmount error first
-        usdc.mint(bridgePartnersCampaign, campaignBalance);
+        usdc.mint(bridgeReferralsCampaign, campaignBalance);
 
         vm.expectRevert();
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
     }
 
     // ========================================
@@ -85,7 +85,7 @@ contract OnSendTest is BridgePartnersTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         // Fund campaign
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
@@ -94,7 +94,7 @@ contract OnSendTest is BridgePartnersTest {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -127,13 +127,13 @@ contract OnSendTest is BridgePartnersTest {
         bytes32 unregisteredCode = bytes32(builderCodes.toTokenId(unregisteredCodeStr));
 
         // Fund campaign
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         bytes memory hookData = abi.encode(user, unregisteredCode, feeBps);
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         // User should receive full amount (no fee for unregistered codes)
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
@@ -164,7 +164,7 @@ contract OnSendTest is BridgePartnersTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         // Fund campaign
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         bytes memory hookData = abi.encode(user, codeBytes32, excessiveFeeBps);
 
@@ -174,7 +174,7 @@ contract OnSendTest is BridgePartnersTest {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -200,12 +200,12 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, uint16(0));
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, bridgedAmount, "User should receive full amount");
@@ -235,14 +235,14 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
         uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -274,7 +274,7 @@ contract OnSendTest is BridgePartnersTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         // Fund campaign with native token
-        vm.deal(bridgePartnersCampaign, bridgedAmount);
+        vm.deal(bridgeReferralsCampaign, bridgedAmount);
 
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
@@ -283,7 +283,7 @@ contract OnSendTest is BridgePartnersTest {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, Constants.NATIVE_TOKEN, hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, Constants.NATIVE_TOKEN, hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -326,7 +326,7 @@ contract OnSendTest is BridgePartnersTest {
 
         // Setup scenario would require allocated fees which is complex
         // For simplicity, just test basic case
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
@@ -337,7 +337,7 @@ contract OnSendTest is BridgePartnersTest {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -372,7 +372,7 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, maxAmount);
+        usdc.mint(bridgeReferralsCampaign, maxAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
         uint256 expectedFeeAmount = (maxAmount * feeBps) / 1e4;
@@ -380,7 +380,7 @@ contract OnSendTest is BridgePartnersTest {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -412,7 +412,7 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, minAmount);
+        usdc.mint(bridgeReferralsCampaign, minAmount);
         bytes memory hookData = abi.encode(user, codeBytes32, feeBps);
 
         uint256 expectedFeeAmount = (minAmount * feeBps) / 1e4;
@@ -420,7 +420,7 @@ contract OnSendTest is BridgePartnersTest {
 
         vm.prank(address(flywheel));
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) =
-            bridgePartners.onSend(address(this), bridgePartnersCampaign, address(usdc), hookData);
+            bridgeReferrals.onSend(address(this), bridgeReferralsCampaign, address(usdc), hookData);
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -462,11 +462,11 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgePartners
-            .onSend(address(this), bridgePartnersCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeReferrals
+            .onSend(address(this), bridgeReferralsCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps));
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");
@@ -494,11 +494,11 @@ contract OnSendTest is BridgePartnersTest {
         // Use unregistered code to force zero fees
         string memory unregisteredCodeStr = "unregistered_zero";
         bytes32 unregisteredCode = bytes32(builderCodes.toTokenId(unregisteredCodeStr));
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgePartners
-            .onSend(address(this), bridgePartnersCampaign, address(usdc), abi.encode(user, unregisteredCode, feeBps));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeReferrals
+            .onSend(address(this), bridgeReferralsCampaign, address(usdc), abi.encode(user, unregisteredCode, feeBps));
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, bridgedAmount, "User should receive full amount");
@@ -525,14 +525,14 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         uint256 expectedFeeAmount = (bridgedAmount * feeBps) / 1e4;
         uint256 expectedUserAmount = bridgedAmount - expectedFeeAmount;
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgePartners
-            .onSend(address(this), bridgePartnersCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeReferrals
+            .onSend(address(this), bridgeReferralsCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps));
 
         (bytes32 extractedCode, uint256 extractedFeeAmount) = abi.decode(payouts[0].extraData, (bytes32, uint256));
 
@@ -567,11 +567,11 @@ contract OnSendTest is BridgePartnersTest {
         string memory code = _registerBuilderCode(seed);
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         vm.prank(address(flywheel));
-        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgePartners
-            .onSend(address(this), bridgePartnersCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps));
+        (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow) = bridgeReferrals
+            .onSend(address(this), bridgeReferralsCampaign, address(usdc), abi.encode(user, codeBytes32, feeBps));
 
         assertEq(payouts[0].recipient, user, "User should receive correct recipient");
         assertEq(payouts[0].amount, expectedUserAmount, "User should receive correct amount");

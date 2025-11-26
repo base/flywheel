@@ -3,10 +3,10 @@ pragma solidity ^0.8.29;
 
 import {LibString} from "solady/utils/LibString.sol";
 
-import {BridgePartners} from "../../../../src/hooks/BridgePartners.sol";
-import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
+import {BridgeReferrals} from "../../../../src/hooks/BridgeReferrals.sol";
+import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
 
-contract ViewFunctionsTest is BridgePartnersTest {
+contract ViewFunctionsTest is BridgeReferralsTest {
     // ========================================
     // SUCCESS CASES
     // ========================================
@@ -14,28 +14,28 @@ contract ViewFunctionsTest is BridgePartnersTest {
     /// @dev Returns the metadataURI set in constructor for any campaign address
     function test_campaignURI_success_returnsMetadataURI() public {
         // Test with the existing campaign
-        string memory uri = bridgePartners.campaignURI(bridgePartnersCampaign);
+        string memory uri = bridgeReferrals.campaignURI(bridgeReferralsCampaign);
 
         // The URI should be uriPrefix + checksummed campaign address
         string memory expectedURI =
-            string.concat(CAMPAIGN_URI, LibString.toHexStringChecksummed(bridgePartnersCampaign));
+            string.concat(CAMPAIGN_URI, LibString.toHexStringChecksummed(bridgeReferralsCampaign));
         assertEq(uri, expectedURI, "Campaign URI should match expected format");
     }
 
     /// @dev Returns consistent URI regardless of campaign address parameter
     function test_campaignURI_success_consistentAcrossCampaigns() public {
-        // Create another BridgePartners contract to get a different campaign address
-        (address hooks2, address campaign2) = _createBridgePartnersCampaign();
+        // Create another BridgeReferrals contract to get a different campaign address
+        (address hooks2, address campaign2) = _createBridgeReferralsCampaign();
 
-        string memory uri1 = bridgePartners.campaignURI(bridgePartnersCampaign);
-        string memory uri2 = bridgePartners.campaignURI(campaign2);
+        string memory uri1 = bridgeReferrals.campaignURI(bridgeReferralsCampaign);
+        string memory uri2 = bridgeReferrals.campaignURI(campaign2);
 
         // URIs should be different (different campaign addresses)
         assertTrue(keccak256(bytes(uri1)) != keccak256(bytes(uri2)), "Different campaigns should have different URIs");
 
         // But both should follow the same format
         string memory expectedURI1 =
-            string.concat(CAMPAIGN_URI, LibString.toHexStringChecksummed(bridgePartnersCampaign));
+            string.concat(CAMPAIGN_URI, LibString.toHexStringChecksummed(bridgeReferralsCampaign));
         string memory expectedURI2 = string.concat(CAMPAIGN_URI, LibString.toHexStringChecksummed(campaign2));
 
         assertEq(uri1, expectedURI1, "First campaign URI should match expected");
@@ -48,8 +48,8 @@ contract ViewFunctionsTest is BridgePartnersTest {
 
     /// @dev Verifies campaignURI matches the metadataURI immutable variable
     function test_campaignURI_matchesMetadataURI() public {
-        string memory uri = bridgePartners.campaignURI(bridgePartnersCampaign);
-        string memory uriPrefix = bridgePartners.uriPrefix();
+        string memory uri = bridgeReferrals.campaignURI(bridgeReferralsCampaign);
+        string memory uriPrefix = bridgeReferrals.uriPrefix();
 
         // The returned URI should start with the stored uriPrefix
         assertTrue(bytes(uri).length >= bytes(uriPrefix).length, "URI should be at least as long as prefix");

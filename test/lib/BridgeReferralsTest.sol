@@ -9,9 +9,9 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
 import {Flywheel} from "../../src/Flywheel.sol";
-import {BridgePartners} from "../../src/hooks/BridgePartners.sol";
+import {BridgeReferrals} from "../../src/hooks/BridgeReferrals.sol";
 
-contract BridgePartnersTest is Test {
+contract BridgeReferralsTest is Test {
     uint256 internal constant OWNER_PK = uint256(keccak256("owner"));
     uint256 internal constant USER_PK = uint256(keccak256("user"));
     uint256 internal constant BUILDER_PK = uint256(keccak256("builder"));
@@ -26,10 +26,10 @@ contract BridgePartnersTest is Test {
     BuilderCodes public builderCodes;
 
     Flywheel public flywheel;
-    BridgePartners public bridgePartners;
+    BridgeReferrals public bridgeReferrals;
     MockERC3009Token public usdc;
 
-    address public bridgePartnersCampaign;
+    address public bridgeReferralsCampaign;
 
     function setUp() public {
         owner = vm.addr(OWNER_PK);
@@ -45,13 +45,13 @@ contract BridgePartnersTest is Test {
 
         usdc = new MockERC3009Token("USD Coin", "USDC", 6);
         flywheel = new Flywheel();
-        bridgePartners =
-            new BridgePartners(address(flywheel), address(builderCodes), MAX_FEE_BASIS_POINTS, owner, CAMPAIGN_URI);
+        bridgeReferrals =
+            new BridgeReferrals(address(flywheel), address(builderCodes), MAX_FEE_BASIS_POINTS, owner, CAMPAIGN_URI);
 
-        bridgePartnersCampaign = flywheel.createCampaign(address(bridgePartners), 0, "");
+        bridgeReferralsCampaign = flywheel.createCampaign(address(bridgeReferrals), 0, "");
 
         // Set campaign to active status so tests can send funds
-        flywheel.updateStatus(bridgePartnersCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        flywheel.updateStatus(bridgeReferralsCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
         vm.label(owner, "Owner");
         vm.label(user, "User");
@@ -59,8 +59,8 @@ contract BridgePartnersTest is Test {
         vm.label(address(builderCodes), "BuilderCodes");
         vm.label(address(usdc), "USDC");
         vm.label(address(flywheel), "Flywheel");
-        vm.label(address(bridgePartners), "BridgePartners");
-        vm.label(bridgePartnersCampaign, "BridgePartnersCampaign");
+        vm.label(address(bridgeReferrals), "BridgeReferrals");
+        vm.label(bridgeReferralsCampaign, "BridgeReferralsCampaign");
     }
 
     function _registerBuilderCode(uint256 seed) internal returns (string memory code) {
@@ -87,8 +87,8 @@ contract BridgePartnersTest is Test {
         return string(codeBytes);
     }
 
-    function _createBridgePartnersCampaign() internal returns (address hooks, address campaign) {
-        hooks = address(new BridgePartners(address(flywheel), address(builderCodes), 200, owner, CAMPAIGN_URI));
+    function _createBridgeReferralsCampaign() internal returns (address hooks, address campaign) {
+        hooks = address(new BridgeReferrals(address(flywheel), address(builderCodes), 200, owner, CAMPAIGN_URI));
         campaign = flywheel.createCampaign(address(hooks), 0, "");
         return (hooks, campaign);
     }

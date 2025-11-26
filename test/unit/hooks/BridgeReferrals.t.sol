@@ -12,15 +12,15 @@ import {MockAccount} from "../../lib/mocks/MockAccount.sol";
 
 import {Constants} from "../../../src/Constants.sol";
 import {Flywheel} from "../../../src/Flywheel.sol";
-import {BridgePartners} from "../../../src/hooks/BridgePartners.sol";
+import {BridgeReferrals} from "../../../src/hooks/BridgeReferrals.sol";
 
-contract BridgePartnersTest is Test {
+contract BridgeReferralsTest is Test {
     Flywheel public flywheel;
-    BridgePartners public bridgePartners;
+    BridgeReferrals public bridgeReferrals;
     BuilderCodes public builderCodes;
     MockERC3009Token public usdc;
 
-    address public bridgePartnersCampaign;
+    address public bridgeReferralsCampaign;
     address public owner = address(0x1);
     address public user = address(0x2);
     address public builder = address(0x3);
@@ -44,8 +44,8 @@ contract BridgePartnersTest is Test {
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         builderCodes = BuilderCodes(address(proxy));
 
-        // Deploy BridgePartners
-        bridgePartners = new BridgePartners(address(flywheel), address(builderCodes), 200, owner, CAMPAIGN_URI);
+        // Deploy BridgeReferrals
+        bridgeReferrals = new BridgeReferrals(address(flywheel), address(builderCodes), 200, owner, CAMPAIGN_URI);
 
         // Deploy mock USDC
         usdc = new MockERC3009Token("USD Coin", "USDC", 6);
@@ -56,14 +56,14 @@ contract BridgePartnersTest is Test {
         vm.stopPrank();
 
         // Create campaign
-        bridgePartnersCampaign = flywheel.createCampaign(address(bridgePartners), 0, "");
+        bridgeReferralsCampaign = flywheel.createCampaign(address(bridgeReferrals), 0, "");
 
-        // Activate the campaign since BridgePartners only allows ACTIVE status
-        flywheel.updateStatus(bridgePartnersCampaign, Flywheel.CampaignStatus.ACTIVE, "");
+        // Activate the campaign since BridgeReferrals only allows ACTIVE status
+        flywheel.updateStatus(bridgeReferralsCampaign, Flywheel.CampaignStatus.ACTIVE, "");
 
-        vm.label(bridgePartnersCampaign, "BridgePartnersCampaign");
+        vm.label(bridgeReferralsCampaign, "BridgeReferralsCampaign");
         vm.label(address(flywheel), "Flywheel");
-        vm.label(address(bridgePartners), "BridgePartners");
+        vm.label(address(bridgeReferrals), "BridgeReferrals");
         vm.label(address(builderCodes), "BuilderCodes");
         vm.label(address(usdc), "USDC");
         vm.label(owner, "Owner");
@@ -74,14 +74,14 @@ contract BridgePartnersTest is Test {
 
     function test_onCreateCampaign_revert_invalidNonce() public {
         // Should revert with non-zero nonce
-        vm.expectRevert(BridgePartners.InvalidCampaignInitialization.selector);
-        flywheel.createCampaign(address(bridgePartners), 1, "");
+        vm.expectRevert(BridgeReferrals.InvalidCampaignInitialization.selector);
+        flywheel.createCampaign(address(bridgeReferrals), 1, "");
     }
 
     function test_onCreateCampaign_revert_invalidHookData() public {
         // Should revert with non-empty hook data
-        vm.expectRevert(BridgePartners.InvalidCampaignInitialization.selector);
-        flywheel.createCampaign(address(bridgePartners), 0, "invalid");
+        vm.expectRevert(BridgeReferrals.InvalidCampaignInitialization.selector);
+        flywheel.createCampaign(address(bridgeReferrals), 0, "invalid");
     }
 
     function test_onSend_revert_zeroAmount(uint16 feeBps) public {
@@ -90,18 +90,18 @@ contract BridgePartnersTest is Test {
         bytes memory hookData = abi.encode(user, code, feeBps);
 
         // Should revert when campaign has zero balance
-        vm.expectRevert(abi.encodeWithSelector(BridgePartners.ZeroBridgedAmount.selector));
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        vm.expectRevert(abi.encodeWithSelector(BridgeReferrals.ZeroBridgedAmount.selector));
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
     }
 
     function test_onSend_success(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
         vm.assume(bridgedAmount > 0);
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgePartners.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeReferrals.MAX_FEE_BASIS_POINTS());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
         bytes memory hookData = abi.encode(user, code, feeBps);
@@ -114,18 +114,18 @@ contract BridgePartnersTest is Test {
         uint256 builderPayoutBalanceBefore = usdc.balanceOf(builderPayout);
 
         // Execute send
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
 
         // Check final balances
         assertEq(usdc.balanceOf(user), userBalanceBefore + userAmount, "User should receive balance minus fee");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore + feeAmount, "Builder should receive fee");
-        assertEq(usdc.balanceOf(bridgePartnersCampaign), 0, "Campaign should be empty");
+        assertEq(usdc.balanceOf(bridgeReferralsCampaign), 0, "Campaign should be empty");
     }
 
     function test_onSend_success_no_fee(uint256 bridgedAmount) public {
         // Fund the campaign
         vm.assume(bridgedAmount > 0);
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         // Prepare hook data with 0% fee
         uint16 feeBps = 0;
@@ -137,18 +137,18 @@ contract BridgePartnersTest is Test {
         uint256 builderPayoutBalanceBefore = usdc.balanceOf(builderPayout);
 
         // Execute send
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
 
         // Check final balances
         assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full balance");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore, "Builder should receive no fee");
-        assertEq(usdc.balanceOf(bridgePartnersCampaign), 0, "Campaign should be empty");
+        assertEq(usdc.balanceOf(bridgeReferralsCampaign), 0, "Campaign should be empty");
     }
 
     function test_onSend_success_builderCodeNotRegistered(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
         vm.assume(bridgedAmount > 0);
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         // Prepare hook data with 1% fee
         bytes32 unregisteredCode = bytes32(builderCodes.toTokenId("unregistered"));
@@ -159,21 +159,21 @@ contract BridgePartnersTest is Test {
         uint256 builderPayoutBalanceBefore = usdc.balanceOf(builderPayout);
 
         // Execute send
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
 
         // Check final balances
         assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full balance");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore, "Builder should receive no fee");
-        assertEq(usdc.balanceOf(bridgePartnersCampaign), 0, "Campaign should be empty");
+        assertEq(usdc.balanceOf(bridgeReferralsCampaign), 0, "Campaign should be empty");
     }
 
     function test_onSend_success_feeBasisPointsTooHigh(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
         vm.assume(bridgedAmount > 0);
-        usdc.mint(bridgePartnersCampaign, bridgedAmount);
+        usdc.mint(bridgeReferralsCampaign, bridgedAmount);
 
         // Use fee higher than maximum (2%)
-        uint16 maxFeeBps = bridgePartners.MAX_FEE_BASIS_POINTS();
+        uint16 maxFeeBps = bridgeReferrals.MAX_FEE_BASIS_POINTS();
         vm.assume(feeBps > maxFeeBps);
         vm.assume(bridgedAmount < type(uint256).max / maxFeeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
@@ -187,18 +187,18 @@ contract BridgePartnersTest is Test {
         uint256 builderPayoutBalanceBefore = usdc.balanceOf(builderPayout);
 
         // Execute send
-        flywheel.send(bridgePartnersCampaign, address(usdc), hookData);
+        flywheel.send(bridgeReferralsCampaign, address(usdc), hookData);
 
         // Check final balances
         assertEq(usdc.balanceOf(user), userBalanceBefore + userAmount, "User should receive balance minus fee");
         assertEq(usdc.balanceOf(builderPayout), builderPayoutBalanceBefore + feeAmount, "Builder should receive fee");
-        assertEq(usdc.balanceOf(bridgePartnersCampaign), 0, "Campaign should be empty");
+        assertEq(usdc.balanceOf(bridgeReferralsCampaign), 0, "Campaign should be empty");
     }
 
     function test_onSend_allocatedFeesNotIncludedInAvailableBalance(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund the campaign
         vm.assume(bridgedAmount > 0);
-        vm.deal(bridgePartnersCampaign, bridgedAmount);
+        vm.deal(bridgeReferralsCampaign, bridgedAmount);
 
         // Prepare mock account
         MockAccount mockAccount = new MockAccount(address(0), false); // reject native token initially
@@ -207,7 +207,7 @@ contract BridgePartnersTest is Test {
 
         // Prepare hook data with 1% fee
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgePartners.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeReferrals.MAX_FEE_BASIS_POINTS());
         vm.assume(bridgedAmount < type(uint256).max / 2 / feeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
         bytes memory hookData = abi.encode(user, code, feeBps);
@@ -220,29 +220,29 @@ contract BridgePartnersTest is Test {
         uint256 builderPayoutBalanceBefore = builderPayout.balance;
 
         // Execute send
-        flywheel.send(bridgePartnersCampaign, Constants.NATIVE_TOKEN, hookData);
+        flywheel.send(bridgeReferralsCampaign, Constants.NATIVE_TOKEN, hookData);
 
         // Check balances after send with failed fee send
         assertEq(user.balance, userBalanceBefore + userAmount, "User should receive balance minus fee");
         assertEq(builderPayout.balance, builderPayoutBalanceBefore, "Builder should not receive fee");
         assertEq(
-            bridgePartnersCampaign.balance,
-            flywheel.totalAllocatedFees(bridgePartnersCampaign, Constants.NATIVE_TOKEN),
+            bridgeReferralsCampaign.balance,
+            flywheel.totalAllocatedFees(bridgeReferralsCampaign, Constants.NATIVE_TOKEN),
             "Campaign should only have total allocated fees left over"
         );
         assertEq(
-            flywheel.totalAllocatedFees(bridgePartnersCampaign, Constants.NATIVE_TOKEN),
-            flywheel.allocatedFee(bridgePartnersCampaign, Constants.NATIVE_TOKEN, code),
+            flywheel.totalAllocatedFees(bridgeReferralsCampaign, Constants.NATIVE_TOKEN),
+            flywheel.allocatedFee(bridgeReferralsCampaign, Constants.NATIVE_TOKEN, code),
             "Only allocated fee is for TEST_CODE"
         );
         assertEq(
-            flywheel.allocatedFee(bridgePartnersCampaign, Constants.NATIVE_TOKEN, code),
+            flywheel.allocatedFee(bridgeReferralsCampaign, Constants.NATIVE_TOKEN, code),
             feeAmount,
             "Allocated fee matches intended amount"
         );
 
         // Perform another send with no fees
-        vm.deal(bridgePartnersCampaign, bridgePartnersCampaign.balance + bridgedAmount);
+        vm.deal(bridgeReferralsCampaign, bridgeReferralsCampaign.balance + bridgedAmount);
 
         // Record balances before
         userBalanceBefore = user.balance;
@@ -251,14 +251,14 @@ contract BridgePartnersTest is Test {
         // Execute send
         feeBps = 0;
         hookData = abi.encode(user, code, feeBps);
-        flywheel.send(bridgePartnersCampaign, Constants.NATIVE_TOKEN, hookData);
+        flywheel.send(bridgeReferralsCampaign, Constants.NATIVE_TOKEN, hookData);
 
         // Check balances after send with no fees
         assertEq(user.balance, userBalanceBefore + bridgedAmount, "User should receive all of new campaign funding");
         assertEq(builderPayout.balance, builderPayoutBalanceBefore, "Builder should not receive fee");
         assertEq(
-            bridgePartnersCampaign.balance,
-            flywheel.totalAllocatedFees(bridgePartnersCampaign, Constants.NATIVE_TOKEN),
+            bridgeReferralsCampaign.balance,
+            flywheel.totalAllocatedFees(bridgeReferralsCampaign, Constants.NATIVE_TOKEN),
             "Campaign should only have allocated fees left over"
         );
     }
@@ -266,7 +266,7 @@ contract BridgePartnersTest is Test {
     function test_onWithdrawFunds_success(uint256 amount) public {
         // Fund the campaign
         vm.assume(amount > 0);
-        usdc.mint(bridgePartnersCampaign, amount);
+        usdc.mint(bridgeReferralsCampaign, amount);
 
         // Prepare withdrawal hook data
         Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: amount, extraData: ""});
@@ -276,49 +276,49 @@ contract BridgePartnersTest is Test {
         uint256 userBalanceBefore = usdc.balanceOf(user);
 
         // Execute withdrawal
-        flywheel.withdrawFunds(bridgePartnersCampaign, address(usdc), hookData);
+        flywheel.withdrawFunds(bridgeReferralsCampaign, address(usdc), hookData);
 
         // Check final balances
         assertEq(usdc.balanceOf(user), userBalanceBefore + amount, "User should receive withdrawn amount");
-        assertEq(usdc.balanceOf(bridgePartnersCampaign), 0, "Campaign should be empty");
+        assertEq(usdc.balanceOf(bridgeReferralsCampaign), 0, "Campaign should be empty");
     }
 
     function test_onUpdateStatus_revert_newStatusNotActive() public {
         // Try to set status to something other than ACTIVE
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(bridgePartnersCampaign, Flywheel.CampaignStatus.FINALIZED, "");
+        flywheel.updateStatus(bridgeReferralsCampaign, Flywheel.CampaignStatus.FINALIZED, "");
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(bridgePartnersCampaign, Flywheel.CampaignStatus.FINALIZING, "");
+        flywheel.updateStatus(bridgeReferralsCampaign, Flywheel.CampaignStatus.FINALIZING, "");
     }
 
     function test_onUpdateStatus_success() public view {
         // The setUp already created a campaign and activated it successfully
         // So we just need to verify that this transition worked
-        Flywheel.CampaignStatus status = flywheel.campaignStatus(bridgePartnersCampaign);
+        Flywheel.CampaignStatus status = flywheel.campaignStatus(bridgeReferralsCampaign);
         assertEq(uint256(status), uint256(Flywheel.CampaignStatus.ACTIVE), "Campaign should be active");
     }
 
     function test_onUpdateMetadata_success_updatesUriPrefix(string memory newUriPrefix) public {
         vm.assume(bytes(newUriPrefix).length > 0);
         vm.prank(owner);
-        flywheel.updateMetadata(bridgePartnersCampaign, bytes(newUriPrefix));
-        assertEq(bridgePartners.uriPrefix(), newUriPrefix, "Uri prefix should be updated");
+        flywheel.updateMetadata(bridgeReferralsCampaign, bytes(newUriPrefix));
+        assertEq(bridgeReferrals.uriPrefix(), newUriPrefix, "Uri prefix should be updated");
         assertEq(
-            flywheel.campaignURI(bridgePartnersCampaign),
-            string.concat(newUriPrefix, LibString.toHexStringChecksummed(bridgePartnersCampaign)),
+            flywheel.campaignURI(bridgeReferralsCampaign),
+            string.concat(newUriPrefix, LibString.toHexStringChecksummed(bridgeReferralsCampaign)),
             "Campaign URI should be updated"
         );
     }
 
     function test_onUpdateMetadata_success_noUriPrefixChange() public {
-        string memory oldUriPrefix = bridgePartners.uriPrefix();
+        string memory oldUriPrefix = bridgeReferrals.uriPrefix();
         vm.prank(owner);
-        flywheel.updateMetadata(bridgePartnersCampaign, "");
-        assertEq(bridgePartners.uriPrefix(), oldUriPrefix, "Uri prefix should not change");
+        flywheel.updateMetadata(bridgeReferralsCampaign, "");
+        assertEq(bridgeReferrals.uriPrefix(), oldUriPrefix, "Uri prefix should not change");
         assertEq(
-            flywheel.campaignURI(bridgePartnersCampaign),
-            string.concat(oldUriPrefix, LibString.toHexStringChecksummed(bridgePartnersCampaign)),
+            flywheel.campaignURI(bridgeReferralsCampaign),
+            string.concat(oldUriPrefix, LibString.toHexStringChecksummed(bridgeReferralsCampaign)),
             "Campaign URI should not change"
         );
     }
@@ -330,34 +330,34 @@ contract BridgePartnersTest is Test {
     function test_send_nativeToken_succeeds(uint256 bridgedAmount, uint16 feeBps) public {
         // Fund campaign with native token
         vm.assume(bridgedAmount > 0);
-        vm.deal(bridgePartnersCampaign, bridgedAmount);
+        vm.deal(bridgeReferralsCampaign, bridgedAmount);
 
         // Prepare hook data (user, code, fee)
         vm.assume(feeBps > 0);
-        vm.assume(feeBps <= bridgePartners.MAX_FEE_BASIS_POINTS());
+        vm.assume(feeBps <= bridgeReferrals.MAX_FEE_BASIS_POINTS());
         vm.assume(bridgedAmount < type(uint256).max / feeBps);
         bytes32 code = bytes32(builderCodes.toTokenId(TEST_CODE));
         bytes memory hookData = abi.encode(user, code, feeBps);
 
         // Expected amounts based on contract logic
-        uint256 startingBalance = bridgePartnersCampaign.balance;
+        uint256 startingBalance = bridgeReferralsCampaign.balance;
         uint256 expectedFee = (startingBalance * feeBps) / 1e4;
         uint256 expectedUser = startingBalance - expectedFee;
 
         uint256 userBefore = user.balance;
         uint256 builderBefore = builderPayout.balance;
 
-        flywheel.send(bridgePartnersCampaign, Constants.NATIVE_TOKEN, hookData);
+        flywheel.send(bridgeReferralsCampaign, Constants.NATIVE_TOKEN, hookData);
 
         assertEq(user.balance, userBefore + expectedUser, "User should receive balance minus fee");
         assertEq(builderPayout.balance, builderBefore + expectedFee, "Builder should receive fee");
-        assertEq(bridgePartnersCampaign.balance, 0, "Campaign should be empty");
+        assertEq(bridgeReferralsCampaign.balance, 0, "Campaign should be empty");
     }
 
     function test_withdraw_nativeToken_succeeds(uint256 amount) public {
         // Fund campaign with native token
         vm.assume(amount > 0);
-        vm.deal(bridgePartnersCampaign, amount);
+        vm.deal(bridgeReferralsCampaign, amount);
 
         // Prepare withdrawal hook data
         Flywheel.Payout memory payout = Flywheel.Payout({recipient: user, amount: amount, extraData: ""});
@@ -365,8 +365,8 @@ contract BridgePartnersTest is Test {
 
         // Execute withdraw; assert balances updated
         uint256 beforeUser = user.balance;
-        flywheel.withdrawFunds(bridgePartnersCampaign, Constants.NATIVE_TOKEN, hookData);
+        flywheel.withdrawFunds(bridgeReferralsCampaign, Constants.NATIVE_TOKEN, hookData);
         assertEq(user.balance, beforeUser + amount);
-        assertEq(bridgePartnersCampaign.balance, 0);
+        assertEq(bridgeReferralsCampaign.balance, 0);
     }
 }

@@ -8,13 +8,13 @@ import {LibString} from "solady/utils/LibString.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 
-/// @title BridgePartners
+/// @title BridgeReferrals
 ///
-/// @notice This contract is used to configure bridge rewards for Base builder codes. It is expected to be used in
+/// @notice This contract is used to configure bridge referrals for Base builder codes. It is expected to be used in
 ///         conjunction with the BuilderCodes contract that manages codes registration. Once registered, this contract
-///         allows the builder to start receiving rewards for each usage of the code during a bridge operation that
+///         allows the builder to start receiving referral fees for each usage of the code during a bridge operation that
 ///         involves a transfer of tokens.
-contract BridgePartners is CampaignHooks {
+contract BridgeReferrals is CampaignHooks {
     /// @notice ERC-7528 address for native token
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -39,7 +39,7 @@ contract BridgePartners is CampaignHooks {
     /// @notice Error thrown when the caller is not authorized
     error Unauthorized();
 
-    /// @notice BridgePartners constructor
+    /// @notice BridgeReferrals constructor
     ///
     /// @param flywheel Address of the flywheel contract
     /// @param builderCodes Address of the BuilderCodes contract

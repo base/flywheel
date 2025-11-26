@@ -2,10 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgePartners} from "../../../../src/hooks/BridgePartners.sol";
-import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
+import {BridgeReferrals} from "../../../../src/hooks/BridgeReferrals.sol";
+import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
 
-contract OnCreateCampaignTest is BridgePartnersTest {
+contract OnCreateCampaignTest is BridgeReferralsTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -15,8 +15,8 @@ contract OnCreateCampaignTest is BridgePartnersTest {
     function test_revert_nonZeroNonce(uint256 nonZeroNonce) public {
         vm.assume(nonZeroNonce != 0);
 
-        vm.expectRevert(BridgePartners.InvalidCampaignInitialization.selector);
-        flywheel.createCampaign(address(bridgePartners), nonZeroNonce, "");
+        vm.expectRevert(BridgeReferrals.InvalidCampaignInitialization.selector);
+        flywheel.createCampaign(address(bridgeReferrals), nonZeroNonce, "");
     }
 
     /// @dev Reverts when hookData is not empty (no configuration allowed)
@@ -24,8 +24,8 @@ contract OnCreateCampaignTest is BridgePartnersTest {
     function test_revert_nonEmptyHookData(bytes memory nonEmptyHookData) public {
         vm.assume(nonEmptyHookData.length > 0);
 
-        vm.expectRevert(BridgePartners.InvalidCampaignInitialization.selector);
-        flywheel.createCampaign(address(bridgePartners), 0, nonEmptyHookData);
+        vm.expectRevert(BridgeReferrals.InvalidCampaignInitialization.selector);
+        flywheel.createCampaign(address(bridgeReferrals), 0, nonEmptyHookData);
     }
 
     // ========================================
@@ -34,8 +34,8 @@ contract OnCreateCampaignTest is BridgePartnersTest {
 
     /// @dev Accepts campaign creation with nonce zero and empty hookData
     function test_success_validParameters() public {
-        // Create a new BridgePartners contract to get a different campaign address
-        (, address newCampaign) = _createBridgePartnersCampaign();
+        // Create a new BridgeReferrals contract to get a different campaign address
+        (, address newCampaign) = _createBridgeReferralsCampaign();
 
         // Verify campaign was created successfully
         assertTrue(newCampaign != address(0));

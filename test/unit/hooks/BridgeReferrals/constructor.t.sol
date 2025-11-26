@@ -1,31 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
+import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
 
-contract ConstructorTest is BridgePartnersTest {
+contract ConstructorTest is BridgeReferralsTest {
     /// @dev Sets flywheel address correctly
     function test_setsFlywheel() public {
-        assertEq(address(bridgePartners.FLYWHEEL()), address(flywheel));
+        assertEq(address(bridgeReferrals.FLYWHEEL()), address(flywheel));
     }
 
     /// @dev Sets builderCodes address correctly
     function test_setsBuilderCodes() public {
-        assertEq(address(bridgePartners.BUILDER_CODES()), address(builderCodes));
+        assertEq(address(bridgeReferrals.BUILDER_CODES()), address(builderCodes));
     }
 
     /// @dev Sets uriPrefix correctly
     function test_setsMetadataURI() public {
-        assertEq(bridgePartners.uriPrefix(), CAMPAIGN_URI);
+        assertEq(bridgeReferrals.uriPrefix(), CAMPAIGN_URI);
     }
 
     /// @dev Sets maxFeeBasisPoints correctly
     function test_setsMaxFeeBasisPoints() public {
-        assertEq(bridgePartners.MAX_FEE_BASIS_POINTS(), MAX_FEE_BASIS_POINTS);
+        assertEq(bridgeReferrals.MAX_FEE_BASIS_POINTS(), MAX_FEE_BASIS_POINTS);
     }
 
     /// @dev Sets metadataManager correctly
     function test_setsMetadataManager() public {
-        assertEq(address(bridgePartners.METADATA_MANAGER()), address(owner));
+        assertEq(address(bridgeReferrals.METADATA_MANAGER()), address(owner));
     }
 }

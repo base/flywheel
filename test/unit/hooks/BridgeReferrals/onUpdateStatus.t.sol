@@ -2,10 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgePartners} from "../../../../src/hooks/BridgePartners.sol";
-import {BridgePartnersTest} from "../../../lib/BridgePartnersTest.sol";
+import {BridgeReferrals} from "../../../../src/hooks/BridgeReferrals.sol";
+import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
 
-contract OnUpdateStatusTest is BridgePartnersTest {
+contract OnUpdateStatusTest is BridgeReferralsTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -20,7 +20,7 @@ contract OnUpdateStatusTest is BridgePartnersTest {
         vm.assume(invalidStatus != Flywheel.CampaignStatus.ACTIVE);
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(bridgePartnersCampaign, invalidStatus, "");
+        flywheel.updateStatus(bridgeReferralsCampaign, invalidStatus, "");
     }
 
     // ========================================
@@ -33,8 +33,8 @@ contract OnUpdateStatusTest is BridgePartnersTest {
         // The statusValue parameter is not used since we only test transition to ACTIVE
         // But we keep it to maintain the fuzz testing pattern
 
-        // Create a new BridgePartners contract to get a different campaign address
-        (, address testCampaign) = _createBridgePartnersCampaign();
+        // Create a new BridgeReferrals contract to get a different campaign address
+        (, address testCampaign) = _createBridgeReferralsCampaign();
 
         // The campaign starts as INACTIVE, and we can only transition to ACTIVE
         // This test verifies that ACTIVE status is always allowed
