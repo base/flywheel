@@ -2,9 +2,9 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
+import {BridgeReferralFeesTest} from "../../../lib/BridgeReferralFeesTest.sol";
 
-contract OnDistributeFeesTest is BridgeReferralsTest {
+contract OnDistributeFeesTest is BridgeReferralFeesTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -17,7 +17,7 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
 
         vm.expectRevert();
         vm.prank(address(flywheel));
-        bridgeReferrals.onDistributeFees(address(this), bridgeReferralsCampaign, address(usdc), invalidData);
+        bridgeReferralFees.onDistributeFees(address(this), bridgeReferralFeesCampaign, address(usdc), invalidData);
     }
 
     /// @dev Reverts when builder code is not registered in BuilderCodes
@@ -29,8 +29,8 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
         // Should revert because BuilderCodes.payoutAddress() reverts for unregistered codes
         vm.expectRevert();
         vm.prank(address(flywheel));
-        bridgeReferrals.onDistributeFees(
-            address(this), bridgeReferralsCampaign, address(usdc), abi.encode(unregisteredCode)
+        bridgeReferralFees.onDistributeFees(
+            address(this), bridgeReferralFeesCampaign, address(usdc), abi.encode(unregisteredCode)
         );
     }
 
@@ -44,8 +44,8 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         vm.prank(address(flywheel));
-        Flywheel.Distribution[] memory distributions = bridgeReferrals.onDistributeFees(
-            address(this), bridgeReferralsCampaign, address(usdc), abi.encode(codeBytes32)
+        Flywheel.Distribution[] memory distributions = bridgeReferralFees.onDistributeFees(
+            address(this), bridgeReferralFeesCampaign, address(usdc), abi.encode(codeBytes32)
         );
 
         address expectedPayoutAddress = builderCodes.payoutAddress(uint256(codeBytes32));
@@ -61,8 +61,8 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
         // This test is simplified since setting up allocated fees is complex
         // We just verify the implementation calls the expected function
         vm.prank(address(flywheel));
-        Flywheel.Distribution[] memory distributions = bridgeReferrals.onDistributeFees(
-            address(this), bridgeReferralsCampaign, address(usdc), abi.encode(codeBytes32)
+        Flywheel.Distribution[] memory distributions = bridgeReferralFees.onDistributeFees(
+            address(this), bridgeReferralFeesCampaign, address(usdc), abi.encode(codeBytes32)
         );
 
         // The amount should come from flywheel.allocatedFee call
@@ -76,8 +76,8 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         vm.prank(address(flywheel));
-        Flywheel.Distribution[] memory distributions = bridgeReferrals.onDistributeFees(
-            address(this), bridgeReferralsCampaign, address(usdc), abi.encode(codeBytes32)
+        Flywheel.Distribution[] memory distributions = bridgeReferralFees.onDistributeFees(
+            address(this), bridgeReferralFeesCampaign, address(usdc), abi.encode(codeBytes32)
         );
 
         assertEq(distributions[0].key, codeBytes32, "Should use builder code as key");
@@ -93,8 +93,8 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         vm.prank(address(flywheel));
-        Flywheel.Distribution[] memory distributions = bridgeReferrals.onDistributeFees(
-            address(this), bridgeReferralsCampaign, address(usdc), abi.encode(codeBytes32)
+        Flywheel.Distribution[] memory distributions = bridgeReferralFees.onDistributeFees(
+            address(this), bridgeReferralFeesCampaign, address(usdc), abi.encode(codeBytes32)
         );
 
         assertEq(distributions.length, 1, "Should return exactly one distribution");
@@ -106,8 +106,8 @@ contract OnDistributeFeesTest is BridgeReferralsTest {
         bytes32 codeBytes32 = bytes32(builderCodes.toTokenId(code));
 
         vm.prank(address(flywheel));
-        Flywheel.Distribution[] memory distributions = bridgeReferrals.onDistributeFees(
-            address(this), bridgeReferralsCampaign, address(usdc), abi.encode(codeBytes32)
+        Flywheel.Distribution[] memory distributions = bridgeReferralFees.onDistributeFees(
+            address(this), bridgeReferralFeesCampaign, address(usdc), abi.encode(codeBytes32)
         );
 
         assertEq(distributions[0].extraData.length, 0, "Distribution extraData should be empty");

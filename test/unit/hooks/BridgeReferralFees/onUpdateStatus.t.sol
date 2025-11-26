@@ -2,10 +2,10 @@
 pragma solidity ^0.8.29;
 
 import {Flywheel} from "../../../../src/Flywheel.sol";
-import {BridgeReferrals} from "../../../../src/hooks/BridgeReferrals.sol";
-import {BridgeReferralsTest} from "../../../lib/BridgeReferralsTest.sol";
+import {BridgeReferralFees} from "../../../../src/hooks/BridgeReferralFees.sol";
+import {BridgeReferralFeesTest} from "../../../lib/BridgeReferralFeesTest.sol";
 
-contract OnUpdateStatusTest is BridgeReferralsTest {
+contract OnUpdateStatusTest is BridgeReferralFeesTest {
     // ========================================
     // REVERT CASES
     // ========================================
@@ -20,7 +20,7 @@ contract OnUpdateStatusTest is BridgeReferralsTest {
         vm.assume(invalidStatus != Flywheel.CampaignStatus.ACTIVE);
 
         vm.expectRevert(Flywheel.InvalidCampaignStatus.selector);
-        flywheel.updateStatus(bridgeReferralsCampaign, invalidStatus, "");
+        flywheel.updateStatus(bridgeReferralFeesCampaign, invalidStatus, "");
     }
 
     // ========================================
@@ -33,8 +33,8 @@ contract OnUpdateStatusTest is BridgeReferralsTest {
         // The statusValue parameter is not used since we only test transition to ACTIVE
         // But we keep it to maintain the fuzz testing pattern
 
-        // Create a new BridgeReferrals contract to get a different campaign address
-        (, address testCampaign) = _createBridgeReferralsCampaign();
+        // Create a new BridgeReferralFees contract to get a different campaign address
+        (, address testCampaign) = _createBridgeReferralFeesCampaign();
 
         // The campaign starts as INACTIVE, and we can only transition to ACTIVE
         // This test verifies that ACTIVE status is always allowed
