@@ -6,7 +6,7 @@ TLDR:
 
 - A modular, permissionless protocol for transparent attribution and ERC20 reward distribution
 - Enables any relationship where Users/Publishers drive conversions and get rewarded by Sponsors through various validation mechanisms
-- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (CashbackRewards), bridge transaction incentives (BridgeRewards), and custom rewards (SimpleRewards)
+- Flexible hooks system supports diverse campaign types: advertising (AdConversion), e-commerce cashback (CashbackRewards), bridge transaction incentives (BridgeReferralFees), and custom rewards (SimpleRewards)
 - Permissionless architecture allows third parties to create custom hooks for any use case
 - Each hook can customize payout models, fee structures, and attribution logic while leveraging the core Flywheel infrastructure for secure token management
 
@@ -17,7 +17,7 @@ Flywheel Protocol creates a decentralized incentive ecosystem where:
 - **Sponsors** create campaigns and fund them with tokens (advertisers, platforms, DAOs, etc.)
 - **Publishers (Optional)** drive traffic and earn rewards based on performance (only in AdConversion campaigns)
 - **Attribution Providers** track conversions and submit verified data that triggers payouts to earn fees (only in AdConversion campaigns)
-- **Managers** control campaign operations and submit payout data (in CashbackRewards, BridgeRewards, and SimpleRewards campaigns)
+- **Managers** control campaign operations and submit payout data (in CashbackRewards, BridgeReferralFees, and SimpleRewards campaigns)
 - **Users** can receive incentives for completing desired actions across all campaign types
 
 The protocol uses a modular architecture with hooks, allowing for diverse campaign types without modifying the core protocol.
@@ -28,7 +28,7 @@ The protocol uses a modular architecture with hooks, allowing for diverse campai
 
 - Modular design with hooks for extensibility
 - Core `Flywheel.sol` protocol handles only essential functions
-- Campaign-specific logic isolated in hook contracts (i.e. `AdConversion.sol`, `CashbackRewards.sol`, and `BridgeRewards.sol` that are derived from `CampaignHooks.sol`)
+- Campaign-specific logic isolated in hook contracts (i.e. `AdConversion.sol`, `CashbackRewards.sol`, and `BridgeReferralFees.sol` that are derived from `CampaignHooks.sol`)
 - Clean separation between protocol and implementation
 
 ## Architecture Diagram
@@ -256,7 +256,7 @@ string[] memory allowedRefCodes = []; // Empty array = no restrictions
 ## Hook Examples
 
 - hooks must be derived from `CampaignHooks.sol`
-- for v1, we ship `AdConversion.sol`, `CashbackRewards.sol`, `BridgeRewards.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
+- for v1, we ship `AdConversion.sol`, `CashbackRewards.sol`, `BridgeReferralFees.sol`, and `SimpleRewards.sol` but the system enables anyone to create their own hook permissionlessly (whether internal at Base or external). For instance, internally in near future if we choose to support Solana conversion events or Creator Rewards, we can deploy a new Campaign Hook that fits the specific requirements and utilize `Flywheel` core contract for managing payouts
 
 ### **AdConversion.sol**
 
@@ -458,7 +458,7 @@ bytes memory hookData = abi.encode(
 - `deallocate()` - Cancel allocated rewards
 - `distribute()` - Distribute previously allocated rewards
 
-### **BridgeRewards.sol**
+### **BridgeReferralFees.sol**
 
 Bridge incentive campaigns where users receive rewards for utilizing builder codes during bridge operations:
 
@@ -475,24 +475,24 @@ Bridge incentive campaigns where users receive rewards for utilizing builder cod
 **Campaign Creation:**
 
 ```solidity
-// BridgeRewards campaigns have fixed initialization - no custom hookData needed
+// BridgeReferralFees campaigns have fixed initialization - no custom hookData needed
 bytes memory hookData = "";  // Empty hookData required
 
-// Create campaign with nonce 0 (only one campaign per BridgeRewards hook instance)
+// Create campaign with nonce 0 (only one campaign per BridgeReferralFees hook instance)
 address campaign = flywheel.createCampaign(
-    address(bridgeRewardsHook),
+    address(bridgeReferralFeesHook),
     0,  // Must be 0 - only one campaign allowed
     hookData
 );
 ```
 
-**Bridge Reward Flow:**
+**Bridge Referral Flow:**
 
 ```solidity
 // When a user bridges with a builder code
 bytes memory hookData = abi.encode(
-    userAddress,        // User receiving the bridge reward
-    builderCode,        // bytes32 builder code used in the bridge
+    userAddress,        // User receiving the bridged assets
+    builderCode,        // bytes32 builder code used for referral
     feeBasisPoints      // Fee percentage (in basis points, max 200 = 2%)
 );
 
@@ -593,7 +593,7 @@ The protocol uses a fail-fast approach for send operations:
 
 Comprehensive comparison of hook implementations, including payout functions, access control, and operational characteristics:
 
-| **Aspect**          | **AdConversion**                                             | **CashbackRewards**                                           | **BridgeRewards**                                         | **SimpleRewards**                                            |
+| **Aspect**          | **AdConversion**                                             | **CashbackRewards**                                           | **BridgeReferralFees**                                         | **SimpleRewards**                                            |
 | ------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
 | **Controller**      | Attribution Provider                                         | Manager                                                       | No access control (anyone)                                | Manager                                                      |
 | **Use Case**        | Publisher performance marketing                              | E-commerce cashback                                           | Bridge transaction incentives                             | Flexible reward distribution                                 |
@@ -601,7 +601,7 @@ Comprehensive comparison of hook implementations, including payout functions, ac
 | **Fees**            | ✅ Attribution provider fees                                 | ❌ No fees                                                    | ✅ Builder code owner fees (max 2%)                       | ❌ No fees                                                   |
 | **Publishers**      | ✅ Via BuilderCodes                                          | ❌ Direct to users                                            | ✅ Via BuilderCodes (fee recipients)                      | ❌ Direct to recipients                                      |
 | **Fund Withdrawal** | Advertiser only (FINALIZED)                                  | Owner only                                                    | Anyone (withdrawFunds for accidents)                      | Owner only                                                   |
-| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Fail-fast on errors | ✅ Bridge rewards + builder fees<br/>Native token support<br/>Fail-fast on errors | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Fail-fast on errors |
+| **send()**          | ✅ Immediate publisher payouts<br/>Supports attribution fees<br/>Fail-fast on errors | ✅ Direct buyer cashback<br/>Tracks distributed amounts<br/>Fail-fast on errors | ✅ Bridge referrals + builder fees<br/>Native token support<br/>Fail-fast on errors | ✅ Direct recipient payouts<br/>Simple pass-through<br/>Fail-fast on errors |
 | **allocate()**      | ❌ Not implemented                                           | ✅ Reserve cashback for claims<br/>Tracks allocated amounts   | ❌ Not implemented                                        | ✅ Reserve payouts for claims                                |
 | **distribute()**    | ❌ Not implemented                                           | ✅ Claim allocated cashback<br/>Supports fees on distribution | ❌ Not implemented                                        | ✅ Claim allocated rewards<br/>Supports fees on distribution |
 | **deallocate()**    | ❌ Not implemented                                           | ✅ Cancel unclaimed cashback<br/>Returns to campaign funds    | ❌ Not implemented                                        | ✅ Cancel unclaimed rewards                                  |
@@ -624,7 +624,7 @@ The modular architecture supports diverse incentive programs:
 - **Manager**: Payment processor or platform itself
 - **Flow**: Users make purchases → Payment confirmed → Payouts issued → Users receive cashback
 
-#### **Bridge Transaction Incentives** (`BridgeRewards`)
+#### **Bridge Transaction Incentives** (`BridgeReferralFees`)
 
 - **Sponsor**: User bridging their assets
 - **Builder Code Owners**: Builders who registered codes in BuilderCodes contract

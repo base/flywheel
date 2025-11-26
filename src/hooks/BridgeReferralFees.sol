@@ -8,13 +8,13 @@ import {LibString} from "solady/utils/LibString.sol";
 import {CampaignHooks} from "../CampaignHooks.sol";
 import {Flywheel} from "../Flywheel.sol";
 
-/// @title BridgeRewards
+/// @title BridgeReferralFees
 ///
-/// @notice This contract is used to configure bridge rewards for Base builder codes. It is expected to be used in
+/// @notice This contract is used to configure bridge referral fees with Base builder codes. It is expected to be used in
 ///         conjunction with the BuilderCodes contract that manages codes registration. Once registered, this contract
-///         allows the builder to start receiving rewards for each usage of the code during a bridge operation that
+///         allows the builder to start receiving referral fees for each usage of the code during a bridge operation that
 ///         involves a transfer of tokens.
-contract BridgeRewards is CampaignHooks {
+contract BridgeReferralFees is CampaignHooks {
     /// @notice ERC-7528 address for native token
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -23,6 +23,9 @@ contract BridgeRewards is CampaignHooks {
 
     /// @notice Address of the BuilderCodes contract
     BuilderCodes public immutable BUILDER_CODES;
+
+    /// @notice Address of the metadata manager
+    address public immutable METADATA_MANAGER;
 
     /// @notice URI prefix for the campaign
     string public uriPrefix;
@@ -33,15 +36,27 @@ contract BridgeRewards is CampaignHooks {
     /// @notice Error thrown when the balance is zero
     error ZeroBridgedAmount();
 
-    /// @notice Hooks constructor
+    /// @notice Error thrown when the caller is not authorized
+    error Unauthorized();
+
+    /// @notice BridgeReferralFees constructor
     ///
     /// @param flywheel Address of the flywheel contract
-    constructor(address flywheel, address builderCodes, string memory uriPrefix_, uint16 maxFeeBasisPoints)
-        CampaignHooks(flywheel)
-    {
+    /// @param builderCodes Address of the BuilderCodes contract
+    /// @param maxFeeBasisPoints Maximum fee basis points
+    /// @param metadataManager Address of the metadata manager
+    /// @param uriPrefix_ URI prefix for the campaign
+    constructor(
+        address flywheel,
+        address builderCodes,
+        uint16 maxFeeBasisPoints,
+        address metadataManager,
+        string memory uriPrefix_
+    ) CampaignHooks(flywheel) {
         BUILDER_CODES = BuilderCodes(builderCodes);
-        uriPrefix = uriPrefix_;
         MAX_FEE_BASIS_POINTS = maxFeeBasisPoints;
+        METADATA_MANAGER = metadataManager;
+        uriPrefix = uriPrefix_;
     }
 
     /// @inheritdoc CampaignHooks
@@ -70,17 +85,19 @@ contract BridgeRewards is CampaignHooks {
         // Check bridged amount nonzero
         if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
-        // set feeBps to 0 if builder code not registered
+        // Set feeBps to 0 if builder code not registered
         feeBps = BUILDER_CODES.isRegistered(BUILDER_CODES.toCode(uint256(code))) ? feeBps : 0;
 
-        // set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
+        // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
 
         // Prepare payout
         uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
         payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({
-            recipient: user, amount: bridgedAmount - feeAmount, extraData: abi.encode(code, feeAmount)
+            recipient: user,
+            amount: bridgedAmount - feeAmount,
+            extraData: abi.encode(code, feeAmount)
         });
 
         // Prepare fee if applicable
@@ -143,8 +160,8 @@ contract BridgeRewards is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
-    function _onUpdateMetadata(address sender, address campaign, bytes calldata hookData) internal override {
-        // Anyone can prompt metadata cache updates
-        // Even though metadataURI is fixed, its returned data may change over time
+    function _onUpdateMetadata(address sender, address, bytes calldata hookData) internal override {
+        if (sender != METADATA_MANAGER) revert Unauthorized();
+        if (hookData.length > 0) uriPrefix = string(hookData);
     }
 }
