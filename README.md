@@ -561,7 +561,7 @@ bytes memory hookData = abi.encode(
 
 ## Core Payout Operations
 
-**Note that fee-on-transfer tokens and rebasing tokens may lead to unexpected behavior and are not recommneded for use in Flywheel.**
+**Note that fee-on-transfer tokens and rebasing tokens may lead to unexpected behavior and are not recommended for use in Flywheel.**
 
 Flywheel provides four fundamental payout operations that hooks can implement based on their requirements:
 

@@ -136,7 +136,7 @@ import {MyHelper} from './MyHelper.sol';
 
 - **Test file names**: `ContractName.t.sol`
 - **Test contract names**: `ContractNameTest` or `functionNameTest`
-- **Test function names**: If the test contract is already named after the function, omit the funciton name from the test, such as : `test_outcome_optionalContext`, otherwise, if it's not already clear which function is being tested due to the name of the test contract, include the function name in the test name like `test_functionName_outcome_optionalContext` 
+- **Test function names**: If the test contract is already named after the function, omit the function name from the test, such as : `test_outcome_optionalContext`, otherwise, if it's not already clear which function is being tested due to the name of the test contract, include the function name in the test name like `test_functionName_outcome_optionalContext` 
 
 **Test Organization Principles:**
 
