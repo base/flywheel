@@ -19,7 +19,7 @@ contract DeployBridgeReferralFees is Script {
         require(flywheel != address(0), "Flywheel cannot be zero address");
         require(builderCodes != address(0), "Flywheel cannot be zero address");
 
-        string memory metadataURI = "https://base.dev/campaign/";
+        string memory metadataURI = "";
         uint16 maxFeeBasisPoints = 200;
 
         vm.startBroadcast();
@@ -32,9 +32,11 @@ contract DeployBridgeReferralFees is Script {
         );
         console.log("BridgeReferralFees deployed at:", address(hook));
 
+        // Create campaign singleton
         address campaign = Flywheel(flywheel).createCampaign(address(hook), 0, "");
-        console.log("Campaign deployed at:", campaign);
+        console.log("Campaign singleton deployed at:", campaign);
 
+        // Activate campaign
         Flywheel(flywheel).updateStatus(campaign, Flywheel.CampaignStatus.ACTIVE, "");
         console.log("Campaign activated");
 
