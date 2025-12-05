@@ -85,8 +85,14 @@ contract BridgeReferralFees is CampaignHooks {
         // Check bridged amount nonzero
         if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
-        // Set feeBps to 0 if builder code not registered
-        feeBps = BUILDER_CODES.isRegistered(BUILDER_CODES.toCode(uint256(code))) ? feeBps : 0;
+        // Remove referral fee if builder code is not valid or registered
+        try BUILDER_CODES.toCode(uint256(code)) returns (string memory codeStr) {
+            // Set feeBps to 0 if builder code not registered
+            feeBps = BUILDER_CODES.isRegistered(codeStr) ? feeBps : 0;
+        } catch {
+            // Set feeBps to 0 if builder code not valid
+            feeBps = 0;
+        }
 
         // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
