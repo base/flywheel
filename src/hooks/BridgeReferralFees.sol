@@ -76,7 +76,7 @@ contract BridgeReferralFees is CampaignHooks {
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
-        (address user, bytes32 code, uint16 feeBps) = abi.decode(hookData, (address, bytes32, uint16));
+        (address user, string memory code, uint16 feeBps) = abi.decode(hookData, (address, string, uint16));
 
         // Calculate bridged amount as current balance minus total fees allocated and not yet sent
         uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
@@ -85,8 +85,8 @@ contract BridgeReferralFees is CampaignHooks {
         // Check bridged amount nonzero
         if (bridgedAmount == 0) revert ZeroBridgedAmount();
 
-        // Set feeBps to 0 if builder code not registered
-        feeBps = BUILDER_CODES.isRegistered(BUILDER_CODES.toCode(uint256(code))) ? feeBps : 0;
+        // Set feeBps to 0 if builder code not valid or not registered
+        feeBps = BUILDER_CODES.isValidCode(code) && BUILDER_CODES.isRegistered(code) ? feeBps : 0;
 
         // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
@@ -106,7 +106,7 @@ contract BridgeReferralFees is CampaignHooks {
             fees = new Flywheel.Distribution[](1);
             fees[0] = Flywheel.Distribution({
                 key: code, // allow fee send to fallback to builder code
-                recipient: BUILDER_CODES.payoutAddress(uint256(code)), // if payoutAddress misconfigured, builder loses their fee
+                recipient: BUILDER_CODES.payoutAddress(code), // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
                 extraData: ""
             });
