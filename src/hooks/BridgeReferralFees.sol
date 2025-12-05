@@ -18,8 +18,8 @@ contract BridgeReferralFees is CampaignHooks {
     /// @notice ERC-7528 address for native token
     address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    /// @notice Maximum fee basis points
-    uint16 public immutable MAX_FEE_BASIS_POINTS;
+    /// @notice Maximum fee basis points, capped at ~2.5% by uint8 size
+    uint8 public immutable MAX_FEE_BASIS_POINTS;
 
     /// @notice Address of the BuilderCodes contract
     BuilderCodes public immutable BUILDER_CODES;
@@ -49,7 +49,7 @@ contract BridgeReferralFees is CampaignHooks {
     constructor(
         address flywheel,
         address builderCodes,
-        uint16 maxFeeBasisPoints,
+        uint8 maxFeeBasisPoints,
         address metadataManager,
         string memory uriPrefix_
     ) CampaignHooks(flywheel) {
@@ -82,17 +82,15 @@ contract BridgeReferralFees is CampaignHooks {
         uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
         bridgedAmount -= FLYWHEEL.totalAllocatedFees(campaign, token);
 
-        // Check bridged amount nonzero
-        if (bridgedAmount == 0) revert ZeroBridgedAmount();
-
-        // Set feeBps to 0 if builder code not valid or not registered
-        feeBps = BUILDER_CODES.isValidCode(code) && BUILDER_CODES.isRegistered(code) ? feeBps : 0;
-
         // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS
         feeBps = feeBps > MAX_FEE_BASIS_POINTS ? MAX_FEE_BASIS_POINTS : feeBps;
 
+        // Determine fallback key and payout address for builder code, zero-ing fees if failed to process
+        (bool success, bytes32 fallbackKey, address payoutAddress) = _processBuilderCode(code);
+        if (!success) feeBps = 0;
+
         // Prepare payout
-        uint256 feeAmount = (bridgedAmount * feeBps) / 1e4;
+        uint256 feeAmount = _safePercent(bridgedAmount, feeBps);
         payouts = new Flywheel.Payout[](1);
         payouts[0] = Flywheel.Payout({
             recipient: user,
@@ -105,8 +103,8 @@ contract BridgeReferralFees is CampaignHooks {
             sendFeesNow = true;
             fees = new Flywheel.Distribution[](1);
             fees[0] = Flywheel.Distribution({
-                key: code, // allow fee send to fallback to builder code
-                recipient: BUILDER_CODES.payoutAddress(code), // if payoutAddress misconfigured, builder loses their fee
+                key: fallbackKey, // allow fee send to fallback to builder code
+                recipient: payoutAddress, // if payoutAddress misconfigured, builder loses their fee
                 amount: feeAmount,
                 extraData: ""
             });
@@ -122,12 +120,15 @@ contract BridgeReferralFees is CampaignHooks {
         override
         returns (Flywheel.Distribution[] memory distributions)
     {
-        bytes32 code = bytes32(hookData);
+        // Determine key and payout address for builder code, zero-ing fees if failed to process
+        (bool success, bytes32 fallbackKey, address payoutAddress) = _processBuilderCode(string(hookData));
+        if (!success) return distributions;
+
         distributions = new Flywheel.Distribution[](1);
         distributions[0] = Flywheel.Distribution({
-            recipient: BUILDER_CODES.payoutAddress(uint256(code)),
-            key: code,
-            amount: FLYWHEEL.allocatedFee(campaign, token, code),
+            key: fallbackKey,
+            recipient: payoutAddress,
+            amount: FLYWHEEL.allocatedFee(campaign, token, fallbackKey),
             extraData: ""
         });
     }
@@ -163,5 +164,54 @@ contract BridgeReferralFees is CampaignHooks {
     function _onUpdateMetadata(address sender, address, bytes calldata hookData) internal override {
         if (sender != METADATA_MANAGER) revert Unauthorized();
         if (hookData.length > 0) uriPrefix = string(hookData);
+    }
+
+    /// @notice Processes a builder code and returns the key and payout address
+    ///
+    /// @param code Builder code
+    ///
+    /// @return success True if the code is valid and registered
+    /// @return fallbackKey The fallback key to allocate fees to if fee distribution fails
+    /// @return payoutAddress The payout address for the builder code
+    function _processBuilderCode(string memory code)
+        internal
+        view
+        returns (bool success, bytes32 fallbackKey, address payoutAddress)
+    {
+        try BUILDER_CODES.isValidCode(code) returns (bool isValidCode) {
+            if (!isValidCode) return (false, bytes32(0), address(0));
+        } catch {
+            return (false, bytes32(0), address(0));
+        }
+
+        try BUILDER_CODES.isRegistered(code) returns (bool isRegistered) {
+            if (!isRegistered) return (false, bytes32(0), address(0));
+        } catch {
+            return (false, bytes32(0), address(0));
+        }
+
+        try BUILDER_CODES.toTokenId(code) returns (uint256 tokenId) {
+            fallbackKey = bytes32(tokenId);
+        } catch {
+            return (false, bytes32(0), address(0));
+        }
+
+        try BUILDER_CODES.payoutAddress(code) returns (address res) {
+            payoutAddress = res;
+        } catch {
+            return (false, bytes32(0), address(0));
+        }
+
+        return (true, fallbackKey, payoutAddress);
+    }
+
+    /// @notice Calculates a percentage of an amount safely, avoiding overflow
+    ///
+    /// @param amount The amount to calculate the percentage of
+    /// @param basisPoints The basis points to calculate the percentage of
+    ///
+    /// @return value The percentage of the amount
+    function _safePercent(uint256 amount, uint8 basisPoints) internal pure returns (uint256 value) {
+        return (amount / 1e4) * basisPoints + ((amount % 1e4) * basisPoints) / 1e4;
     }
 }
