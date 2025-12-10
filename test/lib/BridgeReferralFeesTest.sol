@@ -92,4 +92,14 @@ contract BridgeReferralFeesTest is Test {
         campaign = flywheel.createCampaign(address(hooks), 0, "");
         return (hooks, campaign);
     }
+
+    /// @dev Normal percentage calculation for testing
+    function _percent(uint256 amount, uint8 basisPoints) internal pure returns (uint256) {
+        return (amount * basisPoints) / 1e4;
+    }
+
+    /// @dev Safe percentage calculation matching contract implementation
+    function _safePercent(uint256 amount, uint8 basisPoints) internal pure returns (uint256) {
+        return (amount / 1e4) * basisPoints + ((amount % 1e4) * basisPoints) / 1e4;
+    }
 }

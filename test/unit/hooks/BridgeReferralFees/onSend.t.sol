@@ -5,6 +5,7 @@ import {Constants} from "../../../../src/Constants.sol";
 import {Flywheel} from "../../../../src/Flywheel.sol";
 import {BridgeReferralFees} from "../../../../src/hooks/BridgeReferralFees.sol";
 import {BridgeReferralFeesTest} from "../../../lib/BridgeReferralFeesTest.sol";
+import {MockAccount} from "../../../lib/mocks/MockAccount.sol";
 
 contract OnSendTest is BridgeReferralFeesTest {
     // ========================================
@@ -560,63 +561,102 @@ contract OnSendTest is BridgeReferralFeesTest {
 
     /// @dev Processes empty builder code successfully with zero fees
     /// @param bridgedAmount Amount available for bridging
-    /// @param feeBps Fee basis points (ignored for invalid codes)
     /// @param user User address for payout
-    /// @param seed Random seed for test variation
-    function test_success_emptyBuilderCode_zeroFees(uint256 bridgedAmount, uint8 feeBps, address user, uint256 seed)
-        public
-    {
-        // TODO: Implement
+    function test_success_emptyBuilderCode_zeroFees(uint256 bridgedAmount, address user) public {
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        vm.assume(user != address(0));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        string memory emptyCode = "";
+        bytes memory hookData = abi.encode(user, emptyCode, uint8(0));
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     /// @dev Processes too long builder code (>32 bytes) successfully with zero fees
     /// @param bridgedAmount Amount available for bridging
-    /// @param feeBps Fee basis points (ignored for invalid codes)
     /// @param user User address for payout
-    /// @param seed Random seed for test variation
-    function test_success_tooLongBuilderCode_zeroFees(uint256 bridgedAmount, uint8 feeBps, address user, uint256 seed)
-        public
-    {
-        // TODO: Implement
+    function test_success_tooLongBuilderCode_zeroFees(uint256 bridgedAmount, address user) public {
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        vm.assume(user != address(0));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        string memory tooLongCode = "this_builder_code_is_way_too_long_to_be_valid";
+        bytes memory hookData = abi.encode(user, tooLongCode, uint8(0));
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     /// @dev Processes builder code with uppercase letters successfully with zero fees
     /// @param bridgedAmount Amount available for bridging
-    /// @param feeBps Fee basis points (ignored for invalid codes)
     /// @param user User address for payout
-    /// @param seed Random seed for test variation
-    function test_success_uppercaseInCode_zeroFees(uint256 bridgedAmount, uint8 feeBps, address user, uint256 seed)
-        public
-    {
-        // TODO: Implement
+    function test_success_uppercaseInCode_zeroFees(uint256 bridgedAmount, address user) public {
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        vm.assume(user != address(0));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        string memory uppercaseCode = "TestCode";
+        bytes memory hookData = abi.encode(user, uppercaseCode, uint8(0));
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     /// @dev Processes builder code with special characters successfully with zero fees
     /// @param bridgedAmount Amount available for bridging
-    /// @param feeBps Fee basis points (ignored for invalid codes)
     /// @param user User address for payout
-    /// @param seed Random seed for test variation
-    function test_success_specialCharactersInCode_zeroFees(
-        uint256 bridgedAmount,
-        uint8 feeBps,
-        address user,
-        uint256 seed
-    ) public {
-        // TODO: Implement
+    function test_success_specialCharactersInCode_zeroFees(uint256 bridgedAmount, address user) public {
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        vm.assume(user != address(0));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        string memory specialCharCode = "test@code#123!";
+        bytes memory hookData = abi.encode(user, specialCharCode, uint8(0));
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     /// @dev Processes builder code with non-ASCII characters successfully with zero fees
     /// @param bridgedAmount Amount available for bridging
-    /// @param feeBps Fee basis points (ignored for invalid codes)
     /// @param user User address for payout
-    /// @param seed Random seed for test variation
-    function test_success_nonAsciiCharactersInCode_zeroFees(
-        uint256 bridgedAmount,
-        uint8 feeBps,
-        address user,
-        uint256 seed
-    ) public {
-        // TODO: Implement
+    function test_success_nonAsciiCharactersInCode_zeroFees(uint256 bridgedAmount, address user) public {
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        vm.assume(user != address(0));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        string memory nonAsciiCode = unicode"test🚀code";
+        bytes memory hookData = abi.encode(user, nonAsciiCode, uint8(0));
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     // ========================================
@@ -634,43 +674,107 @@ contract OnSendTest is BridgeReferralFeesTest {
         address user,
         uint256 seed
     ) public {
-        // TODO: Implement
+        string memory code = _registerBuilderCode(seed);
+        bridgedAmount = bound(bridgedAmount, type(uint256).max / 2, type(uint256).max - 1);
+        feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+        vm.assume(uint160(user) > 256);
+
+        vm.deal(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        uint256 expectedFee = _safePercent(bridgedAmount, feeBps);
+        uint256 expectedUser = bridgedAmount - expectedFee;
+
+        uint256 userBalanceBefore = user.balance;
+        uint256 builderBalanceBefore = builder.balance;
+
+        flywheel.send(bridgeReferralFeesCampaign, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, hookData);
+
+        assertEq(user.balance, userBalanceBefore + expectedUser, "User should receive correct amount");
+        assertEq(builder.balance, builderBalanceBefore + expectedFee, "Builder should receive fee");
+        assertEq(bridgeReferralFeesCampaign.balance, 0, "Campaign should be empty");
     }
 
     /// @dev Handles maximum uint256 amount with feeBps without overflow
-    /// @param bridgedAmount Amount available for bridging (will be set to max)
     /// @param feeBps Fee basis points within valid range
     /// @param user User address for payout
     /// @param seed Random seed for test variation
-    function test_success_maxUint256Amount_withFeeBps_noOverflow(
-        uint256 bridgedAmount,
-        uint8 feeBps,
-        address user,
-        uint256 seed
-    ) public {
-        // TODO: Implement
+    function test_success_maxUint256Amount_withFeeBps_noOverflow(uint8 feeBps, address user, uint256 seed) public {
+        string memory code = _registerBuilderCode(seed);
+        uint256 bridgedAmount = type(uint256).max;
+        feeBps = uint8(bound(feeBps, 1, 10));
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+        vm.assume(uint160(user) > 256);
+
+        vm.deal(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        uint256 expectedFee = _safePercent(bridgedAmount, feeBps);
+        uint256 expectedUser = bridgedAmount - expectedFee;
+
+        uint256 userBalanceBefore = user.balance;
+        uint256 builderBalanceBefore = builder.balance;
+
+        flywheel.send(bridgeReferralFeesCampaign, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, hookData);
+
+        assertEq(user.balance, userBalanceBefore + expectedUser, "User should receive correct amount");
+        assertEq(builder.balance, builderBalanceBefore + expectedFee, "Builder should receive fee");
+        assertEq(bridgeReferralFeesCampaign.balance, 0, "Campaign should be empty");
     }
 
     /// @dev Calculates zero fee correctly when amount is zero
-    /// @param bridgedAmount Amount available for bridging (will be set to 0)
     /// @param feeBps Fee basis points within valid range
     /// @param user User address for payout
     /// @param seed Random seed for test variation
-    function test_edge_zeroAmount_calculatesZeroFee(uint256 bridgedAmount, uint8 feeBps, address user, uint256 seed)
-        public
-    {
-        // TODO: Implement
+    function test_edge_zeroAmount_calculatesZeroFee(uint8 feeBps, address user, uint256 seed) public {
+        string memory code = _registerBuilderCode(seed);
+        uint256 bridgedAmount = 0;
+        feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 builderBalanceBefore = usdc.balanceOf(builder);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore, "User should receive nothing");
+        assertEq(usdc.balanceOf(builder), builderBalanceBefore, "Builder should receive no fee");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     /// @dev Calculates zero fee correctly when feeBps is zero
     /// @param bridgedAmount Amount available for bridging
-    /// @param feeBps Fee basis points (will be set to 0)
     /// @param user User address for payout
     /// @param seed Random seed for test variation
-    function test_edge_zeroFeeBps_calculatesZeroFee(uint256 bridgedAmount, uint8 feeBps, address user, uint256 seed)
-        public
-    {
-        // TODO: Implement
+    function test_edge_zeroFeeBps_calculatesZeroFee(uint256 bridgedAmount, address user, uint256 seed) public {
+        string memory code = _registerBuilderCode(seed);
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        uint8 feeBps = 0;
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 builderBalanceBefore = usdc.balanceOf(builder);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + bridgedAmount, "User should receive full amount");
+        assertEq(usdc.balanceOf(builder), builderBalanceBefore, "Builder should receive no fee");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     /// @dev Verifies fee calculation matches expected precision using _safePercent
@@ -684,7 +788,27 @@ contract OnSendTest is BridgeReferralFeesTest {
         address user,
         uint256 seed
     ) public {
-        // TODO: Implement
+        string memory code = _registerBuilderCode(seed);
+        bridgedAmount = bound(bridgedAmount, 1e4, type(uint128).max);
+        feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        uint256 expectedFee = _safePercent(bridgedAmount, feeBps);
+        uint256 expectedUser = bridgedAmount - expectedFee;
+
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+        uint256 builderBalanceBefore = usdc.balanceOf(builder);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + expectedUser, "User should receive correct amount");
+        assertEq(usdc.balanceOf(builder), builderBalanceBefore + expectedFee, "Builder should receive exact fee");
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     // ========================================
@@ -692,14 +816,21 @@ contract OnSendTest is BridgeReferralFeesTest {
     // ========================================
 
     /// @dev Succeeds when bridged amount is zero (behavior changed from revert)
-    /// @param bridgedAmount Amount available for bridging (will be set to 0)
     /// @param feeBps Fee basis points
     /// @param user User address for payout
     /// @param seed Random seed for test variation
-    function test_success_zeroBridgedAmount_succeeds(uint256 bridgedAmount, uint8 feeBps, address user, uint256 seed)
-        public
-    {
-        // TODO: Implement
+    function test_success_zeroBridgedAmount_succeeds(uint8 feeBps, address user, uint256 seed) public {
+        string memory code = _registerBuilderCode(seed);
+        uint256 bridgedAmount = 0;
+        vm.assume(user != address(0));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        assertEq(usdc.balanceOf(bridgeReferralFeesCampaign), 0, "Campaign should be empty");
     }
 
     // ========================================
@@ -717,6 +848,30 @@ contract OnSendTest is BridgeReferralFeesTest {
         address user,
         uint256 seed
     ) public {
-        // TODO: Implement
+        string memory code = _registerBuilderCode(seed);
+        bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
+        feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+
+        MockAccount mockAccount = new MockAccount(builder, false);
+        vm.prank(builder);
+        builderCodes.updatePayoutAddress(code, address(mockAccount));
+
+        usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
+
+        bytes memory hookData = abi.encode(user, code, feeBps);
+
+        uint256 expectedFee = _percent(bridgedAmount, feeBps);
+        uint256 expectedUser = bridgedAmount - expectedFee;
+        uint256 userBalanceBefore = usdc.balanceOf(user);
+
+        flywheel.send(bridgeReferralFeesCampaign, address(usdc), hookData);
+
+        uint256 allocatedFees = flywheel.totalAllocatedFees(bridgeReferralFeesCampaign, address(usdc));
+
+        assertEq(usdc.balanceOf(user), userBalanceBefore + expectedUser, "User receives amount minus fee");
+        assertEq(usdc.balanceOf(address(mockAccount)), expectedFee, "Mock account should receive fees");
+        assertEq(allocatedFees, 0, "No fees should be allocated since transfer succeeded");
     }
 }

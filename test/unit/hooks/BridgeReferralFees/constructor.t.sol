@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import {BridgeReferralFees} from "../../../../src/hooks/BridgeReferralFees.sol";
 import {BridgeReferralFeesTest} from "../../../lib/BridgeReferralFeesTest.sol";
 
 contract ConstructorTest is BridgeReferralFeesTest {
@@ -35,11 +36,16 @@ contract ConstructorTest is BridgeReferralFeesTest {
 
     /// @dev Verifies maxFeeBasisPoints is stored as uint8 type
     function test_success_maxFeeBasisPoints_uint8Type() public {
-        // TODO: Implement
+        assertEq(bridgeReferralFees.MAX_FEE_BASIS_POINTS(), MAX_FEE_BASIS_POINTS);
+        assertLe(bridgeReferralFees.MAX_FEE_BASIS_POINTS(), type(uint8).max);
     }
 
     /// @dev Verifies maxFeeBasisPoints respects uint8 max value (255)
     function test_edge_maxFeeBasisPoints_uint8Boundary() public {
-        // TODO: Implement
+        uint8 maxUint8Value = type(uint8).max;
+        BridgeReferralFees testHook =
+            new BridgeReferralFees(address(flywheel), address(builderCodes), maxUint8Value, owner, CAMPAIGN_URI);
+        assertEq(testHook.MAX_FEE_BASIS_POINTS(), maxUint8Value);
+        assertEq(testHook.MAX_FEE_BASIS_POINTS(), 255);
     }
 }
