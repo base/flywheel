@@ -17,7 +17,7 @@ contract BridgeReferralFeesTest is Test {
     uint256 internal constant BUILDER_PK = uint256(keccak256("builder"));
     string public constant CAMPAIGN_URI = "https://base.dev/campaign/bridge-rewards";
     string public constant URI_PREFIX = "https://base.dev/campaign/bridge-rewards";
-    uint16 public constant MAX_FEE_BASIS_POINTS = 10_000; // 100%
+    uint8 public constant MAX_FEE_BASIS_POINTS = 250; // 2.5%
 
     address public owner;
     address public user;

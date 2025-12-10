@@ -76,7 +76,7 @@ contract BridgeReferralFees is CampaignHooks {
         override
         returns (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees, bool sendFeesNow)
     {
-        (address user, string memory code, uint16 feeBps) = abi.decode(hookData, (address, string, uint16));
+        (address user, string memory code, uint8 feeBps) = abi.decode(hookData, (address, string, uint8));
 
         // Calculate bridged amount as current balance minus total fees allocated and not yet sent
         uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
@@ -170,6 +170,9 @@ contract BridgeReferralFees is CampaignHooks {
     ///
     /// @param code Builder code
     ///
+    /// @dev Wraps all calls to BuilderCodes in a try/catch to handle errors gracefully.
+    /// @dev Expected errors are if the code is not valid or registered.
+    ///
     /// @return success True if the code is valid and registered
     /// @return fallbackKey The fallback key to allocate fees to if fee distribution fails
     /// @return payoutAddress The payout address for the builder code
@@ -178,31 +181,17 @@ contract BridgeReferralFees is CampaignHooks {
         view
         returns (bool success, bytes32 fallbackKey, address payoutAddress)
     {
-        try BUILDER_CODES.isValidCode(code) returns (bool isValidCode) {
-            if (!isValidCode) return (false, bytes32(0), address(0));
-        } catch {
-            return (false, bytes32(0), address(0));
-        }
-
-        try BUILDER_CODES.isRegistered(code) returns (bool isRegistered) {
-            if (!isRegistered) return (false, bytes32(0), address(0));
-        } catch {
-            return (false, bytes32(0), address(0));
-        }
-
+        // Convert code to token ID for constant-size fallback key
         try BUILDER_CODES.toTokenId(code) returns (uint256 tokenId) {
-            fallbackKey = bytes32(tokenId);
+            // Fetch payout address for token ID
+            try BUILDER_CODES.payoutAddress(tokenId) returns (address addr) {
+                return (true, bytes32(tokenId), addr);
+            } catch {
+                return (false, bytes32(0), address(0));
+            }
         } catch {
             return (false, bytes32(0), address(0));
         }
-
-        try BUILDER_CODES.payoutAddress(code) returns (address res) {
-            payoutAddress = res;
-        } catch {
-            return (false, bytes32(0), address(0));
-        }
-
-        return (true, fallbackKey, payoutAddress);
     }
 
     /// @notice Calculates a percentage of an amount safely, avoiding overflow
