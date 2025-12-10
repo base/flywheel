@@ -28,4 +28,18 @@ contract ConstructorTest is BridgeReferralFeesTest {
     function test_setsMetadataManager() public {
         assertEq(address(bridgeReferralFees.METADATA_MANAGER()), address(owner));
     }
+
+    // ========================================
+    // NEW TESTS - UINT8 MAX_FEE_BASIS_POINTS
+    // ========================================
+
+    /// @dev Verifies maxFeeBasisPoints is stored as uint8 type
+    function test_success_maxFeeBasisPoints_uint8Type() public {
+        // TODO: Implement
+    }
+
+    /// @dev Verifies maxFeeBasisPoints respects uint8 max value (255)
+    function test_edge_maxFeeBasisPoints_uint8Boundary() public {
+        // TODO: Implement
+    }
 }
