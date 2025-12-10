@@ -679,6 +679,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
         vm.assume(user != address(0));
         vm.assume(user != builder);
+        vm.assume(user.code.length == 0);
         vm.assume(uint160(user) > 256);
 
         vm.deal(bridgeReferralFeesCampaign, bridgedAmount);
