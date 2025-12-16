@@ -17,7 +17,7 @@ contract BridgeReferralFeesTest is Test {
     uint256 internal constant BUILDER_PK = uint256(keccak256("builder"));
     string public constant CAMPAIGN_URI = "https://base.dev/campaign/bridge-rewards";
     string public constant URI_PREFIX = "https://base.dev/campaign/bridge-rewards";
-    uint16 public constant MAX_FEE_BASIS_POINTS = 10_000; // 100%
+    uint8 public constant MAX_FEE_BASIS_POINTS = 250; // 2.5%
 
     address public owner;
     address public user;
@@ -91,5 +91,26 @@ contract BridgeReferralFeesTest is Test {
         hooks = address(new BridgeReferralFees(address(flywheel), address(builderCodes), 200, owner, CAMPAIGN_URI));
         campaign = flywheel.createCampaign(address(hooks), 0, "");
         return (hooks, campaign);
+    }
+
+    /// @dev Normal percentage calculation for testing
+    function _percent(uint256 amount, uint8 basisPoints) internal pure returns (uint256) {
+        return (amount * basisPoints) / 1e4;
+    }
+
+    /// @dev Safe percentage calculation matching contract implementation
+    function _safePercent(uint256 amount, uint8 basisPoints) internal pure returns (uint256) {
+        return (amount / 1e4) * basisPoints + ((amount % 1e4) * basisPoints) / 1e4;
+    }
+
+    /// @dev Bound user address for testing
+    function _boundUser(address user) internal {
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+        vm.assume(user != address(builderCodes));
+        vm.assume(user != address(bridgeReferralFees));
+        vm.assume(user != bridgeReferralFeesCampaign);
+        vm.assume(user.code.length == 0);
+        vm.assume(uint160(user) > 256);
     }
 }
