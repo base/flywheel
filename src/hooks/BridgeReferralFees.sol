@@ -6,6 +6,7 @@ import {BuilderCodes} from "builder-codes/BuilderCodes.sol";
 import {LibString} from "solady/utils/LibString.sol";
 
 import {CampaignHooks} from "../CampaignHooks.sol";
+import {Constants} from "../Constants.sol";
 import {Flywheel} from "../Flywheel.sol";
 
 /// @title BridgeReferralFees
@@ -15,14 +16,11 @@ import {Flywheel} from "../Flywheel.sol";
 ///         allows the builder to start receiving referral fees for each usage of the code during a bridge operation that
 ///         involves a transfer of tokens.
 contract BridgeReferralFees is CampaignHooks {
-    /// @notice ERC-7528 address for native token
-    address public constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    /// @notice Address of the BuilderCodes contract
+    BuilderCodes public immutable BUILDER_CODES;
 
     /// @notice Maximum fee basis points, capped at ~2.5% by uint8 size
     uint8 public immutable MAX_FEE_BASIS_POINTS;
-
-    /// @notice Address of the BuilderCodes contract
-    BuilderCodes public immutable BUILDER_CODES;
 
     /// @notice Address of the metadata manager
     address public immutable METADATA_MANAGER;
@@ -32,9 +30,6 @@ contract BridgeReferralFees is CampaignHooks {
 
     /// @notice Error thrown to enforce only one campaign can be initialized
     error InvalidCampaignInitialization();
-
-    /// @notice Error thrown when the balance is zero
-    error ZeroBridgedAmount();
 
     /// @notice Error thrown when the caller is not authorized
     error Unauthorized();
@@ -70,6 +65,7 @@ contract BridgeReferralFees is CampaignHooks {
     }
 
     /// @inheritdoc CampaignHooks
+    /// @dev User can receive new funds sent into the campaign minus an optional fee for the referring builder code
     function _onSend(address sender, address campaign, address token, bytes calldata hookData)
         internal
         view
@@ -79,7 +75,7 @@ contract BridgeReferralFees is CampaignHooks {
         (address user, string memory code, uint8 feeBps) = abi.decode(hookData, (address, string, uint8));
 
         // Calculate bridged amount as current balance minus total fees allocated and not yet sent
-        uint256 bridgedAmount = token == NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
+        uint256 bridgedAmount = token == Constants.NATIVE_TOKEN ? campaign.balance : IERC20(token).balanceOf(campaign);
         bridgedAmount -= FLYWHEEL.totalAllocatedFees(campaign, token);
 
         // Set feeBps to MAX_FEE_BASIS_POINTS if feeBps exceeds MAX_FEE_BASIS_POINTS

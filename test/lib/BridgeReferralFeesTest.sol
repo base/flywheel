@@ -102,4 +102,15 @@ contract BridgeReferralFeesTest is Test {
     function _safePercent(uint256 amount, uint8 basisPoints) internal pure returns (uint256) {
         return (amount / 1e4) * basisPoints + ((amount % 1e4) * basisPoints) / 1e4;
     }
+
+    /// @dev Bound user address for testing
+    function _boundUser(address user) internal {
+        vm.assume(user != address(0));
+        vm.assume(user != builder);
+        vm.assume(user != address(builderCodes));
+        vm.assume(user != address(bridgeReferralFees));
+        vm.assume(user != bridgeReferralFeesCampaign);
+        vm.assume(user.code.length == 0);
+        vm.assume(uint160(user) > 256);
+    }
 }

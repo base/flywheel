@@ -556,7 +556,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     }
 
     // ========================================
-    // NEW TESTS - INVALID BUILDER CODE HANDLING
+    // INVALID BUILDER CODE HANDLING
     // ========================================
 
     /// @dev Processes empty builder code successfully with zero fees
@@ -564,7 +564,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     /// @param user User address for payout
     function test_success_emptyBuilderCode_zeroFees(uint256 bridgedAmount, address user) public {
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
-        vm.assume(user != address(0));
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -584,7 +584,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     /// @param user User address for payout
     function test_success_tooLongBuilderCode_zeroFees(uint256 bridgedAmount, address user) public {
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
-        vm.assume(user != address(0));
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -604,7 +604,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     /// @param user User address for payout
     function test_success_uppercaseInCode_zeroFees(uint256 bridgedAmount, address user) public {
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
-        vm.assume(user != address(0));
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -624,7 +624,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     /// @param user User address for payout
     function test_success_specialCharactersInCode_zeroFees(uint256 bridgedAmount, address user) public {
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
-        vm.assume(user != address(0));
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -644,7 +644,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     /// @param user User address for payout
     function test_success_nonAsciiCharactersInCode_zeroFees(uint256 bridgedAmount, address user) public {
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
-        vm.assume(user != address(0));
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -660,7 +660,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     }
 
     // ========================================
-    // NEW TESTS - SAFE PERCENT OVERFLOW PROTECTION
+    // SAFE PERCENT OVERFLOW PROTECTION
     // ========================================
 
     /// @dev Handles large amounts near uint256 max with non-zero feeBps without overflow
@@ -677,10 +677,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         string memory code = _registerBuilderCode(seed);
         bridgedAmount = bound(bridgedAmount, type(uint256).max / 2, type(uint256).max - 1);
         feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
-        vm.assume(user != address(0));
-        vm.assume(user != builder);
-        vm.assume(user.code.length == 0);
-        vm.assume(uint160(user) > 256);
+        _boundUser(user);
 
         vm.deal(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -707,9 +704,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         string memory code = _registerBuilderCode(seed);
         uint256 bridgedAmount = type(uint256).max;
         feeBps = uint8(bound(feeBps, 1, 10));
-        vm.assume(user != address(0));
-        vm.assume(user != builder);
-        vm.assume(uint160(user) > 256);
+        _boundUser(user);
 
         vm.deal(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -736,8 +731,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         string memory code = _registerBuilderCode(seed);
         uint256 bridgedAmount = 0;
         feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
-        vm.assume(user != address(0));
-        vm.assume(user != builder);
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -761,8 +755,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         string memory code = _registerBuilderCode(seed);
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
         uint8 feeBps = 0;
-        vm.assume(user != address(0));
-        vm.assume(user != builder);
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -792,8 +785,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         string memory code = _registerBuilderCode(seed);
         bridgedAmount = bound(bridgedAmount, 1e4, type(uint128).max);
         feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
-        vm.assume(user != address(0));
-        vm.assume(user != builder);
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -813,7 +805,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     }
 
     // ========================================
-    // NEW TESTS - ZERO BRIDGED AMOUNT BEHAVIOR
+    // ZERO BRIDGED AMOUNT BEHAVIOR
     // ========================================
 
     /// @dev Succeeds when bridged amount is zero (behavior changed from revert)
@@ -823,7 +815,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     function test_success_zeroBridgedAmount_succeeds(uint8 feeBps, address user, uint256 seed) public {
         string memory code = _registerBuilderCode(seed);
         uint256 bridgedAmount = 0;
-        vm.assume(user != address(0));
+        _boundUser(user);
 
         usdc.mint(bridgeReferralFeesCampaign, bridgedAmount);
 
@@ -835,7 +827,7 @@ contract OnSendTest is BridgeReferralFeesTest {
     }
 
     // ========================================
-    // NEW TESTS - BUILDERCODES EXTERNAL CALL FAILURES
+    // BUILDERCODES EXTERNAL CALL FAILURES
     // ========================================
 
     /// @dev Handles BuilderCodes returning zero address gracefully with zero fees
@@ -852,8 +844,7 @@ contract OnSendTest is BridgeReferralFeesTest {
         string memory code = _registerBuilderCode(seed);
         bridgedAmount = bound(bridgedAmount, 1, type(uint128).max);
         feeBps = uint8(bound(feeBps, 1, MAX_FEE_BASIS_POINTS));
-        vm.assume(user != address(0));
-        vm.assume(user != builder);
+        _boundUser(user);
 
         MockAccount mockAccount = new MockAccount(builder, false);
         vm.prank(builder);
