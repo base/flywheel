@@ -12,15 +12,15 @@ contract DeployBridgeReferralFees is Script {
     function run() external returns (address) {
         address flywheel = 0x00000F14AD09382841DB481403D1775ADeE1179F;
         address builderCodes = 0xf20b8A32C39f3C56bBD27fe8438090B5a03b6381;
-        return run(flywheel, builderCodes);
+        return _run(flywheel, builderCodes);
     }
 
-    function run(address flywheel, address builderCodes) public returns (address) {
+    function _run(address flywheel, address builderCodes) public returns (address) {
         require(flywheel != address(0), "Flywheel cannot be zero address");
         require(builderCodes != address(0), "Flywheel cannot be zero address");
 
         string memory metadataURI = "";
-        uint16 maxFeeBasisPoints = 200;
+        uint8 maxFeeBasisPoints = 100;
 
         vm.startBroadcast();
 
