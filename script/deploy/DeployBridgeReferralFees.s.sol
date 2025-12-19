@@ -13,21 +13,20 @@ contract DeployBridgeReferralFees is Script {
         require(flywheel != address(0), "Flywheel cannot be zero address");
         require(builderCodes != address(0), "Flywheel cannot be zero address");
 
-        string memory metadataURI = "";
         uint8 maxFeeBasisPoints = 100;
+        address metadataManager = 0x7f2ADee16aaff5870E150b298F5c837CCe65771d; // production smart contract manager key
+        string memory uriPrefix = "";
 
         vm.startBroadcast();
 
-        bytes32 salt = bytes32(uint256(keccak256(abi.encodePacked(block.timestamp))));
-
         // Deploy BridgeReferralFees
-        BridgeReferralFees hook = new BridgeReferralFees{salt: salt}(
-            flywheel, builderCodes, maxFeeBasisPoints, 0x6EcB18183838265968039955F1E8829480Db5329, metadataURI
+        BridgeReferralFees hooks = new BridgeReferralFees{salt: 0}(
+            flywheel, builderCodes, maxFeeBasisPoints, metadataManager, uriPrefix
         );
-        console.log("BridgeReferralFees deployed at:", address(hook));
+        console.log("BridgeReferralFees deployed at:", address(hooks));
 
         // Create campaign singleton
-        address campaign = Flywheel(flywheel).createCampaign(address(hook), 0, "");
+        address campaign = Flywheel(flywheel).createCampaign(address(hooks), 0, "");
         console.log("Campaign singleton deployed at:", campaign);
 
         // Activate campaign
@@ -36,6 +35,6 @@ contract DeployBridgeReferralFees is Script {
 
         vm.stopBroadcast();
 
-        return address(hook);
+        return address(hooks);
     }
 }
