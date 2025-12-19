@@ -1007,6 +1007,7 @@ contract AdConversionIntegrationTest is AdConversionTestBase {
         // Constrain inputs
         vm.assume(advertiser != address(0) && attributionProvider != address(0));
         vm.assume(advertiser != attributionProvider);
+        vm.assume(publisher != advertiser && publisher != attributionProvider);
         campaignFunding = bound(campaignFunding, MIN_CAMPAIGN_FUNDING, MAX_CAMPAIGN_FUNDING);
         attributionAmount = bound(attributionAmount, MIN_ATTRIBUTION_AMOUNT, campaignFunding / 2);
         feeBps = uint16(bound(feeBps, MIN_FEE_BPS, adConversion.MAX_BPS()));

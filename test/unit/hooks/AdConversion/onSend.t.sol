@@ -971,8 +971,12 @@ contract OnSendTest is AdConversionTestBase {
             callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(attributions));
 
         // Verify correct fee calculation
-        assertEq(payouts.length, 1, "Should have one payout");
-        assertEq(payouts[0].amount, expectedNetAmount, "Net payout amount should be correct");
+        if (feeBps == MAX_FEE_BPS) {
+            assertEq(payouts.length, 0, "Should have no payouts when fee is max");
+        } else {
+            assertEq(payouts.length, 1, "Should have one payout");
+            assertEq(payouts[0].amount, expectedNetAmount, "Net payout amount should be correct");
+        }
 
         if (expectedFee > 0) {
             assertEq(fees.length, 1, "Should have one fee distribution when fee > 0");
@@ -1024,15 +1028,19 @@ contract OnSendTest is AdConversionTestBase {
         (Flywheel.Payout[] memory payouts, Flywheel.Distribution[] memory fees,) =
             callHookOnSend(attributionProvider1, testCampaign, address(tokenA), abi.encode(attributions));
 
-        // Verify rounding behavior - fee should round DOWN due to integer division
-        assertEq(payouts.length, 1, "Should have one payout");
-        assertEq(payouts[0].amount, expectedNetAmount, "Net amount should account for rounding");
-
         assertEq(fees.length, 1, "Should have one fee distribution");
         assertEq(fees[0].amount, expectedFee, "Fee should be rounded down");
 
-        // Verify the total adds up correctly (no tokens lost to rounding)
-        assertEq(payouts[0].amount + fees[0].amount, smallAmount, "Total should equal original amount");
+        if (feeBps == MAX_FEE_BPS) {
+            assertEq(payouts.length, 0, "Should have no payouts when fee is max");
+        } else {
+            // Verify rounding behavior - fee should round DOWN due to integer division
+            assertEq(payouts.length, 1, "Should have one payout");
+            assertEq(payouts[0].amount, expectedNetAmount, "Net amount should account for rounding");
+
+            // Verify the total adds up correctly (no tokens lost to rounding)
+            assertEq(payouts[0].amount + fees[0].amount, smallAmount, "Total should equal original amount");
+        }
     }
 
     /// @dev Verifies fees are accumulated correctly for multiple conversions
@@ -1306,8 +1314,12 @@ contract OnSendTest is AdConversionTestBase {
         // Verify conservation of tokens across the batch
         assertEq(actualTotalPayouts + actualTotalFees, totalOriginalAmount, "Batch should conserve total token amounts");
 
-        // Verify we have payouts for all attributions
-        assertGt(payouts.length, 0, "Should have payouts for batch");
+        // Verify payouts length is correct based on fee BPS
+        if (feeBps == MAX_FEE_BPS) {
+            assertEq(payouts.length, 0, "Should have no payouts when fee is max");
+        } else {
+            assertGt(payouts.length, 0, "Should have payouts for batch");
+        }
     }
 
     /// @dev Processes batch with zero fee correctly
