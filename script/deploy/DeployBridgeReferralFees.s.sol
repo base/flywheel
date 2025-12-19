@@ -9,13 +9,7 @@ import {BridgeReferralFees} from "../../src/hooks/BridgeReferralFees.sol";
 
 /// @notice Script for deploying the BridgeReferralFees hook contract
 contract DeployBridgeReferralFees is Script {
-    function run() external returns (address) {
-        address flywheel = 0x00000F14AD09382841DB481403D1775ADeE1179F;
-        address builderCodes = 0xf20b8A32C39f3C56bBD27fe8438090B5a03b6381;
-        return _run(flywheel, builderCodes);
-    }
-
-    function _run(address flywheel, address builderCodes) public returns (address) {
+    function run(address flywheel, address builderCodes) public returns (address) {
         require(flywheel != address(0), "Flywheel cannot be zero address");
         require(builderCodes != address(0), "Flywheel cannot be zero address");
 

@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 
 import {DeployAdConversion} from "./DeployAdConversion.s.sol";
-import {DeployBridgeRewards} from "./DeployBridgeRewards.s.sol";
+import {DeployBridgeReferralFees} from "./DeployBridgeReferralFees.s.sol";
 import {DeployCashbackRewards} from "./DeployCashbackRewards.s.sol";
 import {DeployFlywheel} from "./DeployFlywheel.s.sol";
 import {DeploySimpleRewards} from "./DeploySimpleRewards.s.sol";
@@ -17,7 +17,7 @@ contract DeployAll is Script {
         address flywheel;
         address adConversion;
         address cashbackRewards;
-        address bridgeRewards;
+        address bridgeReferralFees;
         address simpleRewards;
     }
 
@@ -49,10 +49,10 @@ contract DeployAll is Script {
         DeploySimpleRewards simpleRewardsDeployer = new DeploySimpleRewards();
         deployments.simpleRewards = simpleRewardsDeployer.run(deployments.flywheel);
 
-        // Deploy BridgeRewards (depends on Flywheel, BuilderCodes)
-        // console.log("5. Deploying BridgeRewards...");
-        // DeployBridgeRewards bridgeRewardsDeployer = new DeployBridgeRewards();
-        // deployments.bridgeRewards = bridgeRewardsDeployer.run(deployments.flywheel, builderCodes);
+        // Deploy BridgeReferralFees (depends on Flywheel, BuilderCodes)
+        console.log("5. Deploying BridgeReferralFees...");
+        DeployBridgeReferralFees bridgeReferralFeesDeployer = new DeployBridgeReferralFees();
+        deployments.bridgeReferralFees = bridgeReferralFeesDeployer.run(deployments.flywheel, builderCodes);
 
         console.log("==========================================");
         console.log("Deployment complete!");
@@ -60,7 +60,7 @@ contract DeployAll is Script {
         console.log("AdConversion:", deployments.adConversion);
         console.log("CashbackRewards:", deployments.cashbackRewards);
         console.log("SimpleRewards:", deployments.simpleRewards);
-        // console.log("BridgeRewards:", deployments.bridgeRewards);
+        console.log("BridgeReferralFees:", deployments.bridgeReferralFees);
 
         return deployments;
     }
